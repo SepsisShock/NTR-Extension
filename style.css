@@ -1,0 +1,173 @@
+#cb_banner {
+  position: relative;
+  flex: none;
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+  display: block;
+}
+
+#cb_banner .cb_img {
+  width: 100%;
+  height: var(--cb-h, 120px);
+  object-fit: cover;
+  object-position: 50% 45%;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Menu: a floating panel. No dark backdrop, and SillyTavern stays clickable behind it. */
+.cb_popup_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: transparent;
+}
+
+.cb_popup_content {
+  pointer-events: auto;
+  position: fixed;
+  box-sizing: border-box;
+  background: var(--SmartThemeBlurTintColor, #1e1e24);
+  backdrop-filter: blur(calc(var(--blurStrength, 10) * 1px));
+  -webkit-backdrop-filter: blur(calc(var(--blurStrength, 10) * 1px));
+  color: var(--SmartThemeBodyColor, #eee);
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 10px;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cb_popup_content.ntr_dock_right { top: 0; right: 0; bottom: 0; border-radius: 10px 0 0 10px; }
+.cb_popup_content.ntr_dock_left { top: 0; left: 0; bottom: 0; border-radius: 0 10px 10px 0; }
+.cb_popup_content.ntr_float { resize: both; min-width: 320px; min-height: 240px; }
+.cb_popup_content.ntr_sheet { inset: 0; width: auto; height: auto; border-radius: 0; }
+
+#ntr_edge {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  display: none;
+  cursor: ew-resize;
+  pointer-events: auto;
+  z-index: 1;
+}
+#ntr_edge:hover { background: rgba(255, 255, 255, 0.08); }
+
+#ntr_preview {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  display: none;
+  box-sizing: border-box;
+  pointer-events: none;
+  border: 2px dashed var(--SmartThemeQuoteColor, #6cf);
+  background: rgba(102, 204, 255, 0.08);
+}
+
+.cb_popup_header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.1em;
+  font-weight: bold;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+.ntr_sheet .cb_popup_header { cursor: default; }
+
+.ntr_hbtns { display: flex; align-items: center; gap: 2px; }
+
+.cb_hbtn,
+.cb_popup_header .cb_close_btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+.cb_popup_header .cb_close_btn { font-size: 1.3em; }
+.cb_hbtn:hover,
+.cb_popup_header .cb_close_btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.cb_hbtn.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
+
+.ntr_tag { font-size: 0.75em; opacity: 0.6; margin-left: 4px; }
+.ntr_legend { margin: -8px 0 0; }
+.ntr_offnote {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--SmartThemeBorderColor, #555);
+  font-size: 0.85em;
+}
+
+.ntr_tbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ntr_tbar .menu_button { margin: 0; padding: 5px 10px; }
+.ntr_tpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.ntr_tpanel input[type="text"] { margin: 4px 0 0; width: 100%; box-sizing: border-box; }
+
+/* Extensions page bar */
+#ntr_ext_bar .ntr_ext_head { cursor: pointer; }
+#ntr_power { cursor: pointer; padding: 4px 6px; opacity: 0.45; transition: opacity 0.15s, color 0.15s; }
+#ntr_power.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
+
+.cb_section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.cb_section h4 {
+  margin: 0 0 5px 0;
+  border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+  padding-bottom: 4px;
+}
+
+.cb_row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cb_actions { display: flex; gap: 8px; }
+.cb_actions button { flex: 1; }
+
+.cb_carousel_nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.cb_popup_content input[type="range"] { width: 100%; }
+
+.col_header {
+  margin: 0 0 10px 0;
+  text-align: center;
+  color: var(--SmartThemeBodyColor);
+  border-bottom: 1px solid var(--SmartThemeBorderColor);
+  padding-bottom: 4px;
+}

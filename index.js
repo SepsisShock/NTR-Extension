@@ -537,6 +537,18 @@
       .cb_pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
       .cb_pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 999px; border: 1px solid var(--SmartThemeBorderColor, #555); background: rgba(0,0,0,.2); cursor: pointer; user-select: none; font-size: .9em; transition: background .15s, border-color .15s; }
       .cb_pill input, .cb_posgrid input, .cb_defdot input { margin: 0; cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #6cf); }
+      /* The main Enable switches are diamonds that still click on and off. */
+      #m_f_enable, #m_a_enable, #m_n_enable, #m_ai_on, #m_us_on {
+        appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; width: .95em; height: .95em; margin: 0 9px 0 4px;
+        border: 2px solid var(--SmartThemeBorderColor, #888); border-radius: 2px; background: transparent; cursor: pointer;
+        transform: rotate(45deg); display: inline-grid; place-content: center; vertical-align: middle;
+      }
+      #m_f_enable::before, #m_a_enable::before, #m_n_enable::before, #m_ai_on::before, #m_us_on::before {
+        content: ''; width: .42em; height: .42em; background: var(--SmartThemeQuoteColor, #6cf); transform: scale(0); transition: transform .12s;
+      }
+      #m_f_enable:checked, #m_a_enable:checked, #m_n_enable:checked, #m_ai_on:checked, #m_us_on:checked { border-color: var(--SmartThemeQuoteColor, #6cf); }
+      #m_f_enable:checked::before, #m_a_enable:checked::before, #m_n_enable:checked::before, #m_ai_on:checked::before, #m_us_on:checked::before { transform: scale(1); }
+      #m_f_enable:focus-visible, #m_a_enable:focus-visible, #m_n_enable:focus-visible, #m_ai_on:focus-visible, #m_us_on:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
       .cb_pill:has(input:checked) { border-color: var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
       .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
       .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }

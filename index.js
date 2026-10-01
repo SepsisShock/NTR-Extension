@@ -15,11 +15,13 @@
     aiStyle: 'backdrop', aiPopX: 0, aiPopY: 0,
     aiSide: 'tl', aiFit: 'cover', aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0, aiMsgBg: true,
+    aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     
     // User Settings
     usStyle: 'backdrop', usPopX: 0, usPopY: 0,
     usSide: 'tr', usFit: 'cover', usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0, usMsgBg: true,
+    usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
 
     // Foreground Settings
     fgEnabled: false,
@@ -95,6 +97,9 @@
     }[match]));
   };
 
+  // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
+  const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
+
   function settings() {
     const { extensionSettings } = ctx();
     const fresh = !extensionSettings[MODULE];
@@ -113,6 +118,14 @@
         }
       }
       s.fadePxMigrated = true;
+    }
+    if (!s.sideFadePxMigrated) {
+      if (!fresh) {
+        for (const p of ['ai', 'us']) {
+          for (const k of ['LeftFade', 'RightFade']) s[p + k + 'Px'] = pctFadeToPx(s[p + k], s[p + 'Scale']);
+        }
+      }
+      s.sideFadePxMigrated = true;
     }
     if (keepOldLook) { s.artBg = 'none'; s.artSprite = 'none'; }
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
@@ -141,8 +154,8 @@
     
     const topFade = s[`${prefix}TopFade`];
     const botFade = s[`${prefix}BotFade`];
-    const leftFade = s[`${prefix}LeftFade`];
-    const rightFade = s[`${prefix}RightFade`];
+    const leftFade = s[`${prefix}LeftFadePx`];
+    const rightFade = s[`${prefix}RightFadePx`];
     const blurAmount = s[`${prefix}Blur`];
     const keepBg = s[`${prefix}MsgBg`] !== false;
     
@@ -189,7 +202,7 @@
     const objH = h === 'l' ? 'left' : (h === 'c' ? 'center' : 'right');
     const objPos = `${objH} ${objV}`;
 
-    const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black calc(100% - ${rightFade}%), transparent 100%)`;
+    const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}px, black calc(100% - ${rightFade}px), transparent 100%)`;
     const vMask = `linear-gradient(to bottom, transparent 0, black ${topFade}px, black calc(100% - ${botFade}px), transparent 100%)`;
 
     let imgFitCss = 'object-fit: cover !important;';
@@ -424,7 +437,7 @@
     if (pill) pill.style.display = (popDrag.ai || popDrag.us) ? 'flex' : 'none';
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
-      const on = isOn() && s.avatarEnabled && s[`${prefix}Style`] === 'popout';
+      const on = isOn() && s.avatarEnabled && s[`${prefix}Enabled`] !== false && s[`${prefix}Style`] === 'popout';
       let src = on ? popSrcFor(flag) : null;
       if (!src && on && prefix === 'ai') {
         const c = ctx();
@@ -501,6 +514,7 @@
       #cb_drag_pill button { border: none; border-radius: 999px; padding: 5px 14px; font-weight: bold; cursor: pointer; background: var(--SmartThemeQuoteColor, #6cf); color: #000; }
       .cb_col { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px; }
       .cb_grp { flex-direction: column; gap: 8px; }
+      .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
       .cb_sub { font-size: 0.75em; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--SmartThemeBorderColor, #444); }
       
       #cb_fg_layer { position: fixed; inset: 0; z-index: 2400; pointer-events: none; opacity: var(--cb-fg-op, 1); }
@@ -543,14 +557,17 @@
     }
 
     if (isOn() && s.avatarEnabled) {
-      cssString += `
-        .mes { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; }
-        .mes .mes_block, .mes .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
-        .mes .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
-        
-        ${getAvatarCss('ai', 'false', s)}
-        ${getAvatarCss('us', 'true', s)}
+      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+        if (s[`${prefix}Enabled`] === false) continue;
+        const m = `.mes[is_user="${flag}"]`;
+        cssString += `
+        ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; }
+        ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
+        ${m} .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
+
+        ${getAvatarCss(prefix, flag, s)}
       `;
+      }
     }
 
     styleEl.textContent = cssString;
@@ -804,6 +821,8 @@
     return `
       <div id="m_${prefix}_col" class="cb_col">
         <h5 class="col_header">${title}</h5>
+        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>Enable ${title} avatar</span></label>
+        <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
@@ -815,8 +834,8 @@
         ${grp('backdrop', `<div class="cb_sub">Fades</div>`
           + slider('tf', 'TopFade', 'Top Fade:', 'px', 0, 400, 5)
           + slider('bf', 'BotFade', 'Bottom Fade:', 'px', 0, 400, 5)
-          + slider('lf', 'LeftFade', 'Left Fade:', '%', 0, 90, 1)
-          + slider('rf', 'RightFade', 'Right Fade:', '%', 0, 90, 1))}
+          + slider('lf', 'LeftFadePx', 'Left Fade:', 'px', 0, 400, 5)
+          + slider('rf', 'RightFadePx', 'Right Fade:', 'px', 0, 400, 5))}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_drag" ${popDrag[prefix] ? 'checked' : ''}><span>Drag it on screen</span></label>
@@ -829,6 +848,7 @@
         <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_bg" ${s[`${prefix}MsgBg`] !== false ? 'checked' : ''}><span>Keep message background</span></label>
 
         <button id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px;"><i class="fa-solid fa-rotate-left"></i> Reset ${title}</button>
+        </div>
       </div>
     `;
   }
@@ -1151,6 +1171,10 @@
         col.querySelectorAll('.cb_grp').forEach((g) => { g.style.display = g.dataset.only === v ? 'flex' : 'none'; });
         updateAvatarStyle();
       });
+      overlay.querySelector(`#m_${prefix}_on`).onchange = function() {
+        s[`${prefix}Enabled`] = this.checked; save(); updateAvatarStyle();
+        col.querySelector(`#m_${prefix}_body`).classList.toggle('cb_dim', !this.checked);
+      };
       overlay.querySelector(`#m_${prefix}_drag`).onchange = function() { popDrag[prefix] = this.checked; syncPopouts(); };
       overlay.querySelector(`#m_${prefix}_bg`).onchange = function() { s[`${prefix}MsgBg`] = this.checked; save(); updateAvatarStyle(); };
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
@@ -1159,7 +1183,7 @@
       overlay.querySelector(`#m_${prefix}_reset`).onclick = () => {
         if (!confirm(`Reset all ${label} avatar settings to defaults? (Style stays as it is.)`)) return;
         for (const k of Object.keys(DEFAULTS)) {
-          if (k.startsWith(prefix) && k !== `${prefix}Style`) s[k] = structuredClone(DEFAULTS[k]);
+          if (k.startsWith(prefix) && k !== `${prefix}Style` && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
         }
         save();
         updateAvatarStyle();
@@ -1169,7 +1193,7 @@
       const sliders = [
         { id: 'sc', key: 'Scale' }, { id: 'pad', key: 'Pad' },
         { id: 'tf', key: 'TopFade' }, { id: 'bf', key: 'BotFade' },
-        { id: 'lf', key: 'LeftFade' }, { id: 'rf', key: 'RightFade' },
+        { id: 'lf', key: 'LeftFadePx' }, { id: 'rf', key: 'RightFadePx' },
         { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
         { id: 'bl', key: 'Blur' }
       ];
@@ -1524,6 +1548,13 @@
     const out = {};
     if (!part || typeof part !== 'object') return out;
     for (const k of LOOK[sec].keys) if (k in part && validLookValue(k, part[k])) out[k] = structuredClone(part[k]);
+    if (sec === 'pfp') {
+      for (const p of ['ai', 'us']) {
+        for (const k of ['LeftFade', 'RightFade']) {
+          if (p + k in out && !(p + k + 'Px' in out)) out[p + k + 'Px'] = pctFadeToPx(out[p + k], out[p + 'Scale'] ?? settings()[p + 'Scale']);
+        }
+      }
+    }
     return out;
   }
 

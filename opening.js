@@ -1,0 +1,569 @@
+// Nitwit Tavern Redesign: Opening video module.
+// Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
+(() => {
+  const OP_VERSION = '2.2.0';
+  const A = window.NTR && window.NTR.api;
+  if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
+  const VN = () => window.NTR.vn;
+  if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
+  const { save, settings, escapeHTML, pills, onPills, subHead } = A;
+  const TAG = A.TAG || '';
+
+  const CSS = `
+    #ntr_open { position: fixed; inset: 0; z-index: 2600; background: #000; overflow: hidden; opacity: 0; transition: opacity .4s ease; color: #fff; user-select: none; }
+    #ntr_open.ntr_in { opacity: 1; }
+    #ntr_open .ntr_op_title { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+    #ntr_open .ntr_op_bg { position: absolute; inset: -20px; background-size: cover; background-position: center; filter: blur(6px) brightness(.45); }
+    #ntr_open .ntr_op_art { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); max-height: 78vh; max-width: 70vw; object-fit: contain; filter: drop-shadow(0 0 24px rgba(0,0,0,.7)); pointer-events: none; }
+    #ntr_open .ntr_op_card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 20px; margin-top: 30vh; text-align: center; }
+    #ntr_open .ntr_op_name { font-size: clamp(28px, 6vw, 64px); font-weight: bold; letter-spacing: .04em; text-shadow: 0 3px 18px rgba(0,0,0,.9); }
+    #ntr_open .ntr_op_btn { cursor: pointer; padding: 10px 34px; border-radius: 999px; border: 2px solid #fff; background: rgba(0,0,0,.45); color: #fff; font-size: 18px; letter-spacing: .12em; transition: background .2s, color .2s; }
+    #ntr_open .ntr_op_btn:hover, #ntr_open .ntr_op_btn:focus-visible { background: #fff; color: #000; outline: none; }
+    #ntr_open .ntr_op_media { position: absolute; inset: 0; overflow: hidden; transition: opacity .6s ease; }
+    #ntr_open .ntr_op_media.ntr_gone { opacity: 0; }
+    #ntr_open .ntr_op_media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    #ntr_open .ntr_op_media iframe { position: absolute; left: 50%; top: 50%; width: max(100vw, 177.78vh); height: max(100vh, 56.25vw); transform: translate(-50%, -50%); border: 0; pointer-events: none; }
+    #ntr_open .ntr_op_catch { position: absolute; inset: 0; cursor: pointer; }
+    #ntr_open .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
+    #ntr_open .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    #ntr_open .ntr_op_bar { position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; z-index: 2; }
+    #ntr_open .ntr_op_small { cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.5); color: #fff; font-size: 13px; opacity: .8; }
+    #ntr_open .ntr_op_small:hover { opacity: 1; }
+    #ntr_open .ntr_op_hint { position: absolute; left: 50%; bottom: calc(8vh + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 14px; letter-spacing: .1em; opacity: 0; transition: opacity .6s ease; animation: ntr_op_blink 2s ease-in-out infinite; pointer-events: none; }
+    #ntr_open .ntr_op_hint.ntr_in { opacity: .85; }
+    @keyframes ntr_op_blink { 50% { filter: brightness(.55); } }
+  `;
+  function ensureStyle() {
+    if (document.getElementById('ntr_op_style')) return;
+    const el = document.createElement('style');
+    el.id = 'ntr_op_style';
+    el.textContent = CSS;
+    document.head.appendChild(el);
+  }
+
+  // ----- Data (per character, inside the VN data) -----
+  const ODEF = { src: 'off', yt: '', file: '', title: false, logo: 'banner', logoUrl: '', when: 'newchat' };
+  const raw = () => {
+    const v = VN().data();
+    if (!v.opening || typeof v.opening !== 'object') v.opening = {};
+    return v.opening;
+  };
+  const op = () => ({ ...ODEF, ...raw() });
+  const setOp = (k, val) => { raw()[k] = val; save(); };
+  const ytId = (o) => (o.yt && A.getYouTubeId ? A.getYouTubeId(o.yt) : '') || '';
+  const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!o.file : false);
+  function logoSrc(o) {
+    if (o.logo === 'upload') return o.logoUrl || '';
+    if (o.logo === 'banner') return (A.bannerImage && A.bannerImage()) || '';
+    return '';
+  }
+
+  // ----- When to play -----
+  function markSeen(sig) {
+    const s = settings();
+    if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
+    s.opSeen[sig] = Date.now();
+    const keys = Object.keys(s.opSeen);
+    if (keys.length > 300) keys.sort((a, b) => s.opSeen[a] - s.opSeen[b]).slice(0, keys.length - 300).forEach((k) => delete s.opSeen[k]);
+    save();
+  }
+
+  function maybePlay(reason, info = {}) {
+    if (cur) {
+      if (cur.sig && cur.sig === info.sig) return false;
+      abort();
+    }
+    const s = settings();
+    if (!A.isOn() || !s.nodeEnabled || !A.store()) return false;
+    const o = op();
+    if (!hasSource(o)) return false;
+    let go = false;
+    if (o.when === 'vn') go = reason === 'vn';
+    else if (o.when === 'open') go = reason === 'open';
+    else go = !!info.fresh && !!info.sig && !(s.opSeen || {})[info.sig];
+    if (!go) return false;
+    if (o.when === 'newchat') markSeen(info.sig);
+    play(info.hooks || VN().openingHooks, { sig: info.sig });
+    return true;
+  }
+
+  // ----- Player -----
+  let cur = null;
+
+  function play(hooks, opts = {}) {
+    const o = op();
+    if (!hasSource(o)) return false;
+    if (cur) abort();
+    ensureStyle();
+    const s = settings();
+    const st = {
+      sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',
+      timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false,
+    };
+    cur = st;
+    const root = document.createElement('div');
+    root.id = 'ntr_open';
+    root.tabIndex = -1;
+    st.root = root;
+    document.body.appendChild(root);
+    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) {}
+
+    // Logo layer (sits above the video so it can drop in before the end).
+    const lsrc = logoSrc(o);
+    if (lsrc) {
+      const img = document.createElement('img');
+      img.className = 'ntr_op_logo';
+      img.alt = '';
+      img.src = lsrc;
+      img.style.width = Math.max(5, Math.min(100, Number(s.opSize) || 50)) + 'vw';
+      img.style.top = s.opPos === 'upper' ? '33.3%' : s.opPos === 'lower' ? '66.7%' : '50%';
+      const ms = Math.max(0, Number(s.opFade) || 0);
+      img.style.transition = `opacity ${ms}ms ease, transform ${ms}ms ease`;
+      st.logo = img;
+    }
+
+    st.onKey = (e) => {
+      if (cur !== st) return;
+      if (e.key === 'Escape') {
+        e.preventDefault(); e.stopPropagation();
+        if (st.phase === 'title') finish();
+        else if (st.phase === 'video') skip();
+        else if (st.phase === 'logo') clickLogo();
+      } else if ((e.key === 'Enter' || e.key === ' ') && st.phase !== 'title') {
+        e.preventDefault(); e.stopPropagation();
+        if (st.phase === 'video') skip(); else if (st.phase === 'logo') clickLogo();
+      }
+    };
+    document.addEventListener('keydown', st.onKey, true);
+
+    try { st.hooks.onStart && st.hooks.onStart(); } catch (e) { console.error('[NTR opening]', e); }
+    requestAnimationFrame(() => root.classList.add('ntr_in'));
+
+    if (o.title) showTitle();
+    else startVideo();
+    return true;
+  }
+
+  const later = (fn, ms) => { const st = cur; const t = setTimeout(() => { if (cur === st) fn(); }, ms); if (st) st.timers.push(t); return t; };
+  const setPhase = (p) => { cur.phase = p; cur.phaseAt = Date.now(); };
+
+  function showTitle() {
+    const st = cur;
+    const box = document.createElement('div');
+    box.className = 'ntr_op_title';
+    const bg = safeCall(() => VN().sceneBg()) || '';
+    const art = safeCall(() => VN().titleArt()) || '';
+    const name = safeCall(() => VN().titleName()) || '';
+    box.innerHTML = `
+      ${bg ? '<div class="ntr_op_bg"></div>' : ''}
+      ${art ? `<img class="ntr_op_art" alt="" src="${escapeHTML(art)}">` : ''}
+      <div class="ntr_op_card">
+        ${name ? `<div class="ntr_op_name">${escapeHTML(name)}</div>` : ''}
+        <button type="button" class="ntr_op_btn">START</button>
+      </div>`;
+    const bgEl = box.querySelector('.ntr_op_bg');
+    if (bgEl) bgEl.style.backgroundImage = `url(${JSON.stringify(String(bg))})`;
+    st.root.appendChild(box);
+    const btn = box.querySelector('.ntr_op_btn');
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (cur !== st || st.phase !== 'title') return;
+      box.remove();
+      startVideo(); // Runs inside the click, so the browser lets the video play with sound.
+    };
+    setTimeout(() => { try { btn.focus(); } catch (e) {} }, 50);
+  }
+
+  function startVideo() {
+    const st = cur;
+    setPhase('video');
+    const media = document.createElement('div');
+    media.className = 'ntr_op_media';
+    st.media = media;
+    st.root.appendChild(media);
+    if (st.logo) st.root.appendChild(st.logo);
+
+    const catcher = document.createElement('div');
+    catcher.className = 'ntr_op_catch';
+    catcher.title = 'Click to skip';
+    catcher.onclick = () => { if (st.phase === 'video') skip(); else if (st.phase === 'logo') clickLogo(); };
+    st.root.appendChild(catcher);
+
+    const bar = document.createElement('div');
+    bar.className = 'ntr_op_bar';
+    bar.innerHTML = `<button type="button" class="ntr_op_small" data-a="snd" style="display:none;"><i class="fa-solid fa-volume-high"></i> Sound on</button>
+      <button type="button" class="ntr_op_small" data-a="skip">Skip <i class="fa-solid fa-forward"></i></button>`;
+    st.root.appendChild(bar);
+    st.bar = bar;
+    bar.querySelector('[data-a="skip"]').onclick = (e) => { e.stopPropagation(); if (st.phase === 'video') skip(); else if (st.phase === 'logo') clickLogo(); };
+    const snd = bar.querySelector('[data-a="snd"]');
+    st.snd = snd;
+    snd.onclick = (e) => {
+      e.stopPropagation();
+      if (st.video) { st.video.muted = false; st.video.play().catch(() => {}); }
+      if (st.iframe) { ytCmd('unMute'); ytCmd('setVolume', [100]); }
+      snd.style.display = 'none';
+    };
+
+    if (st.o.src === 'file') startFile(st);
+    else startYouTube(st);
+  }
+
+  function startFile(st) {
+    const v = document.createElement('video');
+    v.src = st.o.file;
+    v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.preload = 'auto';
+    st.video = v;
+    st.media.appendChild(v);
+    v.addEventListener('timeupdate', () => tick(v.currentTime, v.duration));
+    v.addEventListener('ended', () => { if (cur === st && st.phase === 'video') end(); });
+    v.addEventListener('error', () => {
+      if (cur !== st || st.phase !== 'video') return;
+      toastr.warning('The opening video could not be played.', 'Opening video');
+      end();
+    });
+    let p;
+    try { p = v.play(); } catch (e) { p = Promise.reject(e); }
+    if (p && p.catch) p.catch(() => {
+      if (cur !== st || st.phase !== 'video') return;
+      // Autoplay with sound was blocked: play muted and offer a sound button.
+      v.muted = true;
+      let p2;
+      try { p2 = v.play(); } catch (e) { p2 = Promise.reject(e); }
+      if (p2 && p2.catch) p2.catch(() => {});
+      if (st.snd) st.snd.style.display = '';
+    });
+  }
+
+  // YouTube without loading its API script: the embed talks to us through postMessage.
+  function ytCmd(func, args = []) {
+    const f = cur && cur.iframe;
+    if (!f || !f.contentWindow) return;
+    try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch (e) {}
+  }
+
+  function startYouTube(st) {
+    const id = ytId(st.o);
+    const origin = encodeURIComponent(location.origin);
+    const f = document.createElement('iframe');
+    f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=${origin}`;
+    f.allow = 'autoplay; encrypted-media';
+    f.title = 'Opening video';
+    st.iframe = f;
+    st.media.appendChild(f);
+    const hello = () => {
+      try { f.contentWindow && f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'ntr_op', channel: 'widget' }), '*'); } catch (e) {}
+    };
+    f.addEventListener('load', hello);
+    st.hello = setInterval(() => { if (cur !== st || st.ytReady) { clearInterval(st.hello); return; } hello(); }, 400);
+    st.onMsg = (e) => {
+      if (cur !== st || !f.contentWindow || e.source !== f.contentWindow) return;
+      let d = e.data;
+      if (typeof d === 'string') { try { d = JSON.parse(d); } catch (err) { return; } }
+      if (!d || typeof d !== 'object') return;
+      if (!st.ytReady) { st.ytReady = true; ytCmd('addEventListener', ['onStateChange']); }
+      const info = d.event === 'onStateChange' ? { playerState: d.info } : d.info;
+      if (!info || typeof info !== 'object') return;
+      if (typeof info.playerState === 'number') {
+        st.ytState = info.playerState;
+        if (info.playerState === 0 && st.phase === 'video') { end(); return; }
+      }
+      if (typeof info.duration === 'number' && info.duration > 0) st.ytDur = info.duration;
+      if (typeof info.currentTime === 'number') tick(info.currentTime, st.ytDur);
+    };
+    window.addEventListener('message', st.onMsg);
+    // If it hasn't started after a few seconds, autoplay with sound was probably blocked: try muted.
+    later(() => {
+      if (st.phase !== 'video' || st.ytState === 1 || st.ytState === 3) return;
+      ytCmd('mute'); ytCmd('playVideo');
+      if (st.snd) st.snd.style.display = '';
+    }, 3500);
+  }
+
+  function tick(t, dur) {
+    const st = cur;
+    if (!st || st.phase !== 'video' || !st.logo || st.logoShown) return;
+    const lead = Math.max(0, Number(settings().opLead) || 0);
+    if (dur > 0 && isFinite(dur) && lead > 0 && t >= dur - lead) showLogo();
+  }
+
+  function showLogo() {
+    const st = cur;
+    if (!st || !st.logo || st.logoShown) return;
+    st.logoShown = true;
+    st.logoAt = Date.now();
+    requestAnimationFrame(() => requestAnimationFrame(() => st.logo.classList.add('ntr_in')));
+  }
+
+  function stopMedia(st) {
+    if (st.hello) clearInterval(st.hello);
+    if (st.video) { try { st.video.pause(); } catch (e) {} }
+    if (st.iframe) ytCmd('pauseVideo');
+    if (st.media) st.media.classList.add('ntr_gone');
+    if (st.snd) st.snd.style.display = 'none';
+    const m = st.media;
+    setTimeout(() => {
+      if (st.video) { try { st.video.removeAttribute('src'); st.video.load(); } catch (e) {} }
+      if (m) m.remove();
+    }, 700);
+  }
+
+  const skip = () => end();
+
+  // Video finished or skipped: the logo (if any) gets its moment, then the story starts.
+  function end() {
+    const st = cur;
+    if (!st || st.phase !== 'video') return;
+    setPhase('logo');
+    stopMedia(st);
+    if (!st.logo) { finish(); return; }
+    const fade = Math.max(0, Number(settings().opFade) || 0);
+    const was = st.logoShown;
+    showLogo();
+    const left = was ? Math.max(0, fade - (Date.now() - st.logoAt)) : fade;
+    const sk = st.bar && st.bar.querySelector('[data-a="skip"]');
+    if (settings().opHold) {
+      if (sk) sk.innerHTML = 'Continue <i class="fa-solid fa-play"></i>';
+      later(() => {
+        const h = document.createElement('div');
+        h.className = 'ntr_op_hint';
+        h.textContent = 'Click to continue';
+        st.root.appendChild(h);
+        requestAnimationFrame(() => requestAnimationFrame(() => h.classList.add('ntr_in')));
+      }, left + 300);
+    } else {
+      if (st.bar) st.bar.remove();
+      later(finish, left + 2000);
+    }
+  }
+
+  function clickLogo() {
+    const st = cur;
+    if (!st || st.phase !== 'logo') return;
+    if (Date.now() - st.phaseAt < 450) return; // So a double click on Skip doesn't also jump past the logo.
+    finish();
+  }
+
+  function cleanup(st) {
+    st.timers.forEach(clearTimeout);
+    if (st.hello) clearInterval(st.hello);
+    if (st.onKey) document.removeEventListener('keydown', st.onKey, true);
+    if (st.onMsg) window.removeEventListener('message', st.onMsg);
+    if (st.video) { try { st.video.pause(); st.video.removeAttribute('src'); st.video.load(); } catch (e) {} }
+  }
+
+  function finish() {
+    const st = cur;
+    if (!st) return;
+    st.phase = 'done';
+    cur = null;
+    cleanup(st);
+    st.root.classList.remove('ntr_in');
+    st.root.style.pointerEvents = 'none';
+    setTimeout(() => st.root.remove(), 450);
+    try { st.hooks.onDone && st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
+    if (st.onEnd) { try { st.onEnd(); } catch (e) { console.error('[NTR opening]', e); } }
+  }
+
+  // Stops at once without starting the story (VN switched off, chat changed, and so on).
+  function abort() {
+    const st = cur;
+    if (!st) return;
+    cur = null;
+    cleanup(st);
+    st.root.remove();
+  }
+
+  function safeCall(fn) { try { return fn(); } catch (e) { console.error('[NTR opening]', e); return ''; } }
+
+  // ----- Menu section -----
+  function sectionHtml(s) {
+    if (!A.store()) {
+      return `${subHead('vn_open', 'Opening Video ' + TAG)}
+        <div class="cb_collapse_content"><div class="cb_hint">Open a character chat first. The opening is saved per character.</div></div>`;
+    }
+    const o = op();
+    const sl = (id, key, label, unit, min, max, step, shown) => `
+      <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_op_${id}val">${shown}</span>${unit}</span></div>
+      <input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}">`;
+    const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
+    const logoBox = o.logoUrl ? `<img src="${escapeHTML(o.logoUrl)}" alt="">` : '<i class="fa-solid fa-image"></i>';
+    return `
+      ${subHead('vn_open', 'Opening Video ' + TAG)}
+      <div class="cb_collapse_content">
+        <div class="cb_hint">Plays before the story, like an anime opening. Video source:</div>
+        ${pills('opsrc', [['off', 'Off'], ['youtube', 'YouTube'], ['file', 'Video file']], o.src)}
+          <div id="m_op_yt" style="margin-top:8px;${o.src === 'youtube' ? '' : 'display:none;'}">
+            <label class="cb_dfield"><span>YouTube link</span><input type="text" id="m_op_url" class="text_pole" placeholder="https://www.youtube.com/watch?v=..." value="${escapeHTML(o.yt)}"></label>
+          </div>
+          <div id="m_op_file" class="cb_row" style="margin-top:8px;${o.src === 'file' ? '' : 'display:none;'}">
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fileName || '<span class="cb_hint">No video uploaded (mp4 or webm)</span>'}</span>
+            <button type="button" id="m_op_up" class="menu_button" style="margin:0;" title="Upload video"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_clr" class="menu_button danger_button" style="margin:0;" title="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+          </div>
+        <div id="m_op_body" class="${hasSource(o) ? '' : 'cb_dim'}">
+          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title screen first (art, name, Start button; the click turns sound on)</span></label>
+          <div style="margin-top:8px;"><small>Plays</small>
+            ${pills('opwhen', [['newchat', 'First time a new chat starts'], ['open', 'Every time the chat opens'], ['vn', 'Every time VN mode switches on']], o.when)}
+          </div>
+          <div style="margin-top:8px;"><small>Logo at the end</small>
+            ${pills('oplogo', [['banner', 'Banner image'], ['upload', 'Uploaded logo'], ['none', 'None']], o.logo)}
+          </div>
+          <div id="m_op_lrow" class="cb_row" style="margin-top:6px;${o.logo === 'upload' ? '' : 'display:none;'}">
+            <div class="cb_thumbbox cb_wide">${logoBox}</div>
+            <span style="flex:1;"></span>
+            <button type="button" id="m_op_lup" class="menu_button" style="margin:0;" title="Upload logo"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_lclr" class="menu_button danger_button" style="margin:0;" title="Remove logo" ${o.logoUrl ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <div id="m_op_lbody" class="${o.logo === 'none' ? 'cb_dim' : ''}">
+            ${sl('lead', 'opLead', 'Logo appears before the end', ' s', 0, 15, 0.5, s.opLead)}
+            ${sl('fade', 'opFade', 'Logo fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
+            ${sl('size', 'opSize', 'Logo size', '%', 10, 100, 1, s.opSize)}
+            <div style="margin-top:8px;"><small>Logo position</small>
+              ${pills('oppos', [['upper', 'Upper third'], ['center', 'Center'], ['lower', 'Lower third']], s.opPos)}
+            </div>
+            <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_hold" ${s.opHold ? 'checked' : ''}><span>Hold the logo until I click</span></label>
+          </div>
+          <div class="cb_actions" style="margin-top:10px;">
+            <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play now</button>
+          </div>
+          <div class="cb_hint" style="margin-top:6px;">Logo style is shared by all characters and saved in themes.</div>
+        </div>
+        <input type="file" id="m_op_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
+        <input type="file" id="m_op_lfile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+      </div>`;
+  }
+
+  function bind(overlay, s) {
+    if (!overlay.querySelector('#m_op_body')) return;
+    const q = (sel) => overlay.querySelector(sel);
+    const syncBody = () => {
+      const o = op();
+      q('#m_op_body')?.classList.toggle('cb_dim', !hasSource(o));
+      const pb = q('#m_op_play');
+      if (pb) pb.disabled = !hasSource(o);
+    };
+    onPills(overlay, 'opsrc', (v) => {
+      setOp('src', v);
+      q('#m_op_yt').style.display = v === 'youtube' ? '' : 'none';
+      q('#m_op_file').style.display = v === 'file' ? '' : 'none';
+      syncBody();
+    });
+    const url = q('#m_op_url');
+    if (url) url.onchange = () => {
+      const v = url.value.trim();
+      if (v && !(A.getYouTubeId && A.getYouTubeId(v))) toastr.warning('That doesn\'t look like a YouTube link.', 'Opening video');
+      setOp('yt', v);
+      syncBody();
+    };
+    const ttl = q('#m_op_title');
+    if (ttl) ttl.onchange = () => setOp('title', ttl.checked);
+    onPills(overlay, 'opwhen', (v) => setOp('when', v));
+    onPills(overlay, 'oplogo', (v) => {
+      setOp('logo', v);
+      q('#m_op_lrow').style.display = v === 'upload' ? '' : 'none';
+      q('#m_op_lbody')?.classList.toggle('cb_dim', v === 'none');
+      if (v === 'banner' && !(A.bannerImage && A.bannerImage())) toastr.info('This character has no banner image yet, so no logo will show.', 'Opening video');
+    });
+    onPills(overlay, 'oppos', (v) => { s.opPos = v; save(); });
+    const hold = q('#m_op_hold');
+    if (hold) hold.onchange = () => { s.opHold = hold.checked; save(); };
+    overlay.querySelectorAll('.m_op_sl').forEach((sl) => {
+      sl.oninput = function() {
+        const k = this.dataset.key;
+        s[k] = Number(this.value);
+        const out = overlay.querySelector(`#m_op_${this.dataset.id}val`);
+        if (out) out.textContent = k === 'opFade' ? (s[k] / 1000).toFixed(1) : this.value;
+      };
+      sl.onchange = save;
+    });
+
+    // Video upload (sent as is, no re-encoding).
+    const vfile = q('#m_op_vfile');
+    const up = q('#m_op_up');
+    if (up) up.onclick = () => vfile.click();
+    if (vfile) vfile.onchange = async () => {
+      const f = vfile.files[0];
+      vfile.value = '';
+      if (!f) return;
+      let ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
+      if (!ext) { toastr.warning('Use an mp4 or webm video.', 'Opening video'); return; }
+      if (f.size > 100 * 1024 * 1024 && !confirm(`This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`)) return;
+      const btn = up;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        const data = await A.readDataURL(f);
+        const name = `vnop_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const res = await fetch('/api/files/upload', { method: 'POST', headers: A.ctx().getRequestHeaders(), body: JSON.stringify({ name, data: String(data).split(',')[1] }) });
+        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+        const j = await res.json();
+        const path = '/' + String(j.path).replace(/^\/+/, '');
+        const old = op().file;
+        setOp('file', path);
+        A.deleteFileIfUnused(old);
+        toastr.success('Opening video uploaded.', 'Opening video');
+      } catch (e) {
+        console.error('[NTR opening upload]', e);
+        toastr.error(e.message || 'Video upload failed', 'Opening video');
+      }
+      A.openMenu();
+    };
+    const clr = q('#m_op_clr');
+    if (clr) clr.onclick = () => {
+      const old = op().file;
+      if (!old || !confirm('Remove the opening video?')) return;
+      setOp('file', '');
+      A.deleteFileIfUnused(old);
+      A.openMenu();
+    };
+
+    // Logo upload
+    const lfile = q('#m_op_lfile');
+    const lup = q('#m_op_lup');
+    if (lup) lup.onclick = () => lfile.click();
+    if (lfile) lfile.onchange = async () => {
+      const f = lfile.files[0];
+      lfile.value = '';
+      if (!f) return;
+      try {
+        const path = await VN().uploadImage(f, 1600, 'vnlogo');
+        const old = op().logoUrl;
+        setOp('logoUrl', path);
+        A.deleteFileIfUnused(old);
+      } catch (e) {
+        console.error('[NTR logo upload]', e);
+        toastr.error(e.message || 'Logo upload failed', 'Opening video');
+      }
+      A.openMenu();
+    };
+    const lclr = q('#m_op_lclr');
+    if (lclr) lclr.onclick = () => {
+      const old = op().logoUrl;
+      if (!old) return;
+      setOp('logoUrl', '');
+      A.deleteFileIfUnused(old);
+      A.openMenu();
+    };
+
+    const pb = q('#m_op_play');
+    if (pb) pb.onclick = () => {
+      if (!hasSource(op())) return;
+      A.closeMenu();
+      play(VN().openingHooks, { sig: '', onEnd: () => A.openMenu() });
+    };
+  }
+
+  window.NTR.opening = {
+    version: OP_VERSION,
+    maybePlay,
+    play: (hooks, opts) => play(hooks || VN().openingHooks, opts),
+    abort,
+    playing: () => !!cur,
+    sectionHtml,
+    bind,
+  };
+})();

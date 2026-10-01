@@ -238,7 +238,7 @@
     return { name: inner.slice(0, i).trim(), emo: inner.slice(i + sep.length).trim() };
   }
 
-  // Scene tags inside the narrator delimiters: [[Location:X]], [[Choice: A | B]], [[Effect:X]], [[Weather:X]], [[CG:X]]
+  // Scene tags inside the narrator delimiters: [[Location:X]], [[Choice: A | B]], [[Effect:X]], [[Weather:X]], [[CG:X]], [[Enter:X | left]], [[Exit:X]]
   function dirKind(word, s) {
     const w = lc(word);
     if (!w) return null;
@@ -247,6 +247,8 @@
     if (w === lc(s.effectWord)) return 'fx';
     if (w === lc(s.weatherWord)) return 'wx';
     if (w === lc(s.cgWord)) return 'cg';
+    if (w === lc(s.enterWord)) return 'enter';
+    if (w === lc(s.exitWord)) return 'exit';
     return null;
   }
   function dirOf(inner, s) {
@@ -336,13 +338,13 @@
     return h.replace(/\n/g, '<br>');
   }
 
-  // Normal chat view: ((Rafe%%Sad)) -> ((Rafe)), and location, effect, weather and CG tags disappear.
+  // Normal chat view: ((Rafe%%Sad)) -> ((Rafe)), and location, effect, weather, CG, enter and exit tags disappear.
   function cleanEmoTags() {
     const s = settings();
     if (!A.isOn() || !s.nodeHideEmo) return;
     const so = reEsc(s.delimSpkOpen), sc = reEsc(s.delimSpkClose), no = reEsc(s.delimNarOpen), nc = reEsc(s.delimNarClose);
     const emoRe = s.delimEmo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${reEsc(s.delimEmo)}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
-    const dirWords = [s.locWord, s.effectWord, s.weatherWord, s.cgWord].filter(Boolean).map(reEsc).join('|');
+    const dirWords = [s.locWord, s.effectWord, s.weatherWord, s.cgWord, s.enterWord, s.exitWord].filter(Boolean).map(reEsc).join('|');
     const locRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:(?:(?!${nc})[^\\n]){0,80}?${nc}[ \\t]*`, 'gi');
     document.querySelectorAll('#chat .mes_text').forEach((el) => {
       const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -507,14 +509,14 @@
   function validateDelims(d) {
     const errs = [], warns = [];
     const keys = ['delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'locWord',
-      'choiceWord', 'choiceSep', 'effectWord', 'weatherWord', 'cgWord', 'fxShake', 'fxFlash', 'fxFade', 'wxRain', 'wxSnow', 'wxClear'];
+      'choiceWord', 'choiceSep', 'effectWord', 'weatherWord', 'cgWord', 'enterWord', 'exitWord', 'fxShake', 'fxFlash', 'fxFade', 'wxRain', 'wxSnow', 'wxClear'];
     if (keys.some((k) => !d[k])) errs.push('Every field needs a value.');
     const delims = [d.delimSpkOpen, d.delimSpkClose, d.delimNarOpen, d.delimNarClose];
     const distinct = (arr) => { const a = arr.filter(Boolean).map(lc); return new Set(a).size === a.length; };
-    if (!distinct([d.narratorWord, d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord])) errs.push('The narrator, location, choice, effect, weather and CG keywords all need to be different.');
+    if (!distinct([d.narratorWord, d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord])) errs.push('The narrator, location, choice, effect, weather, CG, enter and exit keywords all need to be different.');
     if (!distinct([d.fxShake, d.fxFlash, d.fxFade])) errs.push('The three effect names need to be different.');
     if (!distinct([d.wxRain, d.wxSnow, d.wxClear])) errs.push('The three weather names need to be different.');
-    if ([d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord].some((w) => w && w.includes(':'))) errs.push('Tag keywords can\'t contain a colon.');
+    if ([d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord].some((w) => w && w.includes(':'))) errs.push('Tag keywords can\'t contain a colon.');
     if (d.choiceSep && delims.some((x) => x && x.includes(d.choiceSep))) errs.push('The choice separator can\'t appear inside the delimiters.');
     if (d.delimSpkOpen && d.delimSpkOpen === d.delimNarOpen) errs.push('Speaker and narrator need different opening delimiters.');
     if (d.delimEmo && delims.some((x) => x && x.includes(d.delimEmo))) errs.push('The emotion separator can\'t appear inside the other delimiters.');
@@ -544,6 +546,10 @@
       rows.push({ label: 'Weather', code: `${no}${s.weatherWord}:${s.wxRain}${nc}`, hint: `Stays until it changes. Also ${s.wxSnow} and ${s.wxClear}.` });
     }
     if (s.nodeCG) rows.push({ label: 'Show an illustration', code: `${no}${s.cgWord}:${cg}${nc}`, hint: 'The name has to match a CG you added under CG Scenes.' });
+    if (s.nodeSprites) {
+      rows.push({ label: 'A character enters', code: `${no}${s.enterWord}:${spk}${nc}`, hint: `Shows their sprite right away, even before they speak. Add a slot to choose where: ${no}${s.enterWord}:${spk} | left${nc} (left, center or right). Once a card uses ${s.enterWord} or ${s.exitWord}, sprites stay until an ${s.exitWord} tag; without them, sprites follow who spoke recently.` });
+      rows.push({ label: 'A character leaves', code: `${no}${s.exitWord}:${spk}${nc}`, hint: `Removes their sprite from the next line on. ${no}${s.exitWord}:All${nc} clears the stage.` });
+    }
     const sample = [rows[2], rows[1], rows[0], ...rows.slice(3, 4)].filter(Boolean).map((r) => r.code).join('\n');
     return { rows, sample };
   }
@@ -570,6 +576,7 @@
     if (s.nodeEffects) p += ` Optional: ${no}${s.effectWord}:${s.fxShake}${nc}, ${s.fxFlash} or ${s.fxFade} for impact; ${no}${s.weatherWord}:${s.wxRain}${nc}, ${s.wxSnow} or ${s.wxClear} (stays until changed).`;
     const cgs = (v.cgs || []).filter((x) => x.name && x.url).map((x) => x.name);
     if (s.nodeCG && cgs.length) p += ` Show an illustration with ${no}${s.cgWord}:Name${nc} using: ${cgs.join(', ')}.`;
+    if (s.nodeSprites) p += ` Mark arrivals and departures with ${no}${s.enterWord}:Name${nc} and ${no}${s.exitWord}:Name${nc}.`;
     if (s.nodeUserMsgs) p += ' User messages follow the same format.';
     return p;
   }
@@ -737,7 +744,7 @@
 
             ${subHead('vn_tags', 'Tags & Delimiters (change the symbols)')}
             <div class="cb_collapse_content">
-              ${ck('m_n_hide', s.nodeHideEmo, 'Hide emotion and scene tags (location, effect, weather, CG) in the normal chat view')}
+              ${ck('m_n_hide', s.nodeHideEmo, 'Hide emotion and scene tags (location, effect, weather, CG, enter, exit) in the normal chat view')}
               <div class="cb_dgrid">
                 ${df('delimSpkOpen', 'Speaker open')}${df('delimSpkClose', 'Speaker close')}
                 ${df('delimNarOpen', 'Narrator open')}${df('delimNarClose', 'Narrator close')}
@@ -751,7 +758,8 @@
                 ${df('fxShake', 'Effect: shake')}${df('fxFlash', 'Effect: flash')}
                 ${df('fxFade', 'Effect: fade')}${df('cgWord', 'CG keyword')}
                 ${df('wxRain', 'Weather: rain')}${df('wxSnow', 'Weather: snow')}
-                ${df('wxClear', 'Weather: clear')}
+                ${df('wxClear', 'Weather: clear')}${df('enterWord', 'Enter keyword')}
+                ${df('exitWord', 'Exit keyword')}
               </div>
               <div id="m_d_preview" class="cb_code"></div>
               <div id="m_d_msg" class="cb_hint"></div>
@@ -1524,6 +1532,39 @@
     return m.is_user ? parseSegments(m.mes, m.name || c.name1, true) : parseSegments(m.mes, m.name || c.name2, false);
   }
 
+  // Who is on stage. Speaking adds a character; Enter/Exit tags add or remove one explicitly.
+  // Until a chat uses an Enter or Exit tag, `explicit` stays false and the stage keeps following recent speakers.
+  const castNew = () => ({ explicit: false, list: [] });
+  const castSnap = (st) => ({ explicit: st.explicit, list: st.list.map((x) => ({ ...x })) });
+  function castStep(st, seg) {
+    if (seg.kind === 'enter') {
+      const [nm, sp] = String(seg.name).split('|').map((x) => x.trim());
+      const key = lc(nm);
+      if (!key) return;
+      const spot = ['left', 'center', 'right'].includes(lc(sp)) ? lc(sp) : '';
+      st.list = st.list.filter((x) => x.key !== key);
+      st.list.push({ key, name: nm, spot });
+      st.explicit = true;
+    } else if (seg.kind === 'exit') {
+      const key = lc(seg.name);
+      st.list = key === 'all' ? [] : st.list.filter((x) => x.key !== key);
+      st.explicit = true;
+    } else if (seg.kind === 'char' && seg.name) {
+      const key = lc(seg.name);
+      if (!st.list.some((x) => x.key === key)) st.list.push({ key, name: seg.name, spot: '' });
+    }
+  }
+  function castAt(idx) {
+    const st = castNew();
+    const chat = ctx().chat || [];
+    for (let i = 0; i < Math.min(idx, chat.length); i++) {
+      const m = chat[i];
+      if (!m || m.is_system || !m.mes) continue;
+      for (const seg of parseMsg(m)) castStep(st, seg);
+    }
+    return st;
+  }
+
   // Location and weather in effect when message idx starts: the last such tags in any earlier message.
   // Pass a Set as `visited` to also collect every location named along the way.
   function stickyAt(idx, visited) {
@@ -1555,32 +1596,36 @@
     const idx = node.list[node.pos];
     const m = c.chat[idx];
     node.prevTail = [];
-    if (!m) { node.segs = []; node.endLoc = null; node.endWx = null; return; }
+    if (!m) { node.segs = []; node.endLoc = null; node.endWx = null; node.endCast = null; return; }
     const s = settings();
     let { loc, wx } = stickyAt(idx);
+    const cast = castAt(idx);
     const segs = [];
     // Effects and CGs belong to the next line; choices to the line before them.
     let fx = [], cg = null, choice = null;
     for (const seg of parseMsg(m)) {
       if (seg.kind === 'loc') { loc = seg.name; continue; }
+      if (seg.kind === 'enter' || seg.kind === 'exit') { castStep(cast, seg); continue; }
+      castStep(cast, seg);
       if (seg.kind === 'wx') { wx = wxKind(seg.name, s) || wx; continue; }
       if (seg.kind === 'fx') { const k = fxKind(seg.name, s); if (k) fx.push(k); continue; }
       if (seg.kind === 'cg') { cg = seg.name; continue; }
       if (seg.kind === 'choice') { const opts = splitChoices(seg.name, s); if (opts.length) choice = { opts, after: segs.length }; continue; }
-      Object.assign(seg, { loc, wx, fx, cg });
+      Object.assign(seg, { loc, wx, fx, cg, cast: castSnap(cast) });
       fx = []; cg = null;
       segs.push(seg);
     }
-    if (cg) { segs.push({ kind: 'cg', name: '', emo: '', text: '', loc, wx, fx, cg }); fx = []; }
+    if (cg) { segs.push({ kind: 'cg', name: '', emo: '', text: '', loc, wx, fx, cg, cast: castSnap(cast) }); fx = []; }
     if (fx.length && segs.length) segs[segs.length - 1].fx.push(...fx);
     if (choice) {
-      if (!segs.length) segs.push({ kind: 'narrator', name: '', emo: '', text: '', loc, wx, fx: [], cg: null });
+      if (!segs.length) segs.push({ kind: 'narrator', name: '', emo: '', text: '', loc, wx, fx: [], cg: null, cast: castSnap(cast) });
       const textAfter = segs.slice(choice.after).some((x) => x.kind !== 'cg');
       (textAfter ? segs[Math.max(0, choice.after - 1)] : segs[segs.length - 1]).choices = choice.opts;
     }
     node.segs = segs;
     node.endLoc = loc;
     node.endWx = wx;
+    node.endCast = castSnap(cast);
     const prev = node.pos > 0 ? c.chat[node.list[node.pos - 1]] : null;
     if (prev) node.prevTail = parseMsg(prev).filter((x) => x.kind === 'char' && x.name).slice(-3);
   }
@@ -1671,14 +1716,22 @@
       info.delete(k);
       info.set(k, { name: l.name, emo: l.emo });
     }
-    const present = [...info.entries()].filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
+    const cast = cur ? cur.cast : node.endCast;
+    const wanted = new Map();
+    let present;
+    if (cast && cast.explicit) {
+      for (const c of cast.list) { if (!info.has(c.key)) info.set(c.key, { name: c.name, emo: '' }); wanted.set(c.key, c.spot); }
+      present = cast.list.map((c) => [c.key, info.get(c.key)]).filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
+    } else present = [...info.entries()].filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
     const persona = String(ctx().name1 || '').toLowerCase();
     for (const k of [...stageSpots.keys()]) if (!info.has(k) || !present.some(([pk]) => pk === k)) stageSpots.delete(k);
+    // A slot chosen with an Enter tag wins over the automatic one.
+    for (const [k, sp] of wanted) if (sp && stageSpots.has(k) && stageSpots.get(k) !== sp) stageSpots.delete(k);
     const used = new Set(stageSpots.values());
     const personaIn = present.some(([k]) => k === persona);
     for (const [k] of present) {
       if (stageSpots.has(k)) continue;
-      const pref = k === persona ? ['right', 'center', 'left'] : personaIn ? ['left', 'center', 'right'] : ['left', 'right', 'center'];
+      const pref = wanted.get(k) ? [wanted.get(k), 'center', 'left', 'right'] : k === persona ? ['right', 'center', 'left'] : personaIn ? ['left', 'center', 'right'] : ['left', 'right', 'center'];
       const spot = pref.find((x) => !used.has(x));
       if (spot) { stageSpots.set(k, spot); used.add(spot); }
     }

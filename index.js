@@ -73,6 +73,7 @@
     nodeEffects: true, effectWord: 'Effect', fxShake: 'Shake', fxFlash: 'Flash', fxFade: 'Fade',
     weatherWord: 'Weather', wxRain: 'Rain', wxSnow: 'Snow', wxClear: 'Clear',
     nodeCG: true, cgWord: 'CG',
+    enterWord: 'Enter', exitWord: 'Exit',
     artBg: 'dusk', artBgImg: '', artSprite: 'builtin', artSpriteImg: '',
     opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opHold: true, opSeen: {},
     nodeMaps: true, mapGoText: '*heads to the {place}*',
@@ -1648,7 +1649,7 @@
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
-      'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'cgWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
+      'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
       'opLead', 'opFade', 'opSize', 'opPos', 'opHold', 'nodeMaps', 'mapGoText'] },
     display: { label: 'Display Overrides', keys: ['chatTransparent', ...Object.keys(DEFAULTS).filter((k) => k.startsWith('ov'))] },
   };
@@ -1665,7 +1666,7 @@
     return out;
   }
 
-  const NONEMPTY_KEYS = new Set(['narratorWord', 'locWord', 'choiceWord', 'choiceSep', 'effectWord', 'fxShake', 'fxFlash', 'fxFade', 'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'cgWord', 'mapGoText']);
+  const NONEMPTY_KEYS = new Set(['narratorWord', 'locWord', 'choiceWord', 'choiceSep', 'effectWord', 'fxShake', 'fxFlash', 'fxFade', 'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'cgWord', 'enterWord', 'exitWord', 'mapGoText']);
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg']);
   function validLookValue(k, v) {
     const d = DEFAULTS[k];

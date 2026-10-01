@@ -206,6 +206,10 @@
       .ntr_shake { animation: ntr_shake .5s cubic-bezier(.36, .07, .19, .97); }
       @keyframes ntr_shake { 10%, 90% { transform: translate(-2px, 1px); } 20%, 80% { transform: translate(5px, -2px); } 30%, 50%, 70% { transform: translate(-8px, 3px); } 40%, 60% { transform: translate(8px, -3px); } }
       @media (prefers-reduced-motion: reduce) { .ntr_shake { animation-duration: .2s; } }
+      .cb_g_row { margin: 10px 0; }
+      .cb_g_line { display: flex; align-items: center; gap: 6px; }
+      .cb_g_line .cb_code { flex: 1; min-width: 0; margin-top: 4px; user-select: all; word-break: break-word; }
+      .cb_g_line .menu_button { margin: 4px 0 0; padding: 4px 8px; }
       .cb_art_row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
       .cb_art_row .menu_button { margin: 0; padding: 4px 8px; }
   `;
@@ -521,6 +525,39 @@
     return { errs, warns };
   }
 
+  // Every tag with the user's own delimiters and real names, so people can see exactly what to write in a card.
+  function guideRows(s) {
+    const v = V();
+    const loc = (v.locations.find((l) => l.name) || {}).name || 'Tavern';
+    const cg = ((v.cgs || []).find((g) => g.name) || {}).name || 'First Kiss';
+    const emo = (s.emotions.find((e) => e.id !== s.emoDefault) || s.emotions[0] || {}).name || 'Happy';
+    const spk = (collectSpeakers().find((x) => x.name !== ctx().name1) || {}).name || 'Rafe';
+    const no = s.delimNarOpen, nc = s.delimNarClose;
+    const rows = [
+      { label: 'A character speaks', code: `${s.delimSpkOpen}${spk}${s.delimEmo}${emo}${s.delimSpkClose}: "Hello there."`, hint: `The name comes first, then the emotion after ${s.delimEmo}. The emotion is optional: ${s.delimSpkOpen}${spk}${s.delimSpkClose}: works too. Everything after the tag is that character's line.` },
+      { label: 'Narration', code: `${no}${s.narratorWord}${nc}: The tavern was quiet.`, hint: 'No portrait is shown for the narrator.' },
+      { label: 'Change the background', code: `${no}${s.locWord}:${loc}${nc}`, hint: 'The name has to match a location you added under Locations. Case, punctuation and a leading "The" are ignored. It stays until the next location tag.' },
+    ];
+    if (s.nodeChoices) rows.push({ label: 'Offer choices', code: `${no}${s.choiceWord}: Stay ${s.choiceSep} Leave${nc}`, hint: `Put it at the end of a message. Separate the options with ${s.choiceSep}.` });
+    if (s.nodeEffects) {
+      rows.push({ label: 'Screen effect', code: `${no}${s.effectWord}:${s.fxShake}${nc}`, hint: `Happens once. Also ${s.fxFlash} and ${s.fxFade}.` });
+      rows.push({ label: 'Weather', code: `${no}${s.weatherWord}:${s.wxRain}${nc}`, hint: `Stays until it changes. Also ${s.wxSnow} and ${s.wxClear}.` });
+    }
+    if (s.nodeCG) rows.push({ label: 'Show an illustration', code: `${no}${s.cgWord}:${cg}${nc}`, hint: 'The name has to match a CG you added under CG Scenes.' });
+    const sample = [rows[2], rows[1], rows[0], ...rows.slice(3, 4)].filter(Boolean).map((r) => r.code).join('\n');
+    return { rows, sample };
+  }
+
+  function guideHtml(s) {
+    const { rows, sample } = guideRows(s);
+    return rows.map((r) => `<div class="cb_g_row"><strong>${escapeHTML(r.label)}</strong>
+        <div class="cb_g_line"><code class="cb_code">${escapeHTML(r.code)}</code><button type="button" class="menu_button m_g_cp" data-c="${escapeHTML(r.code)}" title="Copy"><i class="fa-solid fa-copy"></i></button></div>
+        <div class="cb_hint">${escapeHTML(r.hint)}</div></div>`).join('')
+      + `<div class="cb_g_row"><strong>Example you can paste into a first message</strong>
+        <pre class="cb_code" style="margin:4px 0;">${escapeHTML(sample)}</pre>
+        <button type="button" class="menu_button m_g_cp" data-c="${escapeHTML(sample)}"><i class="fa-solid fa-copy"></i> Copy example</button></div>`;
+  }
+
   function buildPrompt(s) {
     const sp = `${s.delimSpkOpen}Name${s.delimEmo}Emotion${s.delimSpkClose}`;
     const nr = `${s.delimNarOpen}${s.narratorWord}${s.delimNarClose}`;
@@ -535,6 +572,19 @@
     if (s.nodeCG && cgs.length) p += ` Show an illustration with ${no}${s.cgWord}:Name${nc} using: ${cgs.join(', ')}.`;
     if (s.nodeUserMsgs) p += ' User messages follow the same format.';
     return p;
+  }
+
+  function copyText(text, msg = 'Copied') {
+    const done = () => toastr.success(msg, 'Visual Novel');
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { toastr.error('Could not copy. Select the text and copy it yourself.', 'Visual Novel'); }
+      ta.remove();
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
+    else fallback();
   }
 
   // Menu sub-sections that live in their own lazy-loaded files (map.js, opening.js).
@@ -582,6 +632,13 @@
         <div class="cb_collapse_content">
           ${ck('m_n_enable', s.nodeEnabled, 'Enable Visual Novel Mode')}
           <div id="m_n_body" class="${s.nodeEnabled ? '' : 'cb_dim'}">
+            ${subHead('vn_guide', 'How to write your card')}
+            <div class="cb_collapse_content">
+              <div class="cb_hint">Visual Novel Mode reads these tags from messages. Write them in your card's first message or in anything you write yourself. While the mode is on, the AI is told to use them too (see Prompt for your LLM). These examples use your current symbols and names.</div>
+              <div id="m_g_body"></div>
+              <button type="button" class="menu_button m_g_goto" style="margin-top:8px;"><i class="fa-solid fa-pen"></i> Change the symbols (delimiters)</button>
+            </div>
+
             ${subHead('vn_play', 'Playback')}
             <div class="cb_collapse_content">
               ${ck('m_n_user', s.nodeUserMsgs, 'Include my messages (yours plays on send, then the reply takes over)')}
@@ -652,7 +709,7 @@
 
             ${subHead('vn_loc', 'Locations ' + TAG)}
             <div class="cb_collapse_content">
-              <div class="cb_hint">Tag scene changes as ${escapeHTML(s.delimNarOpen + s.locWord)}:Name${escapeHTML(s.delimNarClose)}. The background changes when that line plays and stays until the next location. Matching ignores case, punctuation and a leading "The". Anything unmatched uses the default background, then SillyTavern's own.</div>
+              <div class="cb_hint">Add a name below, upload its background, then write <code>${escapeHTML(s.delimNarOpen + s.locWord)}:Name${escapeHTML(s.delimNarClose)}</code> in your card with that name. The background changes when that line plays and stays until the next location. Matching ignores case, punctuation and a leading "The". Anything unmatched uses the default background, then SillyTavern's own. <a href="#" class="m_g_goto">Change the symbols</a> or see <b>How to write your card</b> above for every tag.</div>
               <div id="m_l_list"></div>
               <div class="cb_row" style="margin-top:8px;">
                 <input type="text" id="m_l_new" class="text_pole" placeholder="Add a location (e.g. Tavern)" style="flex:1;margin:0;">
@@ -678,7 +735,7 @@
             ${subSection('map', 'vn_map', 'Maps ' + TAG, s)}
             ${subSection('opening', 'vn_open', 'Opening Video ' + TAG, s)}
 
-            ${subHead('vn_tags', 'Tags & Delimiters')}
+            ${subHead('vn_tags', 'Tags & Delimiters (change the symbols)')}
             <div class="cb_collapse_content">
               ${ck('m_n_hide', s.nodeHideEmo, 'Hide emotion and scene tags (location, effect, weather, CG) in the normal chat view')}
               <div class="cb_dgrid">
@@ -719,7 +776,20 @@
   function bindVN(overlay, s) {
     const body = overlay.querySelector('#m_n_body');
     const refreshPrompt = () => { overlay.querySelector('#m_p_text').value = buildPrompt(s); };
-    const refreshAll = () => { refreshPrompt(); updateInjection(); if (s.nodeEnabled) nodeLoad({ animate: false }); };
+    function renderGuide() {
+      const box = overlay.querySelector('#m_g_body');
+      if (!box) return;
+      box.innerHTML = guideHtml(s);
+      box.querySelectorAll('.m_g_cp').forEach((b) => { b.onclick = () => copyText(b.dataset.c); });
+    }
+    const gotoDelims = (e) => {
+      if (e) e.preventDefault();
+      s.uiOpen.vn = true; s.uiOpen.vn_tags = true; save();
+      A.openMenu();
+      setTimeout(() => document.querySelector('#cb_modal_overlay [data-sec="vn_tags"]')?.scrollIntoView({ block: 'start' }), 60);
+    };
+    overlay.querySelectorAll('.m_g_goto').forEach((b) => { b.onclick = gotoDelims; });
+    const refreshAll = () => { renderGuide(); refreshPrompt(); updateInjection(); if (s.nodeEnabled) nodeLoad({ animate: false }); };
 
     overlay.querySelector('#m_n_enable').onchange = function() {
       s.nodeEnabled = this.checked; save();
@@ -898,12 +968,7 @@
     };
 
     // Prompt
-    overlay.querySelector('#m_p_copy').onclick = () => {
-      const ta = overlay.querySelector('#m_p_text');
-      const done = () => toastr.success('Prompt copied', 'Visual Novel');
-      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(ta.value).then(done).catch(() => { ta.select(); document.execCommand('copy'); done(); });
-      else { ta.select(); document.execCommand('copy'); done(); }
-    };
+    overlay.querySelector('#m_p_copy').onclick = () => copyText(overlay.querySelector('#m_p_text').value, 'Prompt copied');
 
     // Locations
     const lFile = overlay.querySelector('#m_l_file');
@@ -965,13 +1030,19 @@
     const addLoc = () => {
       const inp = overlay.querySelector('#m_l_new');
       const nm = inp.value.trim();
-      if (!nm) return;
+      if (!nm) { toastr.info('Type the location\'s name in the box first, then click Add.', 'Visual Novel'); inp.focus(); return; }
       if (!A.store()) { toastr.warning('Open a character chat first. Locations are saved per character.', 'Visual Novel'); return; }
       const v = V();
       if (v.locations.some((x) => normLoc(x.name) === normLoc(nm))) { toastr.warning('That location already exists.', 'Visual Novel'); return; }
-      v.locations.push({ id: newId('loc'), name: nm, url: '' });
-      inp.value = '';
-      save(); renderLoc(); refreshAll();
+      try {
+        if (!Array.isArray(v.locations)) v.locations = [];
+        v.locations.push({ id: newId('loc'), name: nm, url: '' });
+        inp.value = '';
+        save(); renderLoc(); refreshAll();
+      } catch (e) {
+        console.error('[NTR] Could not add the location', e);
+        toastr.error('Could not add the location: ' + (e && e.message ? e.message : e), 'Visual Novel');
+      }
     };
     overlay.querySelector('#m_l_add').onclick = addLoc;
     overlay.querySelector('#m_l_new').onkeydown = (e) => { if (e.key === 'Enter') addLoc(); };
@@ -1034,7 +1105,7 @@
     const addCg = () => {
       const inp = overlay.querySelector('#m_c_new');
       const nm = inp.value.trim();
-      if (!nm) return;
+      if (!nm) { toastr.info('Type the CG\'s name in the box first, then click Add.', 'Visual Novel'); inp.focus(); return; }
       if (!A.store()) { toastr.warning('Open a character chat first. CGs are saved per character.', 'Visual Novel'); return; }
       const v = V();
       if (v.cgs.some((x) => normLoc(x.name) === normLoc(nm))) { toastr.warning('That CG already exists.', 'Visual Novel'); return; }
@@ -1083,7 +1154,7 @@
       artFile.value = '';
     };
 
-    renderEmo(); renderSpk(); renderLoc(); renderCg(); renderArt(); preview(); refreshPrompt();
+    renderEmo(); renderSpk(); renderLoc(); renderCg(); renderArt(); preview(); refreshPrompt(); renderGuide();
     for (const name of ['map', 'opening']) {
       const m = window.NTR[name];
       if (m) { try { m.bind(overlay, s); } catch (e) { console.error(`[NTR] ${name} menu crashed`, e); } }

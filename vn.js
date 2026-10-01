@@ -413,7 +413,9 @@
     const key = String(name || '').trim().toLowerCase();
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key]) || silhouetteFor(key);
+    const emoImg = (e && imgs[e.id]) || imgs[s.emoDefault];
+    const pick = s.nodeSpriteBase ? v.avatars[key] || emoImg : emoImg || v.avatars[key];
+    return media(pick) || silhouetteFor(key);
   }
 
   function silhouetteFor(key) {
@@ -669,7 +671,8 @@
               <div style="margin-top:10px;">${ck('m_n_pbox', s.nodePortraitBox, 'Show the portrait in the box')}</div>
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
-              <div class="cb_hint">Sprites use the emotion images or custom base portraits you upload under Speakers, not card avatars. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites use the base image, not emotion images')}
+              <div class="cb_hint">Sprites use the emotion images or custom base portraits you upload under Speakers, not card avatars. With the base-image option on, a speaker's base image (the upload arrow) is used on stage and the emotion images only appear in the message box; speakers without a base image still use their emotion images. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -810,6 +813,7 @@
     chk('#m_n_tw', 'nodeTypewriter');
     chk('#m_n_pbox', 'nodePortraitBox', () => { if (s.nodeEnabled) nodeShow(false); });
     chk('#m_n_spr', 'nodeSprites', updateStage);
+    chk('#m_n_sprbase', 'nodeSpriteBase', updateStage);
     chk('#m_n_inj', 'nodeInject', updateInjection);
     chk('#m_n_auto', 'nodeAuto');
     chk('#m_n_hide', 'nodeHideEmo', () => {

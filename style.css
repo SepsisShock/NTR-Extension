@@ -55,7 +55,7 @@
 }
 
 /* Keep sections at full height when the panel has a fixed height (otherwise they get squished under the title bar). */
-.cb_popup_content > * { flex-shrink: 0; }
+.cb_popup_content > *:not(.ntr_body) { flex-shrink: 0; }
 
 .cb_popup_content.ntr_dock_right { top: 0; right: 0; bottom: 0; border-radius: 10px 0 0 10px; }
 .cb_popup_content.ntr_dock_left { top: 0; left: 0; bottom: 0; border-radius: 0 10px 10px 0; }

@@ -6,9 +6,10 @@
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, readDataURL, loadImg, pills, onPills, secHead, subHead } = A;
   const TAG = A.TAG || '';
+  const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
-  const VDEF = () => ({ avatars: {}, emoImgs: {}, customSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
+  const VDEF = () => ({ avatars: Object.create(null), emoImgs: Object.create(null), customSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
   function V() {
     const st = A.store();
     if (!st) return VDEF();
@@ -262,7 +263,9 @@
   }
   const fxKind = (name, s) => wordKind(name, [['shake', s.fxShake], ['flash', s.fxFlash], ['fade', s.fxFade]]);
   const wxKind = (name, s) => wordKind(name, [['clear', s.wxClear], ['rain', s.wxRain], ['snow', s.wxSnow]]);
-  const splitChoices = (arg, s) => String(arg).split(s.choiceSep || '|').map((x) => x.trim()).filter(Boolean).slice(0, 8);
+  // A leading "/" would make SillyTavern run the choice as a slash command, so it's dropped.
+  const noSlash = (x) => String(x).replace(/^[\s/]+/, '');
+  const splitChoices = (arg, s) => String(arg).split(s.choiceSep || '|').map((x) => noSlash(x).trim()).filter(Boolean).slice(0, 8);
 
   // No tags at all: quoted text is the speaker's line, everything else is narration.
   function splitUntagged(raw, name) {
@@ -374,7 +377,7 @@
     const key = String(name || '').trim().toLowerCase();
     if (!key) return null;
     const s = settings();
-    if (V().avatars[key]) return V().avatars[key];
+    if (V().avatars[key]) return media(V().avatars[key]) || null;
     const c = ctx();
     if (c.name1 && c.name1.toLowerCase() === key) return userAvatarSrc();
     const ch = (c.characters || []).find((x) => x.name && x.name.toLowerCase() === key);
@@ -392,8 +395,8 @@
     const s = settings();
     const imgs = V().emoImgs[String(name || '').trim().toLowerCase()] || {};
     const e = findEmo(emoName);
-    if (e && imgs[e.id]) return imgs[e.id];
-    if (imgs[s.emoDefault]) return imgs[s.emoDefault];
+    if (e && imgs[e.id]) return media(imgs[e.id]) || null;
+    if (imgs[s.emoDefault]) return media(imgs[s.emoDefault]) || null;
     return resolveAvatar(name);
   }
 
@@ -404,7 +407,7 @@
     const key = String(name || '').trim().toLowerCase();
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return (e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key] || silhouetteFor(key);
+    return media((e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key]) || silhouetteFor(key);
   }
 
   function silhouetteFor(key) {
@@ -445,6 +448,7 @@
   }
 
   function thumbBox(src) {
+    src = media(src);
     return `<div class="cb_thumbbox">${src ? `<img src="${escapeHTML(src)}" alt="">` : '<i class="fa-solid fa-user"></i>'}</div>`;
   }
 
@@ -1093,7 +1097,7 @@
     return v.cgs.map((g) => {
       const id = escapeHTML(g.id);
       return `<div class="cb_spk"><div class="cb_spk_row">
-        <div class="cb_thumbbox cb_wide">${g.url ? `<img src="${escapeHTML(g.url)}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
+        <div class="cb_thumbbox cb_wide">${media(g.url) ? `<img src="${escapeHTML(media(g.url))}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
         <input type="text" class="text_pole m_c_name" data-id="${id}" value="${escapeHTML(g.name)}" style="flex:1;min-width:0;margin:0;">
         <button class="menu_button m_c_up" data-id="${id}" title="Upload illustration"><i class="fa-solid fa-upload"></i></button>
         <button class="menu_button m_c_clr" data-id="${id}" title="Remove image" ${g.url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
@@ -1107,7 +1111,7 @@
     const v = V();
     const row = (id, name, url, isDef) => `
       <div class="cb_spk"><div class="cb_spk_row">
-        <div class="cb_thumbbox cb_wide">${url ? `<img src="${escapeHTML(url)}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
+        <div class="cb_thumbbox cb_wide">${media(url) ? `<img src="${escapeHTML(media(url))}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
         ${isDef
           ? '<span class="cb_spk_name"><strong>Default background</strong><small>used when nothing matches</small></span>'
           : `<input type="text" class="text_pole m_l_name" data-id="${id}" value="${escapeHTML(name)}" style="flex:1;min-width:0;margin:0;">`}
@@ -1328,6 +1332,7 @@
     const ta = document.getElementById('send_textarea');
     if (!ta) return false;
     const cur = ta.value || '';
+    if (!cur.trim()) text = noSlash(text);
     ta.value = cur.trim() ? cur.replace(/\s+$/, '') + '\n' + text : text;
     ta.dispatchEvent(new Event('input', { bubbles: true }));
     if (send) {
@@ -1380,7 +1385,7 @@
     const n = normLoc(name);
     if (!n) return '';
     const hit = (V().cgs || []).find((g) => normLoc(g.name) === n && g.url);
-    return hit ? hit.url : '';
+    return hit ? media(hit.url) : '';
   }
 
   function placeCG() {
@@ -1535,7 +1540,7 @@
     const v = V();
     const n = normLoc(name);
     const hit = n ? v.locations.find((l) => normLoc(l.name) === n) : null;
-    return (hit && hit.url) || v.locDefault || artBgUrl() || '';
+    return media(hit && hit.url) || media(v.locDefault) || artBgUrl() || '';
   }
 
   function setLocation(name) {
@@ -1766,7 +1771,7 @@
       if (c.groupId || !c.name2) return null;
       const k = lc(c.name2);
       const v = V();
-      return (v.emoImgs[k] || {})[settings().emoDefault] || v.avatars[k] || resolveAvatar(c.name2);
+      return media((v.emoImgs[k] || {})[settings().emoDefault] || v.avatars[k]) || resolveAvatar(c.name2);
     },
     sceneBg: () => locUrl(currentLoc()) || (A.bannerImage ? A.bannerImage() : ''),
   };

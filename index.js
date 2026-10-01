@@ -75,7 +75,10 @@
     opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opHold: true, opSeen: {},
     nodeMaps: true, mapGoText: '*heads to the {place}*',
     themes: [],
-    themeActive: null
+    themeActive: null,
+
+    // Privacy
+    blockExternal: false
   };
 
   const ctx = () => SillyTavern.getContext();
@@ -308,7 +311,7 @@
       const el = document.getElementById(`cb_fg_${pos.toLowerCase()}`);
       const target = F[pos + 'Layer'] === 'front' ? front : layer;
       if (el.parentNode !== target) target.appendChild(el);
-      const src = F[pos];
+      const src = media(F[pos]);
       const sc = (Number(F[pos + 'Scale']) || 100) / 100;
       el.style.transformOrigin = pos === 'Left' ? 'left bottom' : pos === 'Right' ? 'right bottom' : 'center bottom';
       el.style.transform = `scale(${sc})`;
@@ -578,13 +581,14 @@
     let r;
     if (d) {
       if (!d.banner || typeof d.banner !== 'object') {
-        if (s.chars[key]) { d.banner = structuredClone(s.chars[key]); legacyMoved.add(key); scheduleCardFlush(key); }
+        if (s.chars[key]) { d.banner = structuredClone(s.chars[key]); cleanBanner(d.banner); legacyMoved.add(key); scheduleCardFlush(key); }
         else d.banner = defaultBanner();
       }
       r = d.banner;
     } else {
       if (!s.chars[key]) s.chars[key] = defaultBanner();
       r = s.chars[key];
+      if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
     }
     const def = defaultBanner();
     for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
@@ -656,7 +660,9 @@
       img.style.display = 'block';
 
       const im = r.images[r.idx] || r.images[0];
-      if (img.getAttribute('src') !== im.url) img.src = im.url;
+      const u = media(im.url);
+      if (!u) { banner.style.display = 'none'; return; }
+      if (img.getAttribute('src') !== u) img.src = u;
       img.style.objectPosition = `50% ${im.pos ?? 45}%`;
       nav.style.display = n > 1 ? 'flex' : 'none';
       nav.querySelector('.cb_nav_count').textContent = `${Math.min(r.idx, n - 1) + 1} / ${n}`;
@@ -899,14 +905,14 @@
               ${n > 0 ? `
               <div class="cb_carousel_nav">
                 <button id="m_b_prev" class="menu_button" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>
-                <span>Image <b>${r.idx + 1}</b> of <b>${n}</b></span>
+                <span>Image <b>${Math.round(cNum(r.idx, 0, 0, n - 1)) + 1}</b> of <b>${n}</b></span>
                 <button id="m_b_next" class="menu_button" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>
               </div>
-              <div class="cb_thumbs">${r.images.map((im, i) => `<img class="cb_thumb${i === r.idx ? ' active' : ''}" data-i="${i}" src="${escapeHTML(im.url)}" alt="">`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No images yet</div>`}
+              <div class="cb_thumbs">${r.images.map((im, i) => `<img class="cb_thumb${i === r.idx ? ' active' : ''}" data-i="${i}" src="${escapeHTML(media(im.url))}" alt="">`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No images yet</div>`}
 
               ${curImg ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop: ${TAG}</label><span><span id="m_b_pval">${curImg.pos ?? 45}</span>%</span></div>
-              <input type="range" id="m_b_p" min="0" max="100" value="${curImg.pos ?? 45}">
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop: ${TAG}</label><span><span id="m_b_pval">${cNum(curImg.pos, 45, 0, 100)}</span>%</span></div>
+              <input type="range" id="m_b_p" min="0" max="100" value="${cNum(curImg.pos, 45, 0, 100)}">
               ` : ''}
             </div>
 
@@ -926,8 +932,8 @@
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
-              <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval">${r.overlapOffset || 0}</span>px</span></div>
-              <input type="range" id="m_b_offset" min="0" max="300" step="5" value="${r.overlapOffset || 0}" ${!key ? 'disabled' : ''}>
+              <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval">${cNum(r.overlapOffset, 0, 0, 300)}</span>px</span></div>
+              <input type="range" id="m_b_offset" min="0" max="300" step="5" value="${cNum(r.overlapOffset, 0, 0, 300)}" ${!key ? 'disabled' : ''}>
             </div>
 
             <div style="margin-top: 10px;"><strong>Transparent areas show:</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], s.bannerBackdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
@@ -948,15 +954,15 @@
                 <div class="cb_col" style="align-items: center; text-align: center;">
                   <strong>${pos} ${TAG}</strong>
                   <div style="width:100%; height:80px; background:rgba(0,0,0,0.3); border-radius:4px; margin:5px 0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img id="m_f_img_${pos}" src="${escapeHTML(F[pos] || '')}" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
+                    <img id="m_f_img_${pos}" src="${escapeHTML(media(F[pos]))}" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
                     <span id="m_f_none_${pos}" style="display:${F[pos] ? 'none' : 'block'}; opacity:0.5; font-size:12px;">Empty</span>
                   </div>
                   <div style="display:flex; gap:5px; width:100%;">
                     <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload ${pos} image"><i class="fa-solid fa-upload"></i></button>
                     <button class="menu_button danger_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Clear ${pos} image" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
                   </div>
-                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${F[pos + 'Scale'] ?? 100}</span>%</span></div>
-                  <input type="range" class="m_f_scale" data-pos="${pos}" min="10" max="300" step="5" value="${F[pos + 'Scale'] ?? 100}" style="width:100%;">
+                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cNum(F[pos + 'Scale'], 100, 10, 300)}</span>%</span></div>
+                  <input type="range" class="m_f_scale" data-pos="${pos}" min="10" max="300" step="5" value="${cNum(F[pos + 'Scale'], 100, 10, 300)}" style="width:100%;">
                   <div style="width:100%; margin-top:6px; text-align:left;"><small>In Visual Novel Mode, sit:</small>${pills('fgl' + pos, [['behind', 'Behind sprites'], ['front', 'In front']], F[pos + 'Layer'])}</div>
                 </div>
               `).join('')}
@@ -980,6 +986,7 @@
 
         ${vnSectionHtml(s)}
         ${displaySectionHtml(s)}
+        ${privacySectionHtml(s)}
         </div>
       </div>
       <div id="ntr_edge" title="Drag to resize"></div>
@@ -1140,6 +1147,7 @@
     bindThemes(overlay, s);
     bindVNSection(overlay, s);
     bindDisplay(overlay, s);
+    overlay.querySelector('#m_x_block').onchange = function() { s.blockExternal = this.checked; save(); refreshVisuals(); openCombinedModal(); };
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);
@@ -1304,6 +1312,17 @@
       </div>`;
   }
 
+  function privacySectionHtml(s) {
+    return `
+      <div class="cb_section">
+        ${secHead('privacy', 'fa-shield-halved', 'Privacy')}
+        <div class="cb_collapse_content">
+          <label class="checkbox_label"><input type="checkbox" id="m_x_block" ${s.blockExternal ? 'checked' : ''}><span>Block card images and videos hosted on other websites</span></label>
+          <div class="cb_hint">A shared card can link its art to someone else's server, which tells that server your IP address and when you opened the chat. With this on, only files stored on your own SillyTavern load. YouTube banners and openings still play. Nothing is removed from the card, so switching it back off restores everything.</div>
+        </div>
+      </div>`;
+  }
+
   function bindDisplay(overlay, s) {
     overlay.querySelector('#m_f_trans').onchange = function() { s.chatTransparent = this.checked; save(); updateAvatarStyle(); };
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
@@ -1337,6 +1356,105 @@
     return cs.findIndex((c) => c && c.avatar === av);
   }
 
+  // ===== Card data cleanup =====
+  // Character cards get shared, so their NTR data is untrusted: every field is forced to the
+  // type and range the extension expects before anything reads it. Unknown keys are left alone.
+  const cleaned = new WeakSet();
+  const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  const cNum = (v, d, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  const cBool = (v, d) => (typeof v === 'boolean' ? v : d);
+  const cStr = (v, max = 200) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const cPick = (v, opts) => (opts.includes(v) ? v : opts[0]);
+  const cId = (v, p) => (typeof v === 'string' && /^[\w-]{1,64}$/.test(v) ? v : newId(p));
+  const cRef = (v) => (typeof v === 'string' && /^[\w-]{1,64}$/.test(v) ? v : '');
+  const MEDIA_DATA = /^data:(?:image\/(?:png|jpeg|gif|webp)|video\/(?:mp4|webm));base64,[A-Za-z0-9+/=\s]+$/;
+  function cUrl(v) {
+    if (typeof v !== 'string') return '';
+    const u = v.trim();
+    if (!u) return '';
+    if (u.startsWith('data:')) return MEDIA_DATA.test(u) ? u : '';
+    if (u.length > 2048 || /[\u0000-\u001f"'<>\\`]/.test(u)) return '';
+    let dec = u;
+    try { dec = decodeURIComponent(u); } catch (e) {}
+    if (/(^|[/\\])\.\.([/\\]|$)/.test(dec)) return '';
+    if (u.startsWith('/') && !u.startsWith('//')) return u;
+    return /^https?:\/\/[^/\s]/i.test(u) ? u : '';
+  }
+  function cUrlMap(v) {
+    const out = Object.create(null);
+    if (!isObj(v)) return out;
+    for (const k of Object.keys(v).slice(0, 500)) { const u = cUrl(v[k]); if (u && k.length <= 200) out[k] = u; }
+    return out;
+  }
+  const cList = (v, max, fn) => (Array.isArray(v) ? v.filter(isObj).slice(0, max).map(fn) : []);
+  const cNamed = (x, p) => ({ ...x, id: cId(x.id, p), name: cStr(x.name), url: cUrl(x.url) });
+
+  function cleanBanner(b) {
+    const images = cList(b.images, 200, (im) => ({ ...im, url: cUrl(im.url), pos: cNum(im.pos, 45, 0, 100) })).filter((im) => im.url);
+    Object.assign(b, {
+      images,
+      idx: Math.round(cNum(b.idx, 0, 0, Math.max(0, images.length - 1))),
+      locked: cBool(b.locked, true),
+      overlap: cBool(b.overlap, false),
+      overlapOffset: cNum(b.overlapOffset, 0, 0, 300),
+      youtubeUrl: cStr(b.youtubeUrl, 500),
+    });
+  }
+
+  function cleanFg(f) {
+    for (const p of FG_POS) {
+      f[p] = cUrl(f[p]);
+      f[p + 'Scale'] = cNum(f[p + 'Scale'], 100, 10, 300);
+      f[p + 'Layer'] = cPick(f[p + 'Layer'], ['behind', 'front']);
+    }
+  }
+
+  function cleanVn(v) {
+    v.avatars = cUrlMap(v.avatars);
+    const emo = Object.create(null);
+    if (isObj(v.emoImgs)) for (const k of Object.keys(v.emoImgs).slice(0, 500)) if (k.length <= 200) emo[k] = cUrlMap(v.emoImgs[k]);
+    v.emoImgs = emo;
+    v.customSpk = Array.isArray(v.customSpk) ? v.customSpk.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : [];
+    v.locations = cList(v.locations, 500, (l) => cNamed(l, 'loc'));
+    v.locDefault = cUrl(v.locDefault);
+    v.cgs = cList(v.cgs, 500, (g) => cNamed(g, 'cg'));
+    v.maps = cList(v.maps, 100, (m) => ({
+      ...cNamed(m, 'map'),
+      pins: cList(m.pins, 500, (p) => ({ ...p, id: cId(p.id, 'pin'), x: cNum(p.x, 0, 0, 1), y: cNum(p.y, 0, 0, 1), loc: cRef(p.loc), map: cRef(p.map) })),
+    }));
+    v.mapRoot = cRef(v.mapRoot);
+    if ('opening' in v) {
+      const o = isObj(v.opening) ? v.opening : {};
+      v.opening = {
+        ...o,
+        src: cPick(o.src, ['off', 'youtube', 'file']),
+        yt: cStr(o.yt, 500),
+        file: cUrl(o.file),
+        title: cBool(o.title, false),
+        logo: cPick(o.logo, ['banner', 'upload', 'none']),
+        logoUrl: cUrl(o.logoUrl),
+        when: cPick(o.when, ['newchat', 'open', 'vn']),
+      };
+    }
+  }
+
+  function cleanStore(st) {
+    if (!isObj(st) || cleaned.has(st)) return st;
+    cleaned.add(st);
+    for (const [k, fn] of [['banner', cleanBanner], ['fg', cleanFg], ['vn', cleanVn]]) {
+      if (!(k in st)) continue;
+      if (isObj(st[k])) fn(st[k]); else delete st[k];
+    }
+    return st;
+  }
+
+  // Optional privacy guard: card images and videos hosted on other websites don't load.
+  const isExternal = (u) => /^(https?:)?\/\//i.test(String(u || '').trim());
+  function media(u) {
+    const v = typeof u === 'string' ? u : '';
+    return settings().blockExternal && isExternal(v) ? '' : v;
+  }
+
   function cardData(key) {
     const c = ctx();
     if (!key || typeof c.writeExtensionField !== 'function') return null;
@@ -1344,7 +1462,7 @@
     const ch = i >= 0 ? c.characters[i] : null;
     if (!ch || !ch.data) return null;
     if (!ch.data.extensions || typeof ch.data.extensions !== 'object') ch.data.extensions = {};
-    let d = ch.data.extensions.ntr;
+    let d = cleanStore(ch.data.extensions.ntr);
     if (!cardSnap.has(key)) cardSnap.set(key, d && typeof d === 'object' ? JSON.stringify(d) : '');
     if (!d || typeof d !== 'object') { d = { v: 1 }; ch.data.extensions.ntr = d; }
     return d;
@@ -1401,14 +1519,14 @@
     const s = settings();
     if (c.groupId) {
       if (!s.groupData[c.groupId]) s.groupData[c.groupId] = {};
-      return s.groupData[c.groupId];
+      return cleanStore(s.groupData[c.groupId]);
     }
     const key = currentKey();
     if (!key) return null;
     let st = cardData(key);
     if (!st) {
       if (!s.charData[key]) s.charData[key] = {};
-      st = s.charData[key];
+      st = cleanStore(s.charData[key]);
     }
     legacyMigrate(st);
     return st;
@@ -1465,16 +1583,19 @@
     return out;
   }
 
+  // Every character's card counts, so a file shared by two cards is never deleted out from under one.
   function filesInUse() {
     const set = collectFileRefs(settings());
-    const d = cardData(currentKey());
-    if (d) collectFileRefs(d, set);
+    for (const ch of ctx().characters || []) collectFileRefs(ch?.data?.extensions?.ntr, set);
     return set;
   }
 
+  // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+
   async function deleteFileIfUnused(path) {
     const p = normFile(path);
-    if (!p || filesInUse().has(p)) return false;
+    if (!p || !OWN_FILE.test(p) || filesInUse().has(p)) return false;
     try {
       const res = await fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) });
       return res.ok;
@@ -2058,7 +2179,7 @@
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, fullResUrl, readDataURL, loadImg,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg,
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
@@ -2068,7 +2189,7 @@
       if (!key) return '';
       const r = peek(key);
       const im = r.images[r.idx] || r.images[0];
-      return im ? im.url : '';
+      return im ? media(im.url) : '';
     },
   };
 

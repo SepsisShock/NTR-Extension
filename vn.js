@@ -165,9 +165,6 @@
       .cb_dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
       .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
       .cb_dfield input { margin: 0; font-family: monospace; }
-      #cb_pick { display: flex; align-items: center; gap: 6px; padding: 4px 8px; flex-wrap: wrap; }
-      #cb_pick select { width: auto; min-width: 110px; max-width: 40%; margin: 0; padding: 2px 6px; }
-      #cb_pick .menu_button { margin: 0; padding: 3px 10px; white-space: nowrap; }
       #cb_node.cb_shape_round .cb_n_port { border-radius: 50%; }
       #cb_node.cb_shape_square .cb_n_port { border-radius: 0; }
       #cb_node.cb_shape_rect .cb_n_port { height: calc(var(--cbn-ps, 120px) * 1.5); }
@@ -680,7 +677,6 @@
             ${subHead('vn_tags', 'Tags & Delimiters')}
             <div class="cb_collapse_content">
               ${ck('m_n_hide', s.nodeHideEmo, 'Hide emotion and scene tags (location, effect, weather, CG) in the normal chat view')}
-              ${ck('m_n_pick', s.nodePicker, 'Show speaker / emotion picker above the input box')}
               <div class="cb_dgrid">
                 ${df('delimSpkOpen', 'Speaker open')}${df('delimSpkClose', 'Speaker close')}
                 ${df('delimNarOpen', 'Narrator open')}${df('delimNarClose', 'Narrator close')}
@@ -719,7 +715,7 @@
   function bindVN(overlay, s) {
     const body = overlay.querySelector('#m_n_body');
     const refreshPrompt = () => { overlay.querySelector('#m_p_text').value = buildPrompt(s); };
-    const refreshAll = () => { refreshPrompt(); fillPicker(); updateInjection(); if (s.nodeEnabled) nodeLoad({ animate: false }); };
+    const refreshAll = () => { refreshPrompt(); updateInjection(); if (s.nodeEnabled) nodeLoad({ animate: false }); };
 
     overlay.querySelector('#m_n_enable').onchange = function() {
       s.nodeEnabled = this.checked; save();
@@ -734,7 +730,6 @@
     chk('#m_n_spr', 'nodeSprites', updateStage);
     chk('#m_n_inj', 'nodeInject', updateInjection);
     chk('#m_n_auto', 'nodeAuto');
-    chk('#m_n_pick', 'nodePicker', ensurePicker);
     chk('#m_n_hide', 'nodeHideEmo', () => {
       if (s.nodeHideEmo) cleanEmoTags();
       else if (typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
@@ -1149,69 +1144,6 @@
     if (!res.ok) throw new Error(`Upload failed (${res.status})`);
     const j = await res.json();
     return '/' + String(j.path).replace(/^\/+/, '');
-  }
-
-  // ----- Picker bar above the input box -----
-  function fillPicker() {
-    const bar = document.getElementById('cb_pick');
-    if (!bar) return;
-    const s = settings();
-    const spkSel = bar.querySelector('#cb_pick_spk');
-    const emoSel = bar.querySelector('#cb_pick_emo');
-    const prevS = spkSel.value, prevE = emoSel.value;
-    spkSel.innerHTML = collectSpeakers().map((x) => `<option value="${escapeHTML(x.name)}">${escapeHTML(x.name)}</option>`).join('')
-      + `<option value="__nar__">${escapeHTML(s.narratorWord)} (narration)</option>`
-      + (V().locations.length ? `<optgroup label="Locations">${V().locations.map((l) => `<option value="__loc__${escapeHTML(l.name)}">${escapeHTML(s.locWord)}: ${escapeHTML(l.name)}</option>`).join('')}</optgroup>` : '');
-    emoSel.innerHTML = '<option value="">Default emotion</option>'
-      + s.emotions.map((e) => `<option value="${escapeHTML(e.name)}">${escapeHTML(e.name)}</option>`).join('');
-    if ([...spkSel.options].some((o) => o.value === prevS)) spkSel.value = prevS;
-    if ([...emoSel.options].some((o) => o.value === prevE)) emoSel.value = prevE;
-    emoSel.disabled = spkSel.value === '__nar__' || spkSel.value.startsWith('__loc__');
-  }
-
-  function insertPickedTag() {
-    const s = settings();
-    const bar = document.getElementById('cb_pick');
-    const ta = document.getElementById('send_textarea');
-    if (!bar || !ta) return;
-    const spk = bar.querySelector('#cb_pick_spk').value;
-    const emo = bar.querySelector('#cb_pick_emo').value;
-    const tag = spk.startsWith('__loc__')
-      ? `${s.delimNarOpen}${s.locWord}:${spk.slice(7)}${s.delimNarClose}\n`
-      : spk === '__nar__'
-      ? `${s.delimNarOpen}${s.narratorWord}${s.delimNarClose}: `
-      : `${s.delimSpkOpen}${spk}${emo ? s.delimEmo + emo : ''}${s.delimSpkClose}: `;
-    const st = ta.selectionStart ?? ta.value.length;
-    const en = ta.selectionEnd ?? st;
-    const before = ta.value.slice(0, st);
-    const pre = before && !/\n\s*$/.test(before) ? '\n' : '';
-    ta.value = before + pre + tag + ta.value.slice(en);
-    const caret = (before + pre + tag).length;
-    ta.focus();
-    ta.setSelectionRange(caret, caret);
-    ta.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  function ensurePicker() {
-    const s = settings();
-    let bar = document.getElementById('cb_pick');
-    if (!(A.isOn() && s.nodeEnabled && s.nodePicker)) { if (bar) bar.remove(); return; }
-    if (bar) return;
-    const sendForm = document.getElementById('send_form');
-    if (!sendForm || !sendForm.parentNode) return;
-    bar = document.createElement('div');
-    bar.id = 'cb_pick';
-    bar.innerHTML = `
-      <i class="fa-solid fa-masks-theater" style="opacity:.6;"></i>
-      <select id="cb_pick_spk" class="text_pole" title="Speaker"></select>
-      <select id="cb_pick_emo" class="text_pole" title="Emotion"></select>
-      <button type="button" id="cb_pick_ins" class="menu_button" title="Insert tag at the cursor"><i class="fa-solid fa-tag"></i> Insert</button>`;
-    sendForm.parentNode.insertBefore(bar, sendForm);
-    bar.querySelector('#cb_pick_spk').onchange = function() { bar.querySelector('#cb_pick_emo').disabled = this.value === '__nar__' || this.value.startsWith('__loc__'); };
-    bar.querySelector('#cb_pick_spk').onfocus = fillPicker;
-    bar.querySelector('#cb_pick_ins').onclick = insertPickedTag;
-    fillPicker();
-    placeNode();
   }
 
   // ----- Dialogue box -----
@@ -1747,7 +1679,6 @@
     const s = settings();
     const ov = ensureNodeLayer();
     syncNodeToggle();
-    fillPicker();
     const sig = chatSig();
     const opened = sig !== lastSig;
     lastSig = sig;
@@ -1782,7 +1713,7 @@
     nodeQ = setTimeout(() => { const a = nodeQAnim; nodeQAnim = false; nodeLoad({ animate: a }); }, 60);
   }
 
-  function ensure() { ensurePicker(); ensureChatObserver(); }
+  function ensure() { ensureChatObserver(); }
 
   function refresh(opts = {}) {
     applyStyle();
@@ -1799,7 +1730,6 @@
     nodeStopTyping();
     const ov = document.getElementById('cb_node');
     if (ov) ov.style.display = 'none';
-    document.getElementById('cb_pick')?.remove();
     node.list = [];
     node.held = false;
     setLocation(null);

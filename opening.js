@@ -7,6 +7,7 @@
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, pills, onPills, subHead } = A;
+  const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -51,9 +52,9 @@
   const op = () => ({ ...ODEF, ...raw() });
   const setOp = (k, val) => { raw()[k] = val; save(); };
   const ytId = (o) => (o.yt && A.getYouTubeId ? A.getYouTubeId(o.yt) : '') || '';
-  const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!o.file : false);
+  const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!media(o.file) : false);
   function logoSrc(o) {
-    if (o.logo === 'upload') return o.logoUrl || '';
+    if (o.logo === 'upload') return media(o.logoUrl);
     if (o.logo === 'banner') return (A.bannerImage && A.bannerImage()) || '';
     return '';
   }
@@ -211,7 +212,7 @@
 
   function startFile(st) {
     const v = document.createElement('video');
-    v.src = st.o.file;
+    v.src = media(st.o.file);
     v.playsInline = true;
     v.setAttribute('playsinline', '');
     v.preload = 'auto';
@@ -389,7 +390,7 @@
       <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_op_${id}val">${shown}</span>${unit}</span></div>
       <input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}">`;
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
-    const logoBox = o.logoUrl ? `<img src="${escapeHTML(o.logoUrl)}" alt="">` : '<i class="fa-solid fa-image"></i>';
+    const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
     return `
       ${subHead('vn_open', 'Opening Video ' + TAG)}
       <div class="cb_collapse_content">

@@ -7,6 +7,7 @@
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, pills, onPills, subHead } = A;
+  const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -87,7 +88,10 @@
   function pathToCurrent(st) {
     const root = rootMap();
     if (!root || !st.cur) return root ? [root.id] : [];
+    const seen = new Set(); // Each map is searched once, so maps that link in circles can't hang it.
     const walk = (m, path) => {
+      if (seen.has(m.id)) return null;
+      seen.add(m.id);
       if (m.pins.some((p) => { const l = p.loc && locById(p.loc); return l && norm(l.name) === st.cur; })) return [...path, m.id];
       for (const p of m.pins) {
         const sub = p.map && mapById(p.map);
@@ -180,11 +184,11 @@
       ? 'Editing: click the map to drop a pin, drag pins to move them, click a pin to link it.'
       : 'Faded pins are places the story hasn\'t visited yet.';
     const box = el.querySelector('.ntr_map_view');
-    if (!m.url) { box.innerHTML = '<div class="ntr_map_empty">This map has no image yet. Upload one in the menu under Visual Novel Mode, Maps.</div>'; return; }
+    if (!media(m.url)) { box.innerHTML = '<div class="ntr_map_empty">This map has no image yet. Upload one in the menu under Visual Novel Mode, Maps.</div>'; return; }
     box.innerHTML = `<div class="ntr_map_canvas"><img alt="" draggable="false"><div class="ntr_map_pins"></div><div class="ntr_map_pop"></div></div>`;
     const canvas = box.querySelector('.ntr_map_canvas');
     const img = canvas.querySelector('img');
-    img.src = m.url;
+    img.src = media(m.url);
     img.onerror = () => { box.innerHTML = '<div class="ntr_map_empty">The map image failed to load.</div>'; };
     img.addEventListener('click', (e) => {
       if (!view.edit) { hidePop(); return; }
@@ -333,7 +337,7 @@
       const id = escapeHTML(m.id);
       return `<div class="cb_spk"><div class="cb_spk_row">
         <label class="cb_defdot" title="Start map"><input type="radio" name="cbr_maproot" value="${id}" ${root && root.id === m.id ? 'checked' : ''}></label>
-        <div class="cb_thumbbox cb_wide">${m.url ? `<img src="${escapeHTML(m.url)}" alt="">` : '<i class="fa-solid fa-map"></i>'}</div>
+        <div class="cb_thumbbox cb_wide">${media(m.url) ? `<img src="${escapeHTML(media(m.url))}" alt="">` : '<i class="fa-solid fa-map"></i>'}</div>
         <input type="text" class="text_pole m_m_name" data-id="${id}" value="${escapeHTML(m.name)}" style="flex:1;min-width:0;margin:0;">
         <button class="menu_button m_m_up" data-id="${id}" title="Upload map image"><i class="fa-solid fa-upload"></i></button>
         <button class="menu_button m_m_edit" data-id="${id}" title="Edit pins" ${m.url ? '' : 'disabled'}><i class="fa-solid fa-location-dot"></i></button>

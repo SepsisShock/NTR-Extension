@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.2.4';
+  const OP_VERSION = '2.2.5';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -328,7 +328,13 @@
   function tick(t, dur) {
     const st = cur;
     if (!st || st.phase !== 'video') return;
-    if (st.cross && st.iframe && dur > 0 && isFinite(dur) && t >= dur - 0.35) { ytCmd('pauseVideo'); end(); return; }
+    // YouTube swaps the last frame for its end screen, so stop just before the end: the fade (to the color
+    // or straight into the story) then starts from the real last frame. A timer keeps it precise because
+    // YouTube only reports the time a few times a second.
+    if (st.iframe && dur > 0 && isFinite(dur) && !st.ytStop) {
+      const left = dur - t;
+      if (left <= 1.5) st.ytStop = later(() => { if (st.phase !== 'video') return; ytCmd('pauseVideo'); end(); }, Math.max(0, (left - 0.15) * 1000));
+    }
     if (!st.logo || st.logoShown) return;
     const lead = Math.max(0, Number(settings().opLead) || 0);
     if (dur > 0 && isFinite(dur) && lead > 0 && t >= dur - lead) showLogo();

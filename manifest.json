@@ -6,6 +6,6 @@
   "js": "index.js",
   "css": "style.css",
   "author": "SepsisShock",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "Character banners, avatar styling, foreground images, display overrides, themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos."
 }

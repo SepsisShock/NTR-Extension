@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.2.3';
+  const VERSION = '2.2.4';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -75,7 +75,7 @@
     nodeCG: true, cgWord: 'CG',
     enterWord: 'Enter', exitWord: 'Exit',
     artBg: 'dusk', artBgImg: '', artSprite: 'builtin', artSpriteImg: '',
-    opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opHold: true, opExit: 'stay', opTrans: 'color', opTransColor: '#000000', opTransMs: 400, opSeen: {},
+    opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opHold: true, opExit: 'stay', opTrans: 'color', opTransColor: '#000000', opTransMs: 400, opMute: false, opSeen: {},
     nodeMaps: true, mapGoText: '*heads to the {place}*',
     themes: [],
     themeActive: null,

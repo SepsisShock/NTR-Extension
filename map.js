@@ -6,7 +6,7 @@
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, pills, onPills, subHead } = A;
+  const { save, settings, escapeHTML, askImageUrl, pills, onPills, subHead } = A;
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
   const TAG = A.TAG || '';
 
@@ -340,6 +340,7 @@
         <div class="cb_thumbbox cb_wide">${media(m.url) ? `<img src="${escapeHTML(media(m.url))}" alt="">` : '<i class="fa-solid fa-map"></i>'}</div>
         <input type="text" class="text_pole m_m_name" data-id="${id}" value="${escapeHTML(m.name)}" style="flex:1;min-width:0;margin:0;">
         <button class="menu_button m_m_up" data-id="${id}" title="Upload map image"><i class="fa-solid fa-upload"></i></button>
+        <button class="menu_button m_m_url" data-id="${id}" title="Use a link for the map image"><i class="fa-solid fa-link"></i></button>
         <button class="menu_button m_m_edit" data-id="${id}" title="Edit pins" ${m.url ? '' : 'disabled'}><i class="fa-solid fa-location-dot"></i></button>
         <button class="menu_button danger_button m_m_del" data-id="${id}" title="Delete map"><i class="fa-solid fa-trash"></i></button>
       </div><div class="cb_hint" style="margin:4px 0 0 32px;">${m.pins.length} pin${m.pins.length === 1 ? '' : 's'}</div></div>`;
@@ -395,6 +396,12 @@
         };
       });
       box.querySelectorAll('.m_m_up').forEach((b) => { b.onclick = () => { pending = b.dataset.id; file.click(); }; });
+      box.querySelectorAll('.m_m_url').forEach((b) => {
+        b.onclick = async () => {
+          const url = await askImageUrl('Map image');
+          if (url) setMapImage(b.dataset.id, url);
+        };
+      });
       box.querySelectorAll('.m_m_edit').forEach((b) => { b.onclick = () => open({ edit: true, mapId: b.dataset.id, fromMenu: true }); });
       box.querySelectorAll('.m_m_del').forEach((b) => {
         b.onclick = () => {
@@ -409,15 +416,17 @@
         };
       });
     };
+    const setMapImage = (id, url) => {
+      const m = mapById(id);
+      let old;
+      if (m) { old = m.url; m.url = url; }
+      save(); render(); VN().refresh();
+      A.deleteFileIfUnused(old);
+    };
     if (file) file.onchange = async () => {
       if (!file.files.length || !pending) return;
       try {
-        const url = await VN().uploadImage(file.files[0], 3072, 'vnmap');
-        const m = mapById(pending);
-        let old;
-        if (m) { old = m.url; m.url = url; }
-        save(); render(); VN().refresh();
-        A.deleteFileIfUnused(old);
+        setMapImage(pending, await VN().uploadImage(file.files[0], 3072, 'vnmap'));
       } catch (e) {
         console.error('[NTR map upload]', e);
         toastr.error(e.message || 'Map upload failed', 'Maps');

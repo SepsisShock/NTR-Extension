@@ -768,6 +768,17 @@
   const readDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
   const loadImg = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
 
+  // Ask for an image link instead of an upload. Resolves to a checked http(s) URL, or '' if cancelled or unusable.
+  async function askImageUrl(label = 'Image') {
+    const raw = prompt(`${label}: paste an image link (https://...)`);
+    if (raw === null) return '';
+    const u = cUrl(raw);
+    if (!/^https?:\/\//i.test(u)) { toastr.warning('Paste a full link that starts with http:// or https://', 'Image link'); return ''; }
+    try { await loadImg(u); } catch (e) { toastr.error('That link did not load as an image. Check it and try again.', 'Image link'); return ''; }
+    if (settings().blockExternal) toastr.info('Images from other websites are blocked by your privacy setting, so this one will stay hidden until you turn that off.', 'Image link');
+    return u;
+  }
+
   async function addFiles(files) {
     const key = currentKey();
     if (!key) { toastr.warning('Select a single character first (banners are per character).', 'Banner'); return; }
@@ -931,6 +942,7 @@
               <div style="margin-bottom: 6px;"><strong>Images</strong> ${TAG}</div>
               <div class="cb_actions">
                 <button id="m_b_up" class="menu_button" ${!key ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Add</button>
+                <button id="m_b_url" class="menu_button" ${!key ? 'disabled' : ''} title="Add an image from a link"><i class="fa-solid fa-link"></i> Link</button>
                 <button id="m_b_del" class="menu_button danger_button" ${!n ? 'disabled' : ''}><i class="fa-solid fa-trash-can"></i> Del</button>
               </div>
               <input type="file" id="m_b_file" accept="image/png,image/jpeg,image/gif,image/webp,.png,.jpg,.jpeg,.gif,.webp" multiple hidden>
@@ -992,6 +1004,7 @@
                   </div>
                   <div style="display:flex; gap:5px; width:100%;">
                     <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload ${pos} image"><i class="fa-solid fa-upload"></i></button>
+                    <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image"><i class="fa-solid fa-link"></i></button>
                     <button class="menu_button danger_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Clear ${pos} image" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
                   </div>
                   <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cNum(F[pos + 'Scale'], 100, 10, 300)}</span>%</span></div>
@@ -1075,6 +1088,20 @@
       btn.onclick = () => { pendingFgPos = btn.dataset.pos; fgFile.click(); };
     });
 
+    overlay.querySelectorAll('.m_f_url').forEach(btn => {
+      btn.onclick = async () => {
+        const pos = btn.dataset.pos;
+        const url = await askImageUrl(`${pos} foreground image`);
+        if (!url) return;
+        const old = F[pos];
+        F[pos] = url;
+        deleteFileIfUnused(old);
+        save();
+        ensureFgLayer();
+        openCombinedModal();
+      };
+    });
+
     overlay.querySelectorAll('.m_f_del').forEach(btn => {
       btn.onclick = () => { 
         const pos = btn.dataset.pos;
@@ -1143,6 +1170,15 @@
       
       const fi = overlay.querySelector('#m_b_file');
       overlay.querySelector('#m_b_up').onclick = () => fi.click();
+      overlay.querySelector('#m_b_url').onclick = async () => {
+        const k = currentKey();
+        const url = k ? await askImageUrl('Banner image') : '';
+        if (!url) return;
+        const rr = rec(k);
+        rr.images.push({ url, pos: 45 });
+        rr.idx = rr.images.length - 1;
+        save(); updateBanner(); openCombinedModal();
+      };
       fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openCombinedModal(); }};
       if (n) overlay.querySelector('#m_b_del').onclick = async () => { await removeCurrentBanner(); openCombinedModal(); };
       if (n > 0) {
@@ -2225,7 +2261,7 @@
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg, askImageUrl,
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },

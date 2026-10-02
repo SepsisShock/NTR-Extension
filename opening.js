@@ -34,9 +34,6 @@
     #ntr_open .ntr_op_bar { position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; z-index: 2; }
     #ntr_open .ntr_op_small { cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.5); color: #fff; font-size: 13px; opacity: .8; }
     #ntr_open .ntr_op_small:hover { opacity: 1; }
-    #ntr_open .ntr_op_hint { position: absolute; left: 50%; bottom: calc(8vh + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 14px; letter-spacing: .1em; opacity: 0; transition: opacity .6s ease; animation: ntr_op_blink 2s ease-in-out infinite; pointer-events: none; }
-    #ntr_open .ntr_op_hint.ntr_in { opacity: .85; }
-    @keyframes ntr_op_blink { 50% { filter: brightness(.55); } }
   `;
   function ensureStyle() {
     if (document.getElementById('ntr_op_style')) return;
@@ -47,7 +44,7 @@
   }
 
   // ----- Data (per character, inside the VN data) -----
-  const ODEF = { src: 'off', yt: '', file: '', title: false, logo: 'banner', logoUrl: '', when: 'newchat' };
+  const ODEF = { src: 'off', yt: '', file: '', title: false, logo: 'upload', logoUrl: '', when: 'newchat' };
   const raw = () => {
     const v = VN().data();
     if (!v.opening || typeof v.opening !== 'object') v.opening = {};
@@ -58,9 +55,8 @@
   const ytId = (o) => (o.yt && A.getYouTubeId ? A.getYouTubeId(o.yt) : '') || '';
   const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!media(o.file) : false);
   function logoSrc(o) {
-    if (o.logo === 'upload') return media(o.logoUrl);
-    if (o.logo === 'banner') return (A.bannerImage && A.bannerImage()) || '';
-    return '';
+    // Older saves may still say 'banner'; that choice is gone, so they use the uploaded logo.
+    return o.logo === 'none' ? '' : media(o.logoUrl);
   }
 
   // ----- When to play -----
@@ -362,20 +358,8 @@
     showLogo();
     const left = was ? Math.max(0, fade - (Date.now() - st.logoAt)) : fade;
     if (st.exit === 'rise' && !st.skipped) setTimeout(() => rise(st), left);
-    const sk = st.bar && st.bar.querySelector('[data-a="skip"]');
-    if (settings().opHold) {
-      if (sk) sk.innerHTML = 'Continue <i class="fa-solid fa-play"></i>';
-      later(() => {
-        const h = document.createElement('div');
-        h.className = 'ntr_op_hint';
-        h.textContent = 'Click to continue';
-        st.root.appendChild(h);
-        requestAnimationFrame(() => requestAnimationFrame(() => h.classList.add('ntr_in')));
-      }, left + 300);
-    } else {
-      if (st.bar) st.bar.remove();
-      later(finish, left + 2000);
-    }
+    if (st.bar) st.bar.remove();
+    later(finish, left + 2000);
   }
 
   function clickLogo() {
@@ -400,8 +384,6 @@
     if (st.exit === 'fade' && st.logo && st.logoShown) {
       st.phase = 'out';
       if (st.bar) st.bar.remove();
-      const h = st.root.querySelector('.ntr_op_hint');
-      if (h) h.remove();
       st.logo.style.opacity = '0';
       later(close, Math.max(0, Number(settings().opFade) || 0) + 100);
       return;
@@ -477,9 +459,9 @@
             ${pills('opwhen', [['newchat', 'First time a new chat starts'], ['open', 'Every time the chat opens'], ['vn', 'Every time VN mode switches on']], o.when)}
           </div>
           <div style="margin-top:8px;"><small>Logo at the end</small>
-            ${pills('oplogo', [['banner', 'Banner image'], ['upload', 'Uploaded logo'], ['none', 'None']], o.logo)}
+            ${pills('oplogo', [['upload', 'Uploaded logo'], ['none', 'None']], o.logo === 'none' ? 'none' : 'upload')}
           </div>
-          <div id="m_op_lrow" class="cb_row" style="margin-top:6px;${o.logo === 'upload' ? '' : 'display:none;'}">
+          <div id="m_op_lrow" class="cb_row" style="margin-top:6px;${o.logo === 'none' ? 'display:none;' : ''}">
             <div class="cb_thumbbox cb_wide">${logoBox}</div>
             <span style="flex:1;"></span>
             <button type="button" id="m_op_lup" class="menu_button" style="margin:0;" title="Upload logo"><i class="fa-solid fa-upload"></i></button>
@@ -496,7 +478,6 @@
               ${pills('opexit', [['stay', 'As is'], ['fade', 'Fade out'], ['rise', 'Rise to top']], s.opExit || 'stay')}
             </div>
             <div class="cb_hint" style="margin-top:4px;">Rise to top: the logo drifts up once the video ends and stays over the scene. Skipping the video turns this off for that playthrough.</div>
-            <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_hold" ${s.opHold ? 'checked' : ''}><span>Hold the logo until I click</span></label>
           </div>
           <div class="cb_actions" style="margin-top:10px;">
             <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play now</button>
@@ -535,14 +516,11 @@
     onPills(overlay, 'opwhen', (v) => setOp('when', v));
     onPills(overlay, 'oplogo', (v) => {
       setOp('logo', v);
-      q('#m_op_lrow').style.display = v === 'upload' ? '' : 'none';
+      q('#m_op_lrow').style.display = v === 'none' ? 'none' : '';
       q('#m_op_lbody')?.classList.toggle('cb_dim', v === 'none');
-      if (v === 'banner' && !(A.bannerImage && A.bannerImage())) toastr.info('This character has no banner image yet, so no logo will show.', 'Opening video');
     });
     onPills(overlay, 'oppos', (v) => { s.opPos = v; save(); });
     onPills(overlay, 'opexit', (v) => { s.opExit = v; save(); });
-    const hold = q('#m_op_hold');
-    if (hold) hold.onchange = () => { s.opHold = hold.checked; save(); };
     overlay.querySelectorAll('.m_op_sl').forEach((sl) => {
       sl.oninput = function() {
         const k = this.dataset.key;

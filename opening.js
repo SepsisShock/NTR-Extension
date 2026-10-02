@@ -346,13 +346,19 @@
     if (st.hello) clearInterval(st.hello);
     if (st.video) { try { st.video.pause(); } catch (e) {} }
     if (st.iframe) ytCmd('pauseVideo');
-    if (st.media) st.media.classList.add('ntr_gone');
+    // Video to color uses the transition length too; a skip keeps the quick fade.
+    const ms = st.skipped ? 600 : transMs();
+    st.mediaOutMs = ms;
+    if (st.media) {
+      st.media.style.transition = `opacity ${ms}ms ease`;
+      st.media.classList.add('ntr_gone');
+    }
     if (st.snd) st.snd.style.display = 'none';
     const m = st.media;
     setTimeout(() => {
       if (st.video) { try { st.video.removeAttribute('src'); st.video.load(); } catch (e) {} }
       if (m) m.remove();
-    }, 700);
+    }, ms + 100);
   }
 
   function holdMedia(st) {
@@ -408,14 +414,16 @@
     // Crossfade keeps the last frame on screen; skipping always fades through the color.
     if (st.cross && !st.skipped) holdMedia(st);
     else stopMedia(st);
-    if (!st.logo) { finish(); return; }
+    // Without a logo, the story fade waits until the video has faded to the color.
+    const wait = st.cross || st.skipped ? 0 : st.mediaOutMs || 0;
+    if (!st.logo) { if (wait) later(finish, wait); else finish(); return; }
     const fade = Math.max(0, Number(settings().opFade) || 0);
     const was = st.logoShown;
     showLogo();
     const left = was ? Math.max(0, fade - (Date.now() - st.logoAt)) : fade;
     if (st.exit === 'rise' && !st.skipped) setTimeout(() => rise(st), left);
     if (st.bar) st.bar.remove();
-    later(finish, left + 2000);
+    later(finish, Math.max(left + 2000, wait));
   }
 
   function clickLogo() {
@@ -557,7 +565,7 @@
             <label for="m_op_color">Fade color</label><input type="color" id="m_op_color" value="${escapeHTML(transColor())}">
           </div>
           ${sl('trans', 'opTransMs', 'Transition length', ' s', 100, 3000, 100, (transMs() / 1000).toFixed(1))}
-          <div class="cb_hint" style="margin-top:4px;">Color fade: video, then the color, then the story. Crossfade: the last frame of the video blends straight into the story. Skipping the video always uses a quick color fade.</div>
+          <div class="cb_hint" style="margin-top:4px;">Color fade: video, then the color, then the story (the length applies to both fades). Crossfade: the last frame of the video blends straight into the story. Skipping the video always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
             <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play now</button>
           </div>

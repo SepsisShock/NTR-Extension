@@ -27,10 +27,10 @@
     #ntr_open .ntr_op_catch { position: absolute; inset: 0; cursor: pointer; }
     #ntr_open .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
     #ntr_open .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    #ntr_op_pin { position: fixed; inset: 0; z-index: 2601; pointer-events: none; overflow: hidden; transition: opacity .4s ease; }
-    #ntr_op_pin.ntr_gone { opacity: 0; }
-    #ntr_op_pin .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
-    #ntr_op_pin .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .ntr_op_pin { position: fixed; inset: 0; z-index: 2601; pointer-events: none; overflow: hidden; transition: opacity .4s ease; }
+    .ntr_op_pin.ntr_gone { opacity: 0; }
+    .ntr_op_pin .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
+    .ntr_op_pin .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     #ntr_open .ntr_op_bar { position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; z-index: 2; }
     #ntr_open .ntr_op_small { cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.5); color: #fff; font-size: 13px; opacity: .8; }
     #ntr_open .ntr_op_small:hover { opacity: 1; }
@@ -99,6 +99,9 @@
     pinned = null;
   }
   const RISE_MS = 5000;
+  const PIN_Z = '2399'; // Over the background, behind the characters, weather, CG and dialogue box.
+  const transMs = () => Math.max(100, Math.min(3000, Number(settings().opTransMs) || 400));
+  const transColor = () => (/^#[0-9a-f]{6}$/i.test(settings().opTransColor || '') ? settings().opTransColor : '#000000');
 
   function play(hooks, opts = {}) {
     const o = op();
@@ -111,11 +114,13 @@
       sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',
       timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false,
       exit: ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
+      cross: s.opTrans === 'cross',
     };
     cur = st;
     const root = document.createElement('div');
     root.id = 'ntr_open';
     root.tabIndex = -1;
+    root.style.background = transColor();
     st.root = root;
     document.body.appendChild(root);
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) {}
@@ -135,7 +140,7 @@
       if (st.exit === 'rise') {
         // Its own layer above the opening, so it can outlive the black screen without restarting its animation.
         const pin = document.createElement('div');
-        pin.id = 'ntr_op_pin';
+        pin.className = 'ntr_op_pin';
         pin.appendChild(img);
         st.pin = pin;
       }
@@ -304,7 +309,9 @@
 
   function tick(t, dur) {
     const st = cur;
-    if (!st || st.phase !== 'video' || !st.logo || st.logoShown) return;
+    if (!st || st.phase !== 'video') return;
+    if (st.cross && st.iframe && dur > 0 && isFinite(dur) && t >= dur - 0.35) { ytCmd('pauseVideo'); end(); return; }
+    if (!st.logo || st.logoShown) return;
     const lead = Math.max(0, Number(settings().opLead) || 0);
     if (dur > 0 && isFinite(dur) && lead > 0 && t >= dur - lead) showLogo();
   }
@@ -330,6 +337,13 @@
     }, 700);
   }
 
+  function holdMedia(st) {
+    if (st.hello) clearInterval(st.hello);
+    if (st.video) { try { st.video.pause(); } catch (e) {} }
+    if (st.iframe) ytCmd('pauseVideo');
+    if (st.snd) st.snd.style.display = 'none';
+  }
+
   const skip = () => {
     if (cur && cur.phase === 'video') cur.skipped = true;
     end();
@@ -338,12 +352,34 @@
   // Drifts the logo up until its top edge sits near the top of the screen.
   function rise(st) {
     if (st.rising || !st.logo || !st.pin || !st.pin.isConnected) return;
-    st.rising = true;
     const img = st.logo;
-    const dy = 12 - (img.offsetTop - img.offsetHeight / 2);
-    const ms = Math.max(0, Number(settings().opFade) || 0);
-    img.style.transition = `opacity ${ms}ms ease, transform ${RISE_MS}ms cubic-bezier(.45, 0, .25, 1)`;
-    img.style.transform = `translate(-50%, calc(-50% + ${Math.min(0, dy)}px)) scale(1)`;
+    if (!img.animate) return;
+    st.rising = true;
+    const dy = Math.min(0, 12 - (img.offsetTop - img.offsetHeight / 2));
+    st.riseKf = [{ transform: 'translate(-50%, -50%) scale(1)' }, { transform: `translate(-50%, calc(-50% + ${dy}px)) scale(1)` }];
+    st.riseOpts = { duration: RISE_MS, easing: 'cubic-bezier(.45, 0, .25, 1)', fill: 'forwards' };
+    st.riseAnim = img.animate(st.riseKf, st.riseOpts);
+    st.riseAnim.startTime = document.timeline.currentTime;
+  }
+
+  // The rising logo moves behind the characters: a copy on the low layer runs the same animation in step,
+  // while the copy above the opening fades out together with it.
+  function settlePin(st) {
+    const low = document.createElement('div');
+    low.className = 'ntr_op_pin';
+    low.style.zIndex = PIN_Z;
+    const img = st.logo.cloneNode();
+    img.classList.add('ntr_in');
+    img.style.transition = 'none';
+    img.style.opacity = '1';
+    low.appendChild(img);
+    document.body.appendChild(low);
+    if (st.riseAnim) img.animate(st.riseKf, st.riseOpts).startTime = st.riseAnim.startTime;
+    pinned = { el: low, sig: st.sig };
+    const top = st.pin;
+    top.style.transition = `opacity ${st.outMs}ms ease`;
+    top.classList.add('ntr_gone');
+    setTimeout(() => top.remove(), st.outMs + 50);
   }
 
   // Video finished or skipped: the logo (if any) gets its moment, then the story starts.
@@ -351,7 +387,9 @@
     const st = cur;
     if (!st || st.phase !== 'video') return;
     setPhase('logo');
-    stopMedia(st);
+    // Crossfade keeps the last frame on screen; skipping always fades through the color.
+    if (st.cross && !st.skipped) holdMedia(st);
+    else stopMedia(st);
     if (!st.logo) { finish(); return; }
     const fade = Math.max(0, Number(settings().opFade) || 0);
     const was = st.logoShown;
@@ -374,6 +412,10 @@
     if (st.hello) clearInterval(st.hello);
     if (st.onKey) document.removeEventListener('keydown', st.onKey, true);
     if (st.onMsg) window.removeEventListener('message', st.onMsg);
+    unloadVideo(st);
+  }
+
+  function unloadVideo(st) {
     if (st.video) { try { st.video.pause(); st.video.removeAttribute('src'); st.video.load(); } catch (e) {} }
   }
 
@@ -396,19 +438,28 @@
     if (!st) return;
     st.phase = 'done';
     cur = null;
-    cleanup(st);
+    // A skipped opening gets the quick fade; otherwise the chosen transition length.
+    st.outMs = st.skipped ? 400 : transMs();
+    const keep = st.cross && !st.skipped; // The frozen last frame fades out with the opening.
+    if (keep) {
+      const v = st.video;
+      st.video = null;
+      cleanup(st);
+      st.video = v;
+    } else cleanup(st);
+    st.root.style.transition = `opacity ${st.outMs}ms ease`;
     st.root.classList.remove('ntr_in');
     st.root.style.pointerEvents = 'none';
-    setTimeout(() => st.root.remove(), 450);
+    setTimeout(() => { unloadVideo(st); st.root.remove(); }, st.outMs + 50);
     if (st.pin) {
       if (st.logoShown && !st.skipped) {
         rise(st);
-        st.pin.style.zIndex = '2420'; // Over the scene, under the CG and the dialogue box.
-        pinned = { el: st.pin, sig: st.sig };
+        settlePin(st);
       } else {
+        st.pin.style.transition = `opacity ${st.outMs}ms ease`;
         st.pin.classList.add('ntr_gone');
         const pin = st.pin;
-        setTimeout(() => pin.remove(), 450);
+        setTimeout(() => pin.remove(), st.outMs + 50);
       }
     }
     try { st.hooks.onDone && st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
@@ -424,6 +475,7 @@
     cleanup(st);
     st.root.remove();
     if (st.pin) st.pin.remove();
+    unloadVideo(st);
   }
 
   function safeCall(fn) { try { return fn(); } catch (e) { console.error('[NTR opening]', e); return ''; } }
@@ -477,8 +529,16 @@
             <div style="margin-top:8px;"><small>Logo exit</small>
               ${pills('opexit', [['stay', 'As is'], ['fade', 'Fade out'], ['rise', 'Rise to top']], s.opExit || 'stay')}
             </div>
-            <div class="cb_hint" style="margin-top:4px;">Rise to top: the logo drifts up once the video ends and stays over the scene. Skipping the video turns this off for that playthrough.</div>
+            <div class="cb_hint" style="margin-top:4px;">Rise to top: the logo drifts up once the video ends and stays behind the characters. Skipping the video turns this off for that playthrough.</div>
           </div>
+          <div style="margin-top:8px;"><small>Transition into the story</small>
+            ${pills('optrans', [['color', 'Color fade'], ['cross', 'Crossfade']], s.opTrans === 'cross' ? 'cross' : 'color')}
+          </div>
+          <div id="m_op_crow" class="cb_row" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}">
+            <label for="m_op_color">Fade color</label><input type="color" id="m_op_color" value="${escapeHTML(transColor())}">
+          </div>
+          ${sl('trans', 'opTransMs', 'Transition length', ' s', 100, 3000, 100, (transMs() / 1000).toFixed(1))}
+          <div class="cb_hint" style="margin-top:4px;">Color fade: video, then the color, then the story. Crossfade: the last frame of the video blends straight into the story. Skipping the video always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
             <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play now</button>
           </div>
@@ -521,12 +581,22 @@
     });
     onPills(overlay, 'oppos', (v) => { s.opPos = v; save(); });
     onPills(overlay, 'opexit', (v) => { s.opExit = v; save(); });
+    onPills(overlay, 'optrans', (v) => {
+      s.opTrans = v;
+      save();
+      q('#m_op_crow').style.display = v === 'cross' ? 'none' : '';
+    });
+    const col = q('#m_op_color');
+    if (col) {
+      col.oninput = () => { s.opTransColor = col.value; };
+      col.onchange = save;
+    }
     overlay.querySelectorAll('.m_op_sl').forEach((sl) => {
       sl.oninput = function() {
         const k = this.dataset.key;
         s[k] = Number(this.value);
         const out = overlay.querySelector(`#m_op_${this.dataset.id}val`);
-        if (out) out.textContent = k === 'opFade' ? (s[k] / 1000).toFixed(1) : this.value;
+        if (out) out.textContent = k === 'opFade' || k === 'opTransMs' ? (s[k] / 1000).toFixed(1) : this.value;
       };
       sl.onchange = save;
     });

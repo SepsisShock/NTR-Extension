@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.2.5';
+  const OP_VERSION = '2.2.6';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -355,6 +355,7 @@
     // Video to color uses the transition length too; a skip keeps the quick fade.
     const ms = st.skipped ? 600 : transMs();
     st.mediaOutMs = ms;
+    console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): fading to ${transColor()} over ${ms} ms.`);
     if (st.media) {
       st.media.style.transition = `opacity ${ms}ms ease`;
       st.media.classList.add('ntr_gone');
@@ -494,8 +495,12 @@
         setTimeout(() => pin.remove(), st.outMs + 50);
       }
     }
-    try { st.hooks.onDone && st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
-    if (st.onEnd) { try { st.onEnd(); } catch (e) { console.error('[NTR opening]', e); } }
+    // The story starts once the transition has finished, not underneath it.
+    setTimeout(() => {
+      if (cur) return; // Another opening took over in the meantime.
+      try { st.hooks.onDone && st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
+      if (st.onEnd) { try { st.onEnd(); } catch (e) { console.error('[NTR opening]', e); } }
+    }, st.outMs);
   }
 
   // Stops at once without starting the story (VN switched off, chat changed, and so on).

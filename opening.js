@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.2.6';
+  const OP_VERSION = '2.2.7';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -22,6 +22,7 @@
     #ntr_open .ntr_op_btn:hover, #ntr_open .ntr_op_btn:focus-visible { background: #fff; color: #000; outline: none; }
     #ntr_open .ntr_op_media { position: absolute; inset: 0; overflow: hidden; transition: opacity .6s ease; }
     #ntr_open .ntr_op_media.ntr_gone { opacity: 0; }
+    #ntr_open .ntr_op_cover { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
     #ntr_open .ntr_op_media video { width: 100%; height: 100%; object-fit: cover; display: block; }
     #ntr_open .ntr_op_media iframe { position: absolute; left: 50%; top: 50%; width: max(100vw, 177.78vh); height: max(100vh, 56.25vw); transform: translate(-50%, -50%); border: 0; pointer-events: none; }
     #ntr_open .ntr_op_catch { position: absolute; inset: 0; cursor: pointer; }
@@ -356,9 +357,20 @@
     const ms = st.skipped ? 600 : transMs();
     st.mediaOutMs = ms;
     console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): fading to ${transColor()} over ${ms} ms.`);
+    // A color layer fades in over the paused video. Fading the video itself is unreliable: with hardware video
+    // decoding some browsers drop the video at once instead of fading it.
     if (st.media) {
-      st.media.style.transition = `opacity ${ms}ms ease`;
-      st.media.classList.add('ntr_gone');
+      const cover = document.createElement('div');
+      cover.className = 'ntr_op_cover';
+      cover.style.background = transColor();
+      st.media.after(cover);
+      st.cover = cover;
+      cover.getBoundingClientRect(); // Start from opacity 0 so the change below animates.
+      cover.style.transition = `opacity ${ms}ms ease`;
+      cover.style.opacity = '1';
+      setTimeout(() => {
+        if (cover.isConnected) console.info(`[NTR opening] Fade halfway: color layer at ${getComputedStyle(cover).opacity} (should be near 0.5).`);
+      }, ms / 2);
     }
     if (st.snd) st.snd.style.display = 'none';
     const m = st.media;

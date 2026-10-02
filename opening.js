@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.2.8';
+  const OP_VERSION = '2.2.9';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -101,7 +101,7 @@
   }
   const RISE_MS = 3000;
   const PIN_Z = '2399'; // Over the background, behind the characters, weather, CG and dialogue box.
-  const transMs = () => Math.max(100, Math.min(3000, Number(settings().opTransMs) || 400));
+  const transMs = () => Math.max(100, Math.min(10000, Number(settings().opTransMs) || 400));
   const transColor = () => (/^#[0-9a-f]{6}$/i.test(settings().opTransColor || '') ? settings().opTransColor : '#000000');
 
   function play(hooks, opts = {}) {
@@ -602,7 +602,7 @@
             <label for="m_op_color">Fade color</label><input type="color" id="m_op_color" value="${escapeHTML(transColor())}">
           </div>
           <label id="m_op_erow" class="checkbox_label" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade out the ending (the color covers the last seconds while the video still plays)</span></label>
-          ${sl('trans', 'opTransMs', 'Transition length', ' s', 100, 3000, 100, (transMs() / 1000).toFixed(1))}
+          ${sl('trans', 'opTransMs', 'Transition length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
           <div class="cb_hint" style="margin-top:4px;">Color fade: video, then the color, then the story (the length applies to both fades). Crossfade: the last frame of the video blends straight into the story. Skipping the video always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
             <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play now</button>

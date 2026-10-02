@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.2.0';
+  const VERSION = '2.2.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1448,6 +1448,7 @@
 
   function cleanVn(v) {
     v.avatars = cUrlMap(v.avatars);
+    v.sprites = cUrlMap(v.sprites);
     const emo = Object.create(null);
     if (isObj(v.emoImgs)) for (const k of Object.keys(v.emoImgs).slice(0, 500)) if (k.length <= 200) emo[k] = cUrlMap(v.emoImgs[k]);
     v.emoImgs = emo;

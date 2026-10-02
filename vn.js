@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.2.0';
+  const VN_VERSION = '2.2.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, readDataURL, loadImg, pills, onPills, secHead, subHead } = A;
@@ -9,7 +9,7 @@
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
-  const VDEF = () => ({ avatars: Object.create(null), emoImgs: Object.create(null), customSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
+  const VDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
   function V() {
     const st = A.store();
     if (!st) return VDEF();
@@ -406,12 +406,13 @@
     return resolveAvatar(name);
   }
 
-  // Stage sprites: uploaded images (emotion or custom base), never card/persona avatars.
+  // Stage sprites: the full portrait wins. Otherwise uploaded images (emotion or custom base), never card/persona avatars.
   // With the base-image option on, emotion images stay in the box: custom base > persona > card avatar.
   function spriteSrc(name, emoName) {
     const s = settings();
     const v = V();
     const key = String(name || '').trim().toLowerCase();
+    if (v.sprites[key]) return media(v.sprites[key]) || silhouetteFor(key);
     if (s.nodeSpriteBase) return resolveAvatar(name) || silhouetteFor(key);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
@@ -466,6 +467,7 @@
     return list.map(({ key, name, custom }) => {
       const base = resolveAvatar(name);
       const manual = !!V().avatars[key];
+      const full = V().sprites[key];
       const imgs = V().emoImgs[key] || {};
       const cnt = s.emotions.filter((e) => imgs[e.id]).length;
       const open = spkOpen.has(key);
@@ -490,6 +492,12 @@
           <button class="menu_button m_n_clr" data-key="${k}" data-emo="" title="Remove custom base portrait" ${manual ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
           <button class="menu_button m_n_exp" data-key="${k}" title="Emotion portraits"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
           ${custom ? `<button class="menu_button danger_button m_n_rm" data-key="${k}" title="Remove custom speaker"><i class="fa-solid fa-xmark"></i></button>` : ''}
+        </div>
+        <div class="cb_spk_row">
+          ${thumbBox(full)}
+          <span class="cb_spk_name">Full portrait<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the images above'}</small></span>
+          <button class="menu_button m_n_up" data-key="${k}" data-emo="" data-full="1" title="Upload full portrait (stage sprite)"><i class="fa-solid fa-upload"></i></button>
+          <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" data-full="1" title="Remove full portrait" ${full ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
         </div>
         ${grid}
       </div>`;
@@ -672,7 +680,7 @@
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
               ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites use the base image, not emotion images')}
-              <div class="cb_hint">Sprites use the emotion images or custom base portraits you upload under Speakers, not card avatars. With the base-image option on, emotion images only appear in the message box: the stage shows the speaker's base image (the upload arrow), or their card or persona avatar if you haven't uploaded one. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              <div class="cb_hint">A speaker's full portrait (the second row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images or custom base portraits you upload under Speakers, not card avatars. With the base-image option on, emotion images only appear in the message box: the stage shows the speaker's base image (the upload arrow), or their card or persona avatar if you haven't uploaded one. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -891,12 +899,13 @@
     const renderSpk = () => {
       const box = overlay.querySelector('#m_n_spk');
       box.innerHTML = spkRowsHtml(s);
-      box.querySelectorAll('.m_n_up').forEach((b) => { b.onclick = () => { pending = { key: b.dataset.key, emo: b.dataset.emo }; nFile.click(); }; });
+      box.querySelectorAll('.m_n_up').forEach((b) => { b.onclick = () => { pending = { key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }; nFile.click(); }; });
       box.querySelectorAll('.m_n_clr').forEach((b) => {
         b.onclick = () => {
-          const { key, emo } = b.dataset;
+          const { key, emo, full } = b.dataset;
           let old;
-          if (emo) { if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; } }
+          if (full) { old = V().sprites[key]; delete V().sprites[key]; }
+          else if (emo) { if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; } }
           else { old = V().avatars[key]; delete V().avatars[key]; }
           save(); renderSpk(); refreshAll();
           A.deleteFileIfUnused(old);
@@ -910,8 +919,9 @@
           const k = b.dataset.key;
           if (!confirm('Remove this custom speaker and their uploaded portraits?')) return;
           V().customSpk = V().customSpk.filter((n) => n.toLowerCase() !== k);
-          const olds = [V().avatars[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
+          const olds = [V().avatars[k], V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
           delete V().avatars[k];
+          delete V().sprites[k];
           delete V().emoImgs[k];
           setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
           spkOpen.delete(k);
@@ -922,9 +932,10 @@
     nFile.onchange = async () => {
       if (!nFile.files.length || !pending) return;
       try {
-        const url = await uploadPortrait(nFile.files[0]);
+        const url = await uploadPortrait(nFile.files[0], pending.full ? 2048 : 768);
         let old;
-        if (pending.emo) {
+        if (pending.full) { old = V().sprites[pending.key]; V().sprites[pending.key] = url; }
+        else if (pending.emo) {
           if (!V().emoImgs[pending.key]) V().emoImgs[pending.key] = {};
           old = V().emoImgs[pending.key][pending.emo];
           V().emoImgs[pending.key][pending.emo] = url;

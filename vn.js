@@ -9,7 +9,7 @@
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
-  const VDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
+  const VDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
   function V() {
     const st = A.store();
     if (!st) return VDEF();
@@ -436,10 +436,12 @@
     const c = ctx();
     const map = new Map();
     const nar = String(s.narratorWord).trim().toLowerCase();
+    const hidden = new Set((V().hiddenSpk || []).map(lc));
     const add = (n, custom) => {
       const t = String(n || '').trim();
       const k = t.toLowerCase();
       if (!t || k === nar) return;
+      if (!custom && (!s.nodeAutoSpk || hidden.has(k))) return;
       if (!map.has(k)) map.set(k, { key: k, name: t, custom: !!custom });
       else if (custom) map.get(k).custom = true;
     };
@@ -463,7 +465,9 @@
 
   function spkRowsHtml(s) {
     const list = collectSpeakers();
-    if (!list.length) return '<div class="cb_hint">No speakers yet. Add one below, or they show up once tagged in the chat.</div>';
+    const nHidden = (V().hiddenSpk || []).length;
+    const restore = nHidden ? `<div class="cb_hint"><a href="#" class="m_n_unhide">Restore ${nHidden} hidden speaker${nHidden === 1 ? '' : 's'}</a></div>` : '';
+    if (!list.length) return `<div class="cb_hint">No speakers yet. Add one below${s.nodeAutoSpk ? ', or they show up once tagged in the chat' : ''}.</div>${restore}`;
     return list.map(({ key, name, custom }) => {
       const base = resolveAvatar(name);
       const manual = !!V().avatars[key];
@@ -491,7 +495,7 @@
           <button class="menu_button m_n_up" data-key="${k}" data-emo="" title="Upload base portrait"><i class="fa-solid fa-upload"></i></button>
           <button class="menu_button m_n_clr" data-key="${k}" data-emo="" title="Remove custom base portrait" ${manual ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
           <button class="menu_button m_n_exp" data-key="${k}" title="Emotion portraits"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
-          ${custom ? `<button class="menu_button danger_button m_n_rm" data-key="${k}" title="Remove custom speaker"><i class="fa-solid fa-xmark"></i></button>` : ''}
+          <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="cb_spk_row">
           ${thumbBox(full)}
@@ -501,7 +505,7 @@
         </div>
         ${grid}
       </div>`;
-    }).join('');
+    }).join('') + restore;
   }
 
   function emoRowsHtml(s) {
@@ -704,6 +708,18 @@
               <div id="m_n_fx_body" class="cb_hint ${s.nodeEffects ? '' : 'cb_dim'}">${tg(s.effectWord, s.fxShake)}, ${escapeHTML(s.fxFlash)} or ${escapeHTML(s.fxFade)} fire once when their line plays. ${tg(s.weatherWord, s.wxRain)}, ${escapeHTML(s.wxSnow)} or ${escapeHTML(s.wxClear)} stays until the weather changes, worked out from the chat history like locations.</div>
             </div>
 
+            ${subHead('vn_spk', 'Speakers & Portraits ' + TAG)}
+            <div class="cb_collapse_content">
+              <div class="cb_hint">Character cards and your persona are matched by name automatically. Open a speaker with the arrow to give them a portrait per emotion. The narrator never gets a portrait.</div>
+              ${ck('m_n_autospk', s.nodeAutoSpk, 'Auto-add speakers from the card, persona and chat')}
+              <div id="m_n_spk"></div>
+              <div class="cb_row" style="margin-top:8px;">
+                <input type="text" id="m_n_newspk" class="text_pole" placeholder="Add a speaker (e.g. an NPC)" style="flex:1;margin:0;">
+                <button id="m_n_addspk" class="menu_button" style="margin:0;"><i class="fa-solid fa-user-plus"></i> Add</button>
+              </div>
+              <input type="file" id="m_n_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+            </div>
+
             ${subHead('vn_emo', 'Emotions')}
             <div class="cb_collapse_content">
               <div class="cb_hint">The dot marks the default. It's used when a tag has no emotion, or one that isn't on this list.</div>
@@ -712,17 +728,6 @@
                 <input type="text" id="m_e_new" class="text_pole" placeholder="New emotion" style="flex:1;margin:0;">
                 <button id="m_e_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
               </div>
-            </div>
-
-            ${subHead('vn_spk', 'Speakers & Portraits ' + TAG)}
-            <div class="cb_collapse_content">
-              <div class="cb_hint">Character cards and your persona are matched by name automatically. Open a speaker with the arrow to give them a portrait per emotion. The narrator never gets a portrait.</div>
-              <div id="m_n_spk"></div>
-              <div class="cb_row" style="margin-top:8px;">
-                <input type="text" id="m_n_newspk" class="text_pole" placeholder="Add a speaker (e.g. an NPC)" style="flex:1;margin:0;">
-                <button id="m_n_addspk" class="menu_button" style="margin:0;"><i class="fa-solid fa-user-plus"></i> Add</button>
-              </div>
-              <input type="file" id="m_n_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
             </div>
 
             ${subHead('vn_loc', 'Locations ' + TAG)}
@@ -833,6 +838,7 @@
     chk('#m_n_choices', 'nodeChoices', () => { dimIf('#m_n_choices_body', s.nodeChoices); refreshAll(); });
     chk('#m_n_csend', 'choiceSend');
     chk('#m_n_fx', 'nodeEffects', () => { dimIf('#m_n_fx_body', s.nodeEffects); refreshAll(); });
+    chk('#m_n_autospk', 'nodeAutoSpk', () => { renderSpk(); refreshAll(); });
     chk('#m_n_cg', 'nodeCG', () => { dimIf('#m_c_body', s.nodeCG); refreshAll(); });
     const mapOn = overlay.querySelector('#m_map_on');
     if (mapOn) mapOn.onchange = () => { s.nodeMaps = mapOn.checked; save(); syncMapBtn(); if (s.nodeMaps) loadSub('map', true); else A.openMenu(); };
@@ -917,16 +923,28 @@
       box.querySelectorAll('.m_n_rm').forEach((b) => {
         b.onclick = () => {
           const k = b.dataset.key;
-          if (!confirm('Remove this custom speaker and their uploaded portraits?')) return;
-          V().customSpk = V().customSpk.filter((n) => n.toLowerCase() !== k);
-          const olds = [V().avatars[k], V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
-          delete V().avatars[k];
-          delete V().sprites[k];
-          delete V().emoImgs[k];
-          setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
+          if (b.dataset.custom) {
+            if (!confirm('Remove this custom speaker and their uploaded portraits?')) return;
+            V().customSpk = V().customSpk.filter((n) => n.toLowerCase() !== k);
+            const olds = [V().avatars[k], V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
+            delete V().avatars[k];
+            delete V().sprites[k];
+            delete V().emoImgs[k];
+            setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
+          } else {
+            // Detected from the card, persona or chat: hide it. Uploaded portraits are kept for a later restore.
+            const c = ctx();
+            if ([c.name1, c.name2].some((n) => lc(n) === k) && !confirm('This is your persona or the current character. Hide it from the list? Their portraits are kept, and you can restore it later.')) return;
+            if (!V().hiddenSpk.some((n) => lc(n) === k)) V().hiddenSpk.push(k);
+          }
           spkOpen.delete(k);
           save(); renderSpk(); refreshAll();
         };
+      });
+      box.querySelector('.m_n_unhide')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        V().hiddenSpk = [];
+        save(); renderSpk(); refreshAll();
       });
     };
     nFile.onchange = async () => {
@@ -955,6 +973,7 @@
       const k = nm.toLowerCase();
       if (k === String(s.narratorWord).trim().toLowerCase()) { toastr.warning('That name is your narrator keyword.', 'Visual Novel'); return; }
       if ([s.delimSpkOpen, s.delimSpkClose, s.delimEmo].some((d) => nm.includes(d))) { toastr.warning('Names can\'t contain your tag delimiters.', 'Visual Novel'); return; }
+      V().hiddenSpk = V().hiddenSpk.filter((n) => lc(n) !== k);
       if (!V().customSpk.some((n) => n.toLowerCase() === k)) V().customSpk.push(nm);
       spkOpen.add(k);
       inp.value = '';

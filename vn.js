@@ -406,16 +406,16 @@
     return resolveAvatar(name);
   }
 
-  // Stage sprites only use uploaded images (emotion or custom base), never card/persona avatars.
+  // Stage sprites: uploaded images (emotion or custom base), never card/persona avatars.
+  // With the base-image option on, emotion images stay in the box: custom base > persona > card avatar.
   function spriteSrc(name, emoName) {
     const s = settings();
     const v = V();
     const key = String(name || '').trim().toLowerCase();
+    if (s.nodeSpriteBase) return resolveAvatar(name) || silhouetteFor(key);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    const emoImg = (e && imgs[e.id]) || imgs[s.emoDefault];
-    const pick = s.nodeSpriteBase ? v.avatars[key] || emoImg : emoImg || v.avatars[key];
-    return media(pick) || silhouetteFor(key);
+    return media((e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key]) || silhouetteFor(key);
   }
 
   function silhouetteFor(key) {
@@ -672,7 +672,7 @@
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
               ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites use the base image, not emotion images')}
-              <div class="cb_hint">Sprites use the emotion images or custom base portraits you upload under Speakers, not card avatars. With the base-image option on, a speaker's base image (the upload arrow) is used on stage and the emotion images only appear in the message box; speakers without a base image still use their emotion images. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              <div class="cb_hint">Sprites use the emotion images or custom base portraits you upload under Speakers, not card avatars. With the base-image option on, emotion images only appear in the message box: the stage shows the speaker's base image (the upload arrow), or their card or persona avatar if you haven't uploaded one. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}

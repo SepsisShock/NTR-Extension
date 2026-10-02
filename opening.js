@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.2.7';
+  const OP_VERSION = '2.2.8';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -336,6 +336,14 @@
       const left = dur - t;
       if (left <= 1.5) st.ytStop = later(() => { if (st.phase !== 'video') return; ytCmd('pauseVideo'); end(); }, Math.max(0, (left - 0.15) * 1000));
     }
+    // "Fade out the ending": the color starts covering the video while it still plays and is full at the last frame.
+    if (settings().opEarly && !st.cross && !st.cover && dur > 0 && isFinite(dur)) {
+      const left = (st.iframe ? dur - 0.15 : dur) - t;
+      if (left * 1000 <= transMs()) {
+        fadeCover(st, Math.max(0, left * 1000));
+        console.info(`[NTR opening] Fading out the ending: ${transColor()} over the last ${Math.round(left * 1000)} ms.`);
+      }
+    }
     if (!st.logo || st.logoShown) return;
     const lead = Math.max(0, Number(settings().opLead) || 0);
     if (dur > 0 && isFinite(dur) && lead > 0 && t >= dur - lead) showLogo();
@@ -353,31 +361,37 @@
     if (st.hello) clearInterval(st.hello);
     if (st.video) { try { st.video.pause(); } catch (e) {} }
     if (st.iframe) ytCmd('pauseVideo');
-    // Video to color uses the transition length too; a skip keeps the quick fade.
-    const ms = st.skipped ? 600 : transMs();
+    // Video to color uses the transition length too; a skip keeps the quick fade. If the fade already started
+    // before the end, it just finishes.
+    const early = !!st.cover && !st.skipped;
+    const ms = st.skipped ? 600 : early ? Math.max(0, st.coverDoneAt - performance.now()) : transMs();
     st.mediaOutMs = ms;
-    console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): fading to ${transColor()} over ${ms} ms.`);
-    // A color layer fades in over the paused video. Fading the video itself is unreliable: with hardware video
-    // decoding some browsers drop the video at once instead of fading it.
-    if (st.media) {
-      const cover = document.createElement('div');
-      cover.className = 'ntr_op_cover';
-      cover.style.background = transColor();
-      st.media.after(cover);
-      st.cover = cover;
-      cover.getBoundingClientRect(); // Start from opacity 0 so the change below animates.
-      cover.style.transition = `opacity ${ms}ms ease`;
-      cover.style.opacity = '1';
-      setTimeout(() => {
-        if (cover.isConnected) console.info(`[NTR opening] Fade halfway: color layer at ${getComputedStyle(cover).opacity} (should be near 0.5).`);
-      }, ms / 2);
-    }
+    if (!early) fadeCover(st, ms);
+    console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): ${early ? 'fade already running, done in' : `fading to ${transColor()} over`} ${Math.round(ms)} ms.`);
     if (st.snd) st.snd.style.display = 'none';
     const m = st.media;
     setTimeout(() => {
       if (st.video) { try { st.video.removeAttribute('src'); st.video.load(); } catch (e) {} }
       if (m) m.remove();
     }, ms + 100);
+  }
+
+  // A color layer fades in over the video. Fading the video itself is unreliable: with hardware video decoding
+  // some browsers drop the video at once instead of fading it. Linear, so the fade is even across its length.
+  function fadeCover(st, ms) {
+    if (!st.media) return;
+    let c = st.cover;
+    if (!c) {
+      c = document.createElement('div');
+      c.className = 'ntr_op_cover';
+      c.style.background = transColor();
+      st.media.after(c);
+      st.cover = c;
+      c.getBoundingClientRect(); // Start from opacity 0 so the change below animates.
+    }
+    c.style.transition = `opacity ${Math.round(ms)}ms linear`;
+    c.style.opacity = '1';
+    st.coverDoneAt = performance.now() + ms;
   }
 
   function holdMedia(st) {
@@ -420,7 +434,7 @@
     if (st.riseAnim) img.animate(st.riseKf, st.riseOpts).startTime = st.riseAnim.startTime;
     pinned = { el: low, sig: st.sig };
     const top = st.pin;
-    top.style.transition = `opacity ${st.outMs}ms ease`;
+    top.style.transition = `opacity ${st.outMs}ms linear`;
     top.classList.add('ntr_gone');
     setTimeout(() => top.remove(), st.outMs + 50);
   }
@@ -492,7 +506,7 @@
       cleanup(st);
       st.video = v;
     } else cleanup(st);
-    st.root.style.transition = `opacity ${st.outMs}ms ease`;
+    st.root.style.transition = `opacity ${st.outMs}ms linear`;
     st.root.classList.remove('ntr_in');
     st.root.style.pointerEvents = 'none';
     setTimeout(() => { unloadVideo(st); st.root.remove(); }, st.outMs + 50);
@@ -501,7 +515,7 @@
         rise(st);
         settlePin(st);
       } else {
-        st.pin.style.transition = `opacity ${st.outMs}ms ease`;
+        st.pin.style.transition = `opacity ${st.outMs}ms linear`;
         st.pin.classList.add('ntr_gone');
         const pin = st.pin;
         setTimeout(() => pin.remove(), st.outMs + 50);
@@ -587,6 +601,7 @@
           <div id="m_op_crow" class="cb_row" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}">
             <label for="m_op_color">Fade color</label><input type="color" id="m_op_color" value="${escapeHTML(transColor())}">
           </div>
+          <label id="m_op_erow" class="checkbox_label" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade out the ending (the color covers the last seconds while the video still plays)</span></label>
           ${sl('trans', 'opTransMs', 'Transition length', ' s', 100, 3000, 100, (transMs() / 1000).toFixed(1))}
           <div class="cb_hint" style="margin-top:4px;">Color fade: video, then the color, then the story (the length applies to both fades). Crossfade: the last frame of the video blends straight into the story. Skipping the video always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
@@ -637,7 +652,10 @@
       s.opTrans = v;
       save();
       q('#m_op_crow').style.display = v === 'cross' ? 'none' : '';
+      q('#m_op_erow').style.display = v === 'cross' ? 'none' : '';
     });
+    const early = q('#m_op_early');
+    if (early) early.onchange = () => { s.opEarly = early.checked; save(); };
     const col = q('#m_op_color');
     if (col) {
       col.oninput = () => { s.opTransColor = col.value; };

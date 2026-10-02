@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.2.0';
+  const OP_VERSION = '2.2.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -27,6 +27,10 @@
     #ntr_open .ntr_op_catch { position: absolute; inset: 0; cursor: pointer; }
     #ntr_open .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
     #ntr_open .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    #ntr_op_pin { position: fixed; inset: 0; z-index: 2601; pointer-events: none; overflow: hidden; transition: opacity .4s ease; }
+    #ntr_op_pin.ntr_gone { opacity: 0; }
+    #ntr_op_pin .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
+    #ntr_op_pin .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     #ntr_open .ntr_op_bar { position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; z-index: 2; }
     #ntr_open .ntr_op_small { cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.5); color: #fff; font-size: 13px; opacity: .8; }
     #ntr_open .ntr_op_small:hover { opacity: 1; }
@@ -74,6 +78,7 @@
       if (cur.sig && cur.sig === info.sig) return false;
       abort();
     }
+    if (pinned && pinned.sig !== info.sig) unpin();
     const s = settings();
     if (!A.isOn() || !s.nodeEnabled || !A.store()) return false;
     const o = op();
@@ -90,16 +95,26 @@
 
   // ----- Player -----
   let cur = null;
+  // "Rise to top" leaves the logo pinned over the story until the chat changes, VN mode goes off or another opening plays.
+  let pinned = null;
+  function unpin() {
+    if (!pinned) return;
+    pinned.el.remove();
+    pinned = null;
+  }
+  const RISE_MS = 5000;
 
   function play(hooks, opts = {}) {
     const o = op();
     if (!hasSource(o)) return false;
     if (cur) abort();
+    unpin();
     ensureStyle();
     const s = settings();
     const st = {
       sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',
       timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false,
+      exit: ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
     };
     cur = st;
     const root = document.createElement('div');
@@ -121,6 +136,13 @@
       const ms = Math.max(0, Number(s.opFade) || 0);
       img.style.transition = `opacity ${ms}ms ease, transform ${ms}ms ease`;
       st.logo = img;
+      if (st.exit === 'rise') {
+        // Its own layer above the opening, so it can outlive the black screen without restarting its animation.
+        const pin = document.createElement('div');
+        pin.id = 'ntr_op_pin';
+        pin.appendChild(img);
+        st.pin = pin;
+      }
     }
 
     st.onKey = (e) => {
@@ -182,7 +204,8 @@
     media.className = 'ntr_op_media';
     st.media = media;
     st.root.appendChild(media);
-    if (st.logo) st.root.appendChild(st.logo);
+    if (st.pin) document.body.appendChild(st.pin);
+    else if (st.logo) st.root.appendChild(st.logo);
 
     const catcher = document.createElement('div');
     catcher.className = 'ntr_op_catch';
@@ -311,7 +334,21 @@
     }, 700);
   }
 
-  const skip = () => end();
+  const skip = () => {
+    if (cur && cur.phase === 'video') cur.skipped = true;
+    end();
+  };
+
+  // Drifts the logo up until its top edge sits near the top of the screen.
+  function rise(st) {
+    if (st.rising || !st.logo || !st.pin || !st.pin.isConnected) return;
+    st.rising = true;
+    const img = st.logo;
+    const dy = 12 - (img.offsetTop - img.offsetHeight / 2);
+    const ms = Math.max(0, Number(settings().opFade) || 0);
+    img.style.transition = `opacity ${ms}ms ease, transform ${RISE_MS}ms cubic-bezier(.45, 0, .25, 1)`;
+    img.style.transform = `translate(-50%, calc(-50% + ${Math.min(0, dy)}px)) scale(1)`;
+  }
 
   // Video finished or skipped: the logo (if any) gets its moment, then the story starts.
   function end() {
@@ -324,6 +361,7 @@
     const was = st.logoShown;
     showLogo();
     const left = was ? Math.max(0, fade - (Date.now() - st.logoAt)) : fade;
+    if (st.exit === 'rise' && !st.skipped) setTimeout(() => rise(st), left);
     const sk = st.bar && st.bar.querySelector('[data-a="skip"]');
     if (settings().opHold) {
       if (sk) sk.innerHTML = 'Continue <i class="fa-solid fa-play"></i>';
@@ -357,6 +395,22 @@
 
   function finish() {
     const st = cur;
+    if (!st || st.phase === 'out') return;
+    // "Fade out": the logo leaves first, then the black screen.
+    if (st.exit === 'fade' && st.logo && st.logoShown) {
+      st.phase = 'out';
+      if (st.bar) st.bar.remove();
+      const h = st.root.querySelector('.ntr_op_hint');
+      if (h) h.remove();
+      st.logo.style.opacity = '0';
+      later(close, Math.max(0, Number(settings().opFade) || 0) + 100);
+      return;
+    }
+    close();
+  }
+
+  function close() {
+    const st = cur;
     if (!st) return;
     st.phase = 'done';
     cur = null;
@@ -364,6 +418,17 @@
     st.root.classList.remove('ntr_in');
     st.root.style.pointerEvents = 'none';
     setTimeout(() => st.root.remove(), 450);
+    if (st.pin) {
+      if (st.logoShown && !st.skipped) {
+        rise(st);
+        st.pin.style.zIndex = '2420'; // Over the scene, under the CG and the dialogue box.
+        pinned = { el: st.pin, sig: st.sig };
+      } else {
+        st.pin.classList.add('ntr_gone');
+        const pin = st.pin;
+        setTimeout(() => pin.remove(), 450);
+      }
+    }
     try { st.hooks.onDone && st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
     if (st.onEnd) { try { st.onEnd(); } catch (e) { console.error('[NTR opening]', e); } }
   }
@@ -371,10 +436,12 @@
   // Stops at once without starting the story (VN switched off, chat changed, and so on).
   function abort() {
     const st = cur;
+    unpin();
     if (!st) return;
     cur = null;
     cleanup(st);
     st.root.remove();
+    if (st.pin) st.pin.remove();
   }
 
   function safeCall(fn) { try { return fn(); } catch (e) { console.error('[NTR opening]', e); return ''; } }
@@ -425,6 +492,10 @@
             <div style="margin-top:8px;"><small>Logo position</small>
               ${pills('oppos', [['upper', 'Upper third'], ['center', 'Center'], ['lower', 'Lower third']], s.opPos)}
             </div>
+            <div style="margin-top:8px;"><small>Logo exit</small>
+              ${pills('opexit', [['stay', 'As is'], ['fade', 'Fade out'], ['rise', 'Rise to top']], s.opExit || 'stay')}
+            </div>
+            <div class="cb_hint" style="margin-top:4px;">Rise to top: the logo drifts up once the video ends and stays over the scene. Skipping the video turns this off for that playthrough.</div>
             <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_hold" ${s.opHold ? 'checked' : ''}><span>Hold the logo until I click</span></label>
           </div>
           <div class="cb_actions" style="margin-top:10px;">
@@ -469,6 +540,7 @@
       if (v === 'banner' && !(A.bannerImage && A.bannerImage())) toastr.info('This character has no banner image yet, so no logo will show.', 'Opening video');
     });
     onPills(overlay, 'oppos', (v) => { s.opPos = v; save(); });
+    onPills(overlay, 'opexit', (v) => { s.opExit = v; save(); });
     const hold = q('#m_op_hold');
     if (hold) hold.onchange = () => { s.opHold = hold.checked; save(); };
     overlay.querySelectorAll('.m_op_sl').forEach((sl) => {

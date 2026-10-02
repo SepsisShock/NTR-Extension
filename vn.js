@@ -4,7 +4,7 @@
   const VN_VERSION = '2.2.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, fullResUrl, readDataURL, loadImg, pills, onPills, secHead, subHead } = A;
+  const { ctx, save, settings, escapeHTML, fullResUrl, readDataURL, loadImg, askImageUrl, pills, onPills, secHead, subHead } = A;
   const TAG = A.TAG || '';
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
 
@@ -484,6 +484,7 @@
             <div class="cb_emo_label">${escapeHTML(e.name)}${e.id === s.emoDefault ? ' \u2605' : ''}</div>
             <div style="display:flex;gap:4px;">
               <button class="menu_button m_n_up" data-key="${k}" data-emo="${id}" title="Upload ${escapeHTML(e.name)}"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button m_n_url" data-key="${k}" data-emo="${id}" title="Use a link for ${escapeHTML(e.name)}"><i class="fa-solid fa-link"></i></button>
               <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="${id}" title="Clear" ${src ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>`;
@@ -493,6 +494,7 @@
           ${thumbBox(base)}
           <span class="cb_spk_name">${escapeHTML(name)}<small>${manual ? 'custom portrait' : base ? 'auto portrait' : 'no portrait'} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
           <button class="menu_button m_n_up" data-key="${k}" data-emo="" title="Upload base portrait"><i class="fa-solid fa-upload"></i></button>
+          <button class="menu_button m_n_url" data-key="${k}" data-emo="" title="Use a link for the base portrait"><i class="fa-solid fa-link"></i></button>
           <button class="menu_button m_n_clr" data-key="${k}" data-emo="" title="Remove custom base portrait" ${manual ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
           <button class="menu_button m_n_exp" data-key="${k}" title="Emotion portraits"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
@@ -501,6 +503,7 @@
           ${thumbBox(full)}
           <span class="cb_spk_name">Full portrait<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the images above'}</small></span>
           <button class="menu_button m_n_up" data-key="${k}" data-emo="" data-full="1" title="Upload full portrait (stage sprite)"><i class="fa-solid fa-upload"></i></button>
+          <button class="menu_button m_n_url" data-key="${k}" data-emo="" data-full="1" title="Use a link for the full portrait"><i class="fa-solid fa-link"></i></button>
           <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" data-full="1" title="Remove full portrait" ${full ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
         </div>
         ${grid}
@@ -646,6 +649,7 @@
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
     const artBtns = (k, id) => `<span id="${id}" class="cb_art_btns" style="display:flex;gap:4px;">
                   <button class="menu_button m_art_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
+                  <button class="menu_button m_art_url" data-k="${k}" title="Use a link"><i class="fa-solid fa-link"></i></button>
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button></span>`;
     return `
       <div class="cb_section">
@@ -906,6 +910,12 @@
       const box = overlay.querySelector('#m_n_spk');
       box.innerHTML = spkRowsHtml(s);
       box.querySelectorAll('.m_n_up').forEach((b) => { b.onclick = () => { pending = { key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }; nFile.click(); }; });
+      box.querySelectorAll('.m_n_url').forEach((b) => {
+        b.onclick = async () => {
+          const url = await askImageUrl('Portrait');
+          if (url) setSpkImage({ key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }, url);
+        };
+      });
       box.querySelectorAll('.m_n_clr').forEach((b) => {
         b.onclick = () => {
           const { key, emo, full } = b.dataset;
@@ -947,19 +957,21 @@
         save(); renderSpk(); refreshAll();
       });
     };
+    const setSpkImage = (p, url) => {
+      let old;
+      if (p.full) { old = V().sprites[p.key]; V().sprites[p.key] = url; }
+      else if (p.emo) {
+        if (!V().emoImgs[p.key]) V().emoImgs[p.key] = {};
+        old = V().emoImgs[p.key][p.emo];
+        V().emoImgs[p.key][p.emo] = url;
+      } else { old = V().avatars[p.key]; V().avatars[p.key] = url; }
+      save(); renderSpk(); refreshAll();
+      A.deleteFileIfUnused(old);
+    };
     nFile.onchange = async () => {
       if (!nFile.files.length || !pending) return;
       try {
-        const url = await uploadPortrait(nFile.files[0], pending.full ? 2048 : 768);
-        let old;
-        if (pending.full) { old = V().sprites[pending.key]; V().sprites[pending.key] = url; }
-        else if (pending.emo) {
-          if (!V().emoImgs[pending.key]) V().emoImgs[pending.key] = {};
-          old = V().emoImgs[pending.key][pending.emo];
-          V().emoImgs[pending.key][pending.emo] = url;
-        } else { old = V().avatars[pending.key]; V().avatars[pending.key] = url; }
-        save(); renderSpk(); refreshAll();
-        A.deleteFileIfUnused(old);
+        setSpkImage(pending, await uploadPortrait(nFile.files[0], pending.full ? 2048 : 768));
       } catch (e) {
         console.error('[chatvisuals vn upload]', e);
         toastr.error(e.message || 'Portrait upload failed', 'Visual Novel');
@@ -1033,6 +1045,12 @@
         };
       });
       box.querySelectorAll('.m_l_up').forEach((b) => { b.onclick = () => { lPending = b.dataset.id; lFile.click(); }; });
+      box.querySelectorAll('.m_l_url').forEach((b) => {
+        b.onclick = async () => {
+          const url = await askImageUrl('Background');
+          if (url) setLocImage(b.dataset.id, url);
+        };
+      });
       box.querySelectorAll('.m_l_clr').forEach((b) => {
         b.onclick = () => {
           let old;
@@ -1053,16 +1071,18 @@
         };
       });
     };
+    const setLocImage = (id, url) => {
+      const v = V();
+      let old;
+      if (id === '__default__') { old = v.locDefault; v.locDefault = url; }
+      else { const l = v.locations.find((x) => x.id === id); if (l) { old = l.url; l.url = url; } }
+      save(); renderLoc(); refreshAll();
+      A.deleteFileIfUnused(old);
+    };
     lFile.onchange = async () => {
       if (!lFile.files.length || !lPending) return;
       try {
-        const url = await uploadPortrait(lFile.files[0], 2560, 'vnloc');
-        const v = V();
-        let old;
-        if (lPending === '__default__') { old = v.locDefault; v.locDefault = url; }
-        else { const l = v.locations.find((x) => x.id === lPending); if (l) { old = l.url; l.url = url; } }
-        save(); renderLoc(); refreshAll();
-        A.deleteFileIfUnused(old);
+        setLocImage(lPending, await uploadPortrait(lFile.files[0], 2560, 'vnloc'));
       } catch (e) {
         console.error('[NTR vn location upload]', e);
         toastr.error(e.message || 'Background upload failed', 'Visual Novel');
@@ -1110,6 +1130,12 @@
         };
       });
       box.querySelectorAll('.m_c_up').forEach((b) => { b.onclick = () => { cPending = b.dataset.id; cFile.click(); }; });
+      box.querySelectorAll('.m_c_url').forEach((b) => {
+        b.onclick = async () => {
+          const url = await askImageUrl('Illustration');
+          if (url) setCgImage(b.dataset.id, url);
+        };
+      });
       box.querySelectorAll('.m_c_clr').forEach((b) => {
         b.onclick = () => {
           const g = v.cgs.find((x) => x.id === b.dataset.id);
@@ -1129,15 +1155,17 @@
         };
       });
     };
+    const setCgImage = (id, url) => {
+      const g = V().cgs.find((x) => x.id === id);
+      let old;
+      if (g) { old = g.url; g.url = url; }
+      save(); renderCg(); refreshAll();
+      A.deleteFileIfUnused(old);
+    };
     cFile.onchange = async () => {
       if (!cFile.files.length || !cPending) return;
       try {
-        const url = await uploadPortrait(cFile.files[0], 2560, 'vncg');
-        const g = V().cgs.find((x) => x.id === cPending);
-        let old;
-        if (g) { old = g.url; g.url = url; }
-        save(); renderCg(); refreshAll();
-        A.deleteFileIfUnused(old);
+        setCgImage(cPending, await uploadPortrait(cFile.files[0], 2560, 'vncg'));
       } catch (e) {
         console.error('[NTR vn CG upload]', e);
         toastr.error(e.message || 'CG upload failed', 'Visual Novel');
@@ -1172,6 +1200,18 @@
     onPills(overlay, 'artbg', (v) => { s.artBg = v; save(); renderArt(); refreshAll(); });
     onPills(overlay, 'artspr', (v) => { s.artSprite = v; save(); renderArt(); updateStage(); });
     overlay.querySelectorAll('.m_art_up').forEach((b) => { b.onclick = () => { artPending = b.dataset.k; artFile.click(); }; });
+    const setArtImage = (k, url) => {
+      const old = s[k];
+      s[k] = url;
+      save(); renderArt(); refreshAll(); updateStage();
+      A.deleteFileIfUnused(old);
+    };
+    overlay.querySelectorAll('.m_art_url').forEach((b) => {
+      b.onclick = async () => {
+        const url = await askImageUrl(b.dataset.k === 'artBgImg' ? 'Default background' : 'Default sprite');
+        if (url) setArtImage(b.dataset.k, url);
+      };
+    });
     overlay.querySelectorAll('.m_art_clr').forEach((b) => {
       b.onclick = () => {
         const k = b.dataset.k;
@@ -1184,11 +1224,7 @@
     artFile.onchange = async () => {
       if (!artFile.files.length || !artPending) return;
       try {
-        const url = await uploadPortrait(artFile.files[0], artPending === 'artBgImg' ? 2560 : 1600, 'vnart');
-        const old = s[artPending];
-        s[artPending] = url;
-        save(); renderArt(); refreshAll(); updateStage();
-        A.deleteFileIfUnused(old);
+        setArtImage(artPending, await uploadPortrait(artFile.files[0], artPending === 'artBgImg' ? 2560 : 1600, 'vnart'));
       } catch (e) {
         console.error('[NTR vn art upload]', e);
         toastr.error(e.message || 'Upload failed', 'Visual Novel');
@@ -1213,6 +1249,7 @@
         <div class="cb_thumbbox cb_wide">${media(g.url) ? `<img src="${escapeHTML(media(g.url))}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
         <input type="text" class="text_pole m_c_name" data-id="${id}" value="${escapeHTML(g.name)}" style="flex:1;min-width:0;margin:0;">
         <button class="menu_button m_c_up" data-id="${id}" title="Upload illustration"><i class="fa-solid fa-upload"></i></button>
+        <button class="menu_button m_c_url" data-id="${id}" title="Use a link for the illustration"><i class="fa-solid fa-link"></i></button>
         <button class="menu_button m_c_clr" data-id="${id}" title="Remove image" ${g.url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
         <button class="menu_button danger_button m_c_del" data-id="${id}" title="Delete CG"><i class="fa-solid fa-trash"></i></button>
       </div></div>`;
@@ -1229,6 +1266,7 @@
           ? '<span class="cb_spk_name"><strong>Default background</strong><small>used when nothing matches</small></span>'
           : `<input type="text" class="text_pole m_l_name" data-id="${id}" value="${escapeHTML(name)}" style="flex:1;min-width:0;margin:0;">`}
         <button class="menu_button m_l_up" data-id="${id}" title="Upload background"><i class="fa-solid fa-upload"></i></button>
+        <button class="menu_button m_l_url" data-id="${id}" title="Use a link for the background"><i class="fa-solid fa-link"></i></button>
         <button class="menu_button m_l_clr" data-id="${id}" title="Remove image" ${url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
         ${isDef ? '' : `<button class="menu_button danger_button m_l_del" data-id="${id}" title="Delete location"><i class="fa-solid fa-trash"></i></button>`}
       </div></div>`;

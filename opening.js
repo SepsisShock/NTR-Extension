@@ -6,7 +6,7 @@
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, pills, onPills, subHead } = A;
+  const { save, settings, escapeHTML, askImageUrl, pills, onPills, subHead } = A;
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
   const TAG = A.TAG || '';
 
@@ -581,6 +581,7 @@
             <div class="cb_thumbbox cb_wide">${logoBox}</div>
             <span style="flex:1;"></span>
             <button type="button" id="m_op_lup" class="menu_button" style="margin:0;" title="Upload logo"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_lurl" class="menu_button" style="margin:0;" title="Use a link for the logo"><i class="fa-solid fa-link"></i></button>
             <button type="button" id="m_op_lclr" class="menu_button danger_button" style="margin:0;" title="Remove logo" ${o.logoUrl ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
           <div id="m_op_lbody" class="${o.logo === 'none' ? 'cb_dim' : ''}">
@@ -716,6 +717,15 @@
     const lfile = q('#m_op_lfile');
     const lup = q('#m_op_lup');
     if (lup) lup.onclick = () => lfile.click();
+    const lurl = q('#m_op_lurl');
+    if (lurl) lurl.onclick = async () => {
+      const url = await askImageUrl('Logo');
+      if (!url) return;
+      const old = op().logoUrl;
+      setOp('logoUrl', url);
+      A.deleteFileIfUnused(old);
+      A.openMenu();
+    };
     if (lfile) lfile.onchange = async () => {
       const f = lfile.files[0];
       lfile.value = '';

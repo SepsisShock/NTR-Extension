@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.2.3';
+  const OP_VERSION = '2.2.4';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -98,7 +98,7 @@
     pinned.el.remove();
     pinned = null;
   }
-  const RISE_MS = 5000;
+  const RISE_MS = 3000;
   const PIN_Z = '2399'; // Over the background, behind the characters, weather, CG and dialogue box.
   const transMs = () => Math.max(100, Math.min(3000, Number(settings().opTransMs) || 400));
   const transColor = () => (/^#[0-9a-f]{6}$/i.test(settings().opTransColor || '') ? settings().opTransColor : '#000000');

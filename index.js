@@ -1017,8 +1017,8 @@
           </div>
         </div>
 
-        ${vnSectionHtml(s)}
         ${displaySectionHtml(s)}
+        ${vnSectionHtml(s)}
         ${privacySectionHtml(s)}
         </div>
       </div>

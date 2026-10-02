@@ -115,6 +115,7 @@
       timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false,
       exit: ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
       cross: s.opTrans === 'cross',
+      muted: !!s.opMute,
     };
     cur = st;
     const root = document.createElement('div');
@@ -164,26 +165,32 @@
     requestAnimationFrame(() => root.classList.add('ntr_in'));
 
     if (o.title) showTitle();
+    else if (!st.muted && needsClick()) showTitle(true);
     else startVideo();
     return true;
   }
 
+  // Browsers only allow sound after a click on the page. Right after a refresh SillyTavern reopens the chat
+  // by itself, so without this the opening would start muted.
+  const needsClick = () => !!(navigator.userActivation && !navigator.userActivation.hasBeenActive);
+
   const later = (fn, ms) => { const st = cur; const t = setTimeout(() => { if (cur === st) fn(); }, ms); if (st) st.timers.push(t); return t; };
   const setPhase = (p) => { cur.phase = p; cur.phaseAt = Date.now(); };
 
-  function showTitle() {
+  // gate: just a Play button, shown when the browser would otherwise block the sound.
+  function showTitle(gate = false) {
     const st = cur;
     const box = document.createElement('div');
     box.className = 'ntr_op_title';
-    const bg = safeCall(() => VN().sceneBg()) || '';
-    const art = safeCall(() => VN().titleArt()) || '';
-    const name = safeCall(() => VN().titleName()) || '';
+    const bg = gate ? '' : safeCall(() => VN().sceneBg()) || '';
+    const art = gate ? '' : safeCall(() => VN().titleArt()) || '';
+    const name = gate ? '' : safeCall(() => VN().titleName()) || '';
     box.innerHTML = `
       ${bg ? '<div class="ntr_op_bg"></div>' : ''}
       ${art ? `<img class="ntr_op_art" alt="" src="${escapeHTML(art)}">` : ''}
       <div class="ntr_op_card">
         ${name ? `<div class="ntr_op_name">${escapeHTML(name)}</div>` : ''}
-        <button type="button" class="ntr_op_btn">START</button>
+        <button type="button" class="ntr_op_btn">${gate ? '<i class="fa-solid fa-play"></i> PLAY' : 'START'}</button>
       </div>`;
     const bgEl = box.querySelector('.ntr_op_bg');
     if (bgEl) bgEl.style.backgroundImage = `url(${JSON.stringify(String(bg))})`;
@@ -216,22 +223,32 @@
 
     const bar = document.createElement('div');
     bar.className = 'ntr_op_bar';
-    bar.innerHTML = `<button type="button" class="ntr_op_small" data-a="snd" style="display:none;"><i class="fa-solid fa-volume-high"></i> Sound on</button>
+    bar.innerHTML = `<button type="button" class="ntr_op_small" data-a="snd"></button>
       <button type="button" class="ntr_op_small" data-a="skip">Skip <i class="fa-solid fa-forward"></i></button>`;
     st.root.appendChild(bar);
     st.bar = bar;
     bar.querySelector('[data-a="skip"]').onclick = (e) => { e.stopPropagation(); if (st.phase === 'video') skip(); else if (st.phase === 'logo') clickLogo(); };
     const snd = bar.querySelector('[data-a="snd"]');
     st.snd = snd;
+    setSnd(st, st.muted);
+    // The choice is remembered for the next opening, refresh included.
     snd.onclick = (e) => {
       e.stopPropagation();
-      if (st.video) { st.video.muted = false; st.video.play().catch(() => {}); }
-      if (st.iframe) { ytCmd('unMute'); ytCmd('setVolume', [100]); }
-      snd.style.display = 'none';
+      const m = !st.muted;
+      settings().opMute = m;
+      save();
+      if (st.video) { st.video.muted = m; if (!m) st.video.play().catch(() => {}); }
+      if (st.iframe) { if (m) ytCmd('mute'); else { ytCmd('unMute'); ytCmd('setVolume', [100]); } }
+      setSnd(st, m);
     };
 
     if (st.o.src === 'file') startFile(st);
     else startYouTube(st);
+  }
+
+  function setSnd(st, muted) {
+    st.muted = muted;
+    if (st.snd) st.snd.innerHTML = muted ? '<i class="fa-solid fa-volume-high"></i> Sound on' : '<i class="fa-solid fa-volume-xmark"></i> Mute';
   }
 
   function startFile(st) {
@@ -240,6 +257,7 @@
     v.playsInline = true;
     v.setAttribute('playsinline', '');
     v.preload = 'auto';
+    v.muted = st.muted;
     st.video = v;
     st.media.appendChild(v);
     v.addEventListener('timeupdate', () => tick(v.currentTime, v.duration));
@@ -258,7 +276,7 @@
       let p2;
       try { p2 = v.play(); } catch (e) { p2 = Promise.reject(e); }
       if (p2 && p2.catch) p2.catch(() => {});
-      if (st.snd) st.snd.style.display = '';
+      setSnd(st, true); // Muted for now only; the saved choice stays as it is.
     });
   }
 
@@ -273,7 +291,7 @@
     const id = ytId(st.o);
     const origin = encodeURIComponent(location.origin);
     const f = document.createElement('iframe');
-    f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=${origin}`;
+    f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1${st.muted ? '&mute=1' : ''}&origin=${origin}`;
     f.allow = 'autoplay; encrypted-media';
     f.title = 'Opening video';
     st.iframe = f;
@@ -303,7 +321,7 @@
     later(() => {
       if (st.phase !== 'video' || st.ytState === 1 || st.ytState === 3) return;
       ytCmd('mute'); ytCmd('playVideo');
-      if (st.snd) st.snd.style.display = '';
+      setSnd(st, true);
     }, 3500);
   }
 
@@ -507,6 +525,7 @@
           </div>
         <div id="m_op_body" class="${hasSource(o) ? '' : 'cb_dim'}">
           <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title screen first (art, name, Start button; the click turns sound on)</span></label>
+          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_mute" ${s.opMute ? 'checked' : ''}><span>Play muted (the Mute / Sound on button during the video changes this too)</span></label>
           <div style="margin-top:8px;"><small>Plays</small>
             ${pills('opwhen', [['newchat', 'First time a new chat starts'], ['open', 'Every time the chat opens'], ['vn', 'Every time VN mode switches on']], o.when)}
           </div>
@@ -571,6 +590,8 @@
       setOp('yt', v);
       syncBody();
     };
+    const mute = q('#m_op_mute');
+    if (mute) mute.onchange = () => { s.opMute = mute.checked; save(); };
     const ttl = q('#m_op_title');
     if (ttl) ttl.onchange = () => setOp('title', ttl.checked);
     onPills(overlay, 'opwhen', (v) => setOp('when', v));

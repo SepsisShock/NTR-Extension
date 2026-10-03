@@ -18,7 +18,7 @@ Keep the open-world feel, and let a card optionally have endings.
 ## Ideas
 
 - Save points.
-- NTR Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
+- NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
 
 ## Done
 

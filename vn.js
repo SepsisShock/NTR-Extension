@@ -378,12 +378,22 @@
     return id ? `/User%20Avatars/${encodeURIComponent(id)}` : null;
   }
 
-  // Base portrait: custom upload > persona > character card
+  // The speaker's default emotion image, or their first emotion image in list order.
+  function firstEmoImg(key) {
+    const s = settings();
+    const imgs = V().emoImgs[key] || {};
+    if (imgs[s.emoDefault]) return imgs[s.emoDefault];
+    const e = s.emotions.find((x) => imgs[x.id]);
+    return e ? imgs[e.id] : '';
+  }
+
+  // Face: custom upload > default emotion image > first emotion image > persona > character card
   function resolveAvatar(name) {
     const key = String(name || '').trim().toLowerCase();
     if (!key) return null;
-    const s = settings();
     if (V().avatars[key]) return media(V().avatars[key]) || null;
+    const emo = media(firstEmoImg(key));
+    if (emo) return emo;
     const c = ctx();
     if (c.name1 && c.name1.toLowerCase() === key) return userAvatarSrc();
     const ch = (c.characters || []).find((x) => x.name && x.name.toLowerCase() === key);
@@ -396,7 +406,7 @@
     return k ? settings().emotions.find((e) => e.name.toLowerCase() === k) : null;
   }
 
-  // Emotion image > default emotion image > base portrait > placeholder (null)
+  // Emotion image > default emotion image > face > placeholder (null)
   function resolvePortrait(name, emoName) {
     const s = settings();
     const imgs = V().emoImgs[String(name || '').trim().toLowerCase()] || {};
@@ -416,7 +426,29 @@
     if (s.nodeSpriteBase) return resolveAvatar(name) || silhouetteFor(key);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key]) || silhouetteFor(key);
+    return media((e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key] || firstEmoImg(key)) || silhouetteFor(key);
+  }
+
+  // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
+  const fileOk = new Map();
+  function fileExists(u) {
+    const p = String(u || '').trim();
+    if (!/^\/?user\/files\//.test(p)) return Promise.resolve(true);
+    if (!fileOk.has(p)) fileOk.set(p, fetch(p, { method: 'HEAD', cache: 'no-store' }).then((r) => r.status !== 404).catch(() => true));
+    return fileOk.get(p);
+  }
+  async function pruneMissing() {
+    const v = V();
+    const refs = [];
+    const scan = (obj) => { for (const [k, u] of Object.entries(obj || {})) if (typeof u === 'string') refs.push([obj, k, u]); };
+    scan(v.avatars);
+    scan(v.sprites);
+    Object.values(v.emoImgs).forEach(scan);
+    const ok = await Promise.all(refs.map((r) => fileExists(r[2])));
+    if (V() !== v) return 0;
+    let n = 0;
+    refs.forEach(([obj, k, u], i) => { if (!ok[i] && obj[k] === u) { delete obj[k]; n++; } });
+    return n;
   }
 
   function silhouetteFor(key) {
@@ -492,10 +524,10 @@
       return `<div class="cb_spk">
         <div class="cb_spk_row">
           ${thumbBox(base)}
-          <span class="cb_spk_name">${escapeHTML(name)}<small>${manual ? 'custom portrait' : base ? 'auto portrait' : 'no portrait'} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
-          <button class="menu_button m_n_up" data-key="${k}" data-emo="" title="Upload base portrait"><i class="fa-solid fa-upload"></i></button>
-          <button class="menu_button m_n_url" data-key="${k}" data-emo="" title="Use a link for the base portrait"><i class="fa-solid fa-link"></i></button>
-          <button class="menu_button m_n_clr" data-key="${k}" data-emo="" title="Remove custom base portrait" ${manual ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+          <span class="cb_spk_name">${escapeHTML(name)}<small>${manual ? 'face' : base ? 'auto face' : 'no face'} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
+          <button class="menu_button m_n_up" data-key="${k}" data-emo="" title="Upload face"><i class="fa-solid fa-upload"></i></button>
+          <button class="menu_button m_n_url" data-key="${k}" data-emo="" title="Use a link for the face"><i class="fa-solid fa-link"></i></button>
+          <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" title="Delete face" ${manual ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           <button class="menu_button m_n_exp" data-key="${k}" title="Emotion portraits"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -687,8 +719,8 @@
               <div style="margin-top:10px;">${ck('m_n_pbox', s.nodePortraitBox, 'Show the portrait in the box')}</div>
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
-              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites use the base image, not emotion images')}
-              <div class="cb_hint">A speaker's full portrait (the second row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images or custom base portraits you upload under Speakers, not card avatars. With the base-image option on, emotion images only appear in the message box: the stage shows the speaker's base image (the upload arrow), or their card or persona avatar if you haven't uploaded one. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites use the face, not emotion images')}
+              <div class="cb_hint">A speaker's full portrait (the second row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images or faces you upload under Speakers, not card avatars. With the face option on, emotion images only appear in the message box: the stage shows the speaker's face (the upload arrow). Without an uploaded face, that's their default emotion image, then their first emotion image, then their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -924,7 +956,9 @@
           else if (emo) { if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; } }
           else { old = V().avatars[key]; delete V().avatars[key]; }
           save(); renderSpk(); refreshAll();
-          A.deleteFileIfUnused(old);
+          A.deleteFileIfUnused(old).then((gone) => {
+            if (!gone && /^\/?user\/files\//.test(String(old || ''))) toastr.info('Removed. The file itself was kept because something else still uses it.', 'Visual Novel');
+          });
         };
       });
       box.querySelectorAll('.m_n_exp').forEach((b) => {
@@ -955,6 +989,12 @@
         e.preventDefault();
         V().hiddenSpk = [];
         save(); renderSpk(); refreshAll();
+      });
+      pruneMissing().then((n) => {
+        if (!n) return;
+        save(); refreshAll();
+        if (box.isConnected) renderSpk();
+        toastr.info(`Removed ${n} link${n === 1 ? '' : 's'} to deleted portrait files.`, 'Visual Novel');
       });
     };
     const setSpkImage = (p, url) => {

@@ -177,7 +177,13 @@
       .cb_thumbbox { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
       .cb_thumbbox img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
       .cb_thumbbox i { opacity: .35; }
-      .cb_faces_btn { white-space: nowrap; }
+      .cb_spk_head { padding: 0 0 6px 2px; }
+      .cb_spk_head .cb_spk_name { font-weight: bold; }
+      .cb_faces_row { cursor: pointer; user-select: none; padding: 4px; margin-bottom: 4px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, #444); transition: background .15s, border-color .15s; }
+      .cb_faces_row:hover, .cb_faces_row:focus-visible { background: rgba(255,255,255,.06); border-color: var(--SmartThemeQuoteColor, #6cf); outline: none; }
+      .cb_faces_row > .fa-solid { padding: 0 8px; opacity: .8; }
+      .cb_faces_row + .cb_emo_grid { margin: 0 0 8px; }
+      .cb_full_row { padding: 0 5px; }
       .cb_emo_grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
       .cb_emo_cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: rgba(0,0,0,.2); }
       .cb_emo_cell .cb_thumbbox { width: 64px; height: 64px; }
@@ -521,7 +527,7 @@
     return list.map(({ key, name, custom }) => {
       const base = resolveAvatar(name);
       const faceEmo = (() => { const im = V().emoImgs[key] || {}; return s.emotions.find((e) => e.id === s.emoDefault && im[e.id]) || s.emotions.find((e) => im[e.id]); })();
-      const faceTxt = faceEmo ? `face: ${faceEmo.name}` : base ? 'face: card or persona picture' : 'no face';
+      const n = s.emotions.length;
       const full = V().sprites[key];
       const imgs = V().emoImgs[key] || {};
       const cnt = s.emotions.filter((e) => imgs[e.id]).length;
@@ -540,21 +546,25 @@
             </div>
           </div>`;
       }).join('')}</div>`;
+      const facesTxt = cnt ? `${cnt} of ${n} uploaded${faceEmo ? ` \u00B7 main: ${faceEmo.name}` : ''}` : `none yet${base ? ': using the card picture' : ''}`;
       return `<div class="cb_spk">
-        <div class="cb_spk_row">
-          ${thumbBox(base)}
-          <span class="cb_spk_name">${escapeHTML(name)}<small>${escapeHTML(faceTxt)}</small></span>
-          <button class="menu_button m_n_exp cb_faces_btn" data-key="${k}" title="Each emotion's face picture"><i class="fa-regular fa-face-smile"></i> ${open ? 'Hide faces' : cnt ? `Show ${cnt} face${cnt === 1 ? '' : 's'}` : 'Add faces'}</button>
+        <div class="cb_spk_row cb_spk_head">
+          <span class="cb_spk_name">${escapeHTML(name)}</span>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="cb_spk_row">
+        <div class="cb_spk_row cb_faces_row m_n_exp" data-key="${k}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open'} faces">
+          ${thumbBox(base)}
+          <span class="cb_spk_name">Faces<small>${escapeHTML(facesTxt)}</small></span>
+          <i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i>
+        </div>
+        ${grid}
+        <div class="cb_spk_row cb_full_row">
           ${thumbBox(full)}
-          <span class="cb_spk_name">Full portrait<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the images above'}</small></span>
+          <span class="cb_spk_name">Full portrait<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the faces'}</small></span>
           <button class="menu_button m_n_up" data-key="${k}" data-emo="" data-full="1" title="Upload full portrait (stage sprite)"><i class="fa-solid fa-upload"></i></button>
           <button class="menu_button m_n_url" data-key="${k}" data-emo="" data-full="1" title="Use a link for the full portrait"><i class="fa-solid fa-link"></i></button>
           <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" data-full="1" title="Remove full portrait" ${full ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
         </div>
-        ${grid}
       </div>`;
     }).join('') + restore;
   }
@@ -736,7 +746,7 @@
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
               ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites keep the face instead of changing with the emotion')}
-              <div class="cb_hint">A speaker's full portrait (the second row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images you upload under Speakers, not card avatars. With the keep-the-face option on, emotion images only change in the message box: the stage keeps the speaker's face, which is their default emotion image, or their first emotion image, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              <div class="cb_hint">A speaker's full portrait (the Full portrait row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images you upload under Speakers, not card avatars. With the keep-the-face option on, emotion images only change in the message box: the stage keeps the speaker's face, which is their default emotion image, or their first emotion image, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -978,6 +988,7 @@
       });
       box.querySelectorAll('.m_n_exp').forEach((b) => {
         b.onclick = () => { const k = b.dataset.key; if (spkOpen.has(k)) spkOpen.delete(k); else spkOpen.add(k); renderSpk(); };
+        b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
       });
       box.querySelectorAll('.m_n_rm').forEach((b) => {
         b.onclick = () => {

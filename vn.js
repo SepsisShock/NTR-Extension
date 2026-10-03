@@ -16,7 +16,26 @@
     if (!st.vn || typeof st.vn !== 'object') st.vn = VDEF();
     const d = VDEF();
     for (const k of Object.keys(d)) if (st.vn[k] === undefined) st.vn[k] = d[k];
+    if (Object.keys(st.vn.avatars).length) mergeOldFaces(st.vn);
     return st.vn;
+  }
+
+  // Speakers used to have a separate face picture next to their emotion images. The face is the emotion images now:
+  // a speaker who has emotion images loses the old copy (file included); one who has none gets it as their default emotion.
+  function mergeOldFaces(v) {
+    const s = settings();
+    const olds = [];
+    for (const k of Object.keys(v.avatars)) {
+      const u = v.avatars[k];
+      delete v.avatars[k];
+      if (!u) continue;
+      const imgs = v.emoImgs[k];
+      if (imgs && s.emotions.some((e) => imgs[e.id])) { olds.push(u); continue; }
+      if (!v.emoImgs[k]) v.emoImgs[k] = Object.create(null);
+      v.emoImgs[k][s.emoDefault] = u;
+    }
+    save();
+    setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
   }
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -387,13 +406,12 @@
     return e ? imgs[e.id] : '';
   }
 
-  // Face: default emotion image > first emotion image > old separate upload > persona > character card
+  // Face: default emotion image > first emotion image > persona > character card
   function resolveAvatar(name) {
     const key = String(name || '').trim().toLowerCase();
     if (!key) return null;
     const emo = media(firstEmoImg(key));
     if (emo) return emo;
-    if (V().avatars[key]) return media(V().avatars[key]) || null;
     const c = ctx();
     if (c.name1 && c.name1.toLowerCase() === key) return userAvatarSrc();
     const ch = (c.characters || []).find((x) => x.name && x.name.toLowerCase() === key);
@@ -416,7 +434,7 @@
     return resolveAvatar(name);
   }
 
-  // Stage sprites: the full portrait wins. Otherwise uploaded images (emotions, then an old separate upload), never card/persona avatars.
+  // Stage sprites: the full portrait wins. Otherwise the emotion images, never card/persona avatars.
   // With the fixed-face option on, the stage keeps the face (see resolveAvatar) whatever the emotion.
   function spriteSrc(name, emoName) {
     const s = settings();
@@ -426,7 +444,7 @@
     if (s.nodeSpriteBase) return resolveAvatar(name) || silhouetteFor(key);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || firstEmoImg(key) || v.avatars[key]) || silhouetteFor(key);
+    return media((e && imgs[e.id]) || firstEmoImg(key)) || silhouetteFor(key);
   }
 
   // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
@@ -441,7 +459,6 @@
     const v = V();
     const refs = [];
     const scan = (obj) => { for (const [k, u] of Object.entries(obj || {})) if (typeof u === 'string') refs.push([obj, k, u]); };
-    scan(v.avatars);
     scan(v.sprites);
     Object.values(v.emoImgs).forEach(scan);
     const ok = await Promise.all(refs.map((r) => fileExists(r[2])));
@@ -502,9 +519,8 @@
     if (!list.length) return `<div class="cb_hint">No speakers yet. Add one below${s.nodeAutoSpk ? ', or they show up once tagged in the chat' : ''}.</div>${restore}`;
     return list.map(({ key, name, custom }) => {
       const base = resolveAvatar(name);
-      const manual = !!V().avatars[key];
       const faceEmo = (() => { const im = V().emoImgs[key] || {}; return s.emotions.find((e) => e.id === s.emoDefault && im[e.id]) || s.emotions.find((e) => im[e.id]); })();
-      const faceTxt = faceEmo ? `face: ${faceEmo.name}${manual ? ' (old separate picture still saved)' : ''}` : manual ? 'old separate picture' : base ? 'card or persona picture' : 'no face';
+      const faceTxt = faceEmo ? `face: ${faceEmo.name}` : base ? 'face: card or persona picture' : 'no face';
       const full = V().sprites[key];
       const imgs = V().emoImgs[key] || {};
       const cnt = s.emotions.filter((e) => imgs[e.id]).length;
@@ -527,7 +543,6 @@
         <div class="cb_spk_row">
           ${thumbBox(base)}
           <span class="cb_spk_name">${escapeHTML(name)}<small>${escapeHTML(faceTxt)} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
-          ${manual ? `<button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" title="Delete the old separate picture (your emotions are kept)"><i class="fa-solid fa-trash"></i></button>` : ''}
           <button class="menu_button m_n_exp" data-key="${k}" title="Emotion portraits"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -953,8 +968,7 @@
           const { key, emo, full } = b.dataset;
           let old;
           if (full) { old = V().sprites[key]; delete V().sprites[key]; }
-          else if (emo) { if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; } }
-          else { old = V().avatars[key]; delete V().avatars[key]; }
+          else if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; }
           save(); renderSpk(); refreshAll();
           A.deleteFileIfUnused(old).then((gone) => {
             if (!gone && /^\/?user\/files\//.test(String(old || ''))) toastr.info('Removed. The file itself was kept because something else still uses it.', 'Visual Novel');
@@ -970,8 +984,7 @@
           if (b.dataset.custom) {
             if (!confirm('Remove this custom speaker and their uploaded portraits?')) return;
             V().customSpk = V().customSpk.filter((n) => n.toLowerCase() !== k);
-            const olds = [V().avatars[k], V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
-            delete V().avatars[k];
+            const olds = [V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
             delete V().sprites[k];
             delete V().emoImgs[k];
             setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
@@ -1004,7 +1017,7 @@
         if (!V().emoImgs[p.key]) V().emoImgs[p.key] = {};
         old = V().emoImgs[p.key][p.emo];
         V().emoImgs[p.key][p.emo] = url;
-      } else { old = V().avatars[p.key]; V().avatars[p.key] = url; }
+      }
       save(); renderSpk(); refreshAll();
       A.deleteFileIfUnused(old);
     };

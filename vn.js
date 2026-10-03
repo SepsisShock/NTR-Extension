@@ -544,7 +544,7 @@
         <div class="cb_spk_row">
           ${thumbBox(base)}
           <span class="cb_spk_name">${escapeHTML(name)}<small>${escapeHTML(faceTxt)}</small></span>
-          <button class="menu_button m_n_exp cb_faces_btn" data-key="${k}" title="${open ? 'Hide' : 'Show'} faces">Faces ${cnt}/${s.emotions.length} <i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
+          <button class="menu_button m_n_exp cb_faces_btn" data-key="${k}" title="Each emotion's face picture"><i class="fa-regular fa-face-smile"></i> ${open ? 'Hide faces' : cnt ? `Show ${cnt} face${cnt === 1 ? '' : 's'}` : 'Add faces'}</button>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="cb_spk_row">

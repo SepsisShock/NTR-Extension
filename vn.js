@@ -387,13 +387,13 @@
     return e ? imgs[e.id] : '';
   }
 
-  // Face: custom upload > default emotion image > first emotion image > persona > character card
+  // Face: default emotion image > first emotion image > old separate upload > persona > character card
   function resolveAvatar(name) {
     const key = String(name || '').trim().toLowerCase();
     if (!key) return null;
-    if (V().avatars[key]) return media(V().avatars[key]) || null;
     const emo = media(firstEmoImg(key));
     if (emo) return emo;
+    if (V().avatars[key]) return media(V().avatars[key]) || null;
     const c = ctx();
     if (c.name1 && c.name1.toLowerCase() === key) return userAvatarSrc();
     const ch = (c.characters || []).find((x) => x.name && x.name.toLowerCase() === key);
@@ -416,8 +416,8 @@
     return resolveAvatar(name);
   }
 
-  // Stage sprites: the full portrait wins. Otherwise uploaded images (emotion or custom base), never card/persona avatars.
-  // With the base-image option on, emotion images stay in the box: custom base > persona > card avatar.
+  // Stage sprites: the full portrait wins. Otherwise uploaded images (emotions, then an old separate upload), never card/persona avatars.
+  // With the fixed-face option on, the stage keeps the face (see resolveAvatar) whatever the emotion.
   function spriteSrc(name, emoName) {
     const s = settings();
     const v = V();
@@ -426,7 +426,7 @@
     if (s.nodeSpriteBase) return resolveAvatar(name) || silhouetteFor(key);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key] || firstEmoImg(key)) || silhouetteFor(key);
+    return media((e && imgs[e.id]) || firstEmoImg(key) || v.avatars[key]) || silhouetteFor(key);
   }
 
   // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
@@ -503,6 +503,8 @@
     return list.map(({ key, name, custom }) => {
       const base = resolveAvatar(name);
       const manual = !!V().avatars[key];
+      const faceEmo = (() => { const im = V().emoImgs[key] || {}; return s.emotions.find((e) => e.id === s.emoDefault && im[e.id]) || s.emotions.find((e) => im[e.id]); })();
+      const faceTxt = faceEmo ? `face: ${faceEmo.name}${manual ? ' (old separate picture still saved)' : ''}` : manual ? 'old separate picture' : base ? 'card or persona picture' : 'no face';
       const full = V().sprites[key];
       const imgs = V().emoImgs[key] || {};
       const cnt = s.emotions.filter((e) => imgs[e.id]).length;
@@ -524,10 +526,8 @@
       return `<div class="cb_spk">
         <div class="cb_spk_row">
           ${thumbBox(base)}
-          <span class="cb_spk_name">${escapeHTML(name)}<small>${manual ? 'face' : base ? 'auto face' : 'no face'} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
-          <button class="menu_button m_n_up" data-key="${k}" data-emo="" title="Upload face"><i class="fa-solid fa-upload"></i></button>
-          <button class="menu_button m_n_url" data-key="${k}" data-emo="" title="Use a link for the face"><i class="fa-solid fa-link"></i></button>
-          <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" title="Delete face" ${manual ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+          <span class="cb_spk_name">${escapeHTML(name)}<small>${escapeHTML(faceTxt)} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
+          ${manual ? `<button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" title="Delete the old separate picture (your emotions are kept)"><i class="fa-solid fa-trash"></i></button>` : ''}
           <button class="menu_button m_n_exp" data-key="${k}" title="Emotion portraits"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -719,8 +719,8 @@
               <div style="margin-top:10px;">${ck('m_n_pbox', s.nodePortraitBox, 'Show the portrait in the box')}</div>
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
-              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites use the face, not emotion images')}
-              <div class="cb_hint">A speaker's full portrait (the second row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images or faces you upload under Speakers, not card avatars. With the face option on, emotion images only appear in the message box: the stage shows the speaker's face (the upload arrow). Without an uploaded face, that's their default emotion image, then their first emotion image, then their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites keep the face instead of changing with the emotion')}
+              <div class="cb_hint">A speaker's full portrait (the second row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images you upload under Speakers, not card avatars. With the keep-the-face option on, emotion images only change in the message box: the stage keeps the speaker's face, which is their default emotion image, or their first emotion image, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -2005,9 +2005,7 @@
     titleArt: () => {
       const c = ctx();
       if (c.groupId || !c.name2) return null;
-      const k = lc(c.name2);
-      const v = V();
-      return media((v.emoImgs[k] || {})[settings().emoDefault] || v.avatars[k]) || resolveAvatar(c.name2);
+      return resolveAvatar(c.name2);
     },
     sceneBg: () => locUrl(currentLoc()) || (A.bannerImage ? A.bannerImage() : ''),
   };

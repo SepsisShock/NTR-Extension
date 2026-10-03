@@ -244,7 +244,6 @@
 
   function setPopStatus(prefix, msg) {
     popMsg[prefix] = msg;
-    console.log(`[chatvisuals] pop out (${prefix}): ${msg}`);
     const el = document.getElementById(`m_${prefix}_pstat`);
     if (el) el.textContent = msg;
   }
@@ -270,6 +269,7 @@
           el.src = el.dataset.thumb;
         } else {
           setPopStatus(prefix, 'Image failed to load: ' + (el.getAttribute('src') || 'no source'));
+          console.warn(`[NTR pop out] (${prefix}) ${popMsg[prefix]}`);
         }
       };
       el.onload = () => {
@@ -749,7 +749,7 @@
       
       updateBanner();
     } catch (e) {
-      console.error('[chatvisuals]', e);
+      console.error('[NTR render]', e);
     }
   }
 
@@ -818,7 +818,7 @@
         r.idx = r.images.length - 1;
         added++;
       } catch (e) {
-        console.error('[chatvisuals upload error]', e);
+        console.error('[NTR banner upload]', e);
         toastr.error(e.message || 'Failed to upload', 'Banner Error');
       }
     }
@@ -1141,7 +1141,7 @@
         ensureFgLayer();
         openCombinedModal();
       } catch (e) {
-        console.error('[chatvisuals fg upload]', e);
+        console.error('[NTR fg upload]', e);
         toastr.error('Foreground upload failed', 'Error');
       }
     };

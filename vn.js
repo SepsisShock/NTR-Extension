@@ -1038,7 +1038,7 @@
       try {
         setSpkImage(pending, await uploadPortrait(nFile.files[0], pending.full ? 2048 : 768));
       } catch (e) {
-        console.error('[chatvisuals vn upload]', e);
+        console.error('[NTR vn portrait upload]', e);
         toastr.error(e.message || 'Portrait upload failed', 'Visual Novel');
       }
       nFile.value = '';

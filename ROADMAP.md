@@ -1,4 +1,4 @@
-# Roadmap
+# Roadmap [Beta]
 
 Ideas and planned work for Nitwit Tavern Redesign. Tick a box when it ships; finished items move to **Done** so there is a record of what changed.
 
@@ -24,7 +24,7 @@ Keep the open-world feel, and let a card optionally have endings.
 - Open questions: a separate mode next to YouTube Loop, or one "Video" mode for links and files? Muted with no controls, or with controls?
 
 ### Install instructions
-- [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.
+- [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general. Not done until out of Beta.
 
 ## Ideas
 

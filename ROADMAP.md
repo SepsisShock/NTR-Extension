@@ -28,7 +28,12 @@ Keep the open-world feel, and let a card optionally have endings.
 
 ## Ideas
 
-- Save points.
+- Chapters and save points. In Visual Novel Mode, each message is a chapter.
+  - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
+  - Title card when a chapter starts.
+  - Chapter list to jump to any chapter.
+  - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
+  - Open question: what SillyTavern makes available to extensions for creating a branch.
 - Text fonts. Choose a font, not just the font size (Display Overrides only has font scale now). Possibly a preset list of Google Fonts, each name shown in its own font as the preview.
   - Open questions: where it applies (whole chat, VN dialogue box, VN name tag, each separately?); whether pictures of the fonts are needed or the name written in the font is enough; whether to allow typing any Google Font name; whether to allow uploading font files so no outside request is needed; how it works with the privacy setting, since Google Fonts send the user's IP address to Google; whether fonts are saved in themes.
 - Regex. Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
@@ -42,7 +47,7 @@ Keep the open-world feel, and let a card optionally have endings.
 - NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
   - For the author and for everyone else, so it needs to be friendly for first-time card makers.
   - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
-  - Possible `[[Chapter:Name]]` tag, worked out from the chat like locations. A chapter says what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
+  - Uses the `[[Chapter:Name]]` tag from Chapters and save points, where a chapter is one message. A chapter can say what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
   - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
   - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel menu (speakers, emotions, locations, CGs, maps).
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).

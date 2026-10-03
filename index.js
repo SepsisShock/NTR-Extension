@@ -1018,6 +1018,8 @@
           </div>
         </div>
 
+        ${displaySectionHtml(s)}
+
         <div class="cb_section">
           ${secHead('pfp', 'fa-user-astronaut', 'Pfp Management')}
           <div class="cb_collapse_content">
@@ -1031,7 +1033,6 @@
         </div>
 
         ${vnSectionHtml(s)}
-        ${displaySectionHtml(s)}
         ${privacySectionHtml(s)}
         </div>
       </div>

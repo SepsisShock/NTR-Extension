@@ -31,6 +31,8 @@ Keep the open-world feel, and let a card optionally have endings.
   - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
   - Possible `[[Chapter:Name]]` tag, worked out from the chat like locations. A chapter says what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
   - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
+  - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel menu (speakers, emotions, locations, CGs, maps).
+  - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
 

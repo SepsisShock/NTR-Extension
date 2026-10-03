@@ -17,7 +17,12 @@ Keep the open-world feel, and let a card optionally have endings.
 
 ## Ideas
 
-- (add loose ideas here)
+- Save points.
+- NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
+  - For the author and for everyone else, so it needs to be friendly for first-time card makers.
+  - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
+  - Possible `[[Chapter:Name]]` tag, worked out from the chat like locations. A chapter says what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
+  - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
 
 ## Done
 

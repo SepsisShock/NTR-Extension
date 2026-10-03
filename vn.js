@@ -177,6 +177,7 @@
       .cb_thumbbox { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
       .cb_thumbbox img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
       .cb_thumbbox i { opacity: .35; }
+      .cb_faces_btn { white-space: nowrap; }
       .cb_emo_grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
       .cb_emo_cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: rgba(0,0,0,.2); }
       .cb_emo_cell .cb_thumbbox { width: 64px; height: 64px; }
@@ -242,7 +243,7 @@
 
   const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null };
   let nodeQ = null, nodeQAnim = false;
-  const spkShut = new Set(); // speakers whose faces are folded away; everyone else's show
+  const spkOpen = new Set();
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   function tagRe(s) {
@@ -524,7 +525,7 @@
       const full = V().sprites[key];
       const imgs = V().emoImgs[key] || {};
       const cnt = s.emotions.filter((e) => imgs[e.id]).length;
-      const open = !spkShut.has(key);
+      const open = spkOpen.has(key);
       const k = escapeHTML(key);
       const grid = !open ? '' : `<div class="cb_emo_grid">${s.emotions.map((e) => {
         const src = imgs[e.id];
@@ -542,8 +543,8 @@
       return `<div class="cb_spk">
         <div class="cb_spk_row">
           ${thumbBox(base)}
-          <span class="cb_spk_name">${escapeHTML(name)}<small>${escapeHTML(faceTxt)} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
-          <button class="menu_button m_n_exp" data-key="${k}" title="Show or hide faces"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
+          <span class="cb_spk_name">${escapeHTML(name)}<small>${escapeHTML(faceTxt)}</small></span>
+          <button class="menu_button m_n_exp cb_faces_btn" data-key="${k}" title="${open ? 'Hide' : 'Show'} faces">Faces ${cnt}/${s.emotions.length} <i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="cb_spk_row">
@@ -976,7 +977,7 @@
         };
       });
       box.querySelectorAll('.m_n_exp').forEach((b) => {
-        b.onclick = () => { const k = b.dataset.key; if (spkShut.has(k)) spkShut.delete(k); else spkShut.add(k); renderSpk(); };
+        b.onclick = () => { const k = b.dataset.key; if (spkOpen.has(k)) spkOpen.delete(k); else spkOpen.add(k); renderSpk(); };
       });
       box.querySelectorAll('.m_n_rm').forEach((b) => {
         b.onclick = () => {
@@ -994,7 +995,7 @@
             if ([c.name1, c.name2].some((n) => lc(n) === k) && !confirm('This is your persona or the current character. Hide it from the list? Their portraits are kept, and you can restore it later.')) return;
             if (!V().hiddenSpk.some((n) => lc(n) === k)) V().hiddenSpk.push(k);
           }
-          spkShut.delete(k);
+          spkOpen.delete(k);
           save(); renderSpk(); refreshAll();
         };
       });
@@ -1040,7 +1041,7 @@
       if ([s.delimSpkOpen, s.delimSpkClose, s.delimEmo].some((d) => nm.includes(d))) { toastr.warning('Names can\'t contain your tag delimiters.', 'Visual Novel'); return; }
       V().hiddenSpk = V().hiddenSpk.filter((n) => lc(n) !== k);
       if (!V().customSpk.some((n) => n.toLowerCase() === k)) V().customSpk.push(nm);
-      spkShut.delete(k);
+      spkOpen.add(k);
       inp.value = '';
       save(); renderSpk(); refreshAll();
     };

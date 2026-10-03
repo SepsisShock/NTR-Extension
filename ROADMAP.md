@@ -17,7 +17,7 @@ Keep the open-world feel, and let a card optionally have endings.
 
 ## Ideas
 
-- (add loose ideas here)
+- Save points.
 
 ## Done
 

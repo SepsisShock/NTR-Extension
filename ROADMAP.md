@@ -23,6 +23,9 @@ Keep the open-world feel, and let a card optionally have endings.
 - [ ] Banner video saved under a new per-character field (existing keys untouched).
 - Open questions: a separate mode next to YouTube Loop, or one "Video" mode for links and files? Muted with no controls, or with controls?
 
+### Install instructions
+- [ ] Visual instructions (screenshots) for installing the extension in SillyTavern.
+
 ## Ideas
 
 - Save points.

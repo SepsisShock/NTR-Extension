@@ -1660,8 +1660,10 @@
   }
 
   // Every character's card counts, so a file shared by two cards is never deleted out from under one.
+  // The pre-2.1 migration backup doesn't count, or files from back then could never be deleted.
   function filesInUse() {
-    const set = collectFileRefs(settings());
+    const s = settings();
+    const set = collectFileRefs(s, new Set(), new Set(s.legacyBackup ? [s.legacyBackup] : []));
     for (const ch of ctx().characters || []) collectFileRefs(ch?.data?.extensions?.ntr, set);
     return set;
   }

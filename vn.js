@@ -16,7 +16,26 @@
     if (!st.vn || typeof st.vn !== 'object') st.vn = VDEF();
     const d = VDEF();
     for (const k of Object.keys(d)) if (st.vn[k] === undefined) st.vn[k] = d[k];
+    if (Object.keys(st.vn.avatars).length) mergeOldFaces(st.vn);
     return st.vn;
+  }
+
+  // Speakers used to have a separate face picture next to their emotion images. The face is the emotion images now:
+  // a speaker who has emotion images loses the old copy (file included); one who has none gets it as their default emotion.
+  function mergeOldFaces(v) {
+    const s = settings();
+    const olds = [];
+    for (const k of Object.keys(v.avatars)) {
+      const u = v.avatars[k];
+      delete v.avatars[k];
+      if (!u) continue;
+      const imgs = v.emoImgs[k];
+      if (imgs && s.emotions.some((e) => imgs[e.id])) { olds.push(u); continue; }
+      if (!v.emoImgs[k]) v.emoImgs[k] = Object.create(null);
+      v.emoImgs[k][s.emoDefault] = u;
+    }
+    save();
+    setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
   }
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -158,6 +177,13 @@
       .cb_thumbbox { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
       .cb_thumbbox img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
       .cb_thumbbox i { opacity: .35; }
+      .cb_spk_head { padding: 0 0 6px 2px; }
+      .cb_spk_head .cb_spk_name { font-weight: bold; }
+      .cb_faces_row { cursor: pointer; user-select: none; padding: 4px; margin-bottom: 4px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, #444); transition: background .15s, border-color .15s; }
+      .cb_faces_row:hover, .cb_faces_row:focus-visible { background: rgba(255,255,255,.06); border-color: var(--SmartThemeQuoteColor, #6cf); outline: none; }
+      .cb_faces_row > .fa-solid { padding: 0 8px; opacity: .8; }
+      .cb_faces_row + .cb_emo_grid { margin: 0 0 8px; }
+      .cb_full_row { padding: 0 5px; }
       .cb_emo_grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
       .cb_emo_cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: rgba(0,0,0,.2); }
       .cb_emo_cell .cb_thumbbox { width: 64px; height: 64px; }
@@ -387,11 +413,10 @@
     return e ? imgs[e.id] : '';
   }
 
-  // Face: custom upload > default emotion image > first emotion image > persona > character card
+  // Face: default emotion image > first emotion image > persona > character card
   function resolveAvatar(name) {
     const key = String(name || '').trim().toLowerCase();
     if (!key) return null;
-    if (V().avatars[key]) return media(V().avatars[key]) || null;
     const emo = media(firstEmoImg(key));
     if (emo) return emo;
     const c = ctx();
@@ -416,8 +441,8 @@
     return resolveAvatar(name);
   }
 
-  // Stage sprites: the full portrait wins. Otherwise uploaded images (emotion or custom base), never card/persona avatars.
-  // With the base-image option on, emotion images stay in the box: custom base > persona > card avatar.
+  // Stage sprites: the full portrait wins. Otherwise the emotion images, never card/persona avatars.
+  // With the fixed-face option on, the stage keeps the face (see resolveAvatar) whatever the emotion.
   function spriteSrc(name, emoName) {
     const s = settings();
     const v = V();
@@ -426,7 +451,7 @@
     if (s.nodeSpriteBase) return resolveAvatar(name) || silhouetteFor(key);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || imgs[s.emoDefault] || v.avatars[key] || firstEmoImg(key)) || silhouetteFor(key);
+    return media((e && imgs[e.id]) || firstEmoImg(key)) || silhouetteFor(key);
   }
 
   // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
@@ -441,7 +466,6 @@
     const v = V();
     const refs = [];
     const scan = (obj) => { for (const [k, u] of Object.entries(obj || {})) if (typeof u === 'string') refs.push([obj, k, u]); };
-    scan(v.avatars);
     scan(v.sprites);
     Object.values(v.emoImgs).forEach(scan);
     const ok = await Promise.all(refs.map((r) => fileExists(r[2])));
@@ -502,7 +526,8 @@
     if (!list.length) return `<div class="cb_hint">No speakers yet. Add one below${s.nodeAutoSpk ? ', or they show up once tagged in the chat' : ''}.</div>${restore}`;
     return list.map(({ key, name, custom }) => {
       const base = resolveAvatar(name);
-      const manual = !!V().avatars[key];
+      const faceEmo = (() => { const im = V().emoImgs[key] || {}; return s.emotions.find((e) => e.id === s.emoDefault && im[e.id]) || s.emotions.find((e) => im[e.id]); })();
+      const n = s.emotions.length;
       const full = V().sprites[key];
       const imgs = V().emoImgs[key] || {};
       const cnt = s.emotions.filter((e) => imgs[e.id]).length;
@@ -521,24 +546,25 @@
             </div>
           </div>`;
       }).join('')}</div>`;
+      const facesTxt = cnt ? `${cnt} of ${n} uploaded${faceEmo ? ` \u00B7 main: ${faceEmo.name}` : ''}` : `none yet${base ? ': using the card picture' : ''}`;
       return `<div class="cb_spk">
-        <div class="cb_spk_row">
-          ${thumbBox(base)}
-          <span class="cb_spk_name">${escapeHTML(name)}<small>${manual ? 'face' : base ? 'auto face' : 'no face'} \u00B7 ${cnt}/${s.emotions.length} emotions</small></span>
-          <button class="menu_button m_n_up" data-key="${k}" data-emo="" title="Upload face"><i class="fa-solid fa-upload"></i></button>
-          <button class="menu_button m_n_url" data-key="${k}" data-emo="" title="Use a link for the face"><i class="fa-solid fa-link"></i></button>
-          <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" title="Delete face" ${manual ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
-          <button class="menu_button m_n_exp" data-key="${k}" title="Emotion portraits"><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i></button>
+        <div class="cb_spk_row cb_spk_head">
+          <span class="cb_spk_name">${escapeHTML(name)}</span>
           <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="cb_spk_row">
+        <div class="cb_spk_row cb_faces_row m_n_exp" data-key="${k}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open'} faces">
+          ${thumbBox(base)}
+          <span class="cb_spk_name">Faces<small>${escapeHTML(facesTxt)}</small></span>
+          <i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i>
+        </div>
+        ${grid}
+        <div class="cb_spk_row cb_full_row">
           ${thumbBox(full)}
-          <span class="cb_spk_name">Full portrait<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the images above'}</small></span>
+          <span class="cb_spk_name">Full portrait<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the faces'}</small></span>
           <button class="menu_button m_n_up" data-key="${k}" data-emo="" data-full="1" title="Upload full portrait (stage sprite)"><i class="fa-solid fa-upload"></i></button>
           <button class="menu_button m_n_url" data-key="${k}" data-emo="" data-full="1" title="Use a link for the full portrait"><i class="fa-solid fa-link"></i></button>
           <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" data-full="1" title="Remove full portrait" ${full ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
         </div>
-        ${grid}
       </div>`;
     }).join('') + restore;
   }
@@ -719,8 +745,8 @@
               <div style="margin-top:10px;">${ck('m_n_pbox', s.nodePortraitBox, 'Show the portrait in the box')}</div>
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
-              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites use the face, not emotion images')}
-              <div class="cb_hint">A speaker's full portrait (the second row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images or faces you upload under Speakers, not card avatars. With the face option on, emotion images only appear in the message box: the stage shows the speaker's face (the upload arrow). Without an uploaded face, that's their default emotion image, then their first emotion image, then their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites keep the face instead of changing with the emotion')}
+              <div class="cb_hint">A speaker's full portrait (the Full portrait row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images you upload under Speakers, not card avatars. With the keep-the-face option on, emotion images only change in the message box: the stage keeps the speaker's face, which is their default emotion image, or their first emotion image, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -953,8 +979,7 @@
           const { key, emo, full } = b.dataset;
           let old;
           if (full) { old = V().sprites[key]; delete V().sprites[key]; }
-          else if (emo) { if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; } }
-          else { old = V().avatars[key]; delete V().avatars[key]; }
+          else if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; }
           save(); renderSpk(); refreshAll();
           A.deleteFileIfUnused(old).then((gone) => {
             if (!gone && /^\/?user\/files\//.test(String(old || ''))) toastr.info('Removed. The file itself was kept because something else still uses it.', 'Visual Novel');
@@ -963,6 +988,7 @@
       });
       box.querySelectorAll('.m_n_exp').forEach((b) => {
         b.onclick = () => { const k = b.dataset.key; if (spkOpen.has(k)) spkOpen.delete(k); else spkOpen.add(k); renderSpk(); };
+        b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
       });
       box.querySelectorAll('.m_n_rm').forEach((b) => {
         b.onclick = () => {
@@ -970,8 +996,7 @@
           if (b.dataset.custom) {
             if (!confirm('Remove this custom speaker and their uploaded portraits?')) return;
             V().customSpk = V().customSpk.filter((n) => n.toLowerCase() !== k);
-            const olds = [V().avatars[k], V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
-            delete V().avatars[k];
+            const olds = [V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
             delete V().sprites[k];
             delete V().emoImgs[k];
             setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
@@ -1004,7 +1029,7 @@
         if (!V().emoImgs[p.key]) V().emoImgs[p.key] = {};
         old = V().emoImgs[p.key][p.emo];
         V().emoImgs[p.key][p.emo] = url;
-      } else { old = V().avatars[p.key]; V().avatars[p.key] = url; }
+      }
       save(); renderSpk(); refreshAll();
       A.deleteFileIfUnused(old);
     };
@@ -2005,9 +2030,7 @@
     titleArt: () => {
       const c = ctx();
       if (c.groupId || !c.name2) return null;
-      const k = lc(c.name2);
-      const v = V();
-      return media((v.emoImgs[k] || {})[settings().emoDefault] || v.avatars[k]) || resolveAvatar(c.name2);
+      return resolveAvatar(c.name2);
     },
     sceneBg: () => locUrl(currentLoc()) || (A.bannerImage ? A.bannerImage() : ''),
   };

@@ -49,6 +49,10 @@ Keep the open-world feel, and let a card optionally have endings.
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
 
+## Possible bugs
+
+- Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
+
 ## Done
 
 - (move finished items here, newest first)

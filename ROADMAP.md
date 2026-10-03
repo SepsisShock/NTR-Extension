@@ -26,10 +26,6 @@ Keep the open-world feel, and let a card optionally have endings.
 ### Install instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.
 
-### Typewriter effect and streaming
-- [ ] Check for problems when Visual Novel Mode's typewriter effect is on and streaming is on in SillyTavern.
-- [ ] Fix what turns up, or tell users to turn one of them off.
-
 ## Ideas
 
 - Save points.
@@ -42,6 +38,10 @@ Keep the open-world feel, and let a card optionally have endings.
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
+
+## Possible bugs
+
+- Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
 
 ## Done
 

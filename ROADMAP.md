@@ -26,6 +26,10 @@ Keep the open-world feel, and let a card optionally have endings.
 ### Install instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.
 
+### Typewriter effect and streaming
+- [ ] Check for problems when Visual Novel Mode's typewriter effect is on and streaming is on in SillyTavern.
+- [ ] Fix what turns up, or tell users to turn one of them off.
+
 ## Ideas
 
 - Save points.

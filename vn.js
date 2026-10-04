@@ -240,11 +240,11 @@
       .cb_art_row .menu_button { margin: 0; padding: 4px 8px; }
   `;
 
+  // Kept while the extension is off: the menu still opens then, and the other rules only style VN parts, which are hidden.
   function applyStyle() {
     let el = document.getElementById('ntr_vn_style');
     if (!el) { el = document.createElement('style'); el.id = 'ntr_vn_style'; document.head.appendChild(el); }
-    if (!A.isOn()) { el.textContent = ''; return; }
-    el.textContent = VN_CSS + (settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
+    el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
   }
 
   const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null };

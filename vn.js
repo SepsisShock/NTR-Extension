@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.2.10';
+  const VN_VERSION = '2.2.11';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, secHead, subHead } = A;
@@ -411,17 +411,28 @@
     return e ? imgs[e.id] : '';
   }
 
-  // Face: default emotion image > first emotion image > persona > character card
+  // Picture from SillyTavern itself: {{user}} gets the active persona, anyone else a card in this chat with that name.
+  // Only cards in the open chat count, so an unrelated card in the library that shares the name never leaks in.
+  function stPicture(key) {
+    const c = ctx();
+    if (c.name1 && c.name1.toLowerCase() === key) { const u = userAvatarSrc(); return u ? { src: u, from: 'persona' } : null; }
+    let cards = [];
+    if (c.groupId) {
+      const g = (c.groups || []).find((x) => x.id === c.groupId);
+      cards = (g?.members || []).map((av) => (c.characters || []).find((x) => x.avatar === av));
+    } else if (c.characterId !== undefined && c.characterId !== null) cards = [c.characters?.[c.characterId]];
+    const ch = cards.find((x) => x && x.name && x.name.toLowerCase() === key);
+    if (ch && ch.avatar) return { src: `/characters/${encodeURIComponent(ch.avatar)}`, from: 'card' };
+    return null;
+  }
+
+  // Face: default emotion image > first emotion image > persona > character card in this chat
   function resolveAvatar(name) {
     const key = String(name || '').trim().toLowerCase();
     if (!key) return null;
     const emo = media(firstEmoImg(key));
     if (emo) return emo;
-    const c = ctx();
-    if (c.name1 && c.name1.toLowerCase() === key) return userAvatarSrc();
-    const ch = (c.characters || []).find((x) => x.name && x.name.toLowerCase() === key);
-    if (ch && ch.avatar) return `/characters/${encodeURIComponent(ch.avatar)}`;
-    return null;
+    return stPicture(key)?.src || null;
   }
 
   function findEmo(name) {
@@ -525,6 +536,7 @@
     if (!list.length) return `<div class="cb_hint">No speakers yet. Add one below${s.nodeAutoSpk ? ', or they show up once tagged in the chat' : ''}.</div>${restore}`;
     return list.map(({ key, name, custom }) => {
       const base = resolveAvatar(name);
+      const stPic = stPicture(key);
       const faceEmo = (() => { const im = V().emoImgs[key] || {}; return s.emotions.find((e) => e.id === s.emoDefault && im[e.id]) || s.emotions.find((e) => im[e.id]); })();
       const n = s.emotions.length;
       const full = V().sprites[key];
@@ -545,7 +557,7 @@
             </div>
           </div>`;
       }).join('')}</div>`;
-      const facesTxt = cnt ? `${cnt} of ${n} uploaded${faceEmo ? ` \u00B7 main: ${faceEmo.name}` : ''}` : `none yet${base ? ': using the card picture' : ''}`;
+      const facesTxt = cnt ? `${cnt} of ${n} uploaded${faceEmo ? ` \u00B7 main: ${faceEmo.name}` : ''}` : `none yet${stPic ? `: using the ${stPic.from} picture` : ''}`;
       return `<div class="cb_spk">
         <div class="cb_spk_row cb_spk_head">
           <span class="cb_spk_name">${escapeHTML(name)}</span>

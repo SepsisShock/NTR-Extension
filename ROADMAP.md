@@ -23,6 +23,32 @@ Keep the open-world feel, and let a card optionally have endings.
 - [ ] Banner video saved under a new per-character field (existing keys untouched).
 - Open questions: a separate mode next to YouTube Loop, or one "Video" mode for links and files? Muted with no controls, or with controls?
 
+### Reasoning Block and Text Formatting
+Two new menu sections for styling chat text, reasoning and names. Replaces the "Text fonts" idea.
+
+- [ ] New menu order: Themes, Header Banner, Pfp Management, **Reasoning Block**, **Text Formatting**, Display Overrides, Foreground Images, Visual Novel Mode, Privacy.
+- [ ] Reasoning Block section: styles SillyTavern's reasoning (thinking) block.
+- [ ] Text Formatting section with three parts, in this order:
+  - Names: the name at the top of each message, one setting for both the user's and the character's name.
+  - User Text: the user's messages.
+  - AI Text: the AI's messages.
+- [ ] Settings per part:
+  - Names: color, font, size, weight (Normal, Bold, Extra Bold; SillyTavern uses Bold).
+  - User Text and AI Text: font, size, main color, italics color, underline color, quote color.
+  - Reasoning Block: font, size, text color, italics color, border color, weight (Normal, Medium, Bold; SillyTavern uses Medium), color strength (0 to 100%; SillyTavern dulls reasoning colors to 50%).
+- [ ] Reasoning Block, Header Text: type your own label for each of SillyTavern's three ("Thinking...", "Thought for {time}", "Thought for some time"). `{time}` becomes how long it thought. Display only.
+- [ ] Sizes are a multiplier (e.g. 0.8x to 1.5x), not pixels, so they still follow SillyTavern's Font Scale and the Display Overrides one.
+- [ ] "Enable Reasoning Block" and "Enable Text Formatting" switches, like the other sections. Off greys out the section and stops its styling; ticks and values are kept.
+- [ ] Every setting has a checkbox, like Display Overrides. No "Override" in front of each label; one note at the top of the section explains it. Unticked means SillyTavern's own value applies.
+- [ ] Both sections are saved in themes.
+- [ ] Font boxes accept fonts installed on the device and Google Fonts. A Google Font is only requested when a font box is ticked and filled in; if Google doesn't have the name, the device's font of that name is used, then SillyTavern's normal font.
+- [ ] One note at the top of each section (not under every font box): Google Fonts are downloaded from Google, fonts on your device work offline.
+- [ ] New Privacy checkbox: "Don't load Google Fonts" (separate from the card images and videos one). When ticked, only fonts on the device work.
+- [ ] Text Formatting also applies inside the Visual Novel dialogue box: AI Text's font and colors on the dialogue, Names' font and color on the speaker's name tag. The name tag's background stays on Quote Text.
+- [ ] Saved under new settings keys (existing keys untouched).
+- Left out for now: line height, letter spacing, text shadow per part, background color per part.
+- Open questions: separate themes for the normal chat and for Visual Novel Mode, so each can have its own look; whether to offer a preset list of Google Fonts with each name shown in its own font; whether to allow uploading font files so no outside request is needed.
+
 ### Install instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general. Not done until out of Beta.
 
@@ -34,8 +60,6 @@ Keep the open-world feel, and let a card optionally have endings.
   - Chapter list to jump to any chapter.
   - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
   - Open question: what SillyTavern makes available to extensions for creating a branch.
-- Text fonts. Choose a font, not just the font size (Display Overrides only has font scale now). Possibly a preset list of Google Fonts, each name shown in its own font as the preview.
-  - Open questions: where it applies (whole chat, VN dialogue box, VN name tag, each separately?); whether pictures of the fonts are needed or the name written in the font is enough; whether to allow typing any Google Font name; whether to allow uploading font files so no outside request is needed; how it works with the privacy setting, since Google Fonts send the user's IP address to Google; whether fonts are saved in themes.
 - Regex. Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
   - Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
 - Graphic borders around profiles. Decorative image frames around profile pictures, beyond the current plain border and shape choices.

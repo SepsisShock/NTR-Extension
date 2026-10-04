@@ -54,6 +54,18 @@
     delimSpkOpen: '((', delimSpkClose: '))', delimNarOpen: '[[', delimNarClose: ']]',
     delimEmo: '%%', narratorWord: 'Narrator',
 
+    // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens)
+    rbEnabled: true, rbFontOn: false, rbFont: '', rbSizeOn: false, rbSize: 1, rbColorOn: false, rbColor: '', rbEmOn: false, rbEm: '',
+    rbBorderOn: false, rbBorder: '', rbWeightOn: false, rbWeight: 'medium', rbSatOn: false, rbSat: 50,
+    rbThinkOn: false, rbThink: 'Thinking...', rbDoneOn: false, rbDone: 'Thought for {time}', rbSomeOn: false, rbSome: 'Thought for some time',
+
+    // Text Formatting
+    tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
+    tfUserFontOn: false, tfUserFont: '', tfUserSizeOn: false, tfUserSize: 1, tfUserMainOn: false, tfUserMain: '',
+    tfUserEmOn: false, tfUserEm: '', tfUserUnderOn: false, tfUserUnder: '', tfUserQuoteOn: false, tfUserQuote: '',
+    tfAiFontOn: false, tfAiFont: '', tfAiSizeOn: false, tfAiSize: 1, tfAiMainOn: false, tfAiMain: '',
+    tfAiEmOn: false, tfAiEm: '', tfAiUnderOn: false, tfAiUnder: '', tfAiQuoteOn: false, tfAiQuote: '',
+
     // Display overrides
     ovWidthOn: false, ovWidth: 50, ovFontOn: false, ovFont: 1,
     ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2,
@@ -86,7 +98,8 @@
     themeActive: null,
 
     // Privacy
-    blockExternal: false
+    blockExternal: false,
+    blockGoogleFonts: false
   };
 
   const ctx = () => SillyTavern.getContext();
@@ -547,17 +560,17 @@
       .cb_pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 999px; border: 1px solid var(--SmartThemeBorderColor, #555); background: rgba(0,0,0,.2); cursor: pointer; user-select: none; font-size: .9em; transition: background .15s, border-color .15s; }
       .cb_pill input, .cb_posgrid input, .cb_defdot input { margin: 0; cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #6cf); }
       /* The main Enable switches are diamonds that still click on and off. */
-      #m_f_enable, #m_a_enable, #m_n_enable, #m_ai_on, #m_us_on {
+      #m_f_enable, #m_a_enable, #m_n_enable, #m_ai_on, #m_us_on, #m_rb_enable, #m_tf_enable {
         appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; width: .95em; height: .95em; margin: 0 9px 0 4px;
         border: 2px solid var(--SmartThemeBorderColor, #888); border-radius: 2px; background: transparent; cursor: pointer;
         transform: rotate(45deg); display: inline-grid; place-content: center; vertical-align: middle;
       }
-      #m_f_enable::before, #m_a_enable::before, #m_n_enable::before, #m_ai_on::before, #m_us_on::before {
+      #m_f_enable::before, #m_a_enable::before, #m_n_enable::before, #m_ai_on::before, #m_us_on::before, #m_rb_enable::before, #m_tf_enable::before {
         content: ''; width: .42em; height: .42em; background: var(--SmartThemeQuoteColor, #6cf); transform: scale(0); transition: transform .12s;
       }
-      #m_f_enable:checked, #m_a_enable:checked, #m_n_enable:checked, #m_ai_on:checked, #m_us_on:checked { border-color: var(--SmartThemeQuoteColor, #6cf); }
-      #m_f_enable:checked::before, #m_a_enable:checked::before, #m_n_enable:checked::before, #m_ai_on:checked::before, #m_us_on:checked::before { transform: scale(1); }
-      #m_f_enable:focus-visible, #m_a_enable:focus-visible, #m_n_enable:focus-visible, #m_ai_on:focus-visible, #m_us_on:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
+      #m_f_enable:checked, #m_a_enable:checked, #m_n_enable:checked, #m_ai_on:checked, #m_us_on:checked, #m_rb_enable:checked, #m_tf_enable:checked { border-color: var(--SmartThemeQuoteColor, #6cf); }
+      #m_f_enable:checked::before, #m_a_enable:checked::before, #m_n_enable:checked::before, #m_ai_on:checked::before, #m_us_on:checked::before, #m_rb_enable:checked::before, #m_tf_enable:checked::before { transform: scale(1); }
+      #m_f_enable:focus-visible, #m_a_enable:focus-visible, #m_n_enable:focus-visible, #m_ai_on:focus-visible, #m_us_on:focus-visible, #m_rb_enable:focus-visible, #m_tf_enable:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
       .cb_pill:has(input:checked) { border-color: var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
       .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
       .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
@@ -566,7 +579,7 @@
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
     `;
 
-    if (isOn()) cssString += overrideCss(s);
+    if (isOn()) cssString += overrideCss(s) + textFormatCss(s);
 
     if (isOn() && s.chatTransparent) {
       cssString += `
@@ -595,6 +608,9 @@
     }
 
     styleEl.textContent = cssString;
+    syncGoogleFonts();
+    watchReasoningLabels();
+    syncReasoningLabels();
     applyBodyOverrides();
     syncPopouts();
   }
@@ -1117,6 +1133,22 @@
         </div>
 
         <div class="cb_section">
+          ${secHead('pfp', 'fa-user-astronaut', 'Pfp Management')}
+          <div class="cb_collapse_content">
+            <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_a_enable" ${s.avatarEnabled ? 'checked' : ''}><span>Enable NTR Avatars</span></label>
+
+            <div id="m_a_body" class="${s.avatarEnabled ? '' : 'cb_dim'}" style="display: flex; gap: 15px; width: 100%;">
+              ${getColHtml('ai', 'AI', s)}
+              ${getColHtml('us', 'User', s)}
+            </div>
+          </div>
+        </div>
+
+        ${reasoningSectionHtml(s)}
+        ${textSectionHtml(s)}
+        ${displaySectionHtml(s)}
+
+        <div class="cb_section">
           ${secHead('fg', 'fa-image', 'Foreground Images')}
           <div class="cb_collapse_content">
             <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_f_enable" ${s.fgEnabled ? 'checked' : ''}><span>Enable Foreground Overlays</span></label>
@@ -1146,20 +1178,6 @@
             </div>
             </div>
             <input type="file" id="m_f_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-          </div>
-        </div>
-
-        ${displaySectionHtml(s)}
-
-        <div class="cb_section">
-          ${secHead('pfp', 'fa-user-astronaut', 'Pfp Management')}
-          <div class="cb_collapse_content">
-            <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_a_enable" ${s.avatarEnabled ? 'checked' : ''}><span>Enable NTR Avatars</span></label>
-
-            <div id="m_a_body" class="${s.avatarEnabled ? '' : 'cb_dim'}" style="display: flex; gap: 15px; width: 100%;">
-              ${getColHtml('ai', 'AI', s)}
-              ${getColHtml('us', 'User', s)}
-            </div>
           </div>
         </div>
 
@@ -1384,6 +1402,8 @@
     bindVNSection(overlay, s);
     bindDisplay(overlay, s);
     overlay.querySelector('#m_x_block').onchange = function() { s.blockExternal = this.checked; save(); refreshVisuals(); openCombinedModal(); };
+    overlay.querySelector('#m_x_gfonts').onchange = function() { s.blockGoogleFonts = this.checked; save(); updateAvatarStyle(); };
+    bindTextFormatting(overlay, s);
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);
@@ -1527,19 +1547,278 @@
     return v ? `\n      :root { ${v}}\n` : '';
   }
 
-  function displaySectionHtml(s) {
-    const row = (onKey, label, inner) => `
+  // Override rows: a checkbox in front of each setting; unticked means SillyTavern's own value applies.
+  function ovRow(s, onKey, label, inner) {
+    return `
       <div class="cb_ovrow">
-        <label class="checkbox_label"><input type="checkbox" class="m_o_on" data-key="${onKey}" ${s[onKey] ? 'checked' : ''}><span>Override ${label}</span></label>
+        <label class="checkbox_label"><input type="checkbox" class="m_o_on" data-key="${onKey}" ${s[onKey] ? 'checked' : ''}><span>${label}</span></label>
         <div class="m_o_body ${s[onKey] ? '' : 'cb_dim'}" data-for="${onKey}">${inner}</div>
       </div>`;
-    const sl = (key, unit, min, max, step) => `
+  }
+  function ovSlider(s, key, unit, min, max, step) {
+    return `
       <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_o_${key}val">${s[key]}</span>${unit}</span></div>`;
+  }
+  function ovColor(s, key) {
+    return customElements.get('toolcool-color-picker')
+      ? `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`
+      : `<input type="color" class="m_o_col" data-key="${key}" value="${toHex(s[key])}">`;
+  }
+  function ovText(s, key) {
+    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="100" style="width:100%;">`;
+  }
+  function ovFont(s, key) {
+    return `<input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="60" placeholder="Font name, e.g. Lora" style="width:100%;">`;
+  }
+
+  // ===== Reasoning Block and Text Formatting =====
+  const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\))$/i;
+  const FONT_RE = /^[\p{L}\p{N} _-]{0,60}$/u;
+  const cleanFont = (v) => String(v || '').replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const NAME_WEIGHT = { normal: 400, bold: 700, extra: 800 };
+  const RB_WEIGHT = { normal: 400, medium: 500, bold: 700 };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT) };
+  // Where an empty color starts from: SillyTavern's own value for the same thing.
+  const COLOR_FROM = {
+    rbColor: '--reasoning-body-color', rbEm: '--SmartThemeEmColor', rbBorder: '--reasoning-body-color', tfNameColor: '--SmartThemeBodyColor',
+    tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
+    tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
+  };
+  const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont'];
+
+  function stColor(key) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(COLOR_FROM[key]).trim();
+    return COLOR_RE.test(v) ? v : 'rgba(220, 220, 210, 1)';
+  }
+  function toHex(c) {
+    if (/^#[0-9a-f]{6}$/i.test(c)) return c;
+    const m = /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(String(c || ''));
+    return m ? '#' + [m[1], m[2], m[3]].map((n) => Math.min(255, Math.round(Number(n))).toString(16).padStart(2, '0')).join('') : '#dcdcd2';
+  }
+
+  function textFormatCss(s) {
+    const on = (k) => s[k + 'On'];
+    const col = (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : '');
+    const font = (k) => { const f = on(k) ? cleanFont(s[k]) : ''; return f ? `"${f}", var(--mainFontFamily)` : ''; };
+    const size = (k) => (on(k) ? Math.min(2, Math.max(0.5, Number(s[k]) || 1)) : 0);
+    const rule = (sel, props) => {
+      const body = Object.entries(props).filter(([, v]) => v !== '' && v != null).map(([p, v]) => `${p}: ${v} !important;`).join(' ');
+      return body ? `\n      ${sel} { ${body} }` : '';
+    };
+    let css = '';
+
+    // Reasoning block. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
+    const rs = s.rbEnabled ? size('rbSize') : 0;
+    if (s.rbEnabled) css += rule('.mes_reasoning', {
+      '--reasoning-body-color': col('rbColor'),
+      '--reasoning-em-color': col('rbEm'),
+      '--reasoning-saturation': on('rbSat') ? Math.min(100, Math.max(0, Number(s.rbSat) || 0)) / 100 : '',
+      'border-left-color': col('rbBorder'),
+      'font-family': font('rbFont'),
+      'font-size': rs ? `calc(var(--mainFontSize) * ${rs})` : '',
+      'font-weight': on('rbWeight') ? RB_WEIGHT[s.rbWeight] : '',
+    });
+    if (rs) css += rule('.mes_reasoning', { 'line-height': `calc(var(--mainFontSize) * ${rs} + .5rem)` });
+
+    if (!s.tfEnabled) return css ? css + '\n' : '';
+
+    // Names on chat messages, and the speaker's name tag in Visual Novel Mode.
+    const ns = size('tfNameSize');
+    css += rule('.mes .name_text', {
+      color: col('tfNameColor'),
+      'font-family': font('tfNameFont'),
+      'font-size': ns ? `calc(var(--mainFontSize) * ${ns})` : '',
+      'font-weight': on('tfNameWeight') ? NAME_WEIGHT[s.tfNameWeight] : '',
+    });
+    css += rule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont') });
+
+    // User and AI message text. The Visual Novel dialogue box uses the AI's.
+    for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
+      const m = `.mes[is_user="${flag}"] .mes_text`;
+      const sz = size(p + 'Size');
+      css += rule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '' });
+      css += rule(`${m} i, ${m} em`, { color: col(p + 'Em') });
+      css += rule(`${m} u`, { color: col(p + 'Under') });
+      css += rule(`${m} q`, { color: col(p + 'Quote') });
+      if (col(p + 'Em')) css += rule(`${m} q i, ${m} q em`, { color: 'inherit' });
+    }
+    css += rule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont') });
+    css += rule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
+    css += rule('#cb_node .cb_q', { color: col('tfAiQuote') });
+    if (col('tfAiEm')) css += rule('#cb_node .cb_q em', { color: 'inherit' });
+    return css ? css + '\n' : '';
+  }
+
+  // Google Fonts load only for font boxes that are ticked and filled in. One link per font, so a name Google
+  // doesn't have can't break the others; the browser then uses a font of that name on the device, if any.
+  function syncGoogleFonts() {
+    const s = settings();
+    const want = new Set();
+    const live = (k) => (k === 'rbFont' ? s.rbEnabled : s.tfEnabled) && s[k + 'On'];
+    if (isOn() && !s.blockGoogleFonts) for (const k of FONT_KEYS) { const f = live(k) ? cleanFont(s[k]) : ''; if (f) want.add(f); }
+    document.querySelectorAll('link[data-ntr-gf]').forEach((l) => { if (!want.has(l.dataset.ntrGf)) l.remove(); else want.delete(l.dataset.ntrGf); });
+    for (const f of want) {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.dataset.ntrGf = f;
+      l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, '+')}&display=swap`;
+      document.head.appendChild(l);
+    }
+  }
+
+  // Reasoning header text. ST rewrites the label while it thinks and when it finishes; the label is swapped on screen
+  // only, after each of ST's updates. ST's own text is kept on the element so it comes back when the override is off.
+  const RB_LABEL = { think: 'rbThink', done: 'rbDone', some: 'rbSome' };
+  function rbTime(sec) {
+    const m = window.moment;
+    if (m && m.duration) {
+      try { return m.duration(sec * 1000).locale(ctx().getCurrentLocale?.() || 'en').humanize({ s: 50, ss: 3 }); } catch (e) {}
+    }
+    return `${Math.round(sec)} seconds`;
+  }
+  function rbLabelFor(el, s) {
+    if (!isOn() || !s.rbEnabled) return null;
+    const d = el.dataset.duration;
+    const state = d === undefined ? 'think' : d === 'unknown' ? 'some' : 'done';
+    const k = RB_LABEL[state];
+    if (!s[k + 'On']) return null;
+    const txt = String(s[k] || '').slice(0, 100);
+    return state === 'done' ? txt.replace(/\{time\}/gi, rbTime(Number(d) || 0)) : txt;
+  }
+  function syncReasoningLabels() {
+    const s = settings();
+    document.querySelectorAll('#chat .mes_reasoning_header_title').forEach((el) => {
+      const want = rbLabelFor(el, s);
+      if (want === null) {
+        if (el.dataset.ntrSt !== undefined) { el.textContent = el.dataset.ntrSt; delete el.dataset.ntrSt; }
+        return;
+      }
+      if (el.textContent !== want) { el.dataset.ntrSt = el.textContent; el.textContent = want; }
+    });
+  }
+  let rbObs = null, rbQueued = false;
+  function watchReasoningLabels() {
+    const chat = document.getElementById('chat');
+    if (rbObs || !chat || !window.MutationObserver) return;
+    rbObs = new MutationObserver(() => {
+      if (rbQueued) return;
+      rbQueued = true;
+      requestAnimationFrame(() => { rbQueued = false; syncReasoningLabels(); });
+    });
+    rbObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
+  }
+
+  const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
+
+  function reasoningSectionHtml(s) {
+    return `
+      <div class="cb_section">
+        ${secHead('reasoning', 'fa-brain', 'Reasoning Block')}
+        <div class="cb_collapse_content">
+          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block</span></label>
+          <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
+          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
+          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
+          ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
+          ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
+          ${ovRow(s, 'rbColorOn', 'Text Color', ovColor(s, 'rbColor'))}
+          ${ovRow(s, 'rbEmOn', 'Italics Color', ovColor(s, 'rbEm'))}
+          ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
+          ${ovRow(s, 'rbSatOn', 'Color Strength', ovSlider(s, 'rbSat', '%', 0, 100, 1) + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
+          ${subHead('rb_header', 'Header Text')}
+          <div class="cb_collapse_content">
+            ${ovRow(s, 'rbThinkOn', 'While Thinking', ovText(s, 'rbThink'))}
+            ${ovRow(s, 'rbDoneOn', 'Finished', ovText(s, 'rbDone'))}
+            ${ovRow(s, 'rbSomeOn', 'Finished, Time Unknown', ovText(s, 'rbSome'))}
+          </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function textSectionHtml(s) {
+    const part = (p) => `
+          ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
+          ${ovRow(s, p + 'SizeOn', 'Size', ovSlider(s, p + 'Size', 'x', 0.5, 2, 0.05))}
+          ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
+          ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
+          ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
+          ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}`;
+    return `
+      <div class="cb_section">
+        ${secHead('text', 'fa-font', 'Text Formatting')}
+        <div class="cb_collapse_content">
+          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_tf_enable" ${s.tfEnabled ? 'checked' : ''}><span>Enable Text Formatting</span></label>
+          <div id="m_tf_body" class="${s.tfEnabled ? '' : 'cb_dim'}">
+          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
+          ${subHead('tf_names', 'Names')}
+          <div class="cb_collapse_content">
+            <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
+            ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
+            ${ovRow(s, 'tfNameSizeOn', 'Size', ovSlider(s, 'tfNameSize', 'x', 0.5, 2, 0.05))}
+            ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'SillyTavern\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
+            ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}
+          </div>
+          ${subHead('tf_user', 'User Text')}
+          <div class="cb_collapse_content">${part('tfUser')}
+          </div>
+          ${subHead('tf_ai', 'AI Text')}
+          <div class="cb_collapse_content">${part('tfAi')}
+          </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function bindTextFormatting(overlay, s) {
+    overlay.querySelectorAll('.m_o_col').forEach((el) => {
+      const k = el.dataset.key;
+      if (!COLOR_RE.test(s[k])) {
+        s[k] = stColor(k);
+        if (el.tagName === 'INPUT') el.value = toHex(s[k]); else el.setAttribute('color', s[k]);
+      }
+      const set = (v) => {
+        if (!COLOR_RE.test(v) || v === s[k]) return;
+        s[k] = v;
+        save();
+        updateAvatarStyle();
+      };
+      if (el.tagName === 'INPUT') el.oninput = () => set(el.value);
+      else el.addEventListener('change', (e) => set(e.detail && e.detail.rgba));
+    });
+    overlay.querySelectorAll('.m_o_txt').forEach((el) => {
+      el.onchange = () => {
+        el.value = cleanFont(el.value);
+        s[el.dataset.key] = el.value;
+        save();
+        updateAvatarStyle();
+      };
+    });
+    for (const [id, key] of [['m_rb_enable', 'rbEnabled'], ['m_tf_enable', 'tfEnabled']]) {
+      overlay.querySelector('#' + id).onchange = function() {
+        s[key] = this.checked; save(); updateAvatarStyle();
+        overlay.querySelector('#' + id.replace('enable', 'body')).classList.toggle('cb_dim', !this.checked);
+      };
+    }
+    overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
+      el.onchange = () => {
+        s[el.dataset.key] = el.value.slice(0, 100);
+        save();
+        updateAvatarStyle();
+      };
+    });
+    onPills(overlay, 'rbweight', (v) => { s.rbWeight = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
+  }
+
+  function displaySectionHtml(s) {
+    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
+    const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
     return `
       <div class="cb_section">
         ${secHead('display', 'fa-display', 'Display Overrides')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Untick an override to go back to ST's value.</div>
+          <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
           ${row('ovWidthOn', 'Chat Width', sl('ovWidth', 'vw', 25, 100, 1))}
           ${row('ovFontOn', 'Font Scale', sl('ovFont', 'x', 0.5, 2, 0.05))}
@@ -1559,6 +1838,8 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label"><input type="checkbox" id="m_x_block" ${s.blockExternal ? 'checked' : ''}><span>Block card images and videos hosted on other websites</span></label>
           <div class="cb_hint">A shared card can link its art to someone else's server, which tells that server your IP address and when you opened the chat. With this on, only files stored on your own SillyTavern load. YouTube banners and openings still play. Nothing is removed from the card, so switching it back off restores everything.</div>
+          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_x_gfonts" ${s.blockGoogleFonts ? 'checked' : ''}><span>Don't load Google Fonts</span></label>
+          <div class="cb_hint">Font boxes in Reasoning Block and Text Formatting download Google Fonts from Google, which sees your IP address. With this on, only fonts installed on your device work.</div>
         </div>
       </div>`;
   }
@@ -1859,12 +2140,14 @@
   const LOOK = {
     banner: { label: 'Banner look (height, gap, transparent areas)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop'] },
     pfp: { label: 'Pfp Management', keys: ['avatarEnabled', ...PFP_KEYS] },
+    reasoning: { label: 'Reasoning Block', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')) },
+    text: { label: 'Text Formatting', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')) },
+    display: { label: 'Display Overrides', keys: ['chatTransparent', ...Object.keys(DEFAULTS).filter((k) => k.startsWith('ov'))] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
       'opLead', 'opFade', 'opSize', 'opPos', 'opHold', 'opExit', 'opTrans', 'opTransColor', 'opTransMs', 'opEarly', 'nodeMaps', 'mapGoText'] },
-    display: { label: 'Display Overrides', keys: ['chatTransparent', ...Object.keys(DEFAULTS).filter((k) => k.startsWith('ov'))] },
   };
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const readText = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f); });
@@ -1884,6 +2167,9 @@
   function validLookValue(k, v) {
     const d = DEFAULTS[k];
     if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || /^\/[^"<>]*$/.test(v) || /^data:image\/(png|jpeg|gif|webp);base64,/.test(v));
+    if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
+    if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
+    if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
     if (k === 'emotions') return Array.isArray(v) && v.length > 0 && v.every((e) => e && typeof e.id === 'string' && typeof e.name === 'string' && e.name.trim());
     if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v);
     if (typeof d === 'boolean') return typeof v === 'boolean';

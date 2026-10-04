@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.2.9';
+  const VERSION = '2.2.10';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -493,9 +493,8 @@
     if (!banner) return;
     const wall = banner.querySelector('.cb_wall');
     if (!wall) return;
-    const s = settings();
     let bg = null;
-    if (s.bannerBackdrop === 'wallpaper' && banner.style.display !== 'none') {
+    if (currentLook().backdrop === 'wallpaper' && banner.style.display !== 'none') {
       for (const id of ['bg_custom', 'bg1']) {
         const el = document.getElementById(id);
         const v = el ? getComputedStyle(el).backgroundImage : '';
@@ -528,7 +527,7 @@
     const s = settings();
     
     let cssString = `
-      #cb_banner { width: 100%; height: var(--cb-h, 120px); position: relative; overflow: hidden; display: block; border-radius: 10px; margin-bottom: ${s.bannerGap}px; }
+      #cb_banner { width: 100%; height: var(--cb-h, 120px); position: relative; overflow: hidden; display: block; border-radius: 10px; margin-bottom: var(--cb-gap, 10px); }
       #cb_banner.cb_overlap { position: absolute !important; top: 0; left: 0; right: 0; z-index: 100; margin-bottom: 0 !important; }
       #cb_banner .cb_nav { position: absolute; right: 8px; bottom: 8px; z-index: 2; display: none; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,0.55); color: #fff; font-size: 12px; line-height: 1.2; opacity: 0; transition: opacity .15s; }
       #cb_banner:hover .cb_nav { opacity: 1; }
@@ -725,7 +724,7 @@
     b.title = muted ? 'Sound on' : 'Mute';
   }
   function playBannerVid(v) {
-    const want = !!settings().bannerVideoSound;
+    const want = !!currentLook().videoSound;
     v.muted = !want;
     setSndIcon(!want);
     const p = v.play();
@@ -739,10 +738,13 @@
   function toggleBannerSound() {
     const v = banner?.querySelector('.cb_vid');
     if (!v) return;
-    const s = settings();
-    s.bannerVideoSound = v.muted;
+    const key = currentKey();
+    const r = key ? peek(key) : null;
+    const want = v.muted;
+    if (r && r.scope === 'char') r.videoSound = want;
+    else settings().bannerVideoSound = want;
     save();
-    v.muted = !s.bannerVideoSound;
+    v.muted = !want;
     setSndIcon(v.muted);
     if (!v.muted) v.play().catch(() => {});
   }
@@ -757,6 +759,26 @@
     for (const [k, g] of Object.entries(ROT_KEYS)) o[k] = own ? r[k] : s[g];
     o.rotateSec = Math.min(60, Math.max(3, Math.round(Number(o.rotateSec)) || 8));
     return o;
+  }
+
+  // Banner height, gap, transparent areas and video sound follow the same switch. A Char character
+  // with no value of its own yet (set to Char before these were per character) uses the global one.
+  const BANNER_LOOK_KEYS = { height: 'bannerHeight', gap: 'bannerGap', backdrop: 'bannerBackdrop', videoSound: 'bannerVideoSound' };
+  function bannerLook(r) {
+    const s = settings();
+    const own = !!r && r.scope === 'char';
+    const o = {};
+    for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) o[k] = own && r[k] != null ? r[k] : s[g];
+    return o;
+  }
+  function currentLook() {
+    const key = currentKey();
+    return bannerLook(key ? peek(key) : null);
+  }
+  function applyBannerSize() {
+    const o = currentLook();
+    document.documentElement.style.setProperty('--cb-h', o.height + 'px');
+    document.documentElement.style.setProperty('--cb-gap', o.gap + 'px');
   }
 
   // rot.idx is the image on screen while rotating. It's never saved, so the card isn't rewritten every few
@@ -834,7 +856,7 @@
       return;
     }
     
-    document.documentElement.style.setProperty('--cb-h', s.bannerHeight + 'px');
+    applyBannerSize();
 
     watchBannerImg();
     const img = banner.querySelector('.cb_img');
@@ -1129,7 +1151,7 @@
     const chat = document.getElementById('chat');
     const w = Math.round((banner && banner.offsetWidth) || (chat ? chat.getBoundingClientRect().width : 0));
     if (!w) return '';
-    const h = settings().bannerHeight;
+    const h = currentLook().height;
     const ratio = (w / h).toFixed(1);
     return `Your banner is currently ${w} × ${h} px (${ratio}:1). For sharp results use images at least ${w * 2} × ${Math.round(h * 2 * 1.3)} px. A little taller than the banner's shape gives the Crop slider room to work.`;
   }
@@ -1145,6 +1167,8 @@
     const ownKind = !!key && r.scope === 'char';
     const kind = ownKind && r.mode ? r.mode : s.bannerMode;
     const ro = rotation(ownKind ? r : null);
+    const bl = bannerLook(ownKind ? r : null);
+    const btag = ownKind ? ' ' + TAG : '';
     const n = r.images.length;
     const curImg = r.images[r.idx] || null;
 
@@ -1246,13 +1270,13 @@
               <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>
             </div>
 
-            <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:</label><span><span id="m_b_hval">${s.bannerHeight}</span>px</span></div>
-            <input type="range" id="m_b_h" min="60" max="350" step="5" value="${s.bannerHeight}">
+            <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:${btag}</label><span><span id="m_b_hval">${bl.height}</span>px</span></div>
+            <input type="range" id="m_b_h" min="60" max="350" step="5" value="${bl.height}">
             <div id="m_b_guide" class="cb_hint" style="margin-top: 4px;">${escapeHTML(bannerGuideText())}</div>
 
             <div id="m_b_gap_wrapper" style="${r.overlap ? 'opacity: 0.5; pointer-events: none;' : ''}">
-              <div class="cb_row" style="margin-top: 10px;"><label>Gap Below Banner:</label><span><span id="m_b_gapval">${s.bannerGap}</span>px</span></div>
-              <input type="range" id="m_b_gap" min="0" max="40" step="1" value="${s.bannerGap}">
+              <div class="cb_row" style="margin-top: 10px;"><label>Gap Below Banner:${btag}</label><span><span id="m_b_gapval">${bl.gap}</span>px</span></div>
+              <input type="range" id="m_b_gap" min="0" max="40" step="1" value="${bl.gap}">
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
@@ -1260,7 +1284,8 @@
               <input type="range" id="m_b_offset" min="0" max="300" step="5" value="${cNum(r.overlapOffset, 0, 0, 300)}" ${!key ? 'disabled' : ''}>
             </div>
 
-            <div style="margin-top: 10px;"><strong>Transparent areas show:</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], s.bannerBackdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
+            <div style="margin-top: 10px;"><strong>Transparent areas show:${btag}</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
+            ${ownKind ? '' : '<div class="cb_hint">Height, gap and transparent areas change every character set to Global.</div>'}
             </div>
           </div>
         </div>
@@ -1348,9 +1373,10 @@
     };
     onPills(overlay, 'bscope', (v) => {
       if (key) {
-        if (v === 'char' && r.scope !== 'char') { // starts on the Global kind and rotation settings
+        if (v === 'char' && r.scope !== 'char') { // starts on the Global kind, rotation and look settings
           r.mode = s.bannerMode;
           for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
+          for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
         }
         if (v === 'global') r.mode = '';
         r.scope = v;
@@ -1560,13 +1586,14 @@
       ytUrl.oninput = function() { r.youtubeUrl = this.value; };
       ytUrl.onchange = function() { save(); updateBanner(); };
     }
+    const lookSet = (k, v) => { if (ownKind) r[k] = v; else s[BANNER_LOOK_KEYS[k]] = v; };
     const bh = overlay.querySelector('#m_b_h');
-    bh.oninput = function() { s.bannerHeight = Number(this.value); overlay.querySelector('#m_b_hval').textContent = s.bannerHeight; document.documentElement.style.setProperty('--cb-h', s.bannerHeight + 'px'); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
+    bh.oninput = function() { lookSet('height', Number(this.value)); overlay.querySelector('#m_b_hval').textContent = this.value; applyBannerSize(); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
     bh.onchange = save;
     const bgap = overlay.querySelector('#m_b_gap');
-    bgap.oninput = function() { s.bannerGap = Number(this.value); overlay.querySelector('#m_b_gapval').textContent = s.bannerGap; updateAvatarStyle(); };
+    bgap.oninput = function() { lookSet('gap', Number(this.value)); overlay.querySelector('#m_b_gapval').textContent = this.value; applyBannerSize(); };
     bgap.onchange = save;
-    onPills(overlay, 'bbd', (v) => { s.bannerBackdrop = v; save(); syncWallpaper(); });
+    onPills(overlay, 'bbd', (v) => { lookSet('backdrop', v); save(); syncWallpaper(); });
 
     overlay.querySelector('#m_a_enable').onchange = function() {
       s.avatarEnabled = this.checked; save(); updateAvatarStyle();
@@ -2095,7 +2122,7 @@
   const cardSnap = new Map();
   const cardTimers = new Map();
   const legacyMoved = new Set();
-  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order' });
+  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null });
 
   function charIndexByAvatar(av) {
     const cs = ctx().characters || [];
@@ -2152,6 +2179,10 @@
       rotateSec: Math.round(cNum(b.rotateSec, 8, 3, 60)),
       rotateFx: cPick(b.rotateFx, ['fade', 'swap']),
       rotateOrder: cPick(b.rotateOrder, ['order', 'shuffle']),
+      height: b.height == null ? null : Math.round(cNum(b.height, 120, 60, 350)),
+      gap: b.gap == null ? null : Math.round(cNum(b.gap, 10, 0, 40)),
+      backdrop: b.backdrop == null ? null : cPick(b.backdrop, ['wallpaper', 'panel']),
+      videoSound: b.videoSound == null ? null : cBool(b.videoSound, false),
     });
   }
 
@@ -2432,7 +2463,7 @@
   }
 
   function refreshVisuals() {
-    document.documentElement.style.setProperty('--cb-h', settings().bannerHeight + 'px');
+    applyBannerSize();
     renderAll();
     syncPopouts();
     syncWallpaper();

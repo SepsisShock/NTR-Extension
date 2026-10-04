@@ -38,10 +38,10 @@ Two new menu sections for styling chat text, reasoning and names. Replaces the "
   - Reasoning Block: font, size, text color, italics color, border color, weight (Normal, Medium, Bold; SillyTavern uses Medium), color strength (0 to 100%; SillyTavern dulls reasoning colors to 50%).
 - [ ] Sizes are a multiplier (e.g. 0.8x to 1.5x), not pixels, so they still follow SillyTavern's Font Scale and the Display Overrides one.
 - [ ] "Enable Reasoning Block" and "Enable Text Formatting" switches, like the other sections. Off greys out the section and stops its styling; ticks and values are kept.
-- [ ] Every setting has a checkbox, like Display Overrides. No "Override" in front of each label; one note at the top of the section explains it. Unticked means SillyTavern's own value applies.
+- [ ] Every setting has a checkbox, like Display Overrides. No "Override" in front of each label; one note at the top of the menu explains it. Unticked means SillyTavern's own value applies.
 - [ ] Both sections are saved in themes.
 - [ ] Font boxes accept fonts installed on the device and Google Fonts. A Google Font is only requested when a font box is ticked and filled in; if Google doesn't have the name, the device's font of that name is used, then SillyTavern's normal font.
-- [ ] One note at the top of each section (not under every font box): Google Fonts are downloaded from Google, fonts on your device work offline.
+- [ ] One note at the top of the menu (not under every font box or section): Google Fonts are downloaded from Google, fonts on your device work offline.
 - [ ] New Privacy checkbox: "Don't load Google Fonts" (separate from the card images and videos one). When ticked, only fonts on the device work.
 - [ ] Text Formatting also applies inside the Visual Novel dialogue box: AI Text's font and colors on the dialogue, Names' font and color on the speaker's name tag. The name tag's background stays on Quote Text.
 - [ ] Saved under new settings keys (existing keys untouched).

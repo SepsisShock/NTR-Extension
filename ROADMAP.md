@@ -28,6 +28,21 @@ The sections themselves shipped (see **Done**). Still open:
 ### Install instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general. Not done until out of Beta.
 
+## Low priority
+
+### Mobile compatibility testing
+Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
+
+- [ ] Android (Chrome).
+- [ ] iOS (Safari).
+- [ ] NTR menu as a full-screen sheet.
+- [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
+- [ ] Maps: pins and popups near the screen edge.
+- [ ] Opening video and banner video: autoplay, sound button, YouTube.
+- [ ] Dragging popup characters by touch.
+- [ ] Screen height changes when the address bar shows or hides.
+- [ ] Notch and home bar areas on iPhone.
+
 ## Ideas
 
 - Chapters and save points. In Visual Novel Mode, each message is a chapter.

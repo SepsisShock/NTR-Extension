@@ -6,6 +6,10 @@
   const DEFAULTS = { 
     bannerOn: true,
     bannerMode: 'image', 
+    bannerRotate: false,
+    bannerRotateSec: 8,
+    bannerRotateFx: 'fade',
+    bannerRotateOrder: 'order',
     bannerHeight: 120,
     bannerGap: 10,
     bannerBackdrop: 'wallpaper', 
@@ -515,6 +519,7 @@
       .cb_thumb.active { border-color: var(--SmartThemeQuoteColor, #6cf); opacity: 1; }
       #cb_banner .cb_wall { position: absolute; background-size: cover; background-position: center; background-repeat: no-repeat; pointer-events: none; z-index: 0; }
       #cb_banner .cb_img, #cb_banner .cb_yt { position: relative; z-index: 1; }
+      #cb_banner .cb_xfade { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; transition: opacity .8s ease; }
       #cb_pop_layer { position: fixed; inset: 0; z-index: 2500; pointer-events: none; overflow: hidden; }
       #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
       #cb_drag_pill { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: none; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px; background: rgba(0,0,0,0.85); color: #fff; font-size: 13px; line-height: 1.2; white-space: nowrap; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
@@ -678,6 +683,72 @@
     if (yt && yt.src && yt.src !== 'about:blank') yt.src = 'about:blank';
   }
 
+  // ===== Banner image rotation =====
+  // Follows the same Global / Char switch as the kind: Char uses the character's own copy.
+  const ROT_KEYS = { rotate: 'bannerRotate', rotateSec: 'bannerRotateSec', rotateFx: 'bannerRotateFx', rotateOrder: 'bannerRotateOrder' };
+  function rotation(r) {
+    const s = settings();
+    const own = !!r && r.scope === 'char';
+    const o = {};
+    for (const [k, g] of Object.entries(ROT_KEYS)) o[k] = own ? r[k] : s[g];
+    o.rotateSec = Math.min(60, Math.max(3, Math.round(Number(o.rotateSec)) || 8));
+    return o;
+  }
+
+  // rot.idx is the image on screen while rotating. It's never saved, so the card isn't rewritten every few
+  // seconds and each chat opens on the picked image (r.idx), which only the arrows and the menu change.
+  const rot = { key: null, idx: null, timer: null, sec: 0, fade: false };
+  // Waits while the Header Banner settings are open, so the Crop slider works on the picked image.
+  const rotPaused = () => !!document.getElementById('cb_modal_overlay') && !!settings().uiOpen?.banner;
+  function shownIdx(key, r) {
+    const n = r.images.length;
+    return rot.key === key && rot.idx != null && rot.idx < n ? rot.idx : Math.min(r.idx, n - 1);
+  }
+  function stopRotation() {
+    clearTimeout(rot.timer);
+    rot.timer = null;
+  }
+  function armRotation(sec) {
+    if (rot.timer && rot.sec === sec) return;
+    clearTimeout(rot.timer);
+    rot.sec = sec;
+    rot.timer = setTimeout(rotTick, sec * 1000);
+  }
+  function rotTick() {
+    rot.timer = null;
+    const key = currentKey();
+    const r = key ? peek(key) : null;
+    if (!r || key !== rot.key || !banner || banner.style.display === 'none' || bannerKind(r) !== 'image') return;
+    const o = rotation(r);
+    const n = r.images.length;
+    if (!o.rotate || n < 2) return;
+    if (!rotPaused()) {
+      const cur = shownIdx(key, r);
+      let next = (cur + 1) % n;
+      if (o.rotateOrder === 'shuffle') { next = Math.floor(Math.random() * (n - 1)); if (next >= cur) next++; }
+      rot.idx = next;
+      rot.fade = o.rotateFx === 'fade';
+    }
+    updateBanner(); // shows it and sets up the next one
+  }
+
+  // The old image fades out on top of the new one, once the new one has loaded.
+  function crossfade(img, u, pos) {
+    if (img.dataset.next === u) return;
+    img.dataset.next = u;
+    loadImg(u).catch(() => {}).then(() => {
+      if (img.dataset.next !== u) return;
+      delete img.dataset.next;
+      const old = img.cloneNode();
+      old.className = 'cb_xfade';
+      img.after(old);
+      img.src = u;
+      img.style.objectPosition = pos;
+      requestAnimationFrame(() => requestAnimationFrame(() => { old.style.opacity = '0'; }));
+      setTimeout(() => old.remove(), 1000);
+    });
+  }
+
   function getYouTubeId(url) {
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
     return match ? match[1] : null;
@@ -687,6 +758,9 @@
     const s = settings();
     const key = currentKey();
     if (!banner) return;
+    if (key !== rot.key) { rot.key = key; rot.idx = null; stopRotation(); }
+    const fade = rot.fade;
+    rot.fade = false;
     const r = key ? peek(key) : null;
     const kind = bannerKind(r);
     if (kind === 'off') {
@@ -713,13 +787,21 @@
       yt.style.display = 'none';
       img.style.display = 'block';
 
-      const im = r.images[r.idx] || r.images[0];
+      const i = shownIdx(key, r);
+      const im = r.images[i] || r.images[0];
       const u = media(im.url);
       if (!u) { banner.style.display = 'none'; return; }
-      if (img.getAttribute('src') !== u) img.src = u;
-      img.style.objectPosition = `50% ${im.pos ?? 45}%`;
+      const pos = `50% ${im.pos ?? 45}%`;
+      if (img.getAttribute('src') !== u && fade && img.getAttribute('src')) crossfade(img, u, pos);
+      else {
+        delete img.dataset.next;
+        if (img.getAttribute('src') !== u) img.src = u;
+        img.style.objectPosition = pos;
+      }
       nav.style.display = n > 1 ? 'flex' : 'none';
-      nav.querySelector('.cb_nav_count').textContent = `${Math.min(r.idx, n - 1) + 1} / ${n}`;
+      nav.querySelector('.cb_nav_count').textContent = `${i + 1} / ${n}`;
+      const o = rotation(r);
+      if (o.rotate && n > 1) armRotation(o.rotateSec); else stopRotation();
       
     } else if (kind === 'youtube') {
       const videoId = getYouTubeId(r.youtubeUrl || '');
@@ -785,7 +867,9 @@
     const r = rec(key);
     const n = r.images.length;
     if (n < 2) return;
-    r.idx = (r.idx + d + n) % n;
+    r.idx = (shownIdx(key, r) + d + n) % n;
+    rot.idx = null;
+    stopRotation(); // the arrows restart the rotation timer
     save();
     updateBanner();
     if (document.getElementById('cb_modal_overlay')) openCombinedModal();
@@ -927,6 +1011,7 @@
     const r = key ? rec(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
     const ownKind = !!key && r.scope === 'char';
     const kind = ownKind && r.mode ? r.mode : s.bannerMode;
+    const ro = rotation(ownKind ? r : null);
     const n = r.images.length;
     const curImg = r.images[r.idx] || null;
     const safeCharName = key ? escapeHTML(currentCharacterName()) : 'No Char';
@@ -992,6 +1077,18 @@
               <div class="cb_row" style="margin-top: 10px;"><label>Crop: ${TAG}</label><span><span id="m_b_pval">${cNum(curImg.pos, 45, 0, 100)}</span>%</span></div>
               <input type="range" id="m_b_p" min="0" max="100" value="${cNum(curImg.pos, 45, 0, 100)}">
               ` : ''}
+
+              <div style="margin-top: 12px;">
+                <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate through images${ownKind ? ' ' + TAG : ''}</span></label>
+                <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
+                  <div class="cb_row" style="margin-top: 8px;"><label>Every:</label><span><span id="m_b_rot_val">${ro.rotateSec}</span>s</span></div>
+                  <input type="range" id="m_b_rot_sec" min="3" max="60" step="1" value="${ro.rotateSec}">
+                  <div style="margin-top: 8px;"><strong>Change:</strong>${pills('brfx', [['fade', 'Crossfade'], ['swap', 'Instant']], ro.rotateFx)}</div>
+                  <div style="margin-top: 8px;"><strong>Order:</strong>${pills('brord', [['order', 'In order'], ['shuffle', 'Shuffled']], ro.rotateOrder)}</div>
+                </div>
+                ${n < 2 ? '<div class="cb_hint">Rotation needs 2 or more images.</div>' : ''}
+                ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}
+              </div>
             </div>
 
             <!-- YouTube Controls -->
@@ -1076,10 +1173,15 @@
     document.body.appendChild(overlay);
 
     bindCollapses(overlay, s);
+    // Rotation waits while the Header Banner settings are open, showing the picked image, and starts a fresh count
+    // when they're collapsed or the menu closes.
+    if (s.uiOpen.banner && rot.idx != null) { rot.idx = null; updateBanner(); }
+    const rotRestart = () => { if (s.uiOpen.banner) rot.idx = null; stopRotation(); updateBanner(); };
+    overlay.querySelector('.cb_collapse_toggle[data-sec="banner"]')?.addEventListener('click', rotRestart);
 
     setupPanel(overlay, prevScroll);
 
-    const close = () => { popDrag.ai = false; popDrag.us = false; overlay.remove(); syncPopouts(); };
+    const close = () => { popDrag.ai = false; popDrag.us = false; overlay.remove(); syncPopouts(); rotRestart(); };
     overlay.querySelector('.cb_close_btn').onclick = close;
     
     if (!key) {
@@ -1090,7 +1192,10 @@
     onPills(overlay, 'bscope', (v) => {
       s.bannerOn = v !== 'off';
       if (v !== 'off' && key) {
-        if (v === 'char' && r.scope !== 'char') r.mode = s.bannerMode; // starts on the Global kind
+        if (v === 'char' && r.scope !== 'char') { // starts on the Global kind and rotation settings
+          r.mode = s.bannerMode;
+          for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
+        }
         if (v === 'global') r.mode = '';
         r.scope = v;
       }
@@ -1099,6 +1204,16 @@
       renderAll();
       openCombinedModal();
     });
+    const rotSet = (k, v) => { if (ownKind) r[k] = v; else s[ROT_KEYS[k]] = v; save(); updateBanner(); };
+    overlay.querySelector('#m_b_rot').onchange = function() {
+      rotSet('rotate', this.checked);
+      overlay.querySelector('#m_b_rot_body').classList.toggle('cb_dim', !this.checked);
+    };
+    const rotSec = overlay.querySelector('#m_b_rot_sec');
+    rotSec.oninput = function() { overlay.querySelector('#m_b_rot_val').textContent = this.value; };
+    rotSec.onchange = function() { rotSet('rotateSec', Number(this.value)); };
+    onPills(overlay, 'brfx', (v) => rotSet('rotateFx', v));
+    onPills(overlay, 'brord', (v) => rotSet('rotateOrder', v));
     onPills(overlay, 'bmode', (v) => {
       if (ownKind) r.mode = v; else s.bannerMode = v;
       save();
@@ -1474,7 +1589,7 @@
   const cardSnap = new Map();
   const cardTimers = new Map();
   const legacyMoved = new Set();
-  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', scope: 'global', mode: '' });
+  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order' });
 
   function charIndexByAvatar(av) {
     const cs = ctx().characters || [];
@@ -1525,6 +1640,10 @@
       youtubeUrl: cStr(b.youtubeUrl, 500),
       scope: cPick(b.scope, ['global', 'char']),
       mode: cPick(b.mode, ['', 'image', 'youtube']),
+      rotate: cBool(b.rotate, false),
+      rotateSec: Math.round(cNum(b.rotateSec, 8, 3, 60)),
+      rotateFx: cPick(b.rotateFx, ['fade', 'swap']),
+      rotateOrder: cPick(b.rotateOrder, ['order', 'shuffle']),
     });
   }
 

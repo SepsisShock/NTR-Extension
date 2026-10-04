@@ -4,6 +4,7 @@
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
+    bannerOn: true,
     bannerMode: 'image', 
     bannerHeight: 120,
     bannerGap: 10,
@@ -138,6 +139,8 @@
       s.migratedBanner = true;
       delete s.bannerEnabled;
     }
+    // Off used to be one of the banner kinds; it's now its own switch for every character.
+    if (s.bannerMode === 'off') { s.bannerOn = false; s.bannerMode = 'image'; }
     if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
@@ -657,6 +660,24 @@
     });
   }
 
+  // Global and Char are saved per character: Char uses the character's own kind, Global the shared one.
+  // Off is one switch for every character.
+  const BANNER_NOTE = {
+    global: 'Global applies to every character that doesn\'t have its own kind (Char).',
+    off: 'Banners are off for all characters. Pick Global or Char to turn them back on.',
+  };
+  function bannerKind(r) {
+    const s = settings();
+    if (!s.bannerOn || !r) return 'off';
+    return r.scope === 'char' && r.mode ? r.mode : s.bannerMode;
+  }
+
+  // A hidden YouTube player keeps playing its sound, so it's unloaded whenever the banner doesn't show it.
+  function stopBannerYt() {
+    const yt = banner?.querySelector('.cb_yt');
+    if (yt && yt.src && yt.src !== 'about:blank') yt.src = 'about:blank';
+  }
+
   function getYouTubeId(url) {
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
     return match ? match[1] : null;
@@ -666,12 +687,14 @@
     const s = settings();
     const key = currentKey();
     if (!banner) return;
-    if (!key || s.bannerMode === 'off') {
+    const r = key ? peek(key) : null;
+    const kind = bannerKind(r);
+    if (kind === 'off') {
+      stopBannerYt();
       banner.style.display = 'none';
       return;
     }
     
-    const r = peek(key);
     document.documentElement.style.setProperty('--cb-h', s.bannerHeight + 'px');
 
     watchBannerImg();
@@ -679,7 +702,8 @@
     const yt = banner.querySelector('.cb_yt');
     const nav = banner.querySelector('.cb_nav');
 
-    if (s.bannerMode === 'image') {
+    if (kind === 'image') {
+      stopBannerYt();
       const n = r.images.length;
       if (!n) {
         banner.style.display = 'none';
@@ -697,9 +721,10 @@
       nav.style.display = n > 1 ? 'flex' : 'none';
       nav.querySelector('.cb_nav_count').textContent = `${Math.min(r.idx, n - 1) + 1} / ${n}`;
       
-    } else if (s.bannerMode === 'youtube') {
+    } else if (kind === 'youtube') {
       const videoId = getYouTubeId(r.youtubeUrl || '');
       if (!videoId) {
+        stopBannerYt();
         banner.style.display = 'none';
         return;
       }
@@ -730,16 +755,17 @@
       if (!chat) return;
       
       chat.style.paddingTop = ''; // clear padding initially
-      if (!isOn()) { if (banner) banner.style.display = 'none'; syncWallpaper(); return; }
+      if (!isOn()) { if (banner) banner.style.display = 'none'; stopBannerYt(); syncWallpaper(); return; }
       
       if (!banner) buildBanner();
       const key = currentKey();
-      if (settings().bannerMode === 'off' || !key) {
+      const r = key ? peek(key) : null;
+      if (bannerKind(r) === 'off') {
+        stopBannerYt();
         banner.style.display = 'none';
         return;
       }
       
-      const r = peek(key);
       banner.classList.toggle('cb_overlap', !!r.overlap);
       attachBanner(chat, r.locked);
       
@@ -899,6 +925,9 @@
     const F = fgData();
     const key = currentKey();
     const r = key ? rec(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
+    const ownKind = !!key && r.scope === 'char';
+    const kind = ownKind && r.mode ? r.mode : s.bannerMode;
+    const shown = s.bannerOn ? kind : 'off';
     const n = r.images.length;
     const curImg = r.images[r.idx] || null;
     const safeCharName = key ? escapeHTML(currentCharacterName()) : 'No Char';
@@ -934,11 +963,15 @@
               <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                 <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
               </label>
-              <div><strong>Mode:</strong>${pills('bmode', [['image', 'Image Gallery'], ['youtube', 'YouTube Loop'], ['off', 'Off']], s.bannerMode)}</div>
+              <div><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char'], ['off', 'Off', BANNER_NOTE.off]], !s.bannerOn ? 'off' : ownKind ? 'char' : 'global')}</div>
+              <div style="display: ${s.bannerOn ? 'block' : 'none'};">
+                <strong>Kind:</strong>${ownKind ? ' ' + TAG : ''}${pills('bmode', [['image', 'Image Gallery'], ['youtube', 'YouTube Loop']], kind)}
+                ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}
+              </div>
             </div>
             
             <!-- Image Controls -->
-            <div id="m_b_img_controls" style="display: ${s.bannerMode === 'image' ? 'block' : 'none'};">
+            <div id="m_b_img_controls" style="display: ${shown === 'image' ? 'block' : 'none'};">
               <div style="margin-bottom: 6px;"><strong>Images</strong> ${TAG}</div>
               <div class="cb_actions">
                 <button id="m_b_up" class="menu_button" ${!key ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Add</button>
@@ -962,7 +995,7 @@
             </div>
 
             <!-- YouTube Controls -->
-            <div id="m_b_yt_controls" style="display: ${s.bannerMode === 'youtube' ? 'block' : 'none'};">
+            <div id="m_b_yt_controls" style="display: ${shown === 'youtube' ? 'block' : 'none'};">
               <label><strong>YouTube Video URL:</strong> ${TAG}</label>
               <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(r.youtubeUrl || '')}" ${!key ? 'disabled' : ''}>
             </div>
@@ -1048,8 +1081,25 @@
     const close = () => { popDrag.ai = false; popDrag.us = false; overlay.remove(); syncPopouts(); };
     overlay.querySelector('.cb_close_btn').onclick = close;
     
+    if (!key) {
+      const ch = overlay.querySelector('input[name="cbr_bscope"][value="char"]');
+      ch.disabled = true;
+      ch.closest('label').style.cssText = 'opacity:0.5;pointer-events:none;';
+    }
+    onPills(overlay, 'bscope', (v) => {
+      s.bannerOn = v !== 'off';
+      if (v !== 'off' && key) {
+        if (v === 'char' && r.scope !== 'char') r.mode = s.bannerMode; // starts on the Global kind
+        if (v === 'global') r.mode = '';
+        r.scope = v;
+      }
+      if (BANNER_NOTE[v]) toastr.info(BANNER_NOTE[v], 'Banner');
+      save();
+      renderAll();
+      openCombinedModal();
+    });
     onPills(overlay, 'bmode', (v) => {
-      s.bannerMode = v;
+      if (ownKind) r.mode = v; else s.bannerMode = v;
       save();
       overlay.querySelector('#m_b_img_controls').style.display = v === 'image' ? 'block' : 'none';
       overlay.querySelector('#m_b_yt_controls').style.display = v === 'youtube' ? 'block' : 'none';
@@ -1283,7 +1333,7 @@
     return `<div class="cb_collapse_toggle cb_subhead" data-sec="${sec}"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
   }
   function pills(name, opts, cur) {
-    return `<div class="cb_pills">${opts.map(([v, l]) => `<label class="cb_pill"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
+    return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
   function posGrid(name, cur) {
     const P = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
@@ -1423,7 +1473,7 @@
   const cardSnap = new Map();
   const cardTimers = new Map();
   const legacyMoved = new Set();
-  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' });
+  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', scope: 'global', mode: '' });
 
   function charIndexByAvatar(av) {
     const cs = ctx().characters || [];
@@ -1472,6 +1522,8 @@
       overlap: cBool(b.overlap, false),
       overlapOffset: cNum(b.overlapOffset, 0, 0, 300),
       youtubeUrl: cStr(b.youtubeUrl, 500),
+      scope: cPick(b.scope, ['global', 'char']),
+      mode: cPick(b.mode, ['', 'image', 'youtube']),
     });
   }
 
@@ -1546,7 +1598,7 @@
 
   function cardIsEmpty(d) {
     const b = d.banner;
-    const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl);
+    const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl && b.scope !== 'char');
     const vn = d.vn || {};
     return bannerEmpty && !collectFileRefs(d.fg).size && !collectFileRefs(vn).size && !(vn.customSpk || []).length && !(vn.locations || []).length
       && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt);
@@ -2307,7 +2359,7 @@
       new MutationObserver(() => {
         syncPopouts();
         const key = currentKey();
-        if (!banner || !key || settings().bannerMode === 'off') return;
+        if (!banner || !key || !settings().bannerOn) return;
         if (!peek(key).locked && chat.firstElementChild !== banner) chat.prepend(banner);
       }).observe(chat, { childList: true });
     }

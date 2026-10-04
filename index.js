@@ -59,6 +59,7 @@
     rbEnabled: true, rbFontOn: false, rbFont: '', rbSizeOn: false, rbSize: 1, rbColorOn: false, rbColor: '', rbEmOn: false, rbEm: '',
     rbBorderOn: false, rbBorder: '', rbWeightOn: false, rbWeight: 'medium', rbSatOn: false, rbSat: 50,
     rbThinkOn: false, rbThink: 'Thinking...', rbDoneOn: false, rbDone: 'Thought for {time}', rbSomeOn: false, rbSome: 'Thought for some time',
+    rbFxOn: false, rbFx: 'glow', rbFxStr: 3, rbFxColorOn: false, rbFxColor: '', rbBorderStyleOn: false, rbBorderStyle: 'solid', rbCssOn: false, rbCss: '',
 
     // Text Formatting
     tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
@@ -66,6 +67,9 @@
     tfUserEmOn: false, tfUserEm: '', tfUserUnderOn: false, tfUserUnder: '', tfUserQuoteOn: false, tfUserQuote: '',
     tfAiFontOn: false, tfAiFont: '', tfAiSizeOn: false, tfAiSize: 1, tfAiMainOn: false, tfAiMain: '',
     tfAiEmOn: false, tfAiEm: '', tfAiUnderOn: false, tfAiUnder: '', tfAiQuoteOn: false, tfAiQuote: '',
+    tfNameFxOn: false, tfNameFx: 'glow', tfNameFxStr: 3, tfNameFxColorOn: false, tfNameFxColor: '',
+    tfUserFxOn: false, tfUserFx: 'glow', tfUserFxStr: 3, tfUserFxColorOn: false, tfUserFxColor: '',
+    tfAiFxOn: false, tfAiFx: 'glow', tfAiFxStr: 3, tfAiFxColorOn: false, tfAiFxColor: '',
 
     // Display overrides
     ovEnabled: true,
@@ -611,6 +615,7 @@
 
     styleEl.textContent = cssString;
     syncGoogleFonts();
+    syncCustomCss();
     watchReasoningLabels();
     syncReasoningLabels();
     applyBodyOverrides();
@@ -1730,6 +1735,14 @@
   function ovText(s, key) {
     return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="100" style="width:100%;">`;
   }
+  function ovFx(s, p) {
+    return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline']], s[p + 'Fx']) + ovSlider(s, p + 'FxStr', '', 1, 10, 1);
+  }
+  function fxRows(s, p) {
+    return `
+          ${ovRow(s, p + 'FxOn', 'Text Effect', ovFx(s, p))}
+          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + '<div class="cb_hint">Without this, Glow uses the text color, and Shadow and Outline are black.</div>')}`;
+  }
   function ovFont(s, key) {
     return `<input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="60" placeholder="Font name, e.g. Lora" style="width:100%;">`;
   }
@@ -1740,12 +1753,17 @@
   const cleanFont = (v) => String(v || '').replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   const NAME_WEIGHT = { normal: 400, bold: 700, extra: 800 };
   const RB_WEIGHT = { normal: 400, medium: 500, bold: 700 };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT) };
+  const FX = ['glow', 'shadow', 'outline'];
+  const FX_PARTS = ['rb', 'tfName', 'tfUser', 'tfAi'];
+  const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'glow'];
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES };
+  for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
     rbColor: '--reasoning-body-color', rbEm: '--SmartThemeEmColor', rbBorder: '--reasoning-body-color', tfNameColor: '--SmartThemeBodyColor',
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
+    rbFxColor: '--SmartThemeShadowColor', tfNameFxColor: '--SmartThemeShadowColor', tfUserFxColor: '--SmartThemeShadowColor', tfAiFxColor: '--SmartThemeShadowColor',
   };
   const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont'];
 
@@ -1757,6 +1775,17 @@
     if (/^#[0-9a-f]{6}$/i.test(c)) return c;
     const m = /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(String(c || ''));
     return m ? '#' + [m[1], m[2], m[3]].map((n) => Math.min(255, Math.round(Number(n))).toString(16).padStart(2, '0')).join('') : '#dcdcd2';
+  }
+
+  // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
+  function fxProps(s, p) {
+    if (!s[p + 'FxOn'] || !FX.includes(s[p + 'Fx'])) return {};
+    const n = Math.min(10, Math.max(1, Number(s[p + 'FxStr']) || 3));
+    const fx = s[p + 'Fx'];
+    const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)';
+    if (fx === 'glow') return { 'text-shadow': `0 0 ${n * 2}px ${c}, 0 0 ${n}px ${c}` };
+    if (fx === 'shadow') return { 'text-shadow': `${Math.ceil(n / 3)}px ${Math.ceil(n / 3)}px ${n}px ${c}` };
+    return { '-webkit-text-stroke': `${(n * 0.2).toFixed(1)}px ${c}`, 'paint-order': 'stroke fill' };
   }
 
   function textFormatCss(s) {
@@ -1782,6 +1811,15 @@
       'font-weight': on('rbWeight') ? RB_WEIGHT[s.rbWeight] : '',
     });
     if (rs) css += rule('.mes_reasoning', { 'line-height': `calc(var(--mainFontSize) * ${rs} + .5rem)` });
+    if (s.rbEnabled) {
+      const bs = on('rbBorderStyle') && BORDER_STYLES.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
+      css += rule('.mes_reasoning', {
+        ...fxProps(s, 'rb'),
+        'border-left-style': bs && bs !== 'glow' ? bs : '',
+        'border-left-width': bs === 'double' ? '4px' : '',
+        'box-shadow': bs === 'glow' ? `-3px 0 8px -2px ${col('rbBorder') || 'var(--reasoning-body-color)'}` : '',
+      });
+    }
 
     if (!s.tfEnabled) return css ? css + '\n' : '';
 
@@ -1792,24 +1830,35 @@
       'font-family': font('tfNameFont'),
       'font-size': ns ? `calc(var(--mainFontSize) * ${ns})` : '',
       'font-weight': on('tfNameWeight') ? NAME_WEIGHT[s.tfNameWeight] : '',
+      ...fxProps(s, 'tfName'),
     });
-    css += rule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont') });
+    css += rule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
-      css += rule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '' });
+      css += rule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', ...fxProps(s, p) });
       css += rule(`${m} i, ${m} em`, { color: col(p + 'Em') });
       css += rule(`${m} u`, { color: col(p + 'Under') });
       css += rule(`${m} q`, { color: col(p + 'Quote') });
       if (col(p + 'Em')) css += rule(`${m} q i, ${m} q em`, { color: 'inherit' });
     }
-    css += rule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont') });
+    css += rule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), ...fxProps(s, 'tfAi') });
     css += rule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
     css += rule('#cb_node .cb_q', { color: col('tfAiQuote') });
     if (col('tfAiEm')) css += rule('#cb_node .cb_q em', { color: 'inherit' });
     return css ? css + '\n' : '';
+  }
+
+  // Custom CSS for the reasoning block, in its own style tag so a typo can't break the extension's other styles.
+  function syncCustomCss() {
+    const s = settings();
+    const v = isOn() && s.rbEnabled && s.rbCssOn ? String(s.rbCss || '').slice(0, 2000).trim() : '';
+    let el = document.getElementById('ntr_rb_css');
+    if (!v) { el?.remove(); return; }
+    if (!el) { el = document.createElement('style'); el.id = 'ntr_rb_css'; document.head.appendChild(el); }
+    el.textContent = `.mes_reasoning { ${v} }`;
   }
 
   // Google Fonts load only for font boxes that are ticked and filled in. One link per font, so a name Google
@@ -1888,11 +1937,18 @@
           ${ovRow(s, 'rbEmOn', 'Italics Color', ovColor(s, 'rbEm'))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
           ${ovRow(s, 'rbSatOn', 'Color Strength', ovSlider(s, 'rbSat', '%', 0, 100, 1) + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
+          ${fxRows(s, 'rb')}
+          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double'], ['glow', 'Glow']], s.rbBorderStyle))}
           ${subHead('rb_header', 'Header Text')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbThinkOn', 'While Thinking', ovText(s, 'rbThink'))}
             ${ovRow(s, 'rbDoneOn', 'Finished', ovText(s, 'rbDone'))}
             ${ovRow(s, 'rbSomeOn', 'Finished, Time Unknown', ovText(s, 'rbSome'))}
+          </div>
+          ${subHead('rb_css', 'Advanced: Custom CSS')}
+          <div class="cb_collapse_content">
+            ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
+              + '<div class="cb_hint">CSS for the reasoning block only, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics. Add <code>!important</code> if a setting doesn\'t take. Saved in themes.</div>')}
           </div>
           </div>
         </div>
@@ -1906,7 +1962,7 @@
           ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
-          ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}`;
+          ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
     return `
       <div class="cb_section">
         ${secHead('text', 'fa-font', 'Text Formatting')}
@@ -1920,7 +1976,7 @@
             ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
             ${ovRow(s, 'tfNameSizeOn', 'Size', ovSlider(s, 'tfNameSize', 'x', 0.5, 2, 0.05))}
             ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'SillyTavern\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
-            ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}
+            ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}${fxRows(s, 'tfName')}
           </div>
           ${subHead('tf_user', 'User Text')}
           <div class="cb_collapse_content">${part('tfUser')}
@@ -1972,6 +2028,11 @@
     });
     onPills(overlay, 'rbweight', (v) => { s.rbWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
+    for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
+    const cssBox = overlay.querySelector('#m_rb_css');
+    cssBox.oninput = () => { s.rbCss = cssBox.value.slice(0, 2000); syncCustomCss(); };
+    cssBox.onchange = save;
   }
 
   function displaySectionHtml(s) {

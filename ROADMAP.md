@@ -21,7 +21,9 @@ The sections themselves shipped (see **Done**). Still open:
 - Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
 - A preset list of Google Fonts, each name shown in its own font.
 - Uploading font files, so no outside request is needed.
-- Left out for now: line height, letter spacing, text shadow per part, background color per part.
+- Text effects, second batch: Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
+- Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
+- Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
 ### Install instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general. Not done until out of Beta.

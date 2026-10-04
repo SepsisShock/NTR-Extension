@@ -6,8 +6,7 @@
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, uploadImage, pills, onPills, subHead } = A;
-  const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
+  const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead } = A;
   const TAG = A.TAG || '';
 
   const CSS = `

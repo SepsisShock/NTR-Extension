@@ -657,10 +657,6 @@
     return r;
   };
 
-  function rec(key) {
-    return peek(key);
-  }
-
   function buildBanner() {
     banner = document.createElement('div');
     banner.id = 'cb_banner';
@@ -952,7 +948,7 @@
   function step(d) {
     const key = currentKey();
     if (!key) return;
-    const r = rec(key);
+    const r = peek(key);
     const n = r.images.length;
     if (n < 2) return;
     r.idx = (shownIdx(key, r) + d + n) % n;
@@ -1052,7 +1048,7 @@
   async function addFiles(files) {
     const key = currentKey();
     if (!key) { toastr.warning('Select a single character first (banners are per character).', 'Banner'); return; }
-    const r = rec(key);
+    const r = peek(key);
     let added = 0;
     for (const f of files) {
       try {
@@ -1072,7 +1068,7 @@
   async function removeCurrentBanner() {
     const key = currentKey();
     if (!key) return;
-    const r = rec(key);
+    const r = peek(key);
     const im = r.images[r.idx];
     if (!im || !confirm('Remove this scenic banner image?')) return;
     r.images.splice(r.idx, 1);
@@ -1141,7 +1137,7 @@
     const F = fgData();
     const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
-    const r = key ? rec(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
+    const r = key ? peek(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
     const ownKind = !!key && r.scope === 'char';
     const kind = ownKind && r.mode ? r.mode : s.bannerMode;
     const ro = rotation(ownKind ? r : null);
@@ -1534,7 +1530,7 @@
         const k = currentKey();
         const url = k ? await askImageUrl('Banner image') : '';
         if (!url) return;
-        const rr = rec(k);
+        const rr = peek(k);
         rr.images.push({ url, pos: 45 });
         rr.idx = rr.images.length - 1;
         save(); updateBanner(); openCombinedModal();
@@ -2940,7 +2936,7 @@
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
-    loadModule, moduleError: (name) => modError[name] || '', uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey,
+    loadModule, moduleError: (name) => modError[name] || '', uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

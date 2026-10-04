@@ -6,8 +6,7 @@
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, pills, onPills, subHead } = A;
-  const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
+  const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, media, pills, onPills, subHead } = A;
   const TAG = A.TAG || '';
 
   const CSS = `

@@ -4,9 +4,8 @@
   const VN_VERSION = '2.2.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, pills, onPills, secHead, subHead } = A;
+  const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, secHead, subHead } = A;
   const TAG = A.TAG || '';
-  const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
   const VDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
@@ -37,7 +36,6 @@
     save();
     setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
   }
-  const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const lc = (x) => String(x || '').trim().toLowerCase();
   const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
@@ -955,7 +953,7 @@
       const nm = inp.value.trim();
       if (!nm) return;
       if (s.emotions.some((x) => x.name.toLowerCase() === nm.toLowerCase())) { toastr.warning('That emotion already exists.', 'Visual Novel'); return; }
-      s.emotions.push({ id: 'emo_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: nm });
+      s.emotions.push({ id: newId('emo'), name: nm });
       inp.value = '';
       save(); renderEmo(); renderSpk(); refreshAll();
     };

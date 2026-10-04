@@ -1114,6 +1114,7 @@
     document.getElementById('cb_modal_overlay')?.remove();
     const s = settings();
     const F = fgData();
+    const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
     const r = key ? rec(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
     const ownKind = !!key && r.scope === 'char';
@@ -1264,6 +1265,7 @@
             <input type="range" id="m_f_o" min="0" max="100" step="1" value="${s.fgOpacity ?? 100}">
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>
             
+            ${chatOpen ? '' : '<div class="cb_hint" style="margin-top: 10px;">Open a character chat first. Foreground images are saved per character.</div>'}
             <div style="display: flex; gap: 10px; margin-top: 10px;">
               ${['Left', 'Center', 'Right'].map(pos => `
                 <div class="cb_col" style="align-items: center; text-align: center;">
@@ -1273,8 +1275,8 @@
                     <span id="m_f_none_${pos}" style="display:${F[pos] ? 'none' : 'block'}; opacity:0.5; font-size:12px;">Empty</span>
                   </div>
                   <div style="display:flex; gap:5px; width:100%;">
-                    <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload ${pos} image"><i class="fa-solid fa-upload"></i></button>
-                    <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image"><i class="fa-solid fa-link"></i></button>
+                    <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-upload"></i></button>
+                    <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
                     <button class="menu_button danger_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Clear ${pos} image" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
                   </div>
                   <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cNum(F[pos + 'Scale'], 100, 10, 300)}</span>%</span></div>
@@ -2220,7 +2222,7 @@
     const b = d.banner;
     const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl && !b.video && b.scope !== 'char');
     const vn = d.vn || {};
-    return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.customSpk || []).length && !(vn.locations || []).length
+    return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.customSpk || []).length && !(vn.hiddenSpk || []).length && !(vn.locations || []).length
       && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt);
   }
 
@@ -2385,7 +2387,8 @@
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg']);
   function validLookValue(k, v) {
     const d = DEFAULTS[k];
-    if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || /^\/[^"<>]*$/.test(v) || /^data:image\/(png|jpeg|gif|webp);base64,/.test(v));
+    // Default art follows the rules for card images: an uploaded file, a web link or an embedded image.
+    if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || (cUrl(v) === v && !v.startsWith('data:video/')));
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);

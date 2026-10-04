@@ -1672,9 +1672,10 @@
   }
 
   // ===== Display Overrides =====
-  const CHAT_CLS = { flat: 'flatchat', bubbles: 'bubblechat', document: 'documentstyle' };
+  // SillyTavern's flat chat style and round avatars are the absence of a class.
+  const CHAT_CLS = { flat: '', bubbles: 'bubblechat', document: 'documentstyle' };
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
-  const ALL_CHAT = ['flatchat', 'bubblechat', 'documentstyle'];
+  const ALL_CHAT = ['bubblechat', 'documentstyle'];
   const ALL_AV = ['big-avatars', 'square-avatars', 'rounded-avatars'];
   const bodyTouched = { chat: false, av: false };
   let bodySnap = null, bodyObs = null;
@@ -1693,10 +1694,10 @@
     if (!b) return;
     if (!bodySnap) bodySnap = { chat: ALL_CHAT.filter((c) => b.classList.contains(c)), av: ALL_AV.filter((c) => b.classList.contains(c)) };
     const p = ctx().powerUserSettings;
-    const stChat = p && p.chat_display !== undefined ? [ALL_CHAT[Number(p.chat_display)]].filter(Boolean) : bodySnap.chat;
+    const stChat = p && p.chat_display !== undefined ? [['', ...ALL_CHAT][Number(p.chat_display)]].filter(Boolean) : bodySnap.chat;
     const stAv = p && p.avatar_style !== undefined ? [['', ...ALL_AV][Number(p.avatar_style)]].filter(Boolean) : bodySnap.av;
 
-    if (isOn() && s.ovEnabled && s.ovChatStyleOn) { setBodyClasses(ALL_CHAT, [CHAT_CLS[s.ovChatStyle]]); bodyTouched.chat = true; }
+    if (isOn() && s.ovEnabled && s.ovChatStyleOn) { setBodyClasses(ALL_CHAT, [CHAT_CLS[s.ovChatStyle]].filter(Boolean)); bodyTouched.chat = true; }
     else if (bodyTouched.chat) { setBodyClasses(ALL_CHAT, stChat); bodyTouched.chat = false; }
 
     if (isOn() && s.ovEnabled && s.ovAvatarOn) { setBodyClasses(ALL_AV, [AV_CLS[s.ovAvatar]].filter(Boolean)); bodyTouched.av = true; }
@@ -2186,7 +2187,7 @@
         yt: cStr(o.yt, 500),
         file: cUrl(o.file),
         title: cBool(o.title, false),
-        logo: cPick(o.logo, ['banner', 'upload', 'none']),
+        logo: cPick(o.logo, ['upload', 'none']),
         logoUrl: cUrl(o.logoUrl),
         when: cPick(o.when, ['newchat', 'open', 'vn']),
       };

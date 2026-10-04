@@ -13,6 +13,7 @@
     bannerHeight: 120,
     bannerGap: 10,
     bannerBackdrop: 'wallpaper', 
+    bannerVideoSound: false,
     chars: {},
     avatarEnabled: true,
     
@@ -527,6 +528,10 @@
       #cb_banner:hover .cb_nav { opacity: 1; }
       @media (hover: none) { #cb_banner .cb_nav { opacity: 1; } }
       #cb_banner .cb_nav_btn { background: none; border: none; color: inherit; cursor: pointer; padding: 2px 5px; line-height: 1; }
+      #cb_banner .cb_vid { position: relative; z-index: 1; display: block; }
+      #cb_banner .cb_snd { position: absolute; left: 8px; bottom: 8px; z-index: 2; padding: 5px 9px; border-radius: 999px; background: rgba(0,0,0,0.55); color: #fff; font-size: 12px; opacity: 0; transition: opacity .15s; }
+      #cb_banner:hover .cb_snd { opacity: 1; }
+      @media (hover: none) { #cb_banner .cb_snd { opacity: 1; } }
       .cb_thumbs { position: relative; display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 6px; }
       .cb_thumb { flex: none; width: 64px; height: 40px; object-fit: cover; border-radius: 4px; border: 2px solid transparent; cursor: pointer; opacity: 0.7; }
       .cb_thumb.active { border-color: var(--SmartThemeQuoteColor, #6cf); opacity: 1; }
@@ -660,6 +665,8 @@
     banner.innerHTML = `
       <img class="cb_img" alt="" style="display: none; width: 100%; height: 100%; object-fit: cover;">
       <iframe class="cb_yt" style="display: none; width: 100%; height: 100%; border: none; pointer-events: auto;" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      <video class="cb_vid" muted loop playsinline preload="auto" style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
+      <button class="cb_nav_btn cb_snd" style="display: none;"></button>
       <div class="cb_wall" style="display: none;"></div>
       <div class="cb_nav">
         <button class="cb_nav_btn cb_nav_prev" title="Previous image"><i class="fa-solid fa-chevron-left"></i></button>
@@ -669,6 +676,7 @@
     `;
     banner.querySelector('.cb_nav_prev').onclick = (e) => { e.stopPropagation(); step(-1); };
     banner.querySelector('.cb_nav_next').onclick = (e) => { e.stopPropagation(); step(1); };
+    banner.querySelector('.cb_snd').onclick = (e) => { e.stopPropagation(); toggleBannerSound(); };
     if (window.ResizeObserver) new ResizeObserver(() => syncWallpaper()).observe(banner);
   }
 
@@ -697,6 +705,45 @@
   function stopBannerYt() {
     const yt = banner?.querySelector('.cb_yt');
     if (yt && yt.src && yt.src !== 'about:blank') yt.src = 'about:blank';
+  }
+
+  // A video banner starts muted unless sound was turned on before; the speaker button's choice is saved right away.
+  // Browsers can block sound until the page is clicked, so a blocked start plays muted for now without changing the choice.
+  function stopBannerVid() {
+    const v = banner?.querySelector('.cb_vid');
+    if (!v || !v.getAttribute('src')) return;
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+    banner.querySelector('.cb_snd').style.display = 'none';
+  }
+  function setSndIcon(muted) {
+    const b = banner?.querySelector('.cb_snd');
+    if (!b) return;
+    b.innerHTML = `<i class="fa-solid ${muted ? 'fa-volume-xmark' : 'fa-volume-high'}"></i>`;
+    b.title = muted ? 'Sound on' : 'Mute';
+  }
+  function playBannerVid(v) {
+    const want = !!settings().bannerVideoSound;
+    v.muted = !want;
+    setSndIcon(!want);
+    const p = v.play();
+    if (p && p.catch) p.catch(() => {
+      if (!want || v.muted) return;
+      v.muted = true;
+      setSndIcon(true);
+      v.play().catch(() => {});
+    });
+  }
+  function toggleBannerSound() {
+    const v = banner?.querySelector('.cb_vid');
+    if (!v) return;
+    const s = settings();
+    s.bannerVideoSound = v.muted;
+    save();
+    v.muted = !s.bannerVideoSound;
+    setSndIcon(v.muted);
+    if (!v.muted) v.play().catch(() => {});
   }
 
   // ===== Banner image rotation =====
@@ -781,6 +828,7 @@
     const kind = bannerKind(r);
     if (kind === 'off') {
       stopBannerYt();
+      stopBannerVid();
       banner.style.display = 'none';
       return;
     }
@@ -791,9 +839,12 @@
     const img = banner.querySelector('.cb_img');
     const yt = banner.querySelector('.cb_yt');
     const nav = banner.querySelector('.cb_nav');
+    const vid = banner.querySelector('.cb_vid');
 
     if (kind === 'image') {
       stopBannerYt();
+      stopBannerVid();
+      vid.style.display = 'none';
       const n = r.images.length;
       if (!n) {
         banner.style.display = 'none';
@@ -820,6 +871,8 @@
       if (o.rotate && n > 1) armRotation(o.rotateSec); else stopRotation();
       
     } else if (kind === 'youtube') {
+      stopBannerVid();
+      vid.style.display = 'none';
       const videoId = getYouTubeId(r.youtubeUrl || '');
       if (!videoId) {
         stopBannerYt();
@@ -833,6 +886,23 @@
 
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=0&mute=0&loop=1&playlist=${videoId}&controls=1&modestbranding=1`;
       if (yt.getAttribute('src') !== embedUrl) yt.src = embedUrl;
+    } else if (kind === 'video') {
+      stopBannerYt();
+      const u = media(r.video);
+      if (!u) {
+        stopBannerVid();
+        banner.style.display = 'none';
+        return;
+      }
+      banner.style.display = 'block';
+      img.style.display = 'none';
+      yt.style.display = 'none';
+      nav.style.display = 'none';
+      vid.style.display = 'block';
+      vid.style.objectPosition = `50% ${cNum(r.videoPos, 50, 0, 100)}%`;
+      banner.querySelector('.cb_snd').style.display = '';
+      if (vid.getAttribute('src') !== u) { vid.src = u; playBannerVid(vid); }
+      else if (vid.paused) playBannerVid(vid);
     }
     syncWallpaper();
   }
@@ -853,13 +923,14 @@
       if (!chat) return;
       
       chat.style.paddingTop = ''; // clear padding initially
-      if (!isOn()) { if (banner) banner.style.display = 'none'; stopBannerYt(); syncWallpaper(); return; }
+      if (!isOn()) { if (banner) banner.style.display = 'none'; stopBannerYt(); stopBannerVid(); syncWallpaper(); return; }
       
       if (!banner) buildBanner();
       const key = currentKey();
       const r = key ? peek(key) : null;
       if (bannerKind(r) === 'off') {
         stopBannerYt();
+        stopBannerVid();
         banner.style.display = 'none';
         return;
       }
@@ -902,6 +973,31 @@
     if (!/^https?:\/\//i.test(u)) { toastr.warning('Paste a full link that starts with http:// or https://', 'Image link'); return ''; }
     try { await loadImg(u); } catch (e) { toastr.error('That link did not load as an image. Check it and try again.', 'Image link'); return ''; }
     if (settings().blockExternal) toastr.info('Images from other websites are blocked by your privacy setting, so this one will stay hidden until you turn that off.', 'Image link');
+    return u;
+  }
+
+  // Ask for a video link (mp4 or webm). With the privacy setting on, the link isn't test-loaded, since that would
+  // contact the other website; it's saved and stays hidden until the setting is off.
+  const loadVideo = (u) => new Promise((res, rej) => {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.preload = 'metadata';
+    const done = (ok) => { clearTimeout(t); v.removeAttribute('src'); v.load(); ok ? res() : rej(new Error('Video did not load')); };
+    const t = setTimeout(() => done(false), 15000);
+    v.onloadedmetadata = () => done(true);
+    v.onerror = () => done(false);
+    v.src = u;
+  });
+  async function askVideoUrl(label = 'Video') {
+    const raw = prompt(`${label}: paste a link to an mp4 or webm video (https://...)`);
+    if (raw === null) return '';
+    const u = cUrl(raw);
+    if (!/^https?:\/\//i.test(u)) { toastr.warning('Paste a full link that starts with http:// or https://', 'Video link'); return ''; }
+    if (settings().blockExternal) {
+      toastr.info('Videos from other websites are blocked by your privacy setting, so this one will stay hidden until you turn that off.', 'Video link');
+      return u;
+    }
+    try { await loadVideo(u); } catch (e) { toastr.error('That link did not load as a video. Use a direct link to an mp4 or webm file.', 'Video link'); return ''; }
     return u;
   }
 
@@ -1066,7 +1162,7 @@
                 <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
               </label>
               <div>
-                <strong>Kind:</strong>${ownKind ? ' ' + TAG : ''}${pills('bmode', [['image', 'Image Gallery'], ['youtube', 'YouTube Loop']], kind)}
+                <strong>Kind:</strong>${ownKind ? ' ' + TAG : ''}${pills('bmode', [['image', 'Image Gallery'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind)}
                 ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}
               </div>
             </div>
@@ -1111,6 +1207,22 @@
             <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
               <label><strong>YouTube Video URL:</strong> ${TAG}</label>
               <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(r.youtubeUrl || '')}" ${!key ? 'disabled' : ''}>
+            </div>
+
+            <!-- Video Controls -->
+            <div id="m_b_vid_controls" style="display: ${kind === 'video' ? 'block' : 'none'};">
+              <div style="margin-bottom: 6px;"><strong>Video</strong> ${TAG}</div>
+              <div class="cb_row">
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.video ? escapeHTML(String(r.video).split('/').pop()) : '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
+                <button id="m_b_vup" class="menu_button" style="margin:0;" title="Upload a video" ${!key ? 'disabled' : ''}><i class="fa-solid fa-upload"></i></button>
+                <button id="m_b_vurl" class="menu_button" style="margin:0;" title="Use a link to a video" ${!key ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
+                <button id="m_b_vdel" class="menu_button danger_button" style="margin:0;" title="Remove the video" ${!r.video ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
+              </div>
+              <input type="file" id="m_b_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
+              ${r.video ? `
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop: ${TAG}</label><span><span id="m_b_vpval">${cNum(r.videoPos, 50, 0, 100)}</span>%</span></div>
+              <input type="range" id="m_b_vp" min="0" max="100" value="${cNum(r.videoPos, 50, 0, 100)}">` : ''}
+              <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>
             </div>
 
             <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:</label><span><span id="m_b_hval">${s.bannerHeight}</span>px</span></div>
@@ -1237,8 +1349,66 @@
       save();
       overlay.querySelector('#m_b_img_controls').style.display = v === 'image' ? 'block' : 'none';
       overlay.querySelector('#m_b_yt_controls').style.display = v === 'youtube' ? 'block' : 'none';
+      overlay.querySelector('#m_b_vid_controls').style.display = v === 'video' ? 'block' : 'none';
       renderAll();
     });
+
+    // Banner video: uploaded as is (no re-encoding), or a link.
+    const setVideo = (url) => {
+      const old = r.video;
+      r.video = url;
+      r.videoPos = 50;
+      save();
+      updateBanner();
+      deleteFileIfUnused(old);
+      openCombinedModal();
+    };
+    const vfile = overlay.querySelector('#m_b_vfile');
+    const vup = overlay.querySelector('#m_b_vup');
+    vup.onclick = () => vfile.click();
+    vfile.onchange = async () => {
+      const f = vfile.files[0];
+      vfile.value = '';
+      if (!f || !key) return;
+      let ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
+      if (!ext) { toastr.warning('Use an mp4 or webm video.', 'Banner'); return; }
+      if (f.size > 100 * 1024 * 1024 && !confirm(`This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`)) return;
+      vup.disabled = true;
+      vup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        const data = await readDataURL(f);
+        const name = `banner_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const res = await fetch('/api/files/upload', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ name, data: String(data).split(',')[1] }) });
+        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+        const j = await res.json();
+        toastr.success('Banner video uploaded.', 'Banner');
+        setVideo('/' + String(j.path).replace(/^\/+/, ''));
+      } catch (e) {
+        console.error('[NTR banner video]', e);
+        toastr.error(e.message || 'Video upload failed', 'Banner');
+        openCombinedModal();
+      }
+    };
+    overlay.querySelector('#m_b_vurl').onclick = async () => {
+      if (!key) return;
+      const url = await askVideoUrl('Banner video');
+      if (url) setVideo(url);
+    };
+    overlay.querySelector('#m_b_vdel').onclick = () => {
+      if (!r.video || !confirm('Remove the banner video?')) return;
+      setVideo('');
+    };
+    const vp = overlay.querySelector('#m_b_vp');
+    if (vp) {
+      vp.oninput = function() {
+        r.videoPos = Number(this.value);
+        overlay.querySelector('#m_b_vpval').textContent = this.value;
+        const v = banner?.querySelector('.cb_vid');
+        if (v) v.style.objectPosition = `50% ${this.value}%`;
+      };
+      vp.onchange = save;
+    }
 
     // Foreground Event Bindings
     overlay.querySelector('#m_f_hidevn').onchange = function() { s.fgHideVN = this.checked; save(); ensureFgLayer(); };
@@ -1870,7 +2040,7 @@
   const cardSnap = new Map();
   const cardTimers = new Map();
   const legacyMoved = new Set();
-  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order' });
+  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order' });
 
   function charIndexByAvatar(av) {
     const cs = ctx().characters || [];
@@ -1920,7 +2090,9 @@
       overlapOffset: cNum(b.overlapOffset, 0, 0, 300),
       youtubeUrl: cStr(b.youtubeUrl, 500),
       scope: cPick(b.scope, ['global', 'char']),
-      mode: cPick(b.mode, ['', 'image', 'youtube']),
+      mode: cPick(b.mode, ['', 'image', 'youtube', 'video']),
+      video: cUrl(b.video),
+      videoPos: cNum(b.videoPos, 50, 0, 100),
       rotate: cBool(b.rotate, false),
       rotateSec: Math.round(cNum(b.rotateSec, 8, 3, 60)),
       rotateFx: cPick(b.rotateFx, ['fade', 'swap']),
@@ -1997,11 +2169,13 @@
     return d;
   }
 
+  // Uploaded files and links to other websites both count as content.
+  const hasMediaRef = (o) => collectFileRefs(o).size > 0 || /"https?:\/\//i.test(JSON.stringify(o || {}));
   function cardIsEmpty(d) {
     const b = d.banner;
-    const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl && b.scope !== 'char');
+    const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl && !b.video && b.scope !== 'char');
     const vn = d.vn || {};
-    return bannerEmpty && !collectFileRefs(d.fg).size && !collectFileRefs(vn).size && !(vn.customSpk || []).length && !(vn.locations || []).length
+    return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.customSpk || []).length && !(vn.locations || []).length
       && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt);
   }
 
@@ -2722,7 +2896,7 @@
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg, askImageUrl,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },

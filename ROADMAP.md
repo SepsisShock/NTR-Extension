@@ -56,7 +56,7 @@ The sections themselves shipped (see **Done**). Still open:
 
 ## Possible bugs
 
-- Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
+- Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet. Low priority, check after Beta.
 
 ## Done
 

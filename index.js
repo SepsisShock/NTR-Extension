@@ -512,6 +512,11 @@
     wall.style.height = `${window.innerHeight}px`;
   }
 
+  // The main Enable switches are diamonds that still click on and off. They're styled by id because a class would rank
+  // below SillyTavern's own checkbox styles, which would turn them back into square checkboxes.
+  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable'];
+  const switches = (state) => SWITCH_IDS.map((id) => `#${id}${state}`).join(', ');
+
   function updateAvatarStyle() {
     let styleEl = document.getElementById('aw_dynamic_style');
     if (!styleEl) {
@@ -565,18 +570,17 @@
       .cb_pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
       .cb_pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 999px; border: 1px solid var(--SmartThemeBorderColor, #555); background: rgba(0,0,0,.2); cursor: pointer; user-select: none; font-size: .9em; transition: background .15s, border-color .15s; }
       .cb_pill input, .cb_posgrid input, .cb_defdot input { margin: 0; cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #6cf); }
-      /* The main Enable switches are diamonds that still click on and off. */
-      #m_f_enable, #m_a_enable, #m_n_enable, #m_ai_on, #m_us_on, #m_rb_enable, #m_tf_enable, #m_ov_enable, #m_b_enable {
+      ${switches('')} {
         appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; width: .95em; height: .95em; margin: 0 9px 0 4px;
         border: 2px solid var(--SmartThemeBorderColor, #888); border-radius: 2px; background: transparent; cursor: pointer;
         transform: rotate(45deg); display: inline-grid; place-content: center; vertical-align: middle;
       }
-      #m_f_enable::before, #m_a_enable::before, #m_n_enable::before, #m_ai_on::before, #m_us_on::before, #m_rb_enable::before, #m_tf_enable::before, #m_ov_enable::before, #m_b_enable::before {
+      ${switches('::before')} {
         content: ''; width: .42em; height: .42em; background: var(--SmartThemeQuoteColor, #6cf); transform: scale(0); transition: transform .12s;
       }
-      #m_f_enable:checked, #m_a_enable:checked, #m_n_enable:checked, #m_ai_on:checked, #m_us_on:checked, #m_rb_enable:checked, #m_tf_enable:checked, #m_ov_enable:checked, #m_b_enable:checked { border-color: var(--SmartThemeQuoteColor, #6cf); }
-      #m_f_enable:checked::before, #m_a_enable:checked::before, #m_n_enable:checked::before, #m_ai_on:checked::before, #m_us_on:checked::before, #m_rb_enable:checked::before, #m_tf_enable:checked::before, #m_ov_enable:checked::before, #m_b_enable:checked::before { transform: scale(1); }
-      #m_f_enable:focus-visible, #m_a_enable:focus-visible, #m_n_enable:focus-visible, #m_ai_on:focus-visible, #m_us_on:focus-visible, #m_rb_enable:focus-visible, #m_tf_enable:focus-visible, #m_ov_enable:focus-visible, #m_b_enable:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
+      ${switches(':checked')} { border-color: var(--SmartThemeQuoteColor, #6cf); }
+      ${switches(':checked::before')} { transform: scale(1); }
+      ${switches(':focus-visible')} { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
       .cb_pill:has(input:checked) { border-color: var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
       .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
       .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }

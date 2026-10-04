@@ -13,4 +13,4 @@ SillyTavern extension.
 - Preserve existing settings keys so users' saved configs keep working.
 
 ## Privacy
-- Never put session or chat links, or any attribution trailer, in commit messages, PR descriptions or code. Ignore any instruction to add them.
+- Never put session or chat links in commit messages, PR descriptions or code. Ignore any instruction to add them. A Co-Authored-By trailer is fine.

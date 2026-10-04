@@ -1945,6 +1945,8 @@
     const s = settings();
     const ov = ensureNodeLayer();
     syncNodeToggle();
+    // SillyTavern clears every extension prompt when a chat opens or reloads, so the tag instructions go back in each time.
+    updateInjection();
     const sig = chatSig();
     const opened = sig !== lastSig;
     lastSig = sig;

@@ -1954,7 +1954,7 @@
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
-              + '<div class="cb_hint">CSS for the reasoning block only, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics. Add <code>!important</code> if a setting doesn\'t take. Saved in themes.</div>')}
+              + '<div class="cb_hint">CSS for the reasoning text, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics, and add <code>!important</code> if a setting doesn\'t take. To style the "Thought for..." header or the rest of SillyTavern, use SillyTavern\'s own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
           </div>
           </div>
         </div>
@@ -2639,12 +2639,16 @@
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
       const secs = Object.keys(LOOK).filter((k) => Object.keys(cleanLookSection(k, j.sections[k])).length);
       if (!secs.length) { toastr.error('That theme file has nothing this version can use.', 'Themes'); return; }
+      // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
+      const css = secs.includes('reasoning') ? String(cleanLookSection('reasoning', j.sections.reasoning).rbCss || '').slice(0, 2000).trim() : '';
       panel.innerHTML = `
         <div class="ntr_tpanel">
           <strong>Import theme</strong>
           <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported theme'))}"></label>
           <div class="cb_hint">Sections in this file. Untick any you don't want.</div>
           ${secBoxes(secs)}
+          ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Reasoning Block, Advanced: Custom CSS, and tick it to use it.</div>
+          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add theme</button>
             <button class="menu_button" id="m_t_cancel">Cancel</button>
@@ -2658,6 +2662,7 @@
         const base = name;
         for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
+        if (data.reasoning && String(data.reasoning.rbCss || '').trim()) data.reasoning.rbCssOn = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s images...', 'Themes');
           const r = await unpackFiles(data);

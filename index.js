@@ -1660,7 +1660,7 @@
     }
   }
 
-  const FONT_HINT = '<div class="cb_hint">Google Fonts are downloaded from Google. Fonts on your device work offline. Type the name exactly as it\'s written.</div>';
+  const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
     return `
@@ -1669,8 +1669,8 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block</span></label>
           <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
-          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look.</div>
-          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + FONT_HINT)}
+          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
+          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
           ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
           ${ovRow(s, 'rbColorOn', 'Text Color', ovColor(s, 'rbColor'))}
@@ -1684,7 +1684,7 @@
 
   function textSectionHtml(s) {
     const part = (p) => `
-          ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font') + FONT_HINT)}
+          ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
           ${ovRow(s, p + 'SizeOn', 'Size', ovSlider(s, p + 'Size', 'x', 0.5, 2, 0.05))}
           ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
@@ -1696,11 +1696,11 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_tf_enable" ${s.tfEnabled ? 'checked' : ''}><span>Enable Text Formatting</span></label>
           <div id="m_tf_body" class="${s.tfEnabled ? '' : 'cb_dim'}">
-          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look.</div>
+          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${subHead('tf_names', 'Names')}
           <div class="cb_collapse_content">
             <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
-            ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont') + FONT_HINT)}
+            ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
             ${ovRow(s, 'tfNameSizeOn', 'Size', ovSlider(s, 'tfNameSize', 'x', 0.5, 2, 0.05))}
             ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'SillyTavern\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
             ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}
@@ -1751,13 +1751,13 @@
   }
 
   function displaySectionHtml(s) {
-    const row = (onKey, label, inner) => ovRow(s, onKey, 'Override ' + label, inner);
+    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
     return `
       <div class="cb_section">
         ${secHead('display', 'fa-display', 'Display Overrides')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Untick an override to go back to ST's value.</div>
+          <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
           ${row('ovWidthOn', 'Chat Width', sl('ovWidth', 'vw', 25, 100, 1))}
           ${row('ovFontOn', 'Font Scale', sl('ovFont', 'x', 0.5, 2, 0.05))}

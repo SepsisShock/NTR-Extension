@@ -2385,7 +2385,8 @@
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg']);
   function validLookValue(k, v) {
     const d = DEFAULTS[k];
-    if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || /^\/[^"<>]*$/.test(v) || /^data:image\/(png|jpeg|gif|webp);base64,/.test(v));
+    // Default art follows the rules for card images: an uploaded file, a web link or an embedded image.
+    if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || (cUrl(v) === v && !v.startsWith('data:video/')));
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);

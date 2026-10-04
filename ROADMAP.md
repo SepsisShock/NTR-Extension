@@ -32,14 +32,20 @@ Two new menu sections for styling chat text, reasoning and names. Replaces the "
   - Names: the name at the top of each message, one setting for both the user's and the character's name.
   - User Text: the user's messages.
   - AI Text: the AI's messages.
+- [ ] Settings per part:
+  - Names: color, font, size, weight (Normal, Bold, Extra Bold; SillyTavern uses Extra Bold).
+  - User Text and AI Text: font, size, main color, italics color, underline color, quote color.
+  - Reasoning Block: font, size, text color, italics color, border color, weight (SillyTavern uses semi-bold), color strength (0 to 100%; SillyTavern dulls reasoning colors to 50%).
+- [ ] Sizes are a multiplier (e.g. 0.8x to 1.5x), not pixels, so they still follow SillyTavern's Font Scale and the Display Overrides one.
 - [ ] Every setting has an "Override X" checkbox, like Display Overrides. Unticked means SillyTavern's own value applies.
 - [ ] Both sections are saved in themes.
 - [ ] Font boxes accept fonts installed on the device and Google Fonts. A Google Font is only requested when a font box is ticked and filled in; if Google doesn't have the name, the device's font of that name is used, then SillyTavern's normal font.
 - [ ] Hint under the font boxes: Google Fonts are downloaded from Google, fonts on your device work offline.
 - [ ] New Privacy checkbox: "Don't load Google Fonts" (separate from the card images and videos one). When ticked, only fonts on the device work.
-- [ ] Text Formatting also applies inside the Visual Novel dialogue box.
+- [ ] Text Formatting also applies inside the Visual Novel dialogue box: AI Text's font and colors on the dialogue, Names' font and color on the speaker's name tag. The name tag's background stays on Quote Text.
 - [ ] Saved under new settings keys (existing keys untouched).
-- Open questions: which settings each part gets (colors, font, size, weight); separate themes for the normal chat and for Visual Novel Mode, so each can have its own look; whether to offer a preset list of Google Fonts with each name shown in its own font; whether to allow uploading font files so no outside request is needed.
+- Left out for now: line height, letter spacing, text shadow per part, background color per part.
+- Open questions: separate themes for the normal chat and for Visual Novel Mode, so each can have its own look; whether to offer a preset list of Google Fonts with each name shown in its own font; whether to allow uploading font files so no outside request is needed.
 
 ### Install instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general. Not done until out of Beta.

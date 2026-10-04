@@ -64,20 +64,19 @@ Finished items, newest first.
 - [x] Banner video from an uploaded mp4 or webm file: a new **Video** kind next to Image Gallery and YouTube Loop.
 - [x] Banner video from a link to an mp4 or webm file.
 - [x] Opening video from a link to an mp4 or webm file ("Video file or link").
-- [x] Video links follow the privacy setting that blocks files from other websites.
 - [x] Banner video saved under new per-character fields `banner.video` and `banner.videoPos` (existing keys untouched).
 - [x] Loops with no controls. A speaker button on the banner turns sound on or off; the choice is saved right away (`bannerVideoSound`). If the browser blocks sound, it plays muted until clicked, without changing the choice.
 - [x] Crop slider for the banner video.
 
 ### Reasoning Block and Text Formatting (PR #40)
-- [x] New menu order: Themes, Header Banner, Pfp Management, Reasoning Block, Text Formatting, Display Overrides, Foreground Images, Visual Novel Mode, Privacy.
+- [x] New menu order: Themes, Header Banner, Pfp Management, Reasoning Block, Text Formatting, Display Overrides, Foreground Images, Visual Novel Mode.
 - [x] Reasoning Block: font, size, weight, text color, italics color, border color, color strength.
 - [x] Reasoning Block, Header Text: your own label for "Thinking...", "Thought for {time}" and "Thought for some time". `{time}` uses SillyTavern's wording.
 - [x] Text Formatting: Names (color, font, size, weight), User Text and AI Text (font, size, main, italics, underline and quote colors).
 - [x] "Enable Reasoning Block" and "Enable Text Formatting" switches; off greys out the section and keeps the settings.
 - [x] Every setting has a checkbox; unticked means SillyTavern's own value. One note per section.
 - [x] Sizes are a multiplier (0.5x to 2x) of SillyTavern's font size.
-- [x] Fonts from the device or Google Fonts, plus a "Don't load Google Fonts" Privacy checkbox.
+- [x] Fonts from the device or Google Fonts.
 - [x] Text Formatting applies in the Visual Novel box: AI Text on the dialogue, Names on the name tag.
 - [x] Both sections saved in themes. New settings keys only.
 - [x] Display Overrides labels lose the word "Override".

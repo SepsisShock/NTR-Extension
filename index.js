@@ -1548,7 +1548,7 @@
   function ovRow(s, onKey, label, inner) {
     return `
       <div class="cb_ovrow">
-        <label class="checkbox_label"><input type="checkbox" class="m_o_on" data-key="${onKey}" ${s[onKey] ? 'checked' : ''}><span>Override ${label}</span></label>
+        <label class="checkbox_label"><input type="checkbox" class="m_o_on" data-key="${onKey}" ${s[onKey] ? 'checked' : ''}><span>${label}</span></label>
         <div class="m_o_body ${s[onKey] ? '' : 'cb_dim'}" data-for="${onKey}">${inner}</div>
       </div>`;
   }
@@ -1669,7 +1669,7 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block</span></label>
           <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
-          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Untick an override to go back to ST's look.</div>
+          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look.</div>
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + FONT_HINT)}
           ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
           ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
@@ -1696,7 +1696,7 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_tf_enable" ${s.tfEnabled ? 'checked' : ''}><span>Enable Text Formatting</span></label>
           <div id="m_tf_body" class="${s.tfEnabled ? '' : 'cb_dim'}">
-          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Untick an override to go back to ST's look.</div>
+          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look.</div>
           ${subHead('tf_names', 'Names')}
           <div class="cb_collapse_content">
             <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
@@ -1751,7 +1751,7 @@
   }
 
   function displaySectionHtml(s) {
-    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
+    const row = (onKey, label, inner) => ovRow(s, onKey, 'Override ' + label, inner);
     const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
     return `
       <div class="cb_section">

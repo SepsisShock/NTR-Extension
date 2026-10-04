@@ -927,7 +927,6 @@
     const r = key ? rec(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
     const ownKind = !!key && r.scope === 'char';
     const kind = ownKind && r.mode ? r.mode : s.bannerMode;
-    const shown = s.bannerOn ? kind : 'off';
     const n = r.images.length;
     const curImg = r.images[r.idx] || null;
     const safeCharName = key ? escapeHTML(currentCharacterName()) : 'No Char';
@@ -956,6 +955,8 @@
         <div class="cb_section">
           ${secHead('banner', 'fa-panorama', 'Header Banner (' + safeCharName + ')')}
           <div class="cb_collapse_content">
+            <div style="margin-bottom: 10px;"><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char'], ['off', 'Off', BANNER_NOTE.off]], !s.bannerOn ? 'off' : ownKind ? 'char' : 'global')}</div>
+            <div id="m_b_body" class="${s.bannerOn ? '' : 'cb_dim'}">
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px;">
               <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                 <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>
@@ -963,15 +964,14 @@
               <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                 <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
               </label>
-              <div><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char'], ['off', 'Off', BANNER_NOTE.off]], !s.bannerOn ? 'off' : ownKind ? 'char' : 'global')}</div>
-              <div style="display: ${s.bannerOn ? 'block' : 'none'};">
+              <div>
                 <strong>Kind:</strong>${ownKind ? ' ' + TAG : ''}${pills('bmode', [['image', 'Image Gallery'], ['youtube', 'YouTube Loop']], kind)}
                 ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}
               </div>
             </div>
             
             <!-- Image Controls -->
-            <div id="m_b_img_controls" style="display: ${shown === 'image' ? 'block' : 'none'};">
+            <div id="m_b_img_controls" style="display: ${kind === 'image' ? 'block' : 'none'};">
               <div style="margin-bottom: 6px;"><strong>Images</strong> ${TAG}</div>
               <div class="cb_actions">
                 <button id="m_b_up" class="menu_button" ${!key ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Add</button>
@@ -995,7 +995,7 @@
             </div>
 
             <!-- YouTube Controls -->
-            <div id="m_b_yt_controls" style="display: ${shown === 'youtube' ? 'block' : 'none'};">
+            <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
               <label><strong>YouTube Video URL:</strong> ${TAG}</label>
               <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(r.youtubeUrl || '')}" ${!key ? 'disabled' : ''}>
             </div>
@@ -1015,6 +1015,7 @@
             </div>
 
             <div style="margin-top: 10px;"><strong>Transparent areas show:</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], s.bannerBackdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
+            </div>
           </div>
         </div>
 

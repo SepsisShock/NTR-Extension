@@ -2498,7 +2498,7 @@
       <div class="cb_section">
         ${secHead('themes', 'fa-palette', 'Themes')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">A theme holds your look: Pfp styling, banner height and gap, the Visual Novel box, tags and default art, and display overrides. Character content like banner images is never part of a theme. Click a theme to apply it.</div>
+          <div class="cb_hint">A theme holds your look: banner height and gap, Pfp styling, Reasoning Block, Text Formatting, display overrides, foreground opacity, and the Visual Novel box, tags and default art. Character content like banner images is never part of a theme. Click a theme to apply it.</div>
           ${list}
           <div class="ntr_tbar">
             ${b('m_t_new', 'fa-plus', 'Save current look as a new theme')}

@@ -96,10 +96,7 @@
     opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opHold: true, opExit: 'stay', opTrans: 'color', opTransColor: '#000000', opTransMs: 400, opEarly: false, opMute: false, opSeen: {},
     nodeMaps: true, mapGoText: '*heads to the {place}*',
     themes: [],
-    themeActive: null,
-
-    // Privacy
-    blockExternal: false
+    themeActive: null
   };
 
   const ctx = () => SillyTavern.getContext();
@@ -971,12 +968,10 @@
     const u = cUrl(raw);
     if (!/^https?:\/\//i.test(u)) { toastr.warning('Paste a full link that starts with http:// or https://', 'Image link'); return ''; }
     try { await loadImg(u); } catch (e) { toastr.error('That link did not load as an image. Check it and try again.', 'Image link'); return ''; }
-    if (settings().blockExternal) toastr.info('Images from other websites are blocked by your privacy setting, so this one will stay hidden until you turn that off.', 'Image link');
     return u;
   }
 
-  // Ask for a video link (mp4 or webm). With the privacy setting on, the link isn't test-loaded, since that would
-  // contact the other website; it's saved and stays hidden until the setting is off.
+  // Ask for a video link (mp4 or webm).
   const loadVideo = (u) => new Promise((res, rej) => {
     const v = document.createElement('video');
     v.muted = true;
@@ -992,10 +987,6 @@
     if (raw === null) return '';
     const u = cUrl(raw);
     if (!/^https?:\/\//i.test(u)) { toastr.warning('Paste a full link that starts with http:// or https://', 'Video link'); return ''; }
-    if (settings().blockExternal) {
-      toastr.info('Videos from other websites are blocked by your privacy setting, so this one will stay hidden until you turn that off.', 'Video link');
-      return u;
-    }
     try { await loadVideo(u); } catch (e) { toastr.error('That link did not load as a video. Use a direct link to an mp4 or webm file.', 'Video link'); return ''; }
     return u;
   }
@@ -1293,7 +1284,6 @@
         </div>
 
         ${vnSectionHtml(s)}
-        ${privacySectionHtml(s)}
         </div>
       </div>
       <div id="ntr_edge" title="Drag to resize"></div>
@@ -1570,7 +1560,6 @@
     bindThemes(overlay, s);
     bindVNSection(overlay, s);
     bindDisplay(overlay, s);
-    overlay.querySelector('#m_x_block').onchange = function() { s.blockExternal = this.checked; save(); refreshVisuals(); openCombinedModal(); };
     bindTextFormatting(overlay, s);
 
     const bindCol = (prefix) => {
@@ -1999,17 +1988,6 @@
       </div>`;
   }
 
-  function privacySectionHtml(s) {
-    return `
-      <div class="cb_section">
-        ${secHead('privacy', 'fa-shield-halved', 'Privacy')}
-        <div class="cb_collapse_content">
-          <label class="checkbox_label"><input type="checkbox" id="m_x_block" ${s.blockExternal ? 'checked' : ''}><span>Block card images and videos hosted on other websites</span></label>
-          <div class="cb_hint">A shared card can link its art to someone else's server, which tells that server your IP address and when you opened the chat. With this on, only files stored on your own SillyTavern load. YouTube banners and openings still play. Nothing is removed from the card, so switching it back off restores everything.</div>
-        </div>
-      </div>`;
-  }
-
   function bindDisplay(overlay, s) {
     overlay.querySelector('#m_f_trans').onchange = function() { s.chatTransparent = this.checked; save(); updateAvatarStyle(); };
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
@@ -2145,11 +2123,8 @@
     return st;
   }
 
-  // Optional privacy guard: card images and videos hosted on other websites don't load.
-  const isExternal = (u) => /^(https?:)?\/\//i.test(String(u || '').trim());
   function media(u) {
-    const v = typeof u === 'string' ? u : '';
-    return settings().blockExternal && isExternal(v) ? '' : v;
+    return typeof u === 'string' ? u : '';
   }
 
   function cardData(key) {

@@ -2352,6 +2352,8 @@
   async function deleteFileIfUnused(path) {
     const p = normFile(path);
     if (!p || !OWN_FILE.test(p) || filesInUse().has(p)) return false;
+    // With SillyTavern's lazy loading on, cards that haven't been opened yet aren't loaded, so their files can't be checked: keep the file.
+    if ((ctx().characters || []).some((c) => c && c.shallow)) return false;
     try {
       const res = await fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) });
       return res.ok;

@@ -43,6 +43,9 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Screen height changes when the address bar shows or hides.
 - [ ] Notch and home bar areas on iPhone.
 
+### Typewriter effect with streaming
+- [ ] Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
+
 ## Ideas
 
 - Chapters and save points. In Visual Novel Mode, each message is a chapter.
@@ -68,10 +71,6 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
-
-## Possible bugs
-
-- Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
 
 ## Done
 

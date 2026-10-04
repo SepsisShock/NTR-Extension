@@ -33,9 +33,9 @@ Two new menu sections for styling chat text, reasoning and names. Replaces the "
   - User Text: the user's messages.
   - AI Text: the AI's messages.
 - [ ] Settings per part:
-  - Names: color, font, size, weight (Normal, Bold, Extra Bold; SillyTavern uses Extra Bold).
+  - Names: color, font, size, weight (Normal, Bold, Extra Bold; SillyTavern uses Bold).
   - User Text and AI Text: font, size, main color, italics color, underline color, quote color.
-  - Reasoning Block: font, size, text color, italics color, border color, weight (SillyTavern uses semi-bold), color strength (0 to 100%; SillyTavern dulls reasoning colors to 50%).
+  - Reasoning Block: font, size, text color, italics color, border color, weight (Normal, Medium, Bold; SillyTavern uses Medium), color strength (0 to 100%; SillyTavern dulls reasoning colors to 50%).
 - [ ] Sizes are a multiplier (e.g. 0.8x to 1.5x), not pixels, so they still follow SillyTavern's Font Scale and the Display Overrides one.
 - [ ] Every setting has an "Override X" checkbox, like Display Overrides. Unticked means SillyTavern's own value applies.
 - [ ] Both sections are saved in themes.

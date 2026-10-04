@@ -1,4 +1,4 @@
-> **Warning:** This extension is in beta. Use at own risk.
+> **Warning:** This extension is vibe slopped. And currently in beta. Use at own risk.
 
 <div align="center">
 

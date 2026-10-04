@@ -30,6 +30,8 @@ The sections themselves shipped (see **Done**). Still open:
 
 ## Low priority
 
+Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
+
 ### Mobile compatibility testing
 Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
 

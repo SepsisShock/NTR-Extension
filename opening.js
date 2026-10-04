@@ -6,7 +6,7 @@
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, askVideoUrl, pills, onPills, subHead } = A;
+  const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, pills, onPills, subHead } = A;
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
   const TAG = A.TAG || '';
 
@@ -681,20 +681,9 @@
       const f = vfile.files[0];
       vfile.value = '';
       if (!f) return;
-      let ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
-      if (!ext) { toastr.warning('Use an mp4 or webm video.', 'Opening video'); return; }
-      if (f.size > 100 * 1024 * 1024 && !confirm(`This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`)) return;
-      const btn = up;
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
       try {
-        const data = await A.readDataURL(f);
-        const name = `vnop_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const res = await fetch('/api/files/upload', { method: 'POST', headers: A.ctx().getRequestHeaders(), body: JSON.stringify({ name, data: String(data).split(',')[1] }) });
-        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-        const j = await res.json();
-        const path = '/' + String(j.path).replace(/^\/+/, '');
+        const path = await uploadVideo(f, 'vnop', 'Opening video', up);
+        if (!path) return;
         const old = op().file;
         setOp('file', path);
         A.deleteFileIfUnused(old);
@@ -741,7 +730,7 @@
       lfile.value = '';
       if (!f) return;
       try {
-        const path = await VN().uploadImage(f, 1600, 'vnlogo');
+        const path = await uploadImage(f, 'vnlogo', { max: 1600 });
         const old = op().logoUrl;
         setOp('logoUrl', path);
         A.deleteFileIfUnused(old);

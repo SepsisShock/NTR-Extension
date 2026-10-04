@@ -4,7 +4,7 @@
   const VN_VERSION = '2.2.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, fullResUrl, readDataURL, loadImg, askImageUrl, pills, onPills, secHead, subHead } = A;
+  const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, pills, onPills, secHead, subHead } = A;
   const TAG = A.TAG || '';
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
 
@@ -1036,7 +1036,7 @@
     nFile.onchange = async () => {
       if (!nFile.files.length || !pending) return;
       try {
-        setSpkImage(pending, await uploadPortrait(nFile.files[0], pending.full ? 2048 : 768));
+        setSpkImage(pending, await uploadImage(nFile.files[0], 'vnpfp', { max: pending.full ? 2048 : 768 }));
       } catch (e) {
         console.error('[NTR vn portrait upload]', e);
         toastr.error(e.message || 'Portrait upload failed', 'Visual Novel');
@@ -1147,7 +1147,7 @@
     lFile.onchange = async () => {
       if (!lFile.files.length || !lPending) return;
       try {
-        setLocImage(lPending, await uploadPortrait(lFile.files[0], 2560, 'vnloc'));
+        setLocImage(lPending, await uploadImage(lFile.files[0], 'vnloc', { max: 2560 }));
       } catch (e) {
         console.error('[NTR vn location upload]', e);
         toastr.error(e.message || 'Background upload failed', 'Visual Novel');
@@ -1230,7 +1230,7 @@
     cFile.onchange = async () => {
       if (!cFile.files.length || !cPending) return;
       try {
-        setCgImage(cPending, await uploadPortrait(cFile.files[0], 2560, 'vncg'));
+        setCgImage(cPending, await uploadImage(cFile.files[0], 'vncg', { max: 2560 }));
       } catch (e) {
         console.error('[NTR vn CG upload]', e);
         toastr.error(e.message || 'CG upload failed', 'Visual Novel');
@@ -1289,7 +1289,7 @@
     artFile.onchange = async () => {
       if (!artFile.files.length || !artPending) return;
       try {
-        setArtImage(artPending, await uploadPortrait(artFile.files[0], artPending === 'artBgImg' ? 2560 : 1600, 'vnart'));
+        setArtImage(artPending, await uploadImage(artFile.files[0], 'vnart', { max: artPending === 'artBgImg' ? 2560 : 1600 }));
       } catch (e) {
         console.error('[NTR vn art upload]', e);
         toastr.error(e.message || 'Upload failed', 'Visual Novel');
@@ -1336,34 +1336,6 @@
         ${isDef ? '' : `<button class="menu_button danger_button m_l_del" data-id="${id}" title="Delete location"><i class="fa-solid fa-trash"></i></button>`}
       </div></div>`;
     return row('__default__', '', v.locDefault, true) + v.locations.map((l) => row(escapeHTML(l.id), l.name, l.url, false)).join('');
-  }
-
-  async function uploadPortrait(f, maxDim = 768, prefix = 'vnpfp') {
-    let url = await readDataURL(f);
-    let converted = false;
-    if (f.type !== 'image/gif') {
-      const i = await loadImg(url);
-      const mx = Math.max(i.width, i.height);
-      if (mx > maxDim) {
-        const k = maxDim / mx;
-        const c = document.createElement('canvas');
-        c.width = Math.round(i.width * k); c.height = Math.round(i.height * k);
-        c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
-        url = c.toDataURL('image/png');
-        converted = true;
-      }
-    }
-    let ext = (f.name.split('.').pop() || '').toLowerCase();
-    if (converted || !['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) ext = 'png';
-    const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const res = await fetch('/api/files/upload', {
-      method: 'POST',
-      headers: ctx().getRequestHeaders(),
-      body: JSON.stringify({ name, data: url.split(',')[1] }),
-    });
-    if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-    const j = await res.json();
-    return '/' + String(j.path).replace(/^\/+/, '');
   }
 
   // ----- Dialogue box -----
@@ -2021,7 +1993,6 @@
     data: V,
     normLoc,
     newId,
-    uploadImage: uploadPortrait,
     putInInput,
     currentLoc,
     visitedLocs,

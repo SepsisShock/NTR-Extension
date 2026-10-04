@@ -6,7 +6,7 @@
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, pills, onPills, subHead } = A;
+  const { save, settings, escapeHTML, askImageUrl, uploadImage, pills, onPills, subHead } = A;
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
   const TAG = A.TAG || '';
 
@@ -426,7 +426,7 @@
     if (file) file.onchange = async () => {
       if (!file.files.length || !pending) return;
       try {
-        setMapImage(pending, await VN().uploadImage(file.files[0], 3072, 'vnmap'));
+        setMapImage(pending, await uploadImage(file.files[0], 'vnmap', { max: 3072 }));
       } catch (e) {
         console.error('[NTR map upload]', e);
         toastr.error(e.message || 'Map upload failed', 'Maps');

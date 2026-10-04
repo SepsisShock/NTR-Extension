@@ -966,6 +966,59 @@
   const readDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
   const loadImg = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
 
+  // ===== Uploads =====
+  // Every upload lands in user/files as <prefix>_<time>_<random>.<ext>. The prefixes are how the extension
+  // recognizes its own files when it cleans up (see OWN_FILE).
+  const MIME_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/webm': 'webm' };
+  async function uploadBase64(b64, ext, prefix) {
+    const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const res = await fetch('/api/files/upload', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ name, data: b64 }) });
+    if (!res.ok) {
+      const why = (await res.text().catch(() => '')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+      throw new Error(`Upload failed (${res.status})${why ? `: ${why}` : ''}`);
+    }
+    const j = await res.json();
+    return '/' + String(j.path).replace(/^\/+/, '');
+  }
+
+  // Theme files can carry their images inline (base64), so they work on another install.
+  async function uploadDataUrl(dataUrl, prefix = 'ntr') {
+    const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(String(dataUrl || ''));
+    if (!m || !MIME_EXT[m[1]]) throw new Error('Unsupported embedded file');
+    return uploadBase64(m[2], MIME_EXT[m[1]], prefix);
+  }
+
+  // Images over `max` px on their longer side (or `maxWidth` wide) are shrunk first: photos stay JPEG, the rest become
+  // PNG so transparency survives. Other image types become PNG too, so the file always matches its name. GIFs go as
+  // they are, to keep their animation.
+  async function uploadImage(f, prefix, { max = 0, maxWidth = 0 } = {}) {
+    let url = String(await readDataURL(f));
+    if (f.type !== 'image/gif') {
+      const i = await loadImg(url).catch(() => { throw new Error('That file didn\'t load as an image.'); });
+      if (!i.width || !i.height) throw new Error('That file didn\'t load as an image.');
+      const k = Math.min(1, max ? max / Math.max(i.width, i.height) : 1, maxWidth ? maxWidth / i.width : 1);
+      if (k < 1 || !['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(i.width * k); c.height = Math.round(i.height * k);
+        c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
+        url = c.toDataURL(f.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
+      }
+    }
+    return uploadDataUrl(url, prefix);
+  }
+
+  // Videos (mp4 or webm) are sent as they are. Resolves to the file's path, or '' if it isn't an mp4 or webm, or it's
+  // very big and the person cancels. `btn` shows a spinner while it uploads.
+  async function uploadVideo(f, prefix, title, btn) {
+    let ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
+    if (!ext) { toastr.warning('Use an mp4 or webm video.', title); return ''; }
+    if (f.size > 100 * 1024 * 1024 && !confirm(`This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`)) return '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+    const data = String(await readDataURL(f));
+    return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
+  }
+
   // Ask for an image link instead of an upload. Resolves to a checked http(s) URL, or '' if cancelled or unusable.
   async function askImageUrl(label = 'Image') {
     const raw = prompt(`${label}: paste an image link (https://...)`);
@@ -1003,35 +1056,7 @@
     let added = 0;
     for (const f of files) {
       try {
-        let url = await readDataURL(f);
-        if (f.type !== 'image/gif') {
-          const i = await loadImg(url);
-          if (i.width > 0 && i.width > 1600) {
-            const c = document.createElement('canvas');
-            c.width = 1600; c.height = Math.round(i.height * 1600 / i.width);
-            c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
-            url = c.toDataURL(f.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
-          }
-        }
-        const b64 = url.split(',')[1];
-        
-        let ext = f.name.split('.').pop().toLowerCase();
-        if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) ext = 'png';
-        const name = `banner_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        
-        const res = await fetch('/api/files/upload', {
-          method: 'POST',
-          headers: ctx().getRequestHeaders(),
-          body: JSON.stringify({ name, data: b64 }),
-        });
-        
-        if (!res.ok) {
-          const detail = await res.text().catch(() => '');
-          throw new Error(`Server rejected upload (Status ${res.status}). ${detail}`.trim());
-        }
-        
-        const j = await res.json();
-        r.images.push({ url: '/' + String(j.path).replace(/^\/+/, ''), pos: 45 });
+        r.images.push({ url: await uploadImage(f, 'banner', { maxWidth: 1600 }), pos: 45 });
         r.idx = r.images.length - 1;
         added++;
       } catch (e) {
@@ -1369,20 +1394,11 @@
       const f = vfile.files[0];
       vfile.value = '';
       if (!f || !key) return;
-      let ext = (f.name.split('.').pop() || '').toLowerCase();
-      if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
-      if (!ext) { toastr.warning('Use an mp4 or webm video.', 'Banner'); return; }
-      if (f.size > 100 * 1024 * 1024 && !confirm(`This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`)) return;
-      vup.disabled = true;
-      vup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
       try {
-        const data = await readDataURL(f);
-        const name = `banner_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const res = await fetch('/api/files/upload', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ name, data: String(data).split(',')[1] }) });
-        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-        const j = await res.json();
+        const path = await uploadVideo(f, 'banner', 'Banner', vup);
+        if (!path) return;
         toastr.success('Banner video uploaded.', 'Banner');
-        setVideo('/' + String(j.path).replace(/^\/+/, ''));
+        setVideo(path);
       } catch (e) {
         console.error('[NTR banner video]', e);
         toastr.error(e.message || 'Video upload failed', 'Banner');
@@ -1471,23 +1487,11 @@
     fgFile.onchange = async () => {
       if (!fgFile.files.length || !pendingFgPos) return;
       const f = fgFile.files[0];
+      const pos = pendingFgPos;
       try {
-        const url = await readDataURL(f);
-        const b64 = url.split(',')[1];
-        let ext = f.name.split('.').pop().toLowerCase();
-        if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) ext = 'png';
-        const name = `fg_${pendingFgPos.toLowerCase()}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        
-        const res = await fetch('/api/files/upload', {
-          method: 'POST',
-          headers: ctx().getRequestHeaders(),
-          body: JSON.stringify({ name, data: b64 }),
-        });
-        
-        if (!res.ok) throw new Error('Upload failed');
-        const j = await res.json();
-        const old = F[pendingFgPos];
-        F[pendingFgPos] = '/' + String(j.path).replace(/^\/+/, '');
+        const url = await uploadImage(f, `fg_${pos.toLowerCase()}`);
+        const old = F[pos];
+        F[pos] = url;
         deleteFileIfUnused(old);
         
         save();
@@ -2439,18 +2443,6 @@
     before.forEach((p) => deleteFileIfUnused(p));
   }
 
-  // Theme files can carry their images inline (base64), so they work on another install.
-  const MIME_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/webm': 'webm' };
-  async function uploadDataUrl(dataUrl, prefix = 'ntr') {
-    const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(String(dataUrl || ''));
-    if (!m || !MIME_EXT[m[1]]) throw new Error('Unsupported embedded file');
-    const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${MIME_EXT[m[1]]}`;
-    const res = await fetch('/api/files/upload', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ name, data: m[2] }) });
-    if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-    const j = await res.json();
-    return '/' + String(j.path).replace(/^\/+/, '');
-  }
-
   async function mapStrings(obj, fn) {
     const out = structuredClone(obj);
     const walk = async (o) => {
@@ -2945,7 +2937,7 @@
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
-    loadModule, moduleError: (name) => modError[name] || '', uploadDataUrl, getYouTubeId, currentKey,
+    loadModule, moduleError: (name) => modError[name] || '', uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

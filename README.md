@@ -12,7 +12,7 @@
 
 ### `[ 01 ]` OVERVIEW
 
-Nitwit Tavern Redesign is a SillyTavern extension that changes how chats look. It adds a header banner above the chat for each character, using either an image gallery or a looping video. Banners work in single-character chats only.
+Nitwit Tavern Redesign is a SillyTavern extension that changes how chats look. It adds a header banner above the chat for each character, using an image gallery, a YouTube video or a video file (uploaded or linked). Banners work in single-character chats only.
 
 ---
 

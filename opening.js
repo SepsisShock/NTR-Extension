@@ -6,7 +6,7 @@
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, pills, onPills, subHead } = A;
+  const { save, settings, escapeHTML, askImageUrl, askVideoUrl, pills, onPills, subHead } = A;
   const media = A.media || ((u) => (typeof u === 'string' ? u : ''));
   const TAG = A.TAG || '';
 
@@ -559,13 +559,14 @@
       ${subHead('vn_open', 'Opening Video ' + TAG)}
       <div class="cb_collapse_content">
         <div class="cb_hint">Plays before the story, like an anime opening. Video source:</div>
-        ${pills('opsrc', [['off', 'Off'], ['youtube', 'YouTube'], ['file', 'Video file']], o.src)}
+        ${pills('opsrc', [['off', 'Off'], ['youtube', 'YouTube'], ['file', 'Video file or link']], o.src)}
           <div id="m_op_yt" style="margin-top:8px;${o.src === 'youtube' ? '' : 'display:none;'}">
             <label class="cb_dfield"><span>YouTube link</span><input type="text" id="m_op_url" class="text_pole" placeholder="https://www.youtube.com/watch?v=..." value="${escapeHTML(o.yt)}"></label>
           </div>
           <div id="m_op_file" class="cb_row" style="margin-top:8px;${o.src === 'file' ? '' : 'display:none;'}">
-            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fileName || '<span class="cb_hint">No video uploaded (mp4 or webm)</span>'}</span>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fileName || '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
             <button type="button" id="m_op_up" class="menu_button" style="margin:0;" title="Upload video"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_vurl" class="menu_button" style="margin:0;" title="Use a link to a video"><i class="fa-solid fa-link"></i></button>
             <button type="button" id="m_op_clr" class="menu_button danger_button" style="margin:0;" title="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
         <div id="m_op_body" class="${hasSource(o) ? '' : 'cb_dim'}">
@@ -702,6 +703,15 @@
         console.error('[NTR opening upload]', e);
         toastr.error(e.message || 'Video upload failed', 'Opening video');
       }
+      A.openMenu();
+    };
+    const vurl = q('#m_op_vurl');
+    if (vurl && askVideoUrl) vurl.onclick = async () => {
+      const url = await askVideoUrl('Opening video');
+      if (!url) return;
+      const old = op().file;
+      setOp('file', url);
+      A.deleteFileIfUnused(old);
       A.openMenu();
     };
     const clr = q('#m_op_clr');

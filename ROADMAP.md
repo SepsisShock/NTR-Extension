@@ -15,14 +15,6 @@ Keep the open-world feel, and let a card optionally have endings.
 - [ ] Hide the new tags in the normal chat view, like the other scene tags.
 - [ ] Cards with no flag or ending tags behave exactly as they do now.
 
-### Video files and links
-- [ ] Banner video from an uploaded mp4 or webm file.
-- [ ] Banner video from a link to an mp4 or webm file.
-- [ ] Opening video from a link to an mp4 or webm file.
-- [ ] Video links follow the privacy setting that blocks files from other websites.
-- [ ] Banner video saved under a new per-character field (existing keys untouched).
-- Open questions: a separate mode next to YouTube Loop, or one "Video" mode for links and files? Muted with no controls, or with controls?
-
 ### Reasoning Block and Text Formatting: follow-ups
 The sections themselves shipped (see **Done**). Still open:
 
@@ -67,6 +59,15 @@ The sections themselves shipped (see **Done**). Still open:
 ## Done
 
 Finished items, newest first.
+
+### Video files and links
+- [x] Banner video from an uploaded mp4 or webm file: a new **Video** kind next to Image Gallery and YouTube Loop.
+- [x] Banner video from a link to an mp4 or webm file.
+- [x] Opening video from a link to an mp4 or webm file ("Video file or link").
+- [x] Video links follow the privacy setting that blocks files from other websites.
+- [x] Banner video saved under new per-character fields `banner.video` and `banner.videoPos` (existing keys untouched).
+- [x] Loops with no controls. A speaker button on the banner turns sound on or off; the choice is saved right away (`bannerVideoSound`). If the browser blocks sound, it plays muted until clicked, without changing the choice.
+- [x] Crop slider for the banner video.
 
 ### Reasoning Block and Text Formatting (PR #40)
 - [x] New menu order: Themes, Header Banner, Pfp Management, Reasoning Block, Text Formatting, Display Overrides, Foreground Images, Visual Novel Mode, Privacy.

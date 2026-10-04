@@ -99,8 +99,7 @@
     themeActive: null,
 
     // Privacy
-    blockExternal: false,
-    blockGoogleFonts: false
+    blockExternal: false
   };
 
   const ctx = () => SillyTavern.getContext();
@@ -1572,7 +1571,6 @@
     bindVNSection(overlay, s);
     bindDisplay(overlay, s);
     overlay.querySelector('#m_x_block').onchange = function() { s.blockExternal = this.checked; save(); refreshVisuals(); openCombinedModal(); };
-    overlay.querySelector('#m_x_gfonts').onchange = function() { s.blockGoogleFonts = this.checked; save(); updateAvatarStyle(); };
     bindTextFormatting(overlay, s);
 
     const bindCol = (prefix) => {
@@ -1825,7 +1823,7 @@
     const s = settings();
     const want = new Set();
     const live = (k) => (k === 'rbFont' ? s.rbEnabled : s.tfEnabled) && s[k + 'On'];
-    if (isOn() && !s.blockGoogleFonts) for (const k of FONT_KEYS) { const f = live(k) ? cleanFont(s[k]) : ''; if (f) want.add(f); }
+    if (isOn()) for (const k of FONT_KEYS) { const f = live(k) ? cleanFont(s[k]) : ''; if (f) want.add(f); }
     document.querySelectorAll('link[data-ntr-gf]').forEach((l) => { if (!want.has(l.dataset.ntrGf)) l.remove(); else want.delete(l.dataset.ntrGf); });
     for (const f of want) {
       const l = document.createElement('link');
@@ -2008,8 +2006,6 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label"><input type="checkbox" id="m_x_block" ${s.blockExternal ? 'checked' : ''}><span>Block card images and videos hosted on other websites</span></label>
           <div class="cb_hint">A shared card can link its art to someone else's server, which tells that server your IP address and when you opened the chat. With this on, only files stored on your own SillyTavern load. YouTube banners and openings still play. Nothing is removed from the card, so switching it back off restores everything.</div>
-          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_x_gfonts" ${s.blockGoogleFonts ? 'checked' : ''}><span>Don't load Google Fonts</span></label>
-          <div class="cb_hint">Font boxes in Reasoning Block and Text Formatting download Google Fonts from Google, which sees your IP address. With this on, only fonts installed on your device work.</div>
         </div>
       </div>`;
   }

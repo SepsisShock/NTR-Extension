@@ -77,7 +77,7 @@ Finished items, newest first.
 - [x] "Enable Reasoning Block" and "Enable Text Formatting" switches; off greys out the section and keeps the settings.
 - [x] Every setting has a checkbox; unticked means SillyTavern's own value. One note per section.
 - [x] Sizes are a multiplier (0.5x to 2x) of SillyTavern's font size.
-- [x] Fonts from the device or Google Fonts, plus a "Don't load Google Fonts" Privacy checkbox.
+- [x] Fonts from the device or Google Fonts.
 - [x] Text Formatting applies in the Visual Novel box: AI Text on the dialogue, Names on the name tag.
 - [x] Both sections saved in themes. New settings keys only.
 - [x] Display Overrides labels lose the word "Override".

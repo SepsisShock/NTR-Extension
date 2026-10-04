@@ -1046,7 +1046,7 @@
         </div>
         <div class="ntr_body">
         ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. Use the power button on its bar in the Extensions panel to turn it back on.</div>'}
-        <div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.<br>Reasoning Block, Text Formatting and Display Overrides: tick a setting to use it, untick it to go back to SillyTavern's own. SillyTavern's settings are never changed. Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google); type the name exactly as it's written.</div>
+        <div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>
 
         ${themesSectionHtml(s)}
 
@@ -1660,6 +1660,7 @@
     }
   }
 
+  const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
     return `
@@ -1668,6 +1669,7 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block</span></label>
           <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
+          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
           ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
@@ -1694,7 +1696,7 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_tf_enable" ${s.tfEnabled ? 'checked' : ''}><span>Enable Text Formatting</span></label>
           <div id="m_tf_body" class="${s.tfEnabled ? '' : 'cb_dim'}">
-          <div class="cb_hint">In the Visual Novel box, AI Text styles the dialogue and Names styles the name tag.</div>
+          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${subHead('tf_names', 'Names')}
           <div class="cb_collapse_content">
             <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
@@ -1755,6 +1757,7 @@
       <div class="cb_section">
         ${secHead('display', 'fa-display', 'Display Overrides')}
         <div class="cb_collapse_content">
+          <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
           ${row('ovWidthOn', 'Chat Width', sl('ovWidth', 'vw', 25, 100, 1))}
           ${row('ovFontOn', 'Font Scale', sl('ovFont', 'x', 0.5, 2, 0.05))}

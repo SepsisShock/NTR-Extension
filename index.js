@@ -57,6 +57,7 @@
     // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens)
     rbEnabled: true, rbFontOn: false, rbFont: '', rbSizeOn: false, rbSize: 1, rbColorOn: false, rbColor: '', rbEmOn: false, rbEm: '',
     rbBorderOn: false, rbBorder: '', rbWeightOn: false, rbWeight: 'medium', rbSatOn: false, rbSat: 50,
+    rbThinkOn: false, rbThink: 'Thinking...', rbDoneOn: false, rbDone: 'Thought for {time}', rbSomeOn: false, rbSome: 'Thought for some time',
 
     // Text Formatting
     tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
@@ -608,6 +609,8 @@
 
     styleEl.textContent = cssString;
     syncGoogleFonts();
+    watchReasoningLabels();
+    syncReasoningLabels();
     applyBodyOverrides();
     syncPopouts();
   }
@@ -1561,6 +1564,9 @@
       ? `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`
       : `<input type="color" class="m_o_col" data-key="${key}" value="${toHex(s[key])}">`;
   }
+  function ovText(s, key) {
+    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="100" style="width:100%;">`;
+  }
   function ovFont(s, key) {
     return `<input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="60" placeholder="Font name, e.g. Lora" style="width:100%;">`;
   }
@@ -1660,6 +1666,48 @@
     }
   }
 
+  // Reasoning header text. ST rewrites the label while it thinks and when it finishes; the label is swapped on screen
+  // only, after each of ST's updates. ST's own text is kept on the element so it comes back when the override is off.
+  const RB_LABEL = { think: 'rbThink', done: 'rbDone', some: 'rbSome' };
+  function rbTime(sec) {
+    const m = window.moment;
+    if (m && m.duration) {
+      try { return m.duration(sec * 1000).locale(ctx().getCurrentLocale?.() || 'en').humanize({ s: 50, ss: 3 }); } catch (e) {}
+    }
+    return `${Math.round(sec)} seconds`;
+  }
+  function rbLabelFor(el, s) {
+    if (!isOn() || !s.rbEnabled) return null;
+    const d = el.dataset.duration;
+    const state = d === undefined ? 'think' : d === 'unknown' ? 'some' : 'done';
+    const k = RB_LABEL[state];
+    if (!s[k + 'On']) return null;
+    const txt = String(s[k] || '').slice(0, 100);
+    return state === 'done' ? txt.replace(/\{time\}/gi, rbTime(Number(d) || 0)) : txt;
+  }
+  function syncReasoningLabels() {
+    const s = settings();
+    document.querySelectorAll('#chat .mes_reasoning_header_title').forEach((el) => {
+      const want = rbLabelFor(el, s);
+      if (want === null) {
+        if (el.dataset.ntrSt !== undefined) { el.textContent = el.dataset.ntrSt; delete el.dataset.ntrSt; }
+        return;
+      }
+      if (el.textContent !== want) { el.dataset.ntrSt = el.textContent; el.textContent = want; }
+    });
+  }
+  let rbObs = null, rbQueued = false;
+  function watchReasoningLabels() {
+    const chat = document.getElementById('chat');
+    if (rbObs || !chat || !window.MutationObserver) return;
+    rbObs = new MutationObserver(() => {
+      if (rbQueued) return;
+      rbQueued = true;
+      requestAnimationFrame(() => { rbQueued = false; syncReasoningLabels(); });
+    });
+    rbObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
+  }
+
   const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
@@ -1669,7 +1717,7 @@
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block</span></label>
           <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
-          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
+          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
           ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
@@ -1677,6 +1725,12 @@
           ${ovRow(s, 'rbEmOn', 'Italics Color', ovColor(s, 'rbEm'))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
           ${ovRow(s, 'rbSatOn', 'Color Strength', ovSlider(s, 'rbSat', '%', 0, 100, 1) + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
+          ${subHead('rb_header', 'Header Text')}
+          <div class="cb_collapse_content">
+            ${ovRow(s, 'rbThinkOn', 'While Thinking', ovText(s, 'rbThink'))}
+            ${ovRow(s, 'rbDoneOn', 'Finished', ovText(s, 'rbDone'))}
+            ${ovRow(s, 'rbSomeOn', 'Finished, Time Unknown', ovText(s, 'rbSome'))}
+          </div>
           </div>
         </div>
       </div>`;
@@ -1746,6 +1800,13 @@
         overlay.querySelector('#' + id.replace('enable', 'body')).classList.toggle('cb_dim', !this.checked);
       };
     }
+    overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
+      el.onchange = () => {
+        s[el.dataset.key] = el.value.slice(0, 100);
+        save();
+        updateAvatarStyle();
+      };
+    });
     onPills(overlay, 'rbweight', (v) => { s.rbWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
   }

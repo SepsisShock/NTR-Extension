@@ -36,6 +36,7 @@ Two new menu sections for styling chat text, reasoning and names. Replaces the "
   - Names: color, font, size, weight (Normal, Bold, Extra Bold; SillyTavern uses Bold).
   - User Text and AI Text: font, size, main color, italics color, underline color, quote color.
   - Reasoning Block: font, size, text color, italics color, border color, weight (Normal, Medium, Bold; SillyTavern uses Medium), color strength (0 to 100%; SillyTavern dulls reasoning colors to 50%).
+- [ ] Reasoning Block, Header Text: type your own label for each of SillyTavern's three ("Thinking...", "Thought for {time}", "Thought for some time"). `{time}` becomes how long it thought. Display only.
 - [ ] Sizes are a multiplier (e.g. 0.8x to 1.5x), not pixels, so they still follow SillyTavern's Font Scale and the Display Overrides one.
 - [ ] "Enable Reasoning Block" and "Enable Text Formatting" switches, like the other sections. Off greys out the section and stops its styling; ticks and values are kept.
 - [ ] Every setting has a checkbox, like Display Overrides. No "Override" in front of each label; one note at the top of the section explains it. Unticked means SillyTavern's own value applies.

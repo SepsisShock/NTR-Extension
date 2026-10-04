@@ -520,6 +520,7 @@
   }
 
   function spkRowsHtml(s) {
+    if (!A.store()) return '<div class="cb_hint">Open a character chat first. Speakers and portraits are saved per character.</div>';
     const list = collectSpeakers();
     const nHidden = (V().hiddenSpk || []).length;
     const restore = nHidden ? `<div class="cb_hint"><a href="#" class="m_n_unhide">Restore ${nHidden} hidden speaker${nHidden === 1 ? '' : 's'}</a></div>` : '';
@@ -1047,6 +1048,7 @@
       const inp = overlay.querySelector('#m_n_newspk');
       const nm = inp.value.trim();
       if (!nm) return;
+      if (!A.store()) { toastr.warning('Open a character chat first. Speakers are saved per character.', 'Visual Novel'); return; }
       const k = nm.toLowerCase();
       if (k === String(s.narratorWord).trim().toLowerCase()) { toastr.warning('That name is your narrator keyword.', 'Visual Novel'); return; }
       if ([s.delimSpkOpen, s.delimSpkClose, s.delimEmo].some((d) => nm.includes(d))) { toastr.warning('Names can\'t contain your tag delimiters.', 'Visual Novel'); return; }

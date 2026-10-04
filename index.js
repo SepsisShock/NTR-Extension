@@ -1114,6 +1114,7 @@
     document.getElementById('cb_modal_overlay')?.remove();
     const s = settings();
     const F = fgData();
+    const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
     const r = key ? rec(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
     const ownKind = !!key && r.scope === 'char';
@@ -1264,6 +1265,7 @@
             <input type="range" id="m_f_o" min="0" max="100" step="1" value="${s.fgOpacity ?? 100}">
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>
             
+            ${chatOpen ? '' : '<div class="cb_hint" style="margin-top: 10px;">Open a character chat first. Foreground images are saved per character.</div>'}
             <div style="display: flex; gap: 10px; margin-top: 10px;">
               ${['Left', 'Center', 'Right'].map(pos => `
                 <div class="cb_col" style="align-items: center; text-align: center;">
@@ -1273,8 +1275,8 @@
                     <span id="m_f_none_${pos}" style="display:${F[pos] ? 'none' : 'block'}; opacity:0.5; font-size:12px;">Empty</span>
                   </div>
                   <div style="display:flex; gap:5px; width:100%;">
-                    <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload ${pos} image"><i class="fa-solid fa-upload"></i></button>
-                    <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image"><i class="fa-solid fa-link"></i></button>
+                    <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-upload"></i></button>
+                    <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
                     <button class="menu_button danger_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Clear ${pos} image" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
                   </div>
                   <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cNum(F[pos + 'Scale'], 100, 10, 300)}</span>%</span></div>

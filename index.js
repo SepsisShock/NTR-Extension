@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.5.1';
+  const VERSION = '2.5.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -3217,7 +3217,7 @@
     wrap.id = 'ntr_ext_bar';
     wrap.className = 'inline-drawer';
     wrap.innerHTML = `
-      <div class="inline-drawer-header ntr_ext_head" title="Open the Nitwit Tavern Redesign menu">
+      <div class="inline-drawer-toggle inline-drawer-header ntr_ext_head" title="Open the Nitwit Tavern Redesign menu">
         <b>Nitwit Tavern Redesign</b>
         <div id="ntr_power" class="fa-solid fa-power-off" tabindex="0"></div>
       </div>`;

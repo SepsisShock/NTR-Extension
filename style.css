@@ -135,8 +135,20 @@
 }
 .ntr_tpanel input[type="text"] { margin: 4px 0 0; width: 100%; box-sizing: border-box; }
 
+/* NTR icon: icon.svg used as a mask, so it takes the color of the text around it */
+.ntr_icon {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  background-color: currentColor;
+  -webkit-mask: url('icon.svg') center / contain no-repeat;
+  mask: url('icon.svg') center / contain no-repeat;
+}
+
 /* Extensions page bar */
 #ntr_ext_bar .ntr_ext_head { cursor: pointer; }
+#ntr_ext_bar .ntr_ext_icon { color: #c4485e; margin-right: 2px; }
 #ntr_power { cursor: pointer; padding: 4px 6px; opacity: 0.45; transition: opacity 0.15s, color 0.15s; }
 #ntr_power.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
 

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.7.0';
+  const VERSION = '2.7.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1295,7 +1295,7 @@
     overlay.innerHTML = `
       <div class="cb_popup_content">
         <div class="cb_popup_header">
-          <span class="ntr_title"><i class="fa-solid fa-layer-group"></i> Nitwit Tavern Redesign</span>
+          <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
           <span class="ntr_hbtns">
             <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
             <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
@@ -3458,7 +3458,7 @@
     wrap.className = 'inline-drawer';
     wrap.innerHTML = `
       <div class="inline-drawer-toggle inline-drawer-header ntr_ext_head" title="Open the Nitwit Tavern Redesign menu">
-        <b>Nitwit Tavern Redesign</b>
+        <b><span class="ntr_icon ntr_ext_icon"></span> Nitwit Tavern Redesign</b>
         <div id="ntr_power" class="fa-solid fa-power-off" tabindex="0"></div>
       </div>`;
     host.appendChild(wrap);
@@ -3483,7 +3483,7 @@
     b.className = 'list-group-item flex-container flexGap5 interactable';
     b.tabIndex = 0;
     b.title = 'Open the Nitwit Tavern Redesign menu';
-    b.innerHTML = '<div class="fa-solid fa-layer-group extensionsMenuExtensionButton"></div><span>Nitwit Tavern Redesign</span>';
+    b.innerHTML = '<div class="extensionsMenuExtensionButton"><span class="ntr_icon"></span></div><span>Nitwit Tavern Redesign</span>';
     b.onclick = () => openCombinedModal();
     b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
     menu.appendChild(b);

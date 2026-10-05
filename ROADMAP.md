@@ -25,16 +25,9 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
-### Custom cursor (UI Display)
-Follows the Scrollbar settings in UI Display.
-
-- [ ] Upload a cursor image (through `uploadImage`), with a Size slider and a click point picked on the 3x3 grid.
-- [ ] Two slots: Normal, and Pointer for buttons and links. An empty Pointer slot keeps the system hand. The text cursor in typing boxes stays the system one.
-- [ ] New `ov*` settings keys, saved in themes with the cursor images embedded on export.
-- [ ] Later: a built-in arrow drawn in code with its own color, for people without a cursor image.
-
 ## Ideas
 
+- Built-in cursor. An arrow drawn in code with its own color, for people without a cursor image (Custom Cursor in UI Display).
 - Banners in group chats. The shared Global banner could show in group chats too, which have no banner now.
   - Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
 - Chapters and save points. In Visual Novel Mode, each message is a chapter.

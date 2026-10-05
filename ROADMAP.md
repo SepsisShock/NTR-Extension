@@ -25,32 +25,6 @@ The sections themselves shipped (see **Done**). Still open:
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
-### Install instructions
-- [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general. Not done until out of Beta.
-
-## Low priority
-
-Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
-
-### Mobile compatibility testing
-Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
-
-- [ ] Android (Chrome).
-- [ ] iOS (Safari).
-- [ ] NTR menu as a full-screen sheet.
-- [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
-- [ ] Maps: pins and popups near the screen edge.
-- [ ] Opening video and banner video: autoplay, sound button, YouTube.
-- [ ] Dragging popup characters by touch.
-- [ ] Screen height changes when the address bar shows or hides.
-- [ ] Notch and home bar areas on iPhone.
-
-### Menu Icons
-- [ ] Redo the icons on the title headers in the menu.
-
-### Typewriter effect with streaming
-- [ ] Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
-
 ## Ideas
 
 - Chapters and save points. In Visual Novel Mode, each message is a chapter.
@@ -76,6 +50,32 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
+
+## Low priority
+
+Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
+
+### Mobile compatibility testing
+Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
+
+- [ ] Android (Chrome).
+- [ ] iOS (Safari).
+- [ ] NTR menu as a full-screen sheet.
+- [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
+- [ ] Maps: pins and popups near the screen edge.
+- [ ] Opening video and banner video: autoplay, sound button, YouTube.
+- [ ] Dragging popup characters by touch.
+- [ ] Screen height changes when the address bar shows or hides.
+- [ ] Notch and home bar areas on iPhone.
+
+### Menu Icons
+- [ ] Redo the icons on the title headers in the menu.
+
+### Typewriter effect with streaming
+- [ ] Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
+
+### User Instructions
+- [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.
 
 ## Done
 

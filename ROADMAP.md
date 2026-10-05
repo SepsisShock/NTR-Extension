@@ -25,6 +25,14 @@ The sections themselves shipped (see **Done**). Still open:
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
+### Custom cursor (UI Display)
+Follows the scrollbar settings (see **Done**).
+
+- [ ] Upload a cursor image (through `uploadImage`), with a Size slider and a click point picked on the 3x3 grid.
+- [ ] Two slots: Normal, and Pointer for buttons and links. An empty Pointer slot keeps the system hand. The text cursor in typing boxes stays the system one.
+- [ ] New `ov*` settings keys, saved in themes with the cursor images embedded on export.
+- [ ] Later: a built-in arrow drawn in code with its own color, for people without a cursor image.
+
 ## Ideas
 
 - Banners in group chats. The shared Global banner could show in group chats too, which have no banner now.
@@ -82,6 +90,11 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 ## Done
 
 Finished items, newest first.
+
+### Scrollbar (UI Display)
+- [x] New **Scrollbar** part in UI Display: Scrollbar Color, Track Color, Scrollbar Width (4 to 20 px) and Scrollbar Shape (Pill, Rounded, Square). Each has a checkbox; unticked means SillyTavern's look.
+- [x] Changes every scrollbar in SillyTavern, the NTR menu and Visual Novel Mode included. Firefox changes only the colors and width (thin or normal); phones mostly keep their own scrollbars.
+- [x] Saved in themes with the rest of UI Display. A theme file with a color or shape that isn't valid has it left out. New settings keys only.
 
 ### Menu names and Overall Font Scale
 - [x] "Display Overrides" is now **UI Display**, and "Reasoning Block" is now **Reasoning Block Design**, so it's clear the section only changes how the block looks.

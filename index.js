@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.4.2';
+  const VERSION = '2.5.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -77,6 +77,8 @@
     ovWidthOn: false, ovWidth: 50, ovFontOn: false, ovFont: 1,
     ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2,
     ovChatStyleOn: false, ovChatStyle: 'bubbles', ovAvatarOn: false, ovAvatar: 'round',
+    ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
+    ovScrollWidthOn: false, ovScrollWidth: 11, ovScrollShapeOn: false, ovScrollShape: 'pill',
 
     // Menu state
     uiOpen: { banner: true },
@@ -598,7 +600,7 @@
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
     `;
 
-    if (isOn()) cssString += overrideCss(s) + textFormatCss(s);
+    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + textFormatCss(s);
 
     if (isOn() && s.ovEnabled && s.chatTransparent) {
       cssString += `
@@ -1864,6 +1866,27 @@
     return v ? `\n      :root { ${v}}\n` : '';
   }
 
+  // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color and scrollbar-width,
+  // and Chrome drops the -webkit- parts when it sees those, so Firefox gets them on their own.
+  function scrollbarCss(s) {
+    if (!s.ovEnabled) return '';
+    const color = s.ovScrollColorOn && COLOR_RE.test(s.ovScrollColor) ? s.ovScrollColor : '';
+    const track = s.ovScrollTrackOn && COLOR_RE.test(s.ovScrollTrack) ? s.ovScrollTrack : '';
+    const width = s.ovScrollWidthOn ? Math.min(20, Math.max(4, Number(s.ovScrollWidth) || 11)) : 0;
+    const radius = s.ovScrollShapeOn ? SCROLL_RADIUS[s.ovScrollShape] : '';
+    let css = '';
+    if (width) css += `\n      ::-webkit-scrollbar { width: ${width}px; height: ${width}px; }`;
+    if (track) css += `\n      ::-webkit-scrollbar-track { background-color: ${track}; }\n      ::-webkit-scrollbar-corner { background-color: ${track}; }`;
+    // SillyTavern keeps a 2px see-through gap and a thin outline around the thumb; narrow bars drop both so the thumb stays visible.
+    const thumb = (color ? `background-color: ${color}; ` : '') + (radius ? `border-radius: ${radius}; ` : '') + (width && width < 8 ? 'border-width: 0; box-shadow: none; ' : '');
+    if (thumb) css += `\n      ::-webkit-scrollbar-thumb:vertical, ::-webkit-scrollbar-thumb:horizontal { ${thumb}}`;
+    let fx = '';
+    if (color || track) fx += `scrollbar-color: ${color || 'auto'} ${track || 'transparent'}; `;
+    if (width) fx += `scrollbar-width: ${width <= 8 ? 'thin' : 'auto'}; `;
+    if (fx) css += `\n      @supports not selector(::-webkit-scrollbar) { * { ${fx}} }`;
+    return css ? css + '\n' : '';
+  }
+
   // Override rows: a checkbox in front of each setting; unticked means SillyTavern's own value applies.
   function ovRow(s, onKey, label, inner) {
     return `
@@ -1905,7 +1928,8 @@
   const FX = ['glow', 'shadow', 'outline'];
   const FX_PARTS = ['rb', 'tfName', 'tfUser', 'tfAi'];
   const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'glow'];
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
+  const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
@@ -1913,6 +1937,7 @@
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
     rbFxColor: '--SmartThemeShadowColor', tfNameFxColor: '--SmartThemeShadowColor', tfUserFxColor: '--SmartThemeShadowColor', tfAiFxColor: '--SmartThemeShadowColor',
+    ovScrollColor: '--grey7070a',
   };
   const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont'];
 
@@ -2203,6 +2228,14 @@
           ${row('ovChatStyleOn', 'Chat Style', pills('ochat', [['flat', 'Flat'], ['bubbles', 'Bubbles'], ['document', 'Document']], s.ovChatStyle))}
           ${row('ovAvatarOn', 'Avatar Shape', pills('oavatar', [['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']], s.ovAvatar)
             + '<div class="cb_hint" style="margin-top:6px;">Shapes the normal chat avatars. When NTR Avatars is on, those replace the chat avatars, so this has nothing to shape.</div>')}
+          ${subHead('ov_scroll', 'Scrollbar')}
+          <div class="cb_collapse_content">
+            <div class="cb_hint">Changes every scrollbar in SillyTavern. Firefox can change only the colors and width; phones mostly show their own scrollbars.</div>
+            ${row('ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
+            ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar. SillyTavern leaves it see-through.</div>')}
+            ${row('ovScrollWidthOn', 'Scrollbar Width', sl('ovScrollWidth', 'px', 4, 20, 1))}
+            ${row('ovScrollShapeOn', 'Scrollbar Shape', pills('oscroll', [['pill', 'Pill', 'SillyTavern\'s default'], ['rounded', 'Rounded'], ['square', 'Square']], s.ovScrollShape))}
+          </div>
           </div>
         </div>
       </div>`;
@@ -2232,6 +2265,7 @@
     });
     onPills(overlay, 'ochat', (v) => { s.ovChatStyle = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'oavatar', (v) => { s.ovAvatar = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'oscroll', (v) => { s.ovScrollShape = v; save(); updateAvatarStyle(); });
   }
 
   // ===== Per-character storage (kept inside the character card) =====
@@ -2597,6 +2631,7 @@
     // Default art follows the rules for card images: an uploaded file, a web link or an embedded image.
     if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || (cUrl(v) === v && !v.startsWith('data:video/')));
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
+    if (k === 'ovScrollTrack') return typeof v === 'string' && COLOR_RE.test(v);
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
     if (k === 'bannerGlobal') return isObj(v);

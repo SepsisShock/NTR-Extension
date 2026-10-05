@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.4.1';
+  const VERSION = '2.4.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -104,6 +104,8 @@
     themes: [],
     themeActive: null
   };
+  // Overall Font Scale keeps its old UI Display key names so saved configs keep working; it now lives in Text Formatting.
+  const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
 
   const ctx = () => SillyTavern.getContext();
   const save = () => {
@@ -169,6 +171,7 @@
     if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
+    if (!s.themeFontMoved) { s.themes.forEach((th) => moveLookKeys(th && th.data)); s.themeFontMoved = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
@@ -1808,7 +1811,7 @@
     });
   }
 
-  // ===== Display Overrides =====
+  // ===== UI Display =====
   // SillyTavern's flat chat style and round avatars are the absence of a class.
   const CHAT_CLS = { flat: '', bubbles: 'bubblechat', document: 'documentstyle' };
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
@@ -1850,12 +1853,14 @@
   }
 
   function overrideCss(s) {
-    if (!s.ovEnabled) return '';
     let v = '';
-    if (s.ovWidthOn) v += `--sheldWidth: ${s.ovWidth}vw !important; `;
-    if (s.ovFontOn) v += `--fontScale: ${s.ovFont} !important; `;
-    if (s.ovBlurOn) v += `--blurStrength: ${s.ovBlur} !important; `;
-    if (s.ovShadowOn) v += `--shadowWidth: ${s.ovShadow} !important; `;
+    if (s.ovEnabled) {
+      if (s.ovWidthOn) v += `--sheldWidth: ${s.ovWidth}vw !important; `;
+      if (s.ovBlurOn) v += `--blurStrength: ${s.ovBlur} !important; `;
+      if (s.ovShadowOn) v += `--shadowWidth: ${s.ovShadow} !important; `;
+    }
+    // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts.
+    if (s.tfEnabled && s.ovFontOn) v += `--fontScale: ${s.ovFont} !important; `;
     return v ? `\n      :root { ${v}}\n` : '';
   }
 
@@ -2069,10 +2074,11 @@
   function reasoningSectionHtml(s) {
     return `
       <div class="cb_section">
-        ${secHead('reasoning', 'fa-brain', 'Reasoning Block')}
+        ${secHead('reasoning', 'fa-brain', 'Reasoning Block Design')}
         <div class="cb_collapse_content">
-          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block</span></label>
+          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block Design</span></label>
           <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
+          <div class="cb_hint">Only changes how the block looks. If no reasoning block shows up, turn on "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion and models that write their thinking into the reply).</div>
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
@@ -2114,6 +2120,7 @@
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_tf_enable" ${s.tfEnabled ? 'checked' : ''}><span>Enable Text Formatting</span></label>
           <div id="m_tf_body" class="${s.tfEnabled ? '' : 'cb_dim'}">
           <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
+          ${ovRow(s, 'ovFontOn', 'Overall Font Scale', ovSlider(s, 'ovFont', 'x', 0.5, 2, 0.05) + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>')}
           ${subHead('tf_names', 'Names')}
           <div class="cb_collapse_content">
             <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
@@ -2184,14 +2191,13 @@
     const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
     return `
       <div class="cb_section">
-        ${secHead('display', 'fa-display', 'Display Overrides')}
+        ${secHead('display', 'fa-display', 'UI Display')}
         <div class="cb_collapse_content">
-          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_ov_enable" ${s.ovEnabled ? 'checked' : ''}><span>Enable Display Overrides</span></label>
+          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_ov_enable" ${s.ovEnabled ? 'checked' : ''}><span>Enable UI Display</span></label>
           <div id="m_ov_body" class="${s.ovEnabled ? '' : 'cb_dim'}">
           <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
           ${row('ovWidthOn', 'Chat Width', sl('ovWidth', 'vw', 25, 100, 1))}
-          ${row('ovFontOn', 'Font Scale', sl('ovFont', 'x', 0.5, 2, 0.05))}
           ${row('ovBlurOn', 'Blur Strength', sl('ovBlur', '', 0, 30, 1))}
           ${row('ovShadowOn', 'Shadow Width', sl('ovShadow', '', 0, 5, 1))}
           ${row('ovChatStyleOn', 'Chat Style', pills('ochat', [['flat', 'Flat'], ['bubbles', 'Bubbles'], ['document', 'Document']], s.ovChatStyle))}
@@ -2562,9 +2568,9 @@
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     pfp: { label: 'Pfp Management', keys: ['avatarEnabled', ...PFP_KEYS] },
-    reasoning: { label: 'Reasoning Block', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')) },
-    text: { label: 'Text Formatting', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')) },
-    display: { label: 'Display Overrides', keys: ['chatTransparent', ...Object.keys(DEFAULTS).filter((k) => k.startsWith('ov'))] },
+    reasoning: { label: 'Reasoning Block Design', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')) },
+    text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
+    display: { label: 'UI Display', keys: ['chatTransparent', ...Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !FONT_SCALE_KEYS.includes(k))] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
@@ -2599,6 +2605,18 @@
     if (typeof d === 'boolean') return typeof v === 'boolean';
     if (typeof d === 'string') return typeof v === 'string' && ((!k.startsWith('delim') && !NONEMPTY_KEYS.has(k)) || v.trim() !== '');
     return false;
+  }
+
+  // Overall Font Scale moved from a theme's UI Display part to Text Formatting; themes saved or exported before keep it under display.
+  function moveLookKeys(data) {
+    const d = data && data.display;
+    if (!d || typeof d !== 'object') return;
+    for (const k of FONT_SCALE_KEYS) {
+      if (!(k in d)) continue;
+      if (!data.text || typeof data.text !== 'object') data.text = {};
+      if (!(k in data.text)) data.text[k] = d[k];
+      delete d[k];
+    }
   }
 
   function cleanLookSection(sec, part) {
@@ -2696,7 +2714,7 @@
       <div class="cb_section">
         ${secHead('themes', 'fa-palette', 'Themes')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Pfp styling, Reasoning Block, Text Formatting, display overrides, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
+          <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Pfp styling, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
           <div class="ntr_tbar">
             ${b('m_t_new', 'fa-plus', 'Save current look as a new theme')}
@@ -2850,6 +2868,7 @@
       let j;
       try { j = JSON.parse(await readText(f)); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
+      moveLookKeys(j.sections);
       const secs = Object.keys(LOOK).filter((k) => Object.keys(cleanLookSection(k, j.sections[k])).length);
       if (!secs.length) { toastr.error('That theme file has nothing this version can use.', 'Themes'); return; }
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
@@ -2860,7 +2879,7 @@
           <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported theme'))}"></label>
           <div class="cb_hint">Sections in this file. Untick any you don't want.</div>
           ${secBoxes(secs)}
-          ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Reasoning Block, Advanced: Custom CSS, and tick it to use it.</div>
+          ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Reasoning Block Design, Advanced: Custom CSS, and tick it to use it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add theme</button>

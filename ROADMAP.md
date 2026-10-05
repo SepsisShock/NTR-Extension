@@ -95,6 +95,7 @@ Finished items, newest first.
 - [x] Themes get the same kind of checks as character cards when they're imported or applied: every number is kept to the range of its slider (a banner height of 99999 becomes 350), and every pick-one setting has to be one of the menu's choices, or it's left out.
 - [x] Text is limited to what the menu's boxes allow (16 characters for tag symbols and keywords), and the emotions list needs unique names and ids, up to 100 emotions. A list that breaks these is left out, so your own emotions stay.
 - [x] Themes already saved keep working; they're checked when applied.
+- [x] A theme's tag symbols and keywords also get the check that Apply runs in Tags & Delimiters, with your own filling in any the theme doesn't have. If they clash (for example the same opening symbol for speaker and narrator), all of them are left out and yours stay. The import panel says so.
 
 ### Quicker ways to open the menu
 - [x] New **Wand Menu** section above Data that doesn't expand, with a switch that adds Nitwit Tavern Redesign to SillyTavern's wand menu next to the chat box. Off by default. New settings key `wandEntry`, not saved in themes.

@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.4.0';
+  const VN_VERSION = '2.4.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, secHead, subHead } = A;
@@ -946,12 +946,12 @@
         };
       });
       box.querySelectorAll('.m_e_del').forEach((b) => {
-        b.onclick = () => {
+        b.onclick = async () => {
           const id = b.dataset.id;
           if (id === s.emoDefault) return;
           const e = s.emotions.find((x) => x.id === id);
           const used = Object.values(V().emoImgs).some((m) => m[id]);
-          if (used && !confirm(`Delete "${e.name}" and the portraits uploaded for it?`)) return;
+          if (used && !(await A.askYes(b, `Delete "${e.name}" and the portraits uploaded for it?`, 'Delete', { danger: true }))) return;
           s.emotions = s.emotions.filter((x) => x.id !== id);
           const olds = [];
           for (const m of Object.values(V().emoImgs)) { if (m[id]) olds.push(m[id]); delete m[id]; }
@@ -981,7 +981,7 @@
       box.querySelectorAll('.m_n_up').forEach((b) => { b.onclick = () => { pending = { key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }; nFile.click(); }; });
       box.querySelectorAll('.m_n_url').forEach((b) => {
         b.onclick = async () => {
-          const url = await askImageUrl('Portrait');
+          const url = await askImageUrl('Portrait', b);
           if (url) setSpkImage({ key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }, url);
         };
       });
@@ -1002,10 +1002,10 @@
         b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
       });
       box.querySelectorAll('.m_n_rm').forEach((b) => {
-        b.onclick = () => {
+        b.onclick = async () => {
           const k = b.dataset.key;
           if (b.dataset.custom) {
-            if (!confirm('Remove this custom speaker and their uploaded portraits?')) return;
+            if (!(await A.askYes(b, 'Remove this custom speaker and their uploaded portraits?', 'Remove', { danger: true }))) return;
             V().customSpk = V().customSpk.filter((n) => n.toLowerCase() !== k);
             const olds = [V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
             delete V().sprites[k];
@@ -1014,7 +1014,7 @@
           } else {
             // Detected from the card, persona or chat: hide it. Uploaded portraits are kept for a later restore.
             const c = ctx();
-            if ([c.name1, c.name2].some((n) => lc(n) === k) && !confirm('This is your persona or the current character. Hide it from the list? Their portraits are kept, and you can restore it later.')) return;
+            if ([c.name1, c.name2].some((n) => lc(n) === k) && !(await A.askYes(b, 'This is your persona or the current character. Hide it from the list? Their portraits are kept, and you can restore it later.', 'Hide'))) return;
             if (!V().hiddenSpk.some((n) => lc(n) === k)) V().hiddenSpk.push(k);
           }
           spkOpen.delete(k);
@@ -1124,7 +1124,7 @@
       box.querySelectorAll('.m_l_up').forEach((b) => { b.onclick = () => { lPending = b.dataset.id; lFile.click(); }; });
       box.querySelectorAll('.m_l_url').forEach((b) => {
         b.onclick = async () => {
-          const url = await askImageUrl('Background');
+          const url = await askImageUrl('Background', b);
           if (url) setLocImage(b.dataset.id, url);
         };
       });
@@ -1138,9 +1138,9 @@
         };
       });
       box.querySelectorAll('.m_l_del').forEach((b) => {
-        b.onclick = () => {
+        b.onclick = async () => {
           const l = v.locations.find((x) => x.id === b.dataset.id);
-          if (!l || !confirm(`Delete the location "${l.name}"${l.url ? ' and its background' : ''}?`)) return;
+          if (!l || !(await A.askYes(b, `Delete the location "${l.name}"${l.url ? ' and its background' : ''}?`, 'Delete', { danger: true }))) return;
           v.locations = v.locations.filter((x) => x !== l);
           for (const mp of v.maps || []) mp.pins = (mp.pins || []).filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p));
           save(); renderLoc(); refreshAll();
@@ -1209,7 +1209,7 @@
       box.querySelectorAll('.m_c_up').forEach((b) => { b.onclick = () => { cPending = b.dataset.id; cFile.click(); }; });
       box.querySelectorAll('.m_c_url').forEach((b) => {
         b.onclick = async () => {
-          const url = await askImageUrl('Illustration');
+          const url = await askImageUrl('Illustration', b);
           if (url) setCgImage(b.dataset.id, url);
         };
       });
@@ -1223,9 +1223,9 @@
         };
       });
       box.querySelectorAll('.m_c_del').forEach((b) => {
-        b.onclick = () => {
+        b.onclick = async () => {
           const g = v.cgs.find((x) => x.id === b.dataset.id);
-          if (!g || !confirm(`Delete the CG "${g.name}"${g.url ? ' and its image' : ''}?`)) return;
+          if (!g || !(await A.askYes(b, `Delete the CG "${g.name}"${g.url ? ' and its image' : ''}?`, 'Delete', { danger: true }))) return;
           v.cgs = v.cgs.filter((x) => x !== g);
           save(); renderCg(); refreshAll();
           A.deleteFileIfUnused(g.url);
@@ -1285,7 +1285,7 @@
     };
     overlay.querySelectorAll('.m_art_url').forEach((b) => {
       b.onclick = async () => {
-        const url = await askImageUrl(b.dataset.k === 'artBgImg' ? 'Default background' : 'Default sprite');
+        const url = await askImageUrl(b.dataset.k === 'artBgImg' ? 'Default background' : 'Default sprite', b);
         if (url) setArtImage(b.dataset.k, url);
       };
     });

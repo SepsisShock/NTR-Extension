@@ -36,11 +36,10 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
   const errors = [];
-  let answer = null;
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  // confirm() is always accepted; prompt() gets the text from the last `answer` command.
-  page.on('dialog', (d) => { if (d.type() === 'prompt') { d.accept(answer ?? ''); answer = null; } else d.accept(); });
+  // NTR asks its questions in the menu (see `ok`, `cancel` and `answer`). A browser dialog from anywhere else is accepted.
+  page.on('dialog', (d) => d.accept());
 
   const ready = async () => {
     await page.goto(ST_URL);
@@ -50,6 +49,17 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
   };
   const has = (sel) => page.evaluate((sel) => !!document.querySelector(sel), sel);
   const need = async (sel) => { if (!(await has(sel))) throw new Error('nothing matches ' + sel); };
+  const askPress = async (btn) => {
+    await need('.ntr_ask');
+    const text = await page.evaluate((btn) => {
+      const box = document.querySelector('.ntr_ask');
+      const t = (box.querySelector(':scope > label') || box.querySelector(':scope > div') || box).textContent.replace(/\s+/g, ' ').trim();
+      box.querySelector(btn).click();
+      return t;
+    }, btn);
+    await sleep(800);
+    return 'pressed (' + text + ')';
+  };
 
   const cmds = {
     // Open a character's chat. The default data has one character: default_Seraphina.png.
@@ -123,7 +133,24 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       await sleep(1500);
       return 'uploaded';
     },
-    async answer(rest) { answer = rest; return 'the next prompt gets: ' + rest; },
+    // The question the menu shows under the last button clicked: `ok` presses its main button, `cancel` its Cancel.
+    async ok() { return askPress('.ntr_ask_ok'); },
+    async cancel() { return askPress('.ntr_ask_cancel'); },
+    // answer <text>   types into the open text question (a link, a theme name) and presses its main button.
+    async answer(rest) {
+      await need('.ntr_ask .ntr_ask_input');
+      await page.evaluate((text) => {
+        const input = document.querySelector('.ntr_ask .ntr_ask_input');
+        input.value = text;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        document.querySelector('.ntr_ask .ntr_ask_ok').click();
+      }, rest);
+      // A link is loaded once to check it before the question closes.
+      for (let i = 0; i < 40 && await page.evaluate(() => !!document.querySelector('.ntr_ask .ntr_ask_ok:disabled')); i++) await sleep(250);
+      await sleep(500);
+      const err = await page.evaluate(() => document.querySelector('.ntr_ask .ntr_terr')?.textContent || '');
+      return err ? 'still open: ' + err : 'answered';
+    },
     // eval <expression>   runs in the page (await allowed) and prints the result as JSON.
     async eval(code) {
       const r = await page.evaluate(async (code) => {

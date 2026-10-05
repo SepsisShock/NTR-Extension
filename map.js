@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Maps module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const MAP_VERSION = '2.4.0';
+  const MAP_VERSION = '2.4.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -397,15 +397,15 @@
       box.querySelectorAll('.m_m_up').forEach((b) => { b.onclick = () => { pending = b.dataset.id; file.click(); }; });
       box.querySelectorAll('.m_m_url').forEach((b) => {
         b.onclick = async () => {
-          const url = await askImageUrl('Map image');
+          const url = await askImageUrl('Map image', b);
           if (url) setMapImage(b.dataset.id, url);
         };
       });
       box.querySelectorAll('.m_m_edit').forEach((b) => { b.onclick = () => open({ edit: true, mapId: b.dataset.id, fromMenu: true }); });
       box.querySelectorAll('.m_m_del').forEach((b) => {
-        b.onclick = () => {
+        b.onclick = async () => {
           const m = mapById(b.dataset.id);
-          if (!m || !confirm(`Delete the map "${m.name}"${m.url ? ', its image' : ''} and its pins?`)) return;
+          if (!m || !(await A.askYes(b, `Delete the map "${m.name}"${m.url ? ', its image' : ''} and its pins?`, 'Delete', { danger: true }))) return;
           const v = D();
           v.maps = maps().filter((x) => x !== m);
           for (const x of v.maps) x.pins = x.pins.filter((p) => p.map !== m.id || p.loc).map((p) => (p.map === m.id ? { ...p, map: '' } : p));

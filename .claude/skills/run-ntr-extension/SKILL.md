@@ -49,7 +49,8 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | `click <css>` | clicks through the DOM, so it reaches collapsed sections. A disabled button ignores it, like for a user |
 | `set <css> \| <text>` | types into a field and fires `input` and `change` |
 | `upload <css> \| <file> [file...]` | puts files in a file input. Most Upload buttons pick a slot first, so `click` the button, then `upload` |
-| `answer <text>` | what the next `prompt()` gets. Link buttons ask for a URL: `answer <url>`, then `click` the Link button |
+| `ok` / `cancel` | presses the main button or Cancel of the question NTR shows under the last button clicked (Delete, Remove, Reset...) |
+| `answer <text>` | types into the open text question and presses its main button. Link buttons ask for a URL: `click` the Link button, then `answer <url>`. Prints `still open:` and the red hint if it wasn't accepted |
 | `eval <expression>` | runs in the page (may use `await`) and prints the result as JSON |
 | `card` | the open chat's NTR data as saved in the character card |
 | `ss [name]` / `shot <name> <css>` | screenshot of the page / of one element |
@@ -64,8 +65,8 @@ select default_Seraphina.png
 menu fg
 click #cb_modal_overlay .m_f_up[data-pos="Left"]
 upload #cb_modal_overlay #m_f_file | /tmp/test.png
-answer http://127.0.0.1:8000/characters/default_Seraphina.png
 click #cb_modal_overlay .m_f_url[data-pos="Center"]
+answer http://127.0.0.1:8000/characters/default_Seraphina.png
 card
 EOF
 ```

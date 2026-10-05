@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.2.11';
+  const VERSION = '2.3.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -14,6 +14,7 @@
     bannerGap: 10,
     bannerBackdrop: 'wallpaper', 
     bannerVideoSound: false,
+    bannerGlobal: { images: [], idx: 0, youtubeUrl: '', video: '', videoPos: 50 },
     chars: {},
     avatarEnabled: true,
     
@@ -163,6 +164,7 @@
     if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
+    if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
     return s;
@@ -657,6 +659,14 @@
     const def = defaultBanner();
     for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
     if (!Array.isArray(r.images)) r.images = [];
+    // Before 2.3 Global had no images of its own, so a Global character with its own images, link or video
+    // becomes Char and keeps showing them. Checked once per banner, so switching to Global later sticks.
+    if (!r.sharedChecked) {
+      const own = r.scope !== 'char' && (r.images.length || r.youtubeUrl || r.video);
+      if (own) startChar(r);
+      r.sharedChecked = true;
+      if (own && d) scheduleCardFlush(key);
+    }
     return r;
   };
 
@@ -690,11 +700,14 @@
     });
   }
 
-  // Global and Char are saved per character: Char uses the character's own kind, Global the shared one.
+  // Global and Char are saved per character: Char uses the character's own banner, Global the shared one.
   // Off is one switch for every character.
   const BANNER_NOTE = {
-    global: 'Global applies to every character that doesn\'t have its own kind (Char).',
+    global: 'Global shows the shared banner on every character that doesn\'t have its own (Char).',
+    char: 'Char gives this character its own banner. Its images and settings are saved in its card.',
   };
+  // Images, YouTube link and video: Char uses the character's own, Global the shared banner in the settings.
+  const bannerSrc = (r) => (r && r.scope === 'char' ? r : settings().bannerGlobal);
   function bannerKind(r) {
     const s = settings();
     if (!s.bannerOn || !r) return 'off';
@@ -764,6 +777,14 @@
   // Banner height, gap, transparent areas and video sound follow the same switch. A Char character
   // with no value of its own yet (set to Char before these were per character) uses the global one.
   const BANNER_LOOK_KEYS = { height: 'bannerHeight', gap: 'bannerGap', backdrop: 'bannerBackdrop', videoSound: 'bannerVideoSound' };
+  // A character switched to Char starts on the Global kind, rotation and look settings.
+  function startChar(r) {
+    const s = settings();
+    r.mode = s.bannerMode;
+    for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
+    for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
+    r.scope = 'char';
+  }
   function bannerLook(r) {
     const s = settings();
     const own = !!r && r.scope === 'char';
@@ -806,10 +827,10 @@
     const r = key ? peek(key) : null;
     if (!r || key !== rot.key || !banner || banner.style.display === 'none' || bannerKind(r) !== 'image') return;
     const o = rotation(r);
-    const n = r.images.length;
+    const n = bannerSrc(r).images.length;
     if (!o.rotate || n < 2) return;
     if (!rotPaused()) {
-      const cur = shownIdx(key, r);
+      const cur = shownIdx(key, bannerSrc(r));
       let next = (cur + 1) % n;
       if (o.rotateOrder === 'shuffle') { next = Math.floor(Math.random() * (n - 1)); if (next >= cur) next++; }
       rot.idx = next;
@@ -864,11 +885,12 @@
     const nav = banner.querySelector('.cb_nav');
     const vid = banner.querySelector('.cb_vid');
 
+    const src = bannerSrc(r);
     if (kind === 'image') {
       stopBannerYt();
       stopBannerVid();
       vid.style.display = 'none';
-      const n = r.images.length;
+      const n = src.images.length;
       if (!n) {
         banner.style.display = 'none';
         return;
@@ -877,8 +899,8 @@
       yt.style.display = 'none';
       img.style.display = 'block';
 
-      const i = shownIdx(key, r);
-      const im = r.images[i] || r.images[0];
+      const i = shownIdx(key, src);
+      const im = src.images[i] || src.images[0];
       const u = media(im.url);
       if (!u) { banner.style.display = 'none'; return; }
       const pos = `50% ${im.pos ?? 45}%`;
@@ -896,7 +918,7 @@
     } else if (kind === 'youtube') {
       stopBannerVid();
       vid.style.display = 'none';
-      const videoId = getYouTubeId(r.youtubeUrl || '');
+      const videoId = getYouTubeId(src.youtubeUrl || '');
       if (!videoId) {
         stopBannerYt();
         banner.style.display = 'none';
@@ -911,7 +933,7 @@
       if (yt.getAttribute('src') !== embedUrl) yt.src = embedUrl;
     } else if (kind === 'video') {
       stopBannerYt();
-      const u = media(r.video);
+      const u = media(src.video);
       if (!u) {
         stopBannerVid();
         banner.style.display = 'none';
@@ -922,7 +944,7 @@
       yt.style.display = 'none';
       nav.style.display = 'none';
       vid.style.display = 'block';
-      vid.style.objectPosition = `50% ${cNum(r.videoPos, 50, 0, 100)}%`;
+      vid.style.objectPosition = `50% ${cNum(src.videoPos, 50, 0, 100)}%`;
       banner.querySelector('.cb_snd').style.display = '';
       if (vid.getAttribute('src') !== u) { vid.src = u; playBannerVid(vid); }
       else if (vid.paused) playBannerVid(vid);
@@ -973,8 +995,7 @@
 
   function step(d) {
     const key = currentKey();
-    if (!key) return;
-    const r = peek(key);
+    const r = bannerSrc(key ? peek(key) : null);
     const n = r.images.length;
     if (n < 2) return;
     r.idx = (shownIdx(key, r) + d + n) % n;
@@ -1073,8 +1094,7 @@
 
   async function addFiles(files) {
     const key = currentKey();
-    if (!key) { toastr.warning('Select a single character first (banners are per character).', 'Banner'); return; }
-    const r = peek(key);
+    const r = bannerSrc(key ? peek(key) : null);
     let added = 0;
     for (const f of files) {
       try {
@@ -1093,8 +1113,7 @@
 
   async function removeCurrentBanner() {
     const key = currentKey();
-    if (!key) return;
-    const r = peek(key);
+    const r = bannerSrc(key ? peek(key) : null);
     const im = r.images[r.idx];
     if (!im || !confirm('Remove this scenic banner image?')) return;
     r.images.splice(r.idx, 1);
@@ -1169,8 +1188,10 @@
     const ro = rotation(ownKind ? r : null);
     const bl = bannerLook(ownKind ? r : null);
     const btag = ownKind ? ' ' + TAG : '';
-    const n = r.images.length;
-    const curImg = r.images[r.idx] || null;
+    const src = bannerSrc(ownKind ? r : null);
+    const shared = ownKind ? '' : '<div class="cb_hint">This is the shared banner. Changes show on every character set to Global.</div>';
+    const n = src.images.length;
+    const curImg = src.images[src.idx] || null;
 
     const overlay = document.createElement('div');
     overlay.id = 'cb_modal_overlay';
@@ -1198,7 +1219,7 @@
           <div class="cb_collapse_content">
             <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_b_enable" ${s.bannerOn ? 'checked' : ''}><span>Enable Header Banner</span></label>
             <div id="m_b_body" class="${s.bannerOn ? '' : 'cb_dim'}">
-            <div style="margin-bottom: 10px;"><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char']], ownKind ? 'char' : 'global')}</div>
+            <div style="margin-bottom: 10px;"><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char', BANNER_NOTE.char]], ownKind ? 'char' : 'global')}</div>
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px;">
               <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                 <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>
@@ -1214,10 +1235,11 @@
             
             <!-- Image Controls -->
             <div id="m_b_img_controls" style="display: ${kind === 'image' ? 'block' : 'none'};">
-              <div style="margin-bottom: 6px;"><strong>Images</strong> ${TAG}</div>
+              <div style="margin-bottom: 6px;"><strong>Images</strong>${btag}</div>
+              ${shared}
               <div class="cb_actions">
-                <button id="m_b_up" class="menu_button" ${!key ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Add</button>
-                <button id="m_b_url" class="menu_button" ${!key ? 'disabled' : ''} title="Add an image from a link"><i class="fa-solid fa-link"></i> Link</button>
+                <button id="m_b_up" class="menu_button"><i class="fa-solid fa-plus"></i> Add</button>
+                <button id="m_b_url" class="menu_button" title="Add an image from a link"><i class="fa-solid fa-link"></i> Link</button>
                 <button id="m_b_del" class="menu_button danger_button" ${!n ? 'disabled' : ''}><i class="fa-solid fa-trash-can"></i> Del</button>
               </div>
               <input type="file" id="m_b_file" accept="image/png,image/jpeg,image/gif,image/webp,.png,.jpg,.jpeg,.gif,.webp" multiple hidden>
@@ -1225,13 +1247,13 @@
               ${n > 0 ? `
               <div class="cb_carousel_nav">
                 <button id="m_b_prev" class="menu_button" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>
-                <span>Image <b>${Math.round(cNum(r.idx, 0, 0, n - 1)) + 1}</b> of <b>${n}</b></span>
+                <span>Image <b>${Math.round(cNum(src.idx, 0, 0, n - 1)) + 1}</b> of <b>${n}</b></span>
                 <button id="m_b_next" class="menu_button" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>
               </div>
-              <div class="cb_thumbs">${r.images.map((im, i) => `<img class="cb_thumb${i === r.idx ? ' active' : ''}" data-i="${i}" src="${escapeHTML(media(im.url))}" alt="">`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No images yet</div>`}
+              <div class="cb_thumbs">${src.images.map((im, i) => `<img class="cb_thumb${i === src.idx ? ' active' : ''}" data-i="${i}" src="${escapeHTML(media(im.url))}" alt="">`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No images yet</div>`}
 
               ${curImg ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop: ${TAG}</label><span><span id="m_b_pval">${cNum(curImg.pos, 45, 0, 100)}</span>%</span></div>
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_pval">${cNum(curImg.pos, 45, 0, 100)}</span>%</span></div>
               <input type="range" id="m_b_p" min="0" max="100" value="${cNum(curImg.pos, 45, 0, 100)}">
               ` : ''}
 
@@ -1250,23 +1272,25 @@
 
             <!-- YouTube Controls -->
             <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
-              <label><strong>YouTube Video URL:</strong> ${TAG}</label>
-              <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(r.youtubeUrl || '')}" ${!key ? 'disabled' : ''}>
+              <label><strong>YouTube Video URL:</strong>${btag}</label>
+              ${shared}
+              <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">
             </div>
 
             <!-- Video Controls -->
             <div id="m_b_vid_controls" style="display: ${kind === 'video' ? 'block' : 'none'};">
-              <div style="margin-bottom: 6px;"><strong>Video</strong> ${TAG}</div>
+              <div style="margin-bottom: 6px;"><strong>Video</strong>${btag}</div>
+              ${shared}
               <div class="cb_row">
-                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.video ? escapeHTML(String(r.video).split('/').pop()) : '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
-                <button id="m_b_vup" class="menu_button" style="margin:0;" title="Upload a video" ${!key ? 'disabled' : ''}><i class="fa-solid fa-upload"></i></button>
-                <button id="m_b_vurl" class="menu_button" style="margin:0;" title="Use a link to a video" ${!key ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
-                <button id="m_b_vdel" class="menu_button danger_button" style="margin:0;" title="Remove the video" ${!r.video ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${src.video ? escapeHTML(String(src.video).split('/').pop()) : '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
+                <button id="m_b_vup" class="menu_button" style="margin:0;" title="Upload a video"><i class="fa-solid fa-upload"></i></button>
+                <button id="m_b_vurl" class="menu_button" style="margin:0;" title="Use a link to a video"><i class="fa-solid fa-link"></i></button>
+                <button id="m_b_vdel" class="menu_button danger_button" style="margin:0;" title="Remove the video" ${!src.video ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
               </div>
               <input type="file" id="m_b_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
-              ${r.video ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop: ${TAG}</label><span><span id="m_b_vpval">${cNum(r.videoPos, 50, 0, 100)}</span>%</span></div>
-              <input type="range" id="m_b_vp" min="0" max="100" value="${cNum(r.videoPos, 50, 0, 100)}">` : ''}
+              ${src.video ? `
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_vpval">${cNum(src.videoPos, 50, 0, 100)}</span>%</span></div>
+              <input type="range" id="m_b_vp" min="0" max="100" value="${cNum(src.videoPos, 50, 0, 100)}">` : ''}
               <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>
             </div>
 
@@ -1373,11 +1397,7 @@
     };
     onPills(overlay, 'bscope', (v) => {
       if (key) {
-        if (v === 'char' && r.scope !== 'char') { // starts on the Global kind, rotation and look settings
-          r.mode = s.bannerMode;
-          for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
-          for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
-        }
+        if (v === 'char' && r.scope !== 'char') startChar(r);
         if (v === 'global') r.mode = '';
         r.scope = v;
       }
@@ -1407,9 +1427,9 @@
 
     // Banner video: uploaded as is (no re-encoding), or a link.
     const setVideo = (url) => {
-      const old = r.video;
-      r.video = url;
-      r.videoPos = 50;
+      const old = src.video;
+      src.video = url;
+      src.videoPos = 50;
       save();
       updateBanner();
       deleteFileIfUnused(old);
@@ -1421,7 +1441,7 @@
     vfile.onchange = async () => {
       const f = vfile.files[0];
       vfile.value = '';
-      if (!f || !key) return;
+      if (!f) return;
       try {
         const path = await uploadVideo(f, 'banner', 'Banner', vup);
         if (!path) return;
@@ -1434,18 +1454,17 @@
       }
     };
     overlay.querySelector('#m_b_vurl').onclick = async () => {
-      if (!key) return;
       const url = await askVideoUrl('Banner video');
       if (url) setVideo(url);
     };
     overlay.querySelector('#m_b_vdel').onclick = () => {
-      if (!r.video || !confirm('Remove the banner video?')) return;
+      if (!src.video || !confirm('Remove the banner video?')) return;
       setVideo('');
     };
     const vp = overlay.querySelector('#m_b_vp');
     if (vp) {
       vp.oninput = function() {
-        r.videoPos = Number(this.value);
+        src.videoPos = Number(this.value);
         overlay.querySelector('#m_b_vpval').textContent = this.value;
         const v = banner?.querySelector('.cb_vid');
         if (v) v.style.objectPosition = `50% ${this.value}%`;
@@ -1553,39 +1572,37 @@
         };
         bo.onchange = save;
       }
-      
-      const fi = overlay.querySelector('#m_b_file');
-      overlay.querySelector('#m_b_up').onclick = () => fi.click();
-      overlay.querySelector('#m_b_url').onclick = async () => {
-        const k = currentKey();
-        const url = k ? await askImageUrl('Banner image') : '';
-        if (!url) return;
-        const rr = peek(k);
-        rr.images.push({ url, pos: 45 });
-        rr.idx = rr.images.length - 1;
-        save(); updateBanner(); openCombinedModal();
-      };
-      fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openCombinedModal(); }};
-      if (n) overlay.querySelector('#m_b_del').onclick = async () => { await removeCurrentBanner(); openCombinedModal(); };
-      if (n > 0) {
-        overlay.querySelector('#m_b_prev').onclick = () => step(-1);
-        overlay.querySelector('#m_b_next').onclick = () => step(1);
-        overlay.querySelectorAll('.cb_thumb').forEach((t) => {
-          t.onclick = () => { r.idx = Number(t.dataset.i); save(); updateBanner(); openCombinedModal(); };
-        });
-        const strip = overlay.querySelector('.cb_thumbs');
-        const act = strip?.querySelector('.active');
-        if (strip && act) strip.scrollLeft = act.offsetLeft - strip.clientWidth / 2 + act.offsetWidth / 2;
-      }
-      if (curImg) {
-        const bp = overlay.querySelector('#m_b_p');
-        bp.oninput = function() { overlay.querySelector('#m_b_pval').textContent = this.value; const img = banner?.querySelector('.cb_img'); if (img) img.style.objectPosition = `50% ${this.value}%`; };
-        bp.onchange = function() { curImg.pos = Number(this.value); save(); };
-      }
-      const ytUrl = overlay.querySelector('#m_b_yt_url');
-      ytUrl.oninput = function() { r.youtubeUrl = this.value; };
-      ytUrl.onchange = function() { save(); updateBanner(); };
     }
+
+    const fi = overlay.querySelector('#m_b_file');
+    overlay.querySelector('#m_b_up').onclick = () => fi.click();
+    overlay.querySelector('#m_b_url').onclick = async () => {
+      const url = await askImageUrl('Banner image');
+      if (!url) return;
+      src.images.push({ url, pos: 45 });
+      src.idx = src.images.length - 1;
+      save(); updateBanner(); openCombinedModal();
+    };
+    fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openCombinedModal(); }};
+    if (n) overlay.querySelector('#m_b_del').onclick = async () => { await removeCurrentBanner(); openCombinedModal(); };
+    if (n > 0) {
+      overlay.querySelector('#m_b_prev').onclick = () => step(-1);
+      overlay.querySelector('#m_b_next').onclick = () => step(1);
+      overlay.querySelectorAll('.cb_thumb').forEach((t) => {
+        t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openCombinedModal(); };
+      });
+      const strip = overlay.querySelector('.cb_thumbs');
+      const act = strip?.querySelector('.active');
+      if (strip && act) strip.scrollLeft = act.offsetLeft - strip.clientWidth / 2 + act.offsetWidth / 2;
+    }
+    if (curImg) {
+      const bp = overlay.querySelector('#m_b_p');
+      bp.oninput = function() { overlay.querySelector('#m_b_pval').textContent = this.value; const img = banner?.querySelector('.cb_img'); if (img) img.style.objectPosition = `50% ${this.value}%`; };
+      bp.onchange = function() { curImg.pos = Number(this.value); save(); };
+    }
+    const ytUrl = overlay.querySelector('#m_b_yt_url');
+    ytUrl.oninput = function() { src.youtubeUrl = this.value; };
+    ytUrl.onchange = function() { save(); updateBanner(); };
     const lookSet = (k, v) => { if (ownKind) r[k] = v; else s[BANNER_LOOK_KEYS[k]] = v; };
     const bh = overlay.querySelector('#m_b_h');
     bh.oninput = function() { lookSet('height', Number(this.value)); overlay.querySelector('#m_b_hval').textContent = this.value; applyBannerSize(); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
@@ -2122,7 +2139,7 @@
   const cardSnap = new Map();
   const cardTimers = new Map();
   const legacyMoved = new Set();
-  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null });
+  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null, sharedChecked: true });
 
   function charIndexByAvatar(av) {
     const cs = ctx().characters || [];
@@ -2162,19 +2179,29 @@
   const cList = (v, max, fn) => (Array.isArray(v) ? v.filter(isObj).slice(0, max).map(fn) : []);
   const cNamed = (x, p) => ({ ...x, id: cId(x.id, p), name: cStr(x.name), url: cUrl(x.url) });
 
-  function cleanBanner(b) {
+  // The banner's content: images, YouTube link and video. A card's banner has it, and so does the shared Global banner.
+  function cleanBannerSrc(b) {
+    if (!isObj(b)) b = {};
+    cleaned.add(b);
     const images = cList(b.images, 200, (im) => ({ ...im, url: cUrl(im.url), pos: cNum(im.pos, 45, 0, 100) })).filter((im) => im.url);
-    Object.assign(b, {
+    return Object.assign(b, {
       images,
       idx: Math.round(cNum(b.idx, 0, 0, Math.max(0, images.length - 1))),
+      youtubeUrl: cStr(b.youtubeUrl, 500),
+      video: cUrl(b.video),
+      videoPos: cNum(b.videoPos, 50, 0, 100),
+    });
+  }
+
+  function cleanBanner(b) {
+    cleanBannerSrc(b);
+    Object.assign(b, {
       locked: cBool(b.locked, true),
       overlap: cBool(b.overlap, false),
       overlapOffset: cNum(b.overlapOffset, 0, 0, 300),
-      youtubeUrl: cStr(b.youtubeUrl, 500),
       scope: cPick(b.scope, ['global', 'char']),
       mode: cPick(b.mode, ['', 'image', 'youtube', 'video']),
-      video: cUrl(b.video),
-      videoPos: cNum(b.videoPos, 50, 0, 100),
+      sharedChecked: cBool(b.sharedChecked, false),
       rotate: cBool(b.rotate, false),
       rotateSec: Math.round(cNum(b.rotateSec, 8, 3, 60)),
       rotateFx: cPick(b.rotateFx, ['fade', 'swap']),
@@ -2983,7 +3010,7 @@
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';
-      const r = peek(key);
+      const r = bannerSrc(peek(key));
       const im = r.images[r.idx] || r.images[0];
       return im ? media(im.url) : '';
     },

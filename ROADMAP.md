@@ -50,6 +50,8 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 
 ## Ideas
 
+- Banners in group chats. The shared Global banner could show in group chats too, which have no banner now.
+  - Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
 - Chapters and save points. In Visual Novel Mode, each message is a chapter.
   - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
   - Title card when a chapter starts.
@@ -77,6 +79,13 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 ## Done
 
 Finished items, newest first.
+
+### Shared Global banner
+- [x] Global has its own banner: an image gallery (each image with its own Crop), a YouTube link and a video, shown on every character set to Global. Saved under a new settings key `bannerGlobal` (existing keys untouched).
+- [x] Char keeps the character's own banner in its card. Lock to top, Overlap messages and Overlap offset stay per character.
+- [x] The menu edits the shared banner on Global and the character's own on Char. The shared banner can be edited without a chat open.
+- [x] A character switched from Char to Global keeps its own images in its card, so switching back brings them back.
+- [x] Updating: a character on Global that already had its own images, YouTube link or video switches to Char, keeping its kind, rotation and look, so nothing on screen changes. Checked once per card (new card field `banner.sharedChecked`), also for cards made with an older version.
 
 ### Video files and links
 - [x] Banner video from an uploaded mp4 or webm file: a new **Video** kind next to Image Gallery and YouTube Loop.

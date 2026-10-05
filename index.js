@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.7.2';
+  const VERSION = '2.7.3';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1311,7 +1311,7 @@
         ${themesSectionHtml(s)}
 
         <div class="cb_section">
-          ${secHead('banner', 'fa-panorama', 'Header Banner')}
+          ${secHead('banner', 'fa-images', 'Header Banner')}
           <div class="cb_collapse_content">
             <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_b_enable" ${s.bannerOn ? 'checked' : ''}><span>Enable Header Banner</span></label>
             <div id="m_b_body" class="${s.bannerOn ? '' : 'cb_dim'}">
@@ -1411,7 +1411,7 @@
         </div>
 
         <div class="cb_section">
-          ${secHead('pfp', 'fa-user-astronaut', 'Avatar Management')}
+          ${secHead('pfp', 'fa-user', 'Avatar Management')}
           <div class="cb_collapse_content">
             <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_a_enable" ${s.avatarEnabled ? 'checked' : ''}><span>Enable NTR Avatars</span></label>
 
@@ -1427,7 +1427,7 @@
         ${displaySectionHtml(s)}
 
         <div class="cb_section">
-          ${secHead('fg', 'fa-image', 'Foreground Images')}
+          ${secHead('fg', 'fa-shapes', 'Foreground Images')}
           <div class="cb_collapse_content">
             <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_f_enable" ${s.fgEnabled ? 'checked' : ''}><span>Enable Foreground Overlays</span></label>
             <div id="m_f_body" class="${s.fgEnabled ? '' : 'cb_dim'}">
@@ -1464,7 +1464,7 @@
 
         <div class="cb_section">
           <h4 class="ntr_flat_head">
-            <span><i class="fa-solid fa-wand-magic-sparkles"></i> Wand Menu</span>
+            <span><i class="fa-solid fa-fw fa-wand-magic-sparkles"></i> Wand Menu</span>
             <input type="checkbox" id="m_wand" title="Show Nitwit Tavern Redesign in the wand menu" ${s.wandEntry ? 'checked' : ''}>
           </h4>
           <div class="cb_hint">Adds Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there. Typing /ntr in the chat box opens it too.</div>
@@ -1794,7 +1794,7 @@
   function secHead(sec, icon, title) {
     return `
           <h4 class="cb_collapse_toggle" data-sec="${sec}">
-            <span><i class="fa-solid ${icon}"></i> ${title}</span>
+            <span><i class="fa-solid fa-fw ${icon}"></i> ${title}</span>
             <i class="fa-solid fa-chevron-right cb_chevron"></i>
           </h4>`;
   }
@@ -2195,7 +2195,7 @@
   function reasoningSectionHtml(s) {
     return `
       <div class="cb_section">
-        ${secHead('reasoning', 'fa-brain', 'Reasoning Block Design')}
+        ${secHead('reasoning', 'fa-comment-dots', 'Reasoning Block Design')}
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block Design</span></label>
           <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
@@ -2236,7 +2236,7 @@
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
     return `
       <div class="cb_section">
-        ${secHead('text', 'fa-font', 'Text Formatting')}
+        ${secHead('text', 'fa-text-height', 'Text Formatting')}
         <div class="cb_collapse_content">
           <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_tf_enable" ${s.tfEnabled ? 'checked' : ''}><span>Enable Text Formatting</span></label>
           <div id="m_tf_body" class="${s.tfEnabled ? '' : 'cb_dim'}">
@@ -2977,7 +2977,7 @@
     const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
     return `
       <div class="cb_section">
-        ${secHead('themes', 'fa-palette', 'Themes')}
+        ${secHead('themes', 'fa-bookmark', 'Themes')}
         <div class="cb_collapse_content">
           <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
@@ -3364,7 +3364,7 @@
     if (vn) return vn.sectionHtml(s);
     return `
       <div class="cb_section">
-        ${secHead('vn', 'fa-comments', 'Visual Novel Mode')}
+        ${secHead('vn', 'fa-clapperboard', 'Visual Novel Mode')}
         <div class="cb_collapse_content">
           <label class="checkbox_label"><input type="checkbox" id="m_n_enable" ${s.nodeEnabled ? 'checked' : ''}><span>Enable Visual Novel Mode</span></label>
           <div class="cb_hint">${modError.vn ? 'Visual Novel Mode failed to load: ' + escapeHTML(modError.vn) : 'Its settings appear here once it\'s switched on.'}</div>

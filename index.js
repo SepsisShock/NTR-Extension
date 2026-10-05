@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.5.0';
+  const VERSION = '2.5.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1222,7 +1222,7 @@
     return `
       <div id="m_${prefix}_col" class="cb_col">
         <h5 class="col_header">${title}</h5>
-        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>Enable ${title} avatar</span></label>
+        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>${title} Avatar</span></label>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
@@ -1403,7 +1403,7 @@
         </div>
 
         <div class="cb_section">
-          ${secHead('pfp', 'fa-user-astronaut', 'Pfp Management')}
+          ${secHead('pfp', 'fa-user-astronaut', 'Avatar Management')}
           <div class="cb_collapse_content">
             <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_a_enable" ${s.avatarEnabled ? 'checked' : ''}><span>Enable NTR Avatars</span></label>
 
@@ -2601,7 +2601,7 @@
   const LOOK = {
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
-    pfp: { label: 'Pfp Management', keys: ['avatarEnabled', ...PFP_KEYS] },
+    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS] },
     reasoning: { label: 'Reasoning Block Design', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     display: { label: 'UI Display', keys: ['chatTransparent', ...Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !FONT_SCALE_KEYS.includes(k))] },

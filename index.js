@@ -526,7 +526,7 @@
 
   // The main Enable switches are diamonds that still click on and off. They're styled by id because a class would rank
   // below SillyTavern's own checkbox styles, which would turn them back into square checkboxes.
-  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable'];
+  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable', 'm_wand'];
   const switches = (state) => SWITCH_IDS.map((id) => `#${id}${state}`).join(', ');
 
   function updateAvatarStyle() {
@@ -571,6 +571,7 @@
       #cb_fg_left { left: 0; object-position: left bottom; }
       #cb_fg_right { right: 0; object-position: right bottom; }
 
+      .cb_section h4.ntr_flat_head { display: flex; justify-content: space-between; align-items: center; margin: 0; padding: 0; border: 0; }
       .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
       .cb_subhead { margin-top: 10px; padding: 6px 4px; font-weight: bold; font-size: .92em; border-bottom: 1px dashed var(--SmartThemeBorderColor, #444); }
       .cb_subhead + .cb_collapse_content { padding: 8px 4px 4px; }
@@ -1456,6 +1457,14 @@
         ${vnSectionHtml(s)}
 
         <div class="cb_section">
+          <h4 class="ntr_flat_head">
+            <span><i class="fa-solid fa-wand-magic-sparkles"></i> Wand Menu</span>
+            <input type="checkbox" id="m_wand" title="Show Nitwit Tavern Redesign in the wand menu" ${s.wandEntry ? 'checked' : ''}>
+          </h4>
+          <div class="cb_hint">Adds Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there. Typing /ntr in the chat box opens it too.</div>
+        </div>
+
+        <div class="cb_section">
           ${secHead('data', 'fa-database', 'Data')}
           <div class="cb_collapse_content">
             <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Use this to remove it for good.</div>
@@ -1716,6 +1725,7 @@
     };
     
     bindThemes(overlay, s);
+    bindWand(overlay, s);
     bindData(overlay);
     bindVNSection(overlay, s);
     bindDisplay(overlay, s);
@@ -2238,15 +2248,12 @@
             ${row('ovScrollShapeOn', 'Scrollbar Shape', pills('oscroll', [['pill', 'Pill', 'SillyTavern\'s default'], ['rounded', 'Rounded'], ['square', 'Square']], s.ovScrollShape))}
           </div>
           </div>
-          <label class="checkbox_label" style="margin-top:10px;"><input type="checkbox" id="m_wand" ${s.wandEntry ? 'checked' : ''}><span>Show in the wand menu</span></label>
-          <div class="cb_hint">Adds Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there. Works even when UI Display is off. Typing /ntr in the chat box opens it too.</div>
         </div>
       </div>`;
   }
 
   function bindDisplay(overlay, s) {
     overlay.querySelector('#m_f_trans').onchange = function() { s.chatTransparent = this.checked; save(); updateAvatarStyle(); };
-    overlay.querySelector('#m_wand').onchange = function() { s.wandEntry = this.checked; save(); syncWandEntry(); };
     overlay.querySelector('#m_ov_enable').onchange = function() {
       s.ovEnabled = this.checked; save(); updateAvatarStyle();
       overlay.querySelector('#m_ov_body').classList.toggle('cb_dim', !this.checked);
@@ -2946,6 +2953,10 @@
         toastr.success(`Added "${name}". Pick it in the list to apply it.`, 'Themes');
       };
     };
+  }
+
+  function bindWand(overlay, s) {
+    overlay.querySelector('#m_wand').onchange = function() { s.wandEntry = this.checked; save(); syncWandEntry(); };
   }
 
   function bindData(overlay) {

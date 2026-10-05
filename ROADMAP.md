@@ -92,7 +92,7 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 Finished items, newest first.
 
 ### Quicker ways to open the menu
-- [x] **Show in the wand menu** checkbox at the bottom of UI Display adds Nitwit Tavern Redesign to SillyTavern's wand menu next to the chat box. Off by default; works even when UI Display is off. New settings key `wandEntry`, not saved in themes.
+- [x] New **Wand Menu** section above Data that doesn't expand, with a switch that adds Nitwit Tavern Redesign to SillyTavern's wand menu next to the chat box. Off by default. New settings key `wandEntry`, not saved in themes.
 - [x] `/ntr` (or `/NTR`) typed in the chat box opens the menu.
 - [x] Both open the menu even when NTR is powered off. The Extensions page bar stays as it was.
 

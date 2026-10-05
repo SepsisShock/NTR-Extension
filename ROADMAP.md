@@ -16,7 +16,7 @@ Keep the open-world feel, and let a card optionally have endings.
 - [ ] Cards with no flag or ending tags behave exactly as they do now.
 
 ### Reasoning Block and Text Formatting: follow-ups
-The sections themselves shipped (see **Done**). Still open:
+The sections themselves and the first batch of text effects shipped (see **Done**). Still open:
 
 - Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
 - A preset list of Google Fonts, each name shown in its own font.
@@ -46,7 +46,7 @@ Follows the scrollbar settings (see **Done**).
 - Regex. Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
   - Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
 - Graphic borders around profiles. Decorative image frames around profile pictures, beyond the current plain border and shape choices.
-  - Open questions: which pictures get them (chat avatars, Pfp backdrop, Pfp pop-out, VN portrait box); built-in frames drawn in code like the default art, uploaded frames, or both; how a frame fits each shape (round, rounded, square, tall); per character, global, or saved in themes.
+  - Open questions: which pictures get them (chat avatars, avatar backdrop, avatar pop-out, VN portrait box); built-in frames drawn in code like the default art, uploaded frames, or both; how a frame fits each shape (round, rounded, square, tall); per character, global, or saved in themes.
 - Graphic borders around the UI. Decorative image borders around interface parts, stretched to fit any size.
   - Open questions: which parts (VN dialogue box, name tag, choice buttons, map window, NTR menu, SillyTavern's chat messages); built-in, uploaded, or both; one border style for all parts or one per part; saved in themes.
 - Folder of pre-generated locations. A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
@@ -104,6 +104,7 @@ Finished items, newest first.
 ### Menu names and Overall Font Scale
 - [x] "Display Overrides" is now **UI Display**, and "Reasoning Block" is now **Reasoning Block Design**, so it's clear the section only changes how the block looks.
 - [x] Reasoning Block Design explains which SillyTavern setting makes the block show up: "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion).
+- [x] "Pfp Management" is now **Avatar Management**, and its column switches read **AI Avatar** and **User Avatar**.
 - [x] Font Scale moved from UI Display to the top of Text Formatting as **Overall Font Scale**, with a note that it scales all of SillyTavern's text. It now follows the Text Formatting switch. Same settings keys, so saved configs keep working.
 - [x] Themes keep Overall Font Scale with Text Formatting. Themes saved or exported before keep working.
 
@@ -120,6 +121,11 @@ Finished items, newest first.
 - [x] The menu edits the shared banner on Global and the character's own on Char. The shared banner can be edited without a chat open.
 - [x] A character switched from Char to Global keeps its own images in its card, so switching back brings them back.
 - [x] Updating: a character on Global that already had its own images, YouTube link or video switches to Char, keeping its kind, rotation and look, so nothing on screen changes. Checked once per card (new card field `banner.sharedChecked`), also for cards made with an older version.
+
+### Text effects, Border Style and Custom CSS
+- [x] **Text Effect** in Reasoning Block Design and in Text Formatting (Names, User Text, AI Text): Glow, Shadow or Outline, with a strength slider and an optional **Effect Color**. Without a color, Glow uses the text color, and Shadow and Outline are black.
+- [x] **Border Style** for the reasoning block: Solid, Dashed, Dotted, Double or Glow.
+- [x] **Advanced: Custom CSS** for the reasoning block, in its own style tag so a typo can't break the rest. Saved in themes; themes from someone else bring it in switched off.
 
 ### Video files and links
 - [x] Banner video from an uploaded mp4 or webm file: a new **Video** kind next to Image Gallery and YouTube Loop.

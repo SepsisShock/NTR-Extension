@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.7.2';
+  const VN_VERSION = '2.7.3';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, secHead, subHead, validateDelims } = A;
@@ -701,7 +701,7 @@
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button></span>`;
     return `
       <div class="cb_section">
-        ${secHead('vn', 'fa-comments', 'Visual Novel Mode')}
+        ${secHead('vn', 'fa-clapperboard', 'Visual Novel Mode')}
         <div class="cb_collapse_content">
           ${ck('m_n_enable', s.nodeEnabled, 'Enable Visual Novel Mode')}
           <div id="m_n_body" class="${s.nodeEnabled ? '' : 'cb_dim'}">

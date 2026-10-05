@@ -1,0 +1,43 @@
+# Runs on every PR and every push to main.
+# Checks that each .js file loads and that the version matches in all 5 places.
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Files load
+        run: |
+          failed=0
+          for f in *.js; do
+            cp "$f" "$RUNNER_TEMP/$f.mjs"
+            if node --check "$RUNNER_TEMP/$f.mjs"; then echo "$f loads"; else echo "::error file=$f::$f has a syntax error and won't load."; failed=1; fi
+          done
+          exit $failed
+
+      - name: Version matches in all 5 places
+        run: |
+          node -e '
+            const fs = require("fs");
+            const found = { "manifest.json": JSON.parse(fs.readFileSync("manifest.json", "utf8")).version };
+            for (const [file, name] of [["index.js", "VERSION"], ["vn.js", "VN_VERSION"], ["map.js", "MAP_VERSION"], ["opening.js", "OP_VERSION"]]) {
+              const m = fs.readFileSync(file, "utf8").match(new RegExp(`const ${name} = .([0-9.]+).;`));
+              found[file] = m ? m[1] : "(not found)";
+            }
+            for (const [file, v] of Object.entries(found)) console.log(`${file}: ${v}`);
+            if (new Set(Object.values(found)).size !== 1) {
+              console.log("::error::The version is not the same in all 5 places. Bump it in manifest.json, index.js, vn.js, map.js and opening.js.");
+              process.exit(1);
+            }
+          '

@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.4.0';
+  const OP_VERSION = '2.4.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -695,7 +695,7 @@
     };
     const vurl = q('#m_op_vurl');
     if (vurl && askVideoUrl) vurl.onclick = async () => {
-      const url = await askVideoUrl('Opening video');
+      const url = await askVideoUrl('Opening video', vurl);
       if (!url) return;
       const old = op().file;
       setOp('file', url);
@@ -703,9 +703,9 @@
       A.openMenu();
     };
     const clr = q('#m_op_clr');
-    if (clr) clr.onclick = () => {
+    if (clr) clr.onclick = async () => {
       const old = op().file;
-      if (!old || !confirm('Remove the opening video?')) return;
+      if (!old || !(await A.askYes(clr, 'Remove the opening video?', 'Remove', { danger: true }))) return;
       setOp('file', '');
       A.deleteFileIfUnused(old);
       A.openMenu();
@@ -717,7 +717,7 @@
     if (lup) lup.onclick = () => lfile.click();
     const lurl = q('#m_op_lurl');
     if (lurl) lurl.onclick = async () => {
-      const url = await askImageUrl('Logo');
+      const url = await askImageUrl('Logo', lurl);
       if (!url) return;
       const old = op().logoUrl;
       setOp('logoUrl', url);

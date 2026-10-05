@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.4.0';
+  const VERSION = '2.4.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1055,27 +1055,111 @@
     return uploadDataUrl(url, prefix);
   }
 
+  // ===== Questions in the menu =====
+  // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
+  // One question at a time. Without a button to show it under, SillyTavern's own popup asks instead.
+  function askBox(anchor, html) {
+    document.querySelectorAll('.ntr_ask').forEach((el) => el.remove());
+    // Below the button's whole row, not inside it, so a row of buttons keeps its layout.
+    let row = anchor;
+    const inRow = (el) => { const cs = getComputedStyle(el); return /flex|grid/.test(cs.display) && !cs.flexDirection.startsWith('column'); };
+    while (row.parentElement && inRow(row.parentElement)) row = row.parentElement;
+    const box = document.createElement('div');
+    box.className = 'ntr_tpanel ntr_ask';
+    box.innerHTML = html;
+    row.after(box);
+    return box;
+  }
+  const askBtns = (ok, danger) => `
+    <div class="cb_actions">
+      <button class="menu_button ntr_ask_ok${danger ? ' danger_button' : ''}">${ok}</button>
+      <button class="menu_button ntr_ask_cancel">Cancel</button>
+    </div>`;
+
+  // Resolves to true for the main button, false for Cancel.
+  function askYes(anchor, text, ok, { danger = false } = {}) {
+    if (!anchor) {
+      const c = ctx();
+      if (typeof c.callGenericPopup === 'function' && c.POPUP_TYPE) return c.callGenericPopup(escapeHTML(text), c.POPUP_TYPE.CONFIRM).then((r) => r === c.POPUP_RESULT?.AFFIRMATIVE || r === 1);
+      return Promise.resolve(confirm(text));
+    }
+    return new Promise((res) => {
+      const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`);
+      box.querySelector('.ntr_ask_ok').onclick = () => { box.remove(); res(true); };
+      box.querySelector('.ntr_ask_cancel').onclick = () => { box.remove(); res(false); };
+    });
+  }
+
+  // A text field. `check(text)` resolves to { value } to accept or { error } to show a red hint and keep asking.
+  // Resolves to the accepted value, or null on Cancel.
+  function askText(anchor, { label, value = '', ok = 'Add', check = (v) => ({ value: v }) }) {
+    if (!anchor) {
+      const c = ctx();
+      if (typeof c.callGenericPopup !== 'function' || !c.POPUP_TYPE) return Promise.resolve(null);
+      return c.callGenericPopup(escapeHTML(label), c.POPUP_TYPE.INPUT, value).then(async (raw) => {
+        if (typeof raw !== 'string') return null;
+        const r = await check(raw.trim());
+        if (r.error) { toastr.warning(r.error); return null; }
+        return r.value;
+      });
+    }
+    return new Promise((res) => {
+      const box = askBox(anchor, `
+        <label>${escapeHTML(label)} <input type="text" class="text_pole ntr_ask_input" value="${escapeHTML(value)}"></label>
+        <div class="ntr_terr"></div>
+        ${askBtns(ok, false)}`);
+      const input = box.querySelector('.ntr_ask_input');
+      const err = box.querySelector('.ntr_terr');
+      const okBtn = box.querySelector('.ntr_ask_ok');
+      const done = async () => {
+        if (okBtn.disabled) return;
+        okBtn.disabled = true;
+        okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        const r = await check(input.value.trim());
+        okBtn.disabled = false;
+        okBtn.innerHTML = ok;
+        if (r.error) { err.textContent = r.error; input.focus(); return; }
+        box.remove();
+        res(r.value);
+      };
+      const cancel = () => { box.remove(); res(null); };
+      input.oninput = () => { err.textContent = ''; };
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); done(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+      };
+      okBtn.onclick = done;
+      box.querySelector('.ntr_ask_cancel').onclick = cancel;
+      input.focus();
+      input.select();
+    });
+  }
+
   // Videos (mp4 or webm) are sent as they are. Resolves to the file's path, or '' if it isn't an mp4 or webm, or it's
   // very big and the person cancels. `btn` shows a spinner while it uploads.
   async function uploadVideo(f, prefix, title, btn) {
     let ext = (f.name.split('.').pop() || '').toLowerCase();
     if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
     if (!ext) { toastr.warning('Use an mp4 or webm video.', title); return ''; }
-    if (f.size > 100 * 1024 * 1024 && !confirm(`This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`)) return '';
+    if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
     const data = String(await readDataURL(f));
     return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
   }
 
-  // Ask for an image link instead of an upload. Resolves to a checked http(s) URL, or '' if cancelled or unusable.
-  async function askImageUrl(label = 'Image') {
-    const raw = prompt(`${label}: paste an image link (https://...)`);
-    if (raw === null) return '';
-    const u = cUrl(raw);
-    if (!/^https?:\/\//i.test(u)) { toastr.warning('Paste a full link that starts with http:// or https://', 'Image link'); return ''; }
-    try { await loadImg(u); } catch (e) { toastr.error('That link did not load as an image. Check it and try again.', 'Image link'); return ''; }
-    return u;
-  }
+  // Ask for a link instead of an upload, under `anchor` (the Link button). Resolves to a checked http(s) URL that
+  // loaded, or '' if cancelled.
+  const askUrl = (anchor, label, load, failMsg) => askText(anchor, {
+    label,
+    check: async (raw) => {
+      const u = cUrl(raw);
+      if (!/^https?:\/\//i.test(u)) return { error: 'Paste a full link that starts with http:// or https://' };
+      try { await load(u); } catch (e) { return { error: failMsg }; }
+      return { value: u };
+    },
+  }).then((u) => u || '');
+  const askImageUrl = (label = 'Image', anchor = null) => askUrl(anchor, `${label}: paste an image link (https://...)`, loadImg,
+    'That link did not load as an image. Check it and try again.');
 
   // Ask for a video link (mp4 or webm).
   const loadVideo = (u) => new Promise((res, rej) => {
@@ -1088,14 +1172,8 @@
     v.onerror = () => done(false);
     v.src = u;
   });
-  async function askVideoUrl(label = 'Video') {
-    const raw = prompt(`${label}: paste a link to an mp4 or webm video (https://...)`);
-    if (raw === null) return '';
-    const u = cUrl(raw);
-    if (!/^https?:\/\//i.test(u)) { toastr.warning('Paste a full link that starts with http:// or https://', 'Video link'); return ''; }
-    try { await loadVideo(u); } catch (e) { toastr.error('That link did not load as a video. Use a direct link to an mp4 or webm file.', 'Video link'); return ''; }
-    return u;
-  }
+  const askVideoUrl = (label = 'Video', anchor = null) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
+    'That link did not load as a video. Use a direct link to an mp4 or webm file.');
 
   async function addFiles(files) {
     const key = currentKey();
@@ -1116,11 +1194,11 @@
     if (added) toastr.success(`Added ${added} of ${files.length}. Total: ${r.images.length}`, 'Banner');
   }
 
-  async function removeCurrentBanner() {
+  async function removeCurrentBanner(anchor) {
     const key = currentKey();
     const r = bannerSrc(key ? peek(key) : null);
     const im = r.images[r.idx];
-    if (!im || !confirm('Remove this scenic banner image?')) return;
+    if (!im || !(await askYes(anchor, 'Remove this scenic banner image?', 'Remove', { danger: true }))) return;
     r.images.splice(r.idx, 1);
     r.idx = Math.max(0, Math.min(r.idx, r.images.length - 1));
     save();
@@ -1468,11 +1546,11 @@
       }
     };
     overlay.querySelector('#m_b_vurl').onclick = async () => {
-      const url = await askVideoUrl('Banner video');
+      const url = await askVideoUrl('Banner video', overlay.querySelector('#m_b_vurl'));
       if (url) setVideo(url);
     };
-    overlay.querySelector('#m_b_vdel').onclick = () => {
-      if (!src.video || !confirm('Remove the banner video?')) return;
+    overlay.querySelector('#m_b_vdel').onclick = async function() {
+      if (!src.video || !(await askYes(this, 'Remove the banner video?', 'Remove', { danger: true }))) return;
       setVideo('');
     };
     const vp = overlay.querySelector('#m_b_vp');
@@ -1522,7 +1600,7 @@
     overlay.querySelectorAll('.m_f_url').forEach(btn => {
       btn.onclick = async () => {
         const pos = btn.dataset.pos;
-        const url = await askImageUrl(`${pos} foreground image`);
+        const url = await askImageUrl(`${pos} foreground image`, btn);
         if (!url) return;
         const old = F[pos];
         F[pos] = url;
@@ -1591,14 +1669,14 @@
     const fi = overlay.querySelector('#m_b_file');
     overlay.querySelector('#m_b_up').onclick = () => fi.click();
     overlay.querySelector('#m_b_url').onclick = async () => {
-      const url = await askImageUrl('Banner image');
+      const url = await askImageUrl('Banner image', overlay.querySelector('#m_b_url'));
       if (!url) return;
       src.images.push({ url, pos: 45 });
       src.idx = src.images.length - 1;
       save(); updateBanner(); openCombinedModal();
     };
     fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openCombinedModal(); }};
-    if (n) overlay.querySelector('#m_b_del').onclick = async () => { await removeCurrentBanner(); openCombinedModal(); };
+    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openCombinedModal(); };
     if (n > 0) {
       overlay.querySelector('#m_b_prev').onclick = () => step(-1);
       overlay.querySelector('#m_b_next').onclick = () => step(1);
@@ -1656,8 +1734,8 @@
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); updateAvatarStyle(); });
 
-      overlay.querySelector(`#m_${prefix}_reset`).onclick = () => {
-        if (!confirm(`Reset all ${label} avatar settings to defaults? (Style stays as it is.)`)) return;
+      overlay.querySelector(`#m_${prefix}_reset`).onclick = async function() {
+        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults? (Style stays as it is.)`, 'Reset'))) return;
         for (const k of Object.keys(DEFAULTS)) {
           if (k.startsWith(prefix) && k !== `${prefix}Style` && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
         }
@@ -2647,49 +2725,14 @@
     const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };
     const shown = () => { sel.value = active() ? s.themeActive : ''; };
 
-    // Names and questions are asked right here in the menu: the browser's own boxes can't be styled and freeze the page.
-    const closePanel = () => { panel.innerHTML = ''; };
-    const ask = (html, okLabel, onOk, { danger = false, onCancel = null } = {}) => {
-      panel.innerHTML = `
-        <div class="ntr_tpanel">
-          <div>${html}</div>
-          <div class="cb_actions">
-            <button class="menu_button${danger ? ' danger_button' : ''}" id="m_t_ok">${okLabel}</button>
-            <button class="menu_button" id="m_t_cancel">Cancel</button>
-          </div>
-        </div>`;
-      panel.querySelector('#m_t_ok').onclick = () => { closePanel(); onOk(); };
-      panel.querySelector('#m_t_cancel').onclick = () => { closePanel(); if (onCancel) onCancel(); };
-    };
-    const askName = (value, onSave, self = null) => {
-      panel.innerHTML = `
-        <div class="ntr_tpanel">
-          <label>Theme name <input type="text" id="m_t_name" class="text_pole" maxlength="100" value="${escapeHTML(value)}"></label>
-          <div class="ntr_terr" id="m_t_err"></div>
-          <div class="cb_actions">
-            <button class="menu_button" id="m_t_ok"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-            <button class="menu_button" id="m_t_cancel">Cancel</button>
-          </div>
-        </div>`;
-      const input = panel.querySelector('#m_t_name');
-      const err = panel.querySelector('#m_t_err');
-      const done = () => {
-        const name = input.value.trim();
-        if (!name) err.textContent = 'Type a name first.';
-        else if (nameTaken(name, self)) err.textContent = 'A theme with that name already exists.';
-        else { closePanel(); onSave(name); return; }
-        input.focus();
-      };
-      input.oninput = () => { err.textContent = ''; };
-      input.onkeydown = (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); done(); }
-        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePanel(); }
-      };
-      panel.querySelector('#m_t_ok').onclick = done;
-      panel.querySelector('#m_t_cancel').onclick = closePanel;
-      input.focus();
-      input.select();
-    };
+    const tbar = overlay.querySelector('.ntr_tbar');
+    const askName = (value, self = null) => askText(tbar, {
+      label: 'Theme name',
+      value,
+      ok: '<i class="fa-solid fa-floppy-disk"></i> Save',
+      check: (name) => (!name ? { error: 'Type a name first.' }
+        : nameTaken(name, self) ? { error: 'A theme with that name already exists.' } : { value: name }),
+    });
 
     const resetLook = () => {
       const oldRefs = collectFileRefs(lookSnapshot());
@@ -2701,65 +2744,62 @@
       oldRefs.forEach((p) => deleteFileIfUnused(p));
       openCombinedModal();
     };
-    const saveNew = () => askName(`Theme ${s.themes.length + 1}`, (name) => {
+    const saveNew = async () => {
+      const name = await askName(`Theme ${s.themes.length + 1}`);
+      if (!name) return;
       const t = { id: newId('th'), name, data: lookSnapshot() };
       s.themes.push(t);
       s.themeActive = t.id;
       save();
       openCombinedModal();
       toastr.success(`Saved "${name}"`, 'Themes');
-    });
+    };
 
-    sel.onchange = () => {
+    sel.onchange = async () => {
       const t = s.themes.find((x) => x.id === sel.value);
-      if (!t) {
-        if (unsaved()) ask('Your current look isn\'t saved as a theme. Go back to the default look?', 'Reset', resetLook, { onCancel: shown });
-        else resetLook();
-        return;
-      }
-      const apply = () => { s.themeActive = t.id; applyLook(t.data); openCombinedModal(); };
-      if (unsaved()) ask(`Your current look isn't saved as a theme and will be replaced. Apply "${escapeHTML(t.name)}" anyway?`, 'Apply', apply, { onCancel: shown });
-      else apply();
+      const q = t ? `Your current look isn't saved as a theme and will be replaced. Apply "${t.name}" anyway?`
+        : 'Your current look isn\'t saved as a theme. Go back to the default look?';
+      if (unsaved() && !(await askYes(tbar, q, t ? 'Apply' : 'Reset'))) { shown(); return; }
+      if (!t) { resetLook(); return; }
+      s.themeActive = t.id;
+      applyLook(t.data);
+      openCombinedModal();
     };
 
     overlay.querySelector('#m_t_new').onclick = saveNew;
 
     // None can't be overwritten, so saving over it makes a new theme.
-    overlay.querySelector('#m_t_upd').onclick = () => {
+    overlay.querySelector('#m_t_upd').onclick = async () => {
       const t = active();
       if (!t) { saveNew(); return; }
-      ask(`Save your current look over "${escapeHTML(t.name)}"?`, 'Save', () => {
-        const oldRefs = collectFileRefs(t.data);
-        t.data = lookSnapshot();
-        save();
-        oldRefs.forEach((p) => deleteFileIfUnused(p));
-        openCombinedModal();
-        toastr.success(`Updated "${t.name}"`, 'Themes');
-      });
+      if (!(await askYes(tbar, `Save your current look over "${t.name}"?`, 'Save'))) return;
+      const oldRefs = collectFileRefs(t.data);
+      t.data = lookSnapshot();
+      save();
+      oldRefs.forEach((p) => deleteFileIfUnused(p));
+      openCombinedModal();
+      toastr.success(`Updated "${t.name}"`, 'Themes');
     };
 
-    overlay.querySelector('#m_t_ren').onclick = () => {
+    overlay.querySelector('#m_t_ren').onclick = async () => {
       const t = need();
       if (!t) return;
-      askName(t.name, (name) => {
-        if (name === t.name) return;
-        t.name = name;
-        save();
-        openCombinedModal();
-      }, t);
+      const name = await askName(t.name, t);
+      if (!name || name === t.name) return;
+      t.name = name;
+      save();
+      openCombinedModal();
     };
 
-    overlay.querySelector('#m_t_del').onclick = () => {
+    overlay.querySelector('#m_t_del').onclick = async () => {
       const t = need();
-      if (!t) return;
-      ask(`Delete the theme "${escapeHTML(t.name)}"? Your current look stays as it is.`, 'Delete', () => {
-        const refs = collectFileRefs(t.data);
-        s.themes = s.themes.filter((x) => x !== t);
-        s.themeActive = null;
-        save();
-        refs.forEach((p) => deleteFileIfUnused(p));
-        openCombinedModal();
-      }, { danger: true });
+      if (!t || !(await askYes(tbar, `Delete the theme "${t.name}"? Your current look stays as it is.`, 'Delete', { danger: true }))) return;
+      const refs = collectFileRefs(t.data);
+      s.themes = s.themes.filter((x) => x !== t);
+      s.themeActive = null;
+      save();
+      refs.forEach((p) => deleteFileIfUnused(p));
+      openCombinedModal();
     };
 
     overlay.querySelector('#m_t_exp').onclick = () => {
@@ -3154,7 +3194,7 @@
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
-    loadModule, moduleError: (name) => modError[name] || '', removeData, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId,
+    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

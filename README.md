@@ -18,7 +18,7 @@ Nitwit Tavern Redesign is a SillyTavern extension that changes how chats look. I
 
 ### `[ 02 ]` STYLING
 
-It styles the AI and user profile pictures separately, as a faded backdrop behind the message text or as a pop-out image that can be placed anywhere on screen. It also adds foreground images, UI Display settings for SillyTavern's chat look, and themes that can be saved, imported and exported.
+It styles the AI and user profile pictures separately, as a faded backdrop behind the message text or as a pop-out image that can be placed anywhere on screen. It also adds foreground images, UI Display settings for SillyTavern's chat look and scrollbars, and themes that can be saved, imported and exported.
 
 ---
 

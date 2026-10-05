@@ -118,6 +118,10 @@
   font-size: 0.85em;
 }
 
+.ntr_tsel { width: 100%; margin: 8px 0 0; }
+.ntr_terr { color: var(--warning, #e57373); font-size: 0.85em; }
+.ntr_terr:empty { display: none; }
+.ntr_dbtn { width: fit-content; white-space: nowrap; margin: 8px 0; }
 .ntr_tbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ntr_tbar .menu_button { margin: 0; padding: 5px 10px; }
 .ntr_tpanel {

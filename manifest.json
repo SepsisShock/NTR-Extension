@@ -5,7 +5,8 @@
   "optional": [],
   "js": "index.js",
   "css": "style.css",
+  "hooks": { "clean": "onClean" },
   "author": "SepsisShock",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Header banners, avatar styling, reasoning block and text styling, foreground images, display overrides, themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos."
 }

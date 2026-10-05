@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.6.0';
+  const VERSION = '2.6.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -646,13 +646,6 @@
     return ch?.avatar || null;
   }
 
-  function currentCharacterName() {
-    const c = ctx();
-    if (c.groupId) return 'Group Chat';
-    const ch = c.characters?.[c.characterId];
-    return ch?.name || 'Current Character';
-  }
-
   const peek = (key) => {
     const s = settings();
     const d = cardData(key);
@@ -874,7 +867,6 @@
   }
 
   function updateBanner() {
-    const s = settings();
     const key = currentKey();
     if (!banner) return;
     if (key !== rot.key) { rot.key = key; rot.idx = null; stopRotation(); }
@@ -1065,8 +1057,9 @@
   // ===== Questions in the menu =====
   // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
   // One question at a time. Without a button to show it under, SillyTavern's own popup asks instead.
-  function askBox(anchor, html) {
-    document.querySelectorAll('.ntr_ask').forEach((el) => el.remove());
+  // A new question closes the open one as if Cancel was pressed, so code waiting on it never hangs.
+  function askBox(anchor, html, cancel) {
+    document.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
     // Below the button's whole row, not inside it, so a row of buttons keeps its layout.
     let row = anchor;
     const inRow = (el) => { const cs = getComputedStyle(el); return /flex|grid/.test(cs.display) && !cs.flexDirection.startsWith('column'); };
@@ -1074,6 +1067,7 @@
     const box = document.createElement('div');
     box.className = 'ntr_tpanel ntr_ask';
     box.innerHTML = html;
+    box.ntrCancel = cancel;
     row.after(box);
     return box;
   }
@@ -1091,9 +1085,10 @@
       return Promise.resolve(confirm(text));
     }
     return new Promise((res) => {
-      const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`);
+      const cancel = () => { box.remove(); res(false); };
+      const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`, cancel);
       box.querySelector('.ntr_ask_ok').onclick = () => { box.remove(); res(true); };
-      box.querySelector('.ntr_ask_cancel').onclick = () => { box.remove(); res(false); };
+      box.querySelector('.ntr_ask_cancel').onclick = cancel;
     });
   }
 
@@ -1111,10 +1106,11 @@
       });
     }
     return new Promise((res) => {
+      const cancel = () => { box.remove(); res(null); };
       const box = askBox(anchor, `
         <label>${escapeHTML(label)} <input type="text" class="text_pole ntr_ask_input" value="${escapeHTML(value)}"></label>
         <div class="ntr_terr"></div>
-        ${askBtns(ok, false)}`);
+        ${askBtns(ok, false)}`, cancel);
       const input = box.querySelector('.ntr_ask_input');
       const err = box.querySelector('.ntr_terr');
       const okBtn = box.querySelector('.ntr_ask_ok');
@@ -1129,7 +1125,6 @@
         box.remove();
         res(r.value);
       };
-      const cancel = () => { box.remove(); res(null); };
       input.oninput = () => { err.textContent = ''; };
       input.onkeydown = (e) => {
         if (e.key === 'Enter') { e.preventDefault(); done(); }
@@ -1641,6 +1636,7 @@
     fgFile.onchange = async () => {
       if (!fgFile.files.length || !pendingFgPos) return;
       const f = fgFile.files[0];
+      fgFile.value = ''; // so the same file can be picked again after a failed upload
       const pos = pendingFgPos;
       try {
         const url = await uploadImage(f, `fg_${pos.toLowerCase()}`);
@@ -1653,7 +1649,7 @@
         openCombinedModal();
       } catch (e) {
         console.error('[NTR fg upload]', e);
-        toastr.error('Foreground upload failed', 'Error');
+        toastr.error(e.message || 'Foreground upload failed', 'Foreground');
       }
     };
 
@@ -2087,10 +2083,14 @@
     document.querySelectorAll('#chat .mes_reasoning_header_title').forEach((el) => {
       const want = rbLabelFor(el, s);
       if (want === null) {
-        if (el.dataset.ntrSt !== undefined) { el.textContent = el.dataset.ntrSt; delete el.dataset.ntrSt; }
+        if (el.dataset.ntrSt !== undefined) { el.textContent = el.dataset.ntrSt; delete el.dataset.ntrSt; delete el.dataset.ntrOwn; }
         return;
       }
-      if (el.textContent !== want) { el.dataset.ntrSt = el.textContent; el.textContent = want; }
+      if (el.textContent === want) return;
+      // Text NTR wrote itself isn't ST's, so changing a label twice still brings back ST's own text later.
+      if (el.dataset.ntrSt === undefined || el.textContent !== el.dataset.ntrOwn) el.dataset.ntrSt = el.textContent;
+      el.textContent = want;
+      el.dataset.ntrOwn = want;
     });
   }
   let rbObs = null, rbQueued = false;
@@ -2552,7 +2552,9 @@
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
   const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
-  const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) }).catch(() => {});
+  // Resolves to true if the file was deleted. Never throws.
+  const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
+    .then((res) => res.ok).catch(() => false);
 
   // ===== Removing NTR data =====
   // `look`: settings and themes (the whole extension settings). `chars`: the NTR data in every character card, plus the
@@ -2599,12 +2601,7 @@
     if (!p || !OWN_FILE.test(p) || filesInUse().has(p)) return false;
     // With SillyTavern's lazy loading on, cards that haven't been opened yet aren't loaded, so their files can't be checked: keep the file.
     if ((ctx().characters || []).some((c) => c && c.shallow)) return false;
-    try {
-      const res = await fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) });
-      return res.ok;
-    } catch (e) {
-      return false;
-    }
+    return deleteFile(p);
   }
 
   // ===== Themes =====
@@ -2760,7 +2757,7 @@
       <div class="cb_section">
         ${secHead('themes', 'fa-palette', 'Themes')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Pfp styling, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
+          <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
           <div class="ntr_tbar">
             ${b('m_t_new', 'fa-plus', 'Save current look as a new theme')}
@@ -3306,7 +3303,15 @@
     const { eventSource, event_types } = ctx();
     injectExtensionMenuButton();
     registerSlashCommand();
-    window.addEventListener('resize', () => syncWallpaper());
+    window.addEventListener('resize', () => {
+      syncWallpaper();
+      layoutFg();
+      const ov = document.getElementById('cb_modal_overlay');
+      if (!ov) return;
+      panelLayout(ov);
+      const g = ov.querySelector('#m_b_guide');
+      if (g) g.textContent = bannerGuideText();
+    });
     eventSource.on(event_types.CHAT_CHANGED, () => {
       renderAll();
       window.NTR.vn?.queue(false);
@@ -3316,14 +3321,6 @@
     for (const [name, anim] of [['CHARACTER_MESSAGE_RENDERED', true], ['USER_MESSAGE_RENDERED', true], ['MESSAGE_SWIPED', true], ['MESSAGE_EDITED', false], ['MESSAGE_UPDATED', false], ['MESSAGE_DELETED', false]]) {
       if (event_types[name]) eventSource.on(event_types[name], () => window.NTR.vn?.queue(anim));
     }
-    window.addEventListener('resize', layoutFg);
-    window.addEventListener('resize', () => {
-      const ov = document.getElementById('cb_modal_overlay');
-      if (!ov) return;
-      panelLayout(ov);
-      const g = ov.querySelector('#m_b_guide');
-      if (g) g.textContent = bannerGuideText();
-    });
     if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); });
 
     const chat = document.getElementById('chat');

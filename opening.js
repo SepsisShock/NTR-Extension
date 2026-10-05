@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.6.0';
+  const OP_VERSION = '2.6.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -25,12 +25,10 @@
     #ntr_open .ntr_op_media video { width: 100%; height: 100%; object-fit: cover; display: block; }
     #ntr_open .ntr_op_media iframe { position: absolute; left: 50%; top: 50%; width: max(100vw, 177.78vh); height: max(100vh, 56.25vw); transform: translate(-50%, -50%); border: 0; pointer-events: none; }
     #ntr_open .ntr_op_catch { position: absolute; inset: 0; cursor: pointer; }
-    #ntr_open .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
-    #ntr_open .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    #ntr_open .ntr_op_logo, .ntr_op_pin .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
+    #ntr_open .ntr_op_logo.ntr_in, .ntr_op_pin .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     .ntr_op_pin { position: fixed; inset: 0; z-index: 2601; pointer-events: none; overflow: hidden; transition: opacity .4s ease; }
     .ntr_op_pin.ntr_gone { opacity: 0; }
-    .ntr_op_pin .ntr_op_logo { position: absolute; left: 50%; transform: translate(-50%, -50%) scale(1.12); opacity: 0; max-height: 60vh; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 20px rgba(0,0,0,.6)); }
-    .ntr_op_pin .ntr_op_logo.ntr_in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     #ntr_open .ntr_op_bar { position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; z-index: 2; }
     #ntr_open .ntr_op_small { cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.5); color: #fff; font-size: 13px; opacity: .8; }
     #ntr_open .ntr_op_small:hover { opacity: 1; }
@@ -208,10 +206,10 @@
   function startVideo() {
     const st = cur;
     setPhase('video');
-    const media = document.createElement('div');
-    media.className = 'ntr_op_media';
-    st.media = media;
-    st.root.appendChild(media);
+    const box = document.createElement('div');
+    box.className = 'ntr_op_media';
+    st.media = box;
+    st.root.appendChild(box);
     if (st.pin) document.body.appendChild(st.pin);
     else if (st.logo) st.root.appendChild(st.logo);
 

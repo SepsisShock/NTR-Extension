@@ -91,6 +91,11 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 
 Finished items, newest first.
 
+### Safer theme files
+- [x] Themes get the same kind of checks as character cards when they're imported or applied: every number is kept to the range of its slider (a banner height of 99999 becomes 350), and every pick-one setting has to be one of the menu's choices, or it's left out.
+- [x] Text is limited to what the menu's boxes allow (16 characters for tag symbols and keywords), and the emotions list needs unique names and ids, up to 100 emotions. A list that breaks these is left out, so your own emotions stay.
+- [x] Themes already saved keep working; they're checked when applied.
+
 ### Quicker ways to open the menu
 - [x] New **Wand Menu** section above Data that doesn't expand, with a switch that adds Nitwit Tavern Redesign to SillyTavern's wand menu next to the chat box. Off by default. New settings key `wandEntry`, not saved in themes.
 - [x] `/ntr` (or `/NTR`) typed in the chat box opens the menu.

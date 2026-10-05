@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.6.1';
+  const VERSION = '2.6.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1793,9 +1793,9 @@
   function pills(name, opts, cur) {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
+  const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
   function posGrid(name, cur) {
-    const P = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
-    return `<div class="cb_posgrid">${P.map(([v, l]) => `<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
+    return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
   }
   function onPills(root, name, fn) {
     root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
@@ -1938,6 +1938,15 @@
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
   const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
+  // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
+  Object.assign(PICK_KEYS, {
+    bannerBackdrop: ['wallpaper', 'panel'], ovChatStyle: Object.keys(CHAT_CLS), ovAvatar: Object.keys(AV_CLS),
+    nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
+    opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
+  });
+  for (const p of ['ai', 'us']) {
+    Object.assign(PICK_KEYS, { [p + 'Style']: ['backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'] });
+  }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
     rbColor: '--reasoning-body-color', rbEm: '--SmartThemeEmColor', rbBorder: '--reasoning-body-color', tfNameColor: '--SmartThemeBodyColor',
@@ -2634,6 +2643,38 @@
 
   const NONEMPTY_KEYS = new Set(['narratorWord', 'locWord', 'choiceWord', 'choiceSep', 'effectWord', 'fxShake', 'fxFlash', 'fxFade', 'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'cgWord', 'enterWord', 'exitWord', 'mapGoText']);
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg']);
+  // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
+  // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
+  const NUM_RANGE = {
+    bannerHeight: [60, 350], bannerGap: [0, 40], bannerRotateSec: [3, 60], fgOpacity: [0, 100],
+    rbSize: [0.5, 2], rbSat: [0, 100], ovFont: [0.5, 2], tfNameSize: [0.5, 2], tfUserSize: [0.5, 2], tfAiSize: [0.5, 2],
+    ovWidth: [25, 100], ovBlur: [0, 30], ovShadow: [0, 5], ovScrollWidth: [4, 20],
+    nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
+    nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
+    opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
+  };
+  for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10];
+  for (const p of ['ai', 'us']) {
+    Object.assign(NUM_RANGE, {
+      [p + 'Scale']: [10, 300], [p + 'Pad']: [0, 400], [p + 'TopFade']: [0, 400], [p + 'BotFade']: [0, 400], [p + 'LeftFadePx']: [0, 400],
+      [p + 'RightFadePx']: [0, 400], [p + 'Blur']: [0, 20], [p + 'PopX']: [-10000, 10000], [p + 'PopY']: [-10000, 10000],
+      [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
+    });
+  }
+  // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
+  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, mapGoText: 200 };
+  const strMax = (k) => STR_MAX[k] ?? (k.startsWith('delim') || NONEMPTY_KEYS.has(k) ? 16 : 200);
+  function validEmotions(v) {
+    if (!Array.isArray(v) || !v.length || v.length > 100) return false;
+    const ids = new Set(), names = new Set();
+    for (const e of v) {
+      const name = e && typeof e.name === 'string' ? e.name.trim().toLowerCase() : '';
+      if (!e || !cRef(e.id) || !name || e.name.length > 100 || ids.has(e.id) || names.has(name)) return false;
+      ids.add(e.id);
+      names.add(name);
+    }
+    return true;
+  }
   function validLookValue(k, v) {
     const d = DEFAULTS[k];
     // Default art follows the rules for card images: an uploaded file, a web link or an embedded image.
@@ -2643,11 +2684,21 @@
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
     if (k === 'bannerGlobal') return isObj(v);
-    if (k === 'emotions') return Array.isArray(v) && v.length > 0 && v.every((e) => e && typeof e.id === 'string' && typeof e.name === 'string' && e.name.trim());
+    if (k === 'emotions') return validEmotions(v);
+    if (k === 'emoDefault') return !!cRef(v);
+    if (k === 'opTransColor') return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
     if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v);
     if (typeof d === 'boolean') return typeof v === 'boolean';
-    if (typeof d === 'string') return typeof v === 'string' && ((!k.startsWith('delim') && !NONEMPTY_KEYS.has(k)) || v.trim() !== '');
+    if (typeof d === 'string') return typeof v === 'string' && v.length <= strMax(k) && ((!k.startsWith('delim') && !NONEMPTY_KEYS.has(k)) || v.trim() !== '');
     return false;
+  }
+
+  // A theme's value as it gets saved or applied, or undefined to leave it out. Numbers outside their range are pulled in.
+  function lookValue(k, v) {
+    if (!validLookValue(k, v)) return undefined;
+    if (NUM_RANGE[k]) return Math.min(NUM_RANGE[k][1], Math.max(NUM_RANGE[k][0], v));
+    if (k === 'emotions') return v.map((e) => ({ id: e.id, name: e.name.trim() }));
+    return structuredClone(v);
   }
 
   // Overall Font Scale moved from a theme's UI Display part to Text Formatting; themes saved or exported before keep it under display.
@@ -2665,7 +2716,10 @@
   function cleanLookSection(sec, part) {
     const out = {};
     if (!part || typeof part !== 'object') return out;
-    for (const k of LOOK[sec].keys) if (k in part && validLookValue(k, part[k])) out[k] = structuredClone(part[k]);
+    for (const k of LOOK[sec].keys) {
+      const v = k in part ? lookValue(k, part[k]) : undefined;
+      if (v !== undefined) out[k] = v;
+    }
     // The Global banner's images and links get the same checks as a card's banner.
     if (out.bannerGlobal) out.bannerGlobal = cleanBannerSrc(out.bannerGlobal);
     if (sec === 'pfp') {

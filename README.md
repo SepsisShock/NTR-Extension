@@ -3,7 +3,6 @@
 <div align="center">
 
 <img src="logo.svg" width="120" alt="Nitwit Tavern Redesign logo">
-
 # NITWIT TAVERN REDESIGN
 
 `SillyTavern Extension`

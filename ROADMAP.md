@@ -45,6 +45,9 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Screen height changes when the address bar shows or hides.
 - [ ] Notch and home bar areas on iPhone.
 
+### Menu Icons
+- [ ] Redo the icons on the title headers in the menu.
+
 ### Typewriter effect with streaming
 - [ ] Visual Novel Mode's typewriter effect with streaming turned on in SillyTavern may cause problems. Not confirmed yet.
 

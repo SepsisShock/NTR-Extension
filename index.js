@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.6.4';
+  const VERSION = '2.7.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -79,6 +79,7 @@
     ovChatStyleOn: false, ovChatStyle: 'bubbles', ovAvatarOn: false, ovAvatar: 'round',
     ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
     ovScrollWidthOn: false, ovScrollWidth: 11, ovScrollShapeOn: false, ovScrollShape: 'pill',
+    ovCursorOn: false, ovCursorImg: '', ovCursorSpot: 'tl', ovCursorPtrImg: '', ovCursorPtrSpot: 'tc', ovCursorSize: 32,
 
     // Menu state
     uiOpen: { banner: true },
@@ -600,9 +601,18 @@
       .cb_posgrid label:hover { background: rgba(255,255,255,.08); }
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
+      .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
+      .cb_cur_row { display: flex; align-items: center; gap: 6px; }
+      .cb_cur_row .menu_button { margin: 0; padding: 4px 8px; }
+      .cb_cur_prev { width: 40px; height: 40px; flex: none; border-radius: 8px; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+      .cb_cur_prev img { max-width: 32px; max-height: 32px; }
+      .cb_cur_prev i { opacity: .35; }
+      .cb_cur_name { flex: 1; min-width: 0; }
+      .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
 
-    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + textFormatCss(s);
+    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + textFormatCss(s);
+    else cursorKinds = {};
 
     if (isOn() && s.ovEnabled && s.chatTransparent) {
       cssString += `
@@ -1894,6 +1904,70 @@
     return css ? css + '\n' : '';
   }
 
+  // Custom cursor. A CSS cursor shows its picture at the picture's own size, so each one is redrawn at the Size setting
+  // first. Until that's ready, the last size drawn (or the system cursor) shows. A link from a site that doesn't allow
+  // redrawing is used as it is.
+  const cursorCache = new Map();
+  const cursorLast = new Map();
+  function cursorImg(src, size) {
+    const key = `${size}|${src}`;
+    if (cursorCache.has(key)) return cursorCache.get(key) || cursorLast.get(src) || null;
+    if (cursorCache.size > 60) cursorCache.clear();
+    cursorCache.set(key, null);
+    const done = (c) => { cursorCache.set(key, c); cursorLast.set(src, c); updateAvatarStyle(); };
+    const draw = (i) => {
+      const k = size / Math.max(i.width, i.height);
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(i.width * k)); c.height = Math.max(1, Math.round(i.height * k));
+      c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
+      done({ url: c.toDataURL('image/png'), w: c.width, h: c.height });
+    };
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = () => { try { draw(i); } catch (e) { loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}); } };
+    i.onerror = () => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {});
+    i.src = src;
+    return cursorLast.get(src) || null;
+  }
+  const cursorSpot = (spot, w, h) => {
+    const at = (c, n) => (c === 'l' || c === 't' ? 0 : c === 'c' ? Math.round(n / 2) : n - 1);
+    return [at(spot[1], w), at(spot[0], h)];
+  };
+  // Which cursors have a picture right now, for onCursorOver.
+  let cursorKinds = {};
+  function cursorCss(s) {
+    cursorKinds = {};
+    if (!s.ovEnabled || !s.ovCursorOn) return '';
+    const size = Math.min(128, Math.max(16, Number(s.ovCursorSize) || 32));
+    const one = (src, spot, fallback) => {
+      const u = cUrl(src);
+      const c = u && cursorImg(u, size);
+      if (!c) return '';
+      const [x, y] = cursorSpot(POS_GRID.some(([v]) => v === spot) ? spot : 'tl', c.w, c.h);
+      return `url("${c.url}") ${x} ${y}, ${fallback}`;
+    };
+    const normal = one(s.ovCursorImg, s.ovCursorSpot, 'auto');
+    const ptr = one(s.ovCursorPtrImg, s.ovCursorPtrSpot, 'pointer');
+    cursorKinds = { normal: !!normal, ptr: !!ptr };
+    let css = '';
+    // Everything takes the Normal cursor from the page, except what has its own: SillyTavern's hand, resize edges and so on.
+    // Typing boxes keep the text cursor.
+    if (normal) css += `\n      html, body { cursor: ${normal}; }\n      :where(textarea, input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], [contenteditable="true"]) { cursor: text; }\n      [data-ntr-cur="normal"] { cursor: ${normal} !important; }`;
+    if (ptr) css += `\n      [data-ntr-cur="ptr"] { cursor: ${ptr} !important; }`;
+    return css ? css + '\n' : '';
+  }
+  // SillyTavern gives the hand to many kinds of things, too many to list. So the thing under the mouse is checked as the
+  // mouse moves onto it: if its own cursor is the hand (or the plain arrow), it's marked to get the custom one instead.
+  let cursorEl = null;
+  function onCursorOver(e) {
+    if (cursorEl) { cursorEl.removeAttribute('data-ntr-cur'); cursorEl = null; }
+    const t = e.target;
+    if (!(t instanceof Element) || (!cursorKinds.normal && !cursorKinds.ptr)) return;
+    const c = getComputedStyle(t).cursor;
+    const kind = c === 'pointer' && cursorKinds.ptr ? 'ptr' : c === 'default' && cursorKinds.normal ? 'normal' : '';
+    if (kind) { t.setAttribute('data-ntr-cur', kind); cursorEl = t; }
+  }
+
   // Override rows: a checkbox in front of each setting; unticked means SillyTavern's own value applies.
   function ovRow(s, onKey, label, inner) {
     return `
@@ -1936,7 +2010,8 @@
   const FX_PARTS = ['rb', 'tfName', 'tfUser', 'tfAi'];
   const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'glow'];
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS) };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
+    ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
@@ -2231,6 +2306,22 @@
     cssBox.onchange = save;
   }
 
+  // One cursor picture: preview, Upload / Link / Remove, and the click point on the 3x3 grid.
+  function cursorSlot(k, spotKey, label, hint, icon, s) {
+    return `
+      <div class="cb_cur_slot">
+        <div class="cb_cur_row">
+          <div class="cb_cur_prev" id="m_cur_prev_${k}" data-icon="${icon}"></div>
+          <span class="cb_cur_name">${label}<small>${hint}</small></span>
+          <button class="menu_button m_cur_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
+          <button class="menu_button m_cur_url" data-k="${k}" data-label="${label} cursor" title="Use a link"><i class="fa-solid fa-link"></i></button>
+          <button class="menu_button m_cur_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button>
+        </div>
+        <div class="cb_hint" style="margin-top:6px;">Click point: the spot of the picture that clicks.</div>
+        ${posGrid('o' + spotKey, s[spotKey])}
+      </div>`;
+  }
+
   function displaySectionHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
@@ -2255,6 +2346,15 @@
             ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar. SillyTavern leaves it see-through.</div>')}
             ${row('ovScrollWidthOn', 'Scrollbar Width', sl('ovScrollWidth', 'px', 4, 20, 1))}
             ${row('ovScrollShapeOn', 'Scrollbar Shape', pills('oscroll', [['pill', 'Pill', 'SillyTavern\'s default'], ['rounded', 'Rounded'], ['square', 'Square']], s.ovScrollShape))}
+          </div>
+          ${subHead('ov_cursor', 'Cursor')}
+          <div class="cb_collapse_content">
+            <div class="cb_hint">Your own pictures for the mouse cursor. Typing boxes keep the normal text cursor. Phones and tablets have no cursor.</div>
+            ${row('ovCursorOn', 'Custom Cursor', cursorSlot('ovCursorImg', 'ovCursorSpot', 'Normal', 'Everywhere else.', 'fa-arrow-pointer', s)
+              + cursorSlot('ovCursorPtrImg', 'ovCursorPtrSpot', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer', s)
+              + '<div class="cb_hint">Size</div>' + sl('ovCursorSize', 'px', 16, 128, 1)
+              + '<div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don\'t allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>'
+              + '<input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>')}
           </div>
           </div>
         </div>
@@ -2286,6 +2386,42 @@
     onPills(overlay, 'ochat', (v) => { s.ovChatStyle = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'oavatar', (v) => { s.ovAvatar = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'oscroll', (v) => { s.ovScrollShape = v; save(); updateAvatarStyle(); });
+
+    const curFile = overlay.querySelector('#m_cur_file');
+    let curPending = null;
+    const renderCursor = () => {
+      for (const k of ['ovCursorImg', 'ovCursorPtrImg']) {
+        const box = overlay.querySelector(`#m_cur_prev_${k}`);
+        box.innerHTML = s[k] ? `<img src="${escapeHTML(s[k])}" alt="">` : `<i class="fa-solid ${box.dataset.icon}"></i>`;
+        overlay.querySelector(`.m_cur_clr[data-k="${k}"]`).disabled = !s[k];
+      }
+    };
+    const setCursor = (k, url) => {
+      const old = s[k];
+      s[k] = url;
+      save(); updateAvatarStyle(); renderCursor();
+      deleteFileIfUnused(old);
+    };
+    overlay.querySelectorAll('.m_cur_up').forEach((b) => { b.onclick = () => { curPending = b.dataset.k; curFile.click(); }; });
+    overlay.querySelectorAll('.m_cur_url').forEach((b) => {
+      b.onclick = async () => {
+        const url = await askImageUrl(b.dataset.label, b);
+        if (url) setCursor(b.dataset.k, url);
+      };
+    });
+    overlay.querySelectorAll('.m_cur_clr').forEach((b) => { b.onclick = () => setCursor(b.dataset.k, ''); });
+    curFile.onchange = async () => {
+      if (!curFile.files.length || !curPending) return;
+      try {
+        setCursor(curPending, await uploadImage(curFile.files[0], 'cursor', { max: 128 }));
+      } catch (e) {
+        console.error('[NTR cursor upload]', e);
+        toastr.error(e.message || 'Upload failed', 'UI Display');
+      }
+      curFile.value = '';
+    };
+    for (const k of ['ovCursorSpot', 'ovCursorPtrSpot']) onPills(overlay, 'o' + k, (v) => { s[k] = v; save(); updateAvatarStyle(); });
+    renderCursor();
   }
 
   // ===== Per-character storage (kept inside the character card) =====
@@ -2560,7 +2696,7 @@
   }
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
-  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
   // Resolves to true if the file was deleted. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok).catch(() => false);
@@ -2666,13 +2802,13 @@
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
   const NUM_RANGE = {
     bannerHeight: [60, 350], bannerGap: [0, 40], bannerRotateSec: [3, 60], fgOpacity: [0, 100],
     rbSize: [0.5, 2], rbSat: [0, 100], ovFont: [0.5, 2], tfNameSize: [0.5, 2], tfUserSize: [0.5, 2], tfAiSize: [0.5, 2],
-    ovWidth: [25, 100], ovBlur: [0, 30], ovShadow: [0, 5], ovScrollWidth: [4, 20],
+    ovWidth: [25, 100], ovBlur: [0, 30], ovShadow: [0, 5], ovScrollWidth: [4, 20], ovCursorSize: [16, 128],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
@@ -2701,7 +2837,7 @@
   }
   function validLookValue(k, v) {
     const d = DEFAULTS[k];
-    // Default art follows the rules for card images: an uploaded file, a web link or an embedded image.
+    // Default art and cursors follow the rules for card images: an uploaded file, a web link or an embedded image.
     if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || (cUrl(v) === v && !v.startsWith('data:video/')));
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
     if (k === 'ovScrollTrack') return typeof v === 'string' && COLOR_RE.test(v);
@@ -3395,6 +3531,7 @@
     const { eventSource, event_types } = ctx();
     injectExtensionMenuButton();
     registerSlashCommand();
+    document.addEventListener('pointerover', onCursorOver, true);
     window.addEventListener('resize', () => {
       syncWallpaper();
       layoutFg();

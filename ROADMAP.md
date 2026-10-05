@@ -83,6 +83,13 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 
 Finished items, newest first.
 
+### Theme bar and removing NTR data
+- [x] Themes are picked from a dropdown that's there from the first install. Its first entry, **None (default look)**, can't be renamed or deleted; picking it resets the look to the defaults. The separate Reset button is gone.
+- [x] Naming, renaming, deleting, saving over and applying themes ask right in the menu instead of in browser popups. A taken or empty name shows a red hint before anything is saved.
+- [x] Themes now hold the Global banner rotation (in Banner look) and the Global banner itself (images, YouTube link, video) as its own section. Older theme files leave both as they are.
+- [x] SillyTavern's "Also clean up extension data" option when deleting the extension (the manifest's `clean` hook): removes settings, themes and the uploaded files no character card still uses. Character cards stay as they are.
+- [x] New **Data** section at the bottom of the menu with **Remove NTR data**: settings and themes, and/or uploaded files and the NTR data in every character card. Asks first, then reloads the page.
+
 ### Shared Global banner
 - [x] Global has its own banner: an image gallery (each image with its own Crop), a YouTube link and a video, shown on every character set to Global. Saved under a new settings key `bannerGlobal` (existing keys untouched).
 - [x] Char keeps the character's own banner in its card. Lock to top, Overlap messages and Overlap offset stay per character.

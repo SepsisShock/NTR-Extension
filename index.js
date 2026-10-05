@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.3.0';
+  const VERSION = '2.4.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -125,8 +125,13 @@
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
   const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
 
+  // While NTR data is being removed, nothing may write the settings back: until the page reloads, code that
+  // still runs gets a throwaway copy of the defaults.
+  let wiping = false;
+  let wipeStub = null;
   function settings() {
     const { extensionSettings } = ctx();
+    if (wiping && !extensionSettings[MODULE]) return (wipeStub ??= structuredClone(DEFAULTS));
     const fresh = !extensionSettings[MODULE];
     if (fresh) extensionSettings[MODULE] = {};
     const s = extensionSettings[MODULE];
@@ -1365,6 +1370,15 @@
         </div>
 
         ${vnSectionHtml(s)}
+
+        <div class="cb_section">
+          ${secHead('data', 'fa-database', 'Data')}
+          <div class="cb_collapse_content">
+            <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Use this to remove it for good.</div>
+            <button id="m_d_rm" class="menu_button danger_button ntr_dbtn"><i class="fa-solid fa-trash"></i> Remove NTR data</button>
+            <div id="m_d_panel"></div>
+          </div>
+        </div>
         </div>
       </div>
       <div id="ntr_edge" title="Drag to resize"></div>
@@ -1618,6 +1632,7 @@
     };
     
     bindThemes(overlay, s);
+    bindData(overlay);
     bindVNSection(overlay, s);
     bindDisplay(overlay, s);
     bindTextFormatting(overlay, s);
@@ -1807,7 +1822,7 @@
   const FX = ['glow', 'shadow', 'outline'];
   const FX_PARTS = ['rb', 'tfName', 'tfUser', 'tfAi'];
   const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'glow'];
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
@@ -2360,6 +2375,7 @@
   }
 
   async function flushCard(key) {
+    if (wiping) return;
     const c = ctx();
     const i = charIndexByAvatar(key);
     const d = i >= 0 ? c.characters[i]?.data?.extensions?.ntr : null;
@@ -2407,6 +2423,47 @@
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
   const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) }).catch(() => {});
+
+  // ===== Removing NTR data =====
+  // `look`: settings and themes (the whole extension settings). `chars`: the NTR data in every character card, plus the
+  // character, group chat and pre-2.1 copies kept in the settings. Files either one used go too, unless something
+  // that stays still uses them. Cards that aren't loaded yet (lazy loading) are loaded first when `chars` is set;
+  // without it, their files can't be checked, so no file is deleted.
+  const CHAR_SETTINGS = ['chars', 'charData', 'groupData', 'legacyBackup'];
+  async function removeData({ look = false, chars = false } = {}) {
+    const c = ctx();
+    const s = settings();
+    wiping = true;
+    for (const tm of cardTimers.values()) clearTimeout(tm);
+    cardTimers.clear();
+    const gone = new Set();
+    if (chars) {
+      for (let i = 0; i < c.characters.length; i++) {
+        if (c.characters[i]?.shallow && typeof c.unshallowCharacter === 'function') await c.unshallowCharacter(i);
+      }
+      const unset = c.constants?.unset;
+      const withData = c.characters.filter((ch) => ch?.data?.extensions?.ntr);
+      for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
+      if (typeof c.writeExtensionFieldBulk === 'function' && unset) await c.writeExtensionFieldBulk(null, 'ntr', unset);
+      else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});
+      for (const k of CHAR_SETTINGS) {
+        collectFileRefs(s[k], gone);
+        if (k in DEFAULTS) s[k] = structuredClone(DEFAULTS[k]); else delete s[k];
+      }
+    }
+    if (look) {
+      collectFileRefs(s, gone);
+      delete c.extensionSettings[MODULE];
+    }
+    const cs = c.characters || [];
+    if (!cs.some((ch) => ch && ch.shallow)) {
+      const keep = look ? new Set() : collectFileRefs(s);
+      for (const ch of cs) collectFileRefs(ch?.data?.extensions?.ntr, keep);
+      await Promise.all([...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p)).map(deleteFile));
+    }
+    c.saveSettingsDebounced(); // the page reloads next, so `wiping` stays on until then
+  }
 
   async function deleteFileIfUnused(path) {
     const p = normFile(path);
@@ -2424,7 +2481,8 @@
   // ===== Themes =====
   const PFP_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ai') || k.startsWith('us'));
   const LOOK = {
-    banner: { label: 'Banner look (height, gap, transparent areas)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop'] },
+    banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
+    bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     pfp: { label: 'Pfp Management', keys: ['avatarEnabled', ...PFP_KEYS] },
     reasoning: { label: 'Reasoning Block', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')) },
     text: { label: 'Text Formatting', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')) },
@@ -2457,6 +2515,7 @@
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
+    if (k === 'bannerGlobal') return isObj(v);
     if (k === 'emotions') return Array.isArray(v) && v.length > 0 && v.every((e) => e && typeof e.id === 'string' && typeof e.name === 'string' && e.name.trim());
     if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v);
     if (typeof d === 'boolean') return typeof v === 'boolean';
@@ -2468,6 +2527,8 @@
     const out = {};
     if (!part || typeof part !== 'object') return out;
     for (const k of LOOK[sec].keys) if (k in part && validLookValue(k, part[k])) out[k] = structuredClone(part[k]);
+    // The Global banner's images and links get the same checks as a card's banner.
+    if (out.bannerGlobal) out.bannerGlobal = cleanBannerSrc(out.bannerGlobal);
     if (sec === 'pfp') {
       for (const p of ['ai', 'us']) {
         for (const k of ['LeftFade', 'RightFade']) {
@@ -2549,16 +2610,16 @@
   }
 
   function themesSectionHtml(s) {
-    const list = s.themes.length
-      ? pills('theme', s.themes.map((t) => [t.id, escapeHTML(t.name)]), s.themeActive || '')
-      : '<div class="cb_hint">No saved themes yet. Save your current look to start one.</div>';
+    const cur = s.themes.some((t) => t.id === s.themeActive) ? s.themeActive : '';
+    const opts = [['', 'None (default look)'], ...s.themes.map((t) => [t.id, t.name])]
+      .map(([v, l]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(l)}</option>`).join('');
     const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
     return `
       <div class="cb_section">
         ${secHead('themes', 'fa-palette', 'Themes')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">A theme holds your look: banner height and gap, Pfp styling, Reasoning Block, Text Formatting, display overrides, foreground opacity, and the Visual Novel box, tags and default art. Character content like banner images is never part of a theme. Click a theme to apply it.</div>
-          ${list}
+          <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Pfp styling, Reasoning Block, Text Formatting, display overrides, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
+          <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
           <div class="ntr_tbar">
             ${b('m_t_new', 'fa-plus', 'Save current look as a new theme')}
             ${b('m_t_upd', 'fa-floppy-disk', 'Save current look over the selected theme')}
@@ -2566,7 +2627,6 @@
             ${b('m_t_del', 'fa-trash', 'Delete the selected theme', 'danger_button')}
             ${b('m_t_imp', 'fa-file-import', 'Import a theme file')}
             ${b('m_t_exp', 'fa-file-export', 'Export the selected theme (or your current look)')}
-            ${b('m_t_rst', 'fa-rotate-left', 'Reset your look to defaults')}
           </div>
           <div id="m_t_panel"></div>
           <input type="file" id="m_t_file" accept=".json,application/json" hidden>
@@ -2576,68 +2636,62 @@
 
   function bindThemes(overlay, s) {
     const panel = overlay.querySelector('#m_t_panel');
+    const sel = overlay.querySelector('#m_t_sel');
     const active = () => s.themes.find((t) => t.id === s.themeActive) || null;
-    const need = () => { const t = active(); if (!t) toastr.info('Pick a theme in the list first.', 'Themes'); return t; };
+    const need = () => { const t = active(); if (!t) toastr.info('Pick a theme first.', 'Themes'); return t; };
     const nameTaken = (name, self) => s.themes.some((t) => t !== self && t.name.toLowerCase() === name.toLowerCase());
     const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
+    // The menu fills empty colors with SillyTavern's own (see bindTextFormatting), so those count as default too.
+    const atDefault = (k) => JSON.stringify(s[k]) === JSON.stringify(DEFAULTS[k]) || (k in COLOR_FROM && s[k] === stColor(k));
+    // Unsaved: the look differs from the selected theme, or from the default look when None is selected.
+    const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };
+    const shown = () => { sel.value = active() ? s.themeActive : ''; };
 
-    onPills(overlay, 'theme', (id) => {
-      const t = s.themes.find((x) => x.id === id);
-      if (!t) return;
-      const cur = active();
-      if ((!cur || !lookMatches(cur.data)) && !confirm(`Apply "${t.name}"? Your current look isn't saved as a theme and will be replaced.`)) { openCombinedModal(); return; }
-      s.themeActive = id;
-      applyLook(t.data);
-      openCombinedModal();
-    });
-
-    overlay.querySelector('#m_t_new').onclick = () => {
-      const name = (prompt('Name for this theme:', `Theme ${s.themes.length + 1}`) || '').trim();
-      if (!name) return;
-      if (nameTaken(name)) { toastr.warning('A theme with that name already exists.', 'Themes'); return; }
-      const t = { id: newId('th'), name, data: lookSnapshot() };
-      s.themes.push(t);
-      s.themeActive = t.id;
-      save();
-      openCombinedModal();
-      toastr.success(`Saved "${name}"`, 'Themes');
+    // Names and questions are asked right here in the menu: the browser's own boxes can't be styled and freeze the page.
+    const closePanel = () => { panel.innerHTML = ''; };
+    const ask = (html, okLabel, onOk, { danger = false, onCancel = null } = {}) => {
+      panel.innerHTML = `
+        <div class="ntr_tpanel">
+          <div>${html}</div>
+          <div class="cb_actions">
+            <button class="menu_button${danger ? ' danger_button' : ''}" id="m_t_ok">${okLabel}</button>
+            <button class="menu_button" id="m_t_cancel">Cancel</button>
+          </div>
+        </div>`;
+      panel.querySelector('#m_t_ok').onclick = () => { closePanel(); onOk(); };
+      panel.querySelector('#m_t_cancel').onclick = () => { closePanel(); if (onCancel) onCancel(); };
+    };
+    const askName = (value, onSave, self = null) => {
+      panel.innerHTML = `
+        <div class="ntr_tpanel">
+          <label>Theme name <input type="text" id="m_t_name" class="text_pole" maxlength="100" value="${escapeHTML(value)}"></label>
+          <div class="ntr_terr" id="m_t_err"></div>
+          <div class="cb_actions">
+            <button class="menu_button" id="m_t_ok"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+            <button class="menu_button" id="m_t_cancel">Cancel</button>
+          </div>
+        </div>`;
+      const input = panel.querySelector('#m_t_name');
+      const err = panel.querySelector('#m_t_err');
+      const done = () => {
+        const name = input.value.trim();
+        if (!name) err.textContent = 'Type a name first.';
+        else if (nameTaken(name, self)) err.textContent = 'A theme with that name already exists.';
+        else { closePanel(); onSave(name); return; }
+        input.focus();
+      };
+      input.oninput = () => { err.textContent = ''; };
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); done(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePanel(); }
+      };
+      panel.querySelector('#m_t_ok').onclick = done;
+      panel.querySelector('#m_t_cancel').onclick = closePanel;
+      input.focus();
+      input.select();
     };
 
-    overlay.querySelector('#m_t_upd').onclick = () => {
-      const t = need();
-      if (!t || !confirm(`Save your current look over "${t.name}"?`)) return;
-      const oldRefs = collectFileRefs(t.data);
-      t.data = lookSnapshot();
-      save();
-      oldRefs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
-      toastr.success(`Updated "${t.name}"`, 'Themes');
-    };
-
-    overlay.querySelector('#m_t_ren').onclick = () => {
-      const t = need();
-      if (!t) return;
-      const name = (prompt('New name:', t.name) || '').trim();
-      if (!name || name === t.name) return;
-      if (nameTaken(name, t)) { toastr.warning('A theme with that name already exists.', 'Themes'); return; }
-      t.name = name;
-      save();
-      openCombinedModal();
-    };
-
-    overlay.querySelector('#m_t_del').onclick = () => {
-      const t = need();
-      if (!t || !confirm(`Delete the theme "${t.name}"? Your current look stays as it is.`)) return;
-      const refs = collectFileRefs(t.data);
-      s.themes = s.themes.filter((x) => x !== t);
-      s.themeActive = null;
-      save();
-      refs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
-    };
-
-    overlay.querySelector('#m_t_rst').onclick = () => {
-      if (!confirm('Reset your look to the defaults? Saved themes and character content stay as they are.')) return;
+    const resetLook = () => {
       const oldRefs = collectFileRefs(lookSnapshot());
       for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
       s.themeActive = null;
@@ -2646,6 +2700,66 @@
       refreshVisuals();
       oldRefs.forEach((p) => deleteFileIfUnused(p));
       openCombinedModal();
+    };
+    const saveNew = () => askName(`Theme ${s.themes.length + 1}`, (name) => {
+      const t = { id: newId('th'), name, data: lookSnapshot() };
+      s.themes.push(t);
+      s.themeActive = t.id;
+      save();
+      openCombinedModal();
+      toastr.success(`Saved "${name}"`, 'Themes');
+    });
+
+    sel.onchange = () => {
+      const t = s.themes.find((x) => x.id === sel.value);
+      if (!t) {
+        if (unsaved()) ask('Your current look isn\'t saved as a theme. Go back to the default look?', 'Reset', resetLook, { onCancel: shown });
+        else resetLook();
+        return;
+      }
+      const apply = () => { s.themeActive = t.id; applyLook(t.data); openCombinedModal(); };
+      if (unsaved()) ask(`Your current look isn't saved as a theme and will be replaced. Apply "${escapeHTML(t.name)}" anyway?`, 'Apply', apply, { onCancel: shown });
+      else apply();
+    };
+
+    overlay.querySelector('#m_t_new').onclick = saveNew;
+
+    // None can't be overwritten, so saving over it makes a new theme.
+    overlay.querySelector('#m_t_upd').onclick = () => {
+      const t = active();
+      if (!t) { saveNew(); return; }
+      ask(`Save your current look over "${escapeHTML(t.name)}"?`, 'Save', () => {
+        const oldRefs = collectFileRefs(t.data);
+        t.data = lookSnapshot();
+        save();
+        oldRefs.forEach((p) => deleteFileIfUnused(p));
+        openCombinedModal();
+        toastr.success(`Updated "${t.name}"`, 'Themes');
+      });
+    };
+
+    overlay.querySelector('#m_t_ren').onclick = () => {
+      const t = need();
+      if (!t) return;
+      askName(t.name, (name) => {
+        if (name === t.name) return;
+        t.name = name;
+        save();
+        openCombinedModal();
+      }, t);
+    };
+
+    overlay.querySelector('#m_t_del').onclick = () => {
+      const t = need();
+      if (!t) return;
+      ask(`Delete the theme "${escapeHTML(t.name)}"? Your current look stays as it is.`, 'Delete', () => {
+        const refs = collectFileRefs(t.data);
+        s.themes = s.themes.filter((x) => x !== t);
+        s.themeActive = null;
+        save();
+        refs.forEach((p) => deleteFileIfUnused(p));
+        openCombinedModal();
+      }, { danger: true });
     };
 
     overlay.querySelector('#m_t_exp').onclick = () => {
@@ -2731,7 +2845,41 @@
         s.themes.push({ id: newId('th'), name, data });
         save();
         openCombinedModal();
-        toastr.success(`Added "${name}". Click it in the list to apply it.`, 'Themes');
+        toastr.success(`Added "${name}". Pick it in the list to apply it.`, 'Themes');
+      };
+    };
+  }
+
+  function bindData(overlay) {
+    const panel = overlay.querySelector('#m_d_panel');
+    overlay.querySelector('#m_d_rm').onclick = () => {
+      panel.innerHTML = `
+        <div class="ntr_tpanel">
+          <div><strong>This can't be undone.</strong> Pick what to remove:</div>
+          <label class="checkbox_label"><input type="checkbox" id="m_d_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.</span></label>
+          <label class="checkbox_label"><input type="checkbox" id="m_d_chars"><span><strong>Uploaded files and character data</strong>: banners, foreground images, Visual Novel art, maps and opening videos, plus the NTR data saved in each character card.</span></label>
+          <div class="cb_hint">Want to keep your themes? Export them first in the Themes section.</div>
+          <div class="cb_actions">
+            <button class="menu_button danger_button" id="m_d_go"><i class="fa-solid fa-trash"></i> Remove</button>
+            <button class="menu_button" id="m_d_cancel">Cancel</button>
+          </div>
+        </div>`;
+      panel.querySelector('#m_d_cancel').onclick = () => { panel.innerHTML = ''; };
+      const go = panel.querySelector('#m_d_go');
+      go.onclick = async () => {
+        const look = panel.querySelector('#m_d_look').checked;
+        const chars = panel.querySelector('#m_d_chars').checked;
+        if (!look && !chars) { toastr.warning('Tick at least one.', 'Remove NTR data'); return; }
+        go.disabled = true;
+        go.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Removing...';
+        try {
+          await removeData({ look, chars });
+        } catch (e) {
+          console.error('[NTR remove data]', e);
+        }
+        toastr.success('NTR data removed. Reloading...', 'Remove NTR data');
+        // SillyTavern saves its settings about a second after a change.
+        setTimeout(() => location.reload(), 2500);
       };
     };
   }
@@ -3006,7 +3154,7 @@
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
-    loadModule, moduleError: (name) => modError[name] || '', uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId,
+    loadModule, moduleError: (name) => modError[name] || '', removeData, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';
@@ -3054,3 +3202,9 @@
     if (isOn() && (s0.nodeEnabled || s0.vnUsed)) loadVN().then((vn) => { if (vn) vn.refresh(); });
   });
 })();
+
+// SillyTavern's "Also clean up extension data" option when deleting the extension (the manifest's clean hook):
+// removes settings and themes, and the uploaded files no character card still uses. Character cards stay as they are.
+export async function onClean() {
+  await window.NTR?.api?.removeData({ look: true });
+}

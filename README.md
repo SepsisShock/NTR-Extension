@@ -24,7 +24,7 @@ It styles the AI and user profile pictures separately, as a faded backdrop behin
 
 ### `[ 03 ]` TEXT
 
-Reasoning Block Design styles SillyTavern's thinking block: font, size, colors, border style, text effects and its own "Thinking..." labels, plus custom CSS. It only changes the look: if no block shows up, turn on "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) in SillyTavern. Text Formatting styles names, user text and AI text, including in Visual Novel Mode, plus an Overall Font Scale for all of SillyTavern's text. Fonts can come from your device or Google Fonts.
+Reasoning Block Design styles SillyTavern's thinking block: font, size, colors, border style, text effects and its own "Thinking..." labels, plus custom CSS. It only changes the look: if no block shows up, turn on "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) in SillyTavern. Text Formatting styles names, user text and AI text, with the same text effects, including in Visual Novel Mode, plus an Overall Font Scale for all of SillyTavern's text. Fonts can come from your device or Google Fonts.
 
 ---
 
@@ -36,6 +36,6 @@ Visual Novel Mode is optional. It shows messages in a dialogue box with characte
 
 ### `[ 05 ]` SETTINGS
 
-All settings are in one menu, opened from the Extensions panel. Settings save automatically. Every section except Themes and Data has an Enable switch; turning it off keeps its settings.
+All settings are in one menu. Open it from the Extensions panel, by typing /ntr in the chat box, or from SillyTavern's wand menu after switching on Wand Menu. Settings save automatically. Every section except Themes, Wand Menu and Data has an Enable switch; turning it off keeps its settings. Data can remove NTR's settings, themes and uploaded files.
 
 ---

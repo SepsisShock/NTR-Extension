@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.5.2';
+  const VERSION = '2.6.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -83,6 +83,7 @@
     // Menu state
     uiOpen: { banner: true },
     uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
+    wandEntry: false,
 
     // Master switch + themes
     masterEnabled: true,
@@ -2237,12 +2238,15 @@
             ${row('ovScrollShapeOn', 'Scrollbar Shape', pills('oscroll', [['pill', 'Pill', 'SillyTavern\'s default'], ['rounded', 'Rounded'], ['square', 'Square']], s.ovScrollShape))}
           </div>
           </div>
+          <label class="checkbox_label" style="margin-top:10px;"><input type="checkbox" id="m_wand" ${s.wandEntry ? 'checked' : ''}><span>Show in the wand menu</span></label>
+          <div class="cb_hint">Adds Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there. Works even when UI Display is off. Typing /ntr in the chat box opens it too.</div>
         </div>
       </div>`;
   }
 
   function bindDisplay(overlay, s) {
     overlay.querySelector('#m_f_trans').onchange = function() { s.chatTransparent = this.checked; save(); updateAvatarStyle(); };
+    overlay.querySelector('#m_wand').onchange = function() { s.wandEntry = this.checked; save(); syncWandEntry(); };
     overlay.querySelector('#m_ov_enable').onchange = function() {
       s.ovEnabled = this.checked; save(); updateAvatarStyle();
       overlay.querySelector('#m_ov_body').classList.toggle('cb_dim', !this.checked);
@@ -3232,10 +3236,39 @@
     syncExtBar();
   }
 
+  // ===== Wand menu entry and /ntr: other ways to open the menu, even with the power off =====
+  function syncWandEntry() {
+    const menu = document.getElementById('extensionsMenu');
+    const old = document.getElementById('ntr_wand_entry');
+    if (!settings().wandEntry) { old?.remove(); return; }
+    if (!menu || old) return;
+    const b = document.createElement('div');
+    b.id = 'ntr_wand_entry';
+    b.className = 'list-group-item flex-container flexGap5 interactable';
+    b.tabIndex = 0;
+    b.title = 'Open the Nitwit Tavern Redesign menu';
+    b.innerHTML = '<div class="fa-solid fa-layer-group extensionsMenuExtensionButton"></div><span>Nitwit Tavern Redesign</span>';
+    b.onclick = () => openCombinedModal();
+    b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
+    menu.appendChild(b);
+  }
+
+  function registerSlashCommand() {
+    const { SlashCommandParser, SlashCommand } = ctx();
+    if (!SlashCommandParser || !SlashCommand) return;
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+      name: 'ntr',
+      aliases: ['NTR'],
+      callback: () => { openCombinedModal(); return ''; },
+      helpString: 'Opens the Nitwit Tavern Redesign menu.',
+    }));
+  }
+
   function injectExtensionMenuButton() {
     const tick = () => {
       injectExtBar();
       injectNodeToggle();
+      syncWandEntry();
       if (isOn() && window.NTR.vn) window.NTR.vn.ensure();
     };
     tick();
@@ -3261,6 +3294,7 @@
   jQuery(() => {
     const { eventSource, event_types } = ctx();
     injectExtensionMenuButton();
+    registerSlashCommand();
     window.addEventListener('resize', () => syncWallpaper());
     eventSource.on(event_types.CHAT_CHANGED, () => {
       renderAll();

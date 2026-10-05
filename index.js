@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.6.3';
+  const VERSION = '2.6.4';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -2641,7 +2641,31 @@
     return out;
   }
 
-  const NONEMPTY_KEYS = new Set(['narratorWord', 'locWord', 'choiceWord', 'choiceSep', 'effectWord', 'fxShake', 'fxFlash', 'fxFade', 'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'cgWord', 'enterWord', 'exitWord', 'mapGoText']);
+  // The tag symbols and keywords Visual Novel Mode reads. They only work together, so they're checked together: by Apply
+  // in the menu's Tags & Delimiters (vn.js) and when a theme is imported or applied.
+  const TAG_KEYS = ['delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'locWord',
+    'choiceWord', 'choiceSep', 'effectWord', 'weatherWord', 'cgWord', 'enterWord', 'exitWord', 'fxShake', 'fxFlash', 'fxFade', 'wxRain', 'wxSnow', 'wxClear'];
+  function validateDelims(d) {
+    const errs = [], warns = [];
+    const lc = (x) => String(x || '').trim().toLowerCase();
+    if (TAG_KEYS.some((k) => !d[k])) errs.push('Every field needs a value.');
+    const delims = [d.delimSpkOpen, d.delimSpkClose, d.delimNarOpen, d.delimNarClose];
+    const distinct = (arr) => { const a = arr.filter(Boolean).map(lc); return new Set(a).size === a.length; };
+    if (!distinct([d.narratorWord, d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord])) errs.push('The narrator, location, choice, effect, weather, CG, enter and exit keywords all need to be different.');
+    if (!distinct([d.fxShake, d.fxFlash, d.fxFade])) errs.push('The three effect names need to be different.');
+    if (!distinct([d.wxRain, d.wxSnow, d.wxClear])) errs.push('The three weather names need to be different.');
+    if ([d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord].some((w) => w && w.includes(':'))) errs.push('Tag keywords can\'t contain a colon.');
+    if (d.choiceSep && delims.some((x) => x && x.includes(d.choiceSep))) errs.push('The choice separator can\'t appear inside the delimiters.');
+    if (d.delimSpkOpen && d.delimSpkOpen === d.delimNarOpen) errs.push('Speaker and narrator need different opening delimiters.');
+    if (d.delimEmo && delims.some((x) => x && x.includes(d.delimEmo))) errs.push('The emotion separator can\'t appear inside the other delimiters.');
+    const all = [...delims, d.delimEmo].filter(Boolean);
+    if (all.some((x) => /[*_`~]/.test(x))) warns.push('Contains * _ ` or ~, which markdown may turn into formatting.');
+    if (all.some((x) => /["<>]/.test(x))) warns.push('Quotes or < > can clash with dialogue or HTML.');
+    if (all.some((x) => x.length === 1)) warns.push('Single-character delimiters can match normal text by accident.');
+    return { errs, warns };
+  }
+
+  const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
@@ -2663,7 +2687,7 @@
   }
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
   const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, mapGoText: 200 };
-  const strMax = (k) => STR_MAX[k] ?? (k.startsWith('delim') || NONEMPTY_KEYS.has(k) ? 16 : 200);
+  const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;
     const ids = new Set(), names = new Set();
@@ -2689,7 +2713,7 @@
     if (k === 'opTransColor') return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
     if (typeof d === 'number') return typeof v === 'number' && Number.isFinite(v);
     if (typeof d === 'boolean') return typeof v === 'boolean';
-    if (typeof d === 'string') return typeof v === 'string' && v.length <= strMax(k) && ((!k.startsWith('delim') && !NONEMPTY_KEYS.has(k)) || v.trim() !== '');
+    if (typeof d === 'string') return typeof v === 'string' && v.length <= strMax(k) && (!NONEMPTY_KEYS.has(k) || v.trim() !== '');
     return false;
   }
 
@@ -2698,6 +2722,7 @@
     if (!validLookValue(k, v)) return undefined;
     if (NUM_RANGE[k]) return Math.min(NUM_RANGE[k][1], Math.max(NUM_RANGE[k][0], v));
     if (k === 'emotions') return v.map((e) => ({ id: e.id, name: e.name.trim() }));
+    if (TAG_KEYS.includes(k)) return v.trim(); // as the menu's Apply saves them
     return structuredClone(v);
   }
 
@@ -2722,6 +2747,12 @@
     }
     // The Global banner's images and links get the same checks as a card's banner.
     if (out.bannerGlobal) out.bannerGlobal = cleanBannerSrc(out.bannerGlobal);
+    // Tag symbols and keywords must pass the menu's Apply check, with your own filling in any the theme doesn't have.
+    // If they clash, all of them are left out and yours stay.
+    if (sec === 'vn' && TAG_KEYS.some((k) => k in out)) {
+      const s = settings();
+      if (validateDelims(Object.fromEntries(TAG_KEYS.map((k) => [k, k in out ? out[k] : s[k]]))).errs.length) for (const k of TAG_KEYS) delete out[k];
+    }
     if (sec === 'pfp') {
       for (const p of ['ai', 'us']) {
         for (const k of ['LeftFade', 'RightFade']) {
@@ -2967,7 +2998,13 @@
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
       moveLookKeys(j.sections);
       const secs = Object.keys(LOOK).filter((k) => Object.keys(cleanLookSection(k, j.sections[k])).length);
-      if (!secs.length) { toastr.error('That theme file has nothing this version can use.', 'Themes'); return; }
+      // Tag symbols that are fine one by one but clash together get left out (see cleanLookSection); say so, so it's clear why yours stay.
+      const vnIn = isObj(j.sections.vn) ? j.sections.vn : {};
+      const tagsOut = TAG_KEYS.some((k) => k in vnIn && validLookValue(k, vnIn[k])) && !TAG_KEYS.some((k) => k in cleanLookSection('vn', vnIn));
+      if (!secs.length) {
+        toastr.error(`That theme file has nothing this version can use.${tagsOut ? ' Its tag symbols and keywords clash with yours, so they\'re left out.' : ''}`, 'Themes');
+        return;
+      }
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
       const css = secs.includes('reasoning') ? String(cleanLookSection('reasoning', j.sections.reasoning).rbCss || '').slice(0, 2000).trim() : '';
       panel.innerHTML = `
@@ -2978,6 +3015,7 @@
           ${secBoxes(secs)}
           ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Reasoning Block Design, Advanced: Custom CSS, and tick it to use it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
+          ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Visual Novel Mode, Tags &amp; Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add theme</button>
             <button class="menu_button" id="m_t_cancel">Cancel</button>
@@ -3343,7 +3381,7 @@
     pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
-    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId,
+    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

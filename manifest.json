@@ -7,6 +7,6 @@
   "css": "style.css",
   "hooks": { "clean": "onClean" },
   "author": "SepsisShock",
-  "version": "2.6.2",
+  "version": "2.6.3",
   "description": "Header banners, avatar styling, reasoning block and text styling, foreground images, UI display settings including scrollbar colors and shape, themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos. Open the menu from the Extensions page, the wand menu (optional) or /ntr."
 }

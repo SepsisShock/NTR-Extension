@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.6.2';
+  const VN_VERSION = '2.6.3';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, secHead, subHead } = A;
@@ -1101,167 +1101,90 @@
     // Prompt
     overlay.querySelector('#m_p_copy').onclick = () => copyText(overlay.querySelector('#m_p_text').value, 'Prompt copied');
 
-    // Locations
-    const lFile = overlay.querySelector('#m_l_file');
-    let lPending = null;
-    const renderLoc = () => {
-      const box = overlay.querySelector('#m_l_list');
-      box.innerHTML = locRowsHtml();
-      const v = V();
-      box.querySelectorAll('.m_l_name').forEach((inp) => {
-        inp.onchange = () => {
-          const l = v.locations.find((x) => x.id === inp.dataset.id);
-          const nm = inp.value.trim();
-          if (!l) return;
-          if (!nm || v.locations.some((x) => x !== l && normLoc(x.name) === normLoc(nm))) {
-            toastr.warning('Location names need to be unique and not empty.', 'Visual Novel');
-            inp.value = l.name;
-            return;
-          }
-          l.name = nm; save(); refreshAll();
-        };
-      });
-      box.querySelectorAll('.m_l_up').forEach((b) => { b.onclick = () => { lPending = b.dataset.id; lFile.click(); }; });
-      box.querySelectorAll('.m_l_url').forEach((b) => {
-        b.onclick = async () => {
-          const url = await askImageUrl('Background', b);
-          if (url) setLocImage(b.dataset.id, url);
-        };
-      });
-      box.querySelectorAll('.m_l_clr').forEach((b) => {
-        b.onclick = () => {
-          let old;
-          if (b.dataset.id === '__default__') { old = v.locDefault; v.locDefault = ''; }
-          else { const l = v.locations.find((x) => x.id === b.dataset.id); if (l) { old = l.url; l.url = ''; } }
-          save(); renderLoc(); refreshAll();
-          A.deleteFileIfUnused(old);
-        };
-      });
-      box.querySelectorAll('.m_l_del').forEach((b) => {
-        b.onclick = async () => {
-          const l = v.locations.find((x) => x.id === b.dataset.id);
-          if (!l || !(await A.askYes(b, `Delete the location "${l.name}"${l.url ? ' and its background' : ''}?`, 'Delete', { danger: true }))) return;
-          v.locations = v.locations.filter((x) => x !== l);
-          for (const mp of v.maps || []) mp.pins = (mp.pins || []).filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p));
-          save(); renderLoc(); refreshAll();
-          A.deleteFileIfUnused(l.url);
-        };
-      });
-    };
-    const setLocImage = (id, url) => {
-      const v = V();
-      let old;
-      if (id === '__default__') { old = v.locDefault; v.locDefault = url; }
-      else { const l = v.locations.find((x) => x.id === id); if (l) { old = l.url; l.url = url; } }
-      save(); renderLoc(); refreshAll();
-      A.deleteFileIfUnused(old);
-    };
-    lFile.onchange = async () => {
-      if (!lFile.files.length || !lPending) return;
-      try {
-        setLocImage(lPending, await uploadImage(lFile.files[0], 'vnloc', { max: 2560 }));
-      } catch (e) {
-        console.error('[NTR vn location upload]', e);
-        toastr.error(e.message || 'Background upload failed', 'Visual Novel');
-      }
-      lFile.value = '';
-    };
-    const addLoc = () => {
-      const inp = overlay.querySelector('#m_l_new');
-      const nm = inp.value.trim();
-      if (!nm) { toastr.info('Type the location\'s name in the box first, then click Add.', 'Visual Novel'); inp.focus(); return; }
-      if (!A.store()) { toastr.warning('Open a character chat first. Locations are saved per character.', 'Visual Novel'); return; }
-      const v = V();
-      if (v.locations.some((x) => normLoc(x.name) === normLoc(nm))) { toastr.warning('That location already exists.', 'Visual Novel'); return; }
-      try {
-        if (!Array.isArray(v.locations)) v.locations = [];
-        v.locations.push({ id: newId('loc'), name: nm, url: '' });
+    // Locations and CG Scenes share one list (see NAMED). Returns the list's render function.
+    const namedList = (L) => {
+      const file = overlay.querySelector(`#m_${L.c}_file`);
+      let pending = null;
+      const render = () => {
+        const box = overlay.querySelector(`#m_${L.c}_list`);
+        box.innerHTML = namedRowsHtml(L);
+        const v = V();
+        const find = (id) => v[L.key].find((x) => x.id === id);
+        box.querySelectorAll(`.m_${L.c}_name`).forEach((inp) => {
+          inp.onchange = () => {
+            const x = find(inp.dataset.id);
+            const nm = inp.value.trim();
+            if (!x) return;
+            if (!nm || v[L.key].some((y) => y !== x && normLoc(y.name) === normLoc(nm))) {
+              toastr.warning(`${cap(L.name)} names need to be unique and not empty.`, 'Visual Novel');
+              inp.value = x.name;
+              return;
+            }
+            x.name = nm; save(); refreshAll();
+          };
+        });
+        box.querySelectorAll(`.m_${L.c}_up`).forEach((b) => { b.onclick = () => { pending = b.dataset.id; file.click(); }; });
+        box.querySelectorAll(`.m_${L.c}_url`).forEach((b) => {
+          b.onclick = async () => {
+            const url = await askImageUrl(cap(L.pic), b);
+            if (url) setImage(b.dataset.id, url);
+          };
+        });
+        box.querySelectorAll(`.m_${L.c}_clr`).forEach((b) => {
+          b.onclick = () => {
+            let old;
+            if (b.dataset.id === DEF_ID) { old = v[L.def.key]; v[L.def.key] = ''; }
+            else { const x = find(b.dataset.id); if (!x) return; old = x.url; x.url = ''; }
+            save(); render(); refreshAll();
+            A.deleteFileIfUnused(old);
+          };
+        });
+        box.querySelectorAll(`.m_${L.c}_del`).forEach((b) => {
+          b.onclick = async () => {
+            const x = find(b.dataset.id);
+            if (!x || !(await A.askYes(b, `Delete the ${L.name} "${x.name}"${x.url ? ` and its ${L.picDel}` : ''}?`, 'Delete', { danger: true }))) return;
+            v[L.key] = v[L.key].filter((y) => y !== x);
+            if (L.onDelete) L.onDelete(v, x);
+            save(); render(); refreshAll();
+            A.deleteFileIfUnused(x.url);
+          };
+        });
+      };
+      const setImage = (id, url) => {
+        const v = V();
+        let old;
+        if (id === DEF_ID) { old = v[L.def.key]; v[L.def.key] = url; }
+        else { const x = v[L.key].find((y) => y.id === id); if (x) { old = x.url; x.url = url; } }
+        save(); render(); refreshAll();
+        A.deleteFileIfUnused(old);
+      };
+      file.onchange = async () => {
+        if (!file.files.length || !pending) return;
+        try {
+          setImage(pending, await uploadImage(file.files[0], L.prefix, { max: 2560 }));
+        } catch (e) {
+          console.error(`[NTR vn ${L.name} upload]`, e);
+          toastr.error(e.message || L.fail, 'Visual Novel');
+        }
+        file.value = '';
+      };
+      const add = () => {
+        const inp = overlay.querySelector(`#m_${L.c}_new`);
+        const nm = inp.value.trim();
+        if (!nm) { toastr.info(`Type the ${L.name}'s name in the box first, then click Add.`, 'Visual Novel'); inp.focus(); return; }
+        if (!A.store()) { toastr.warning(`Open a character chat first. ${L.names} are saved per character.`, 'Visual Novel'); return; }
+        const v = V();
+        if (v[L.key].some((x) => normLoc(x.name) === normLoc(nm))) { toastr.warning(`That ${L.name} already exists.`, 'Visual Novel'); return; }
+        v[L.key].push({ id: newId(L.idp), name: nm, url: '' });
         inp.value = '';
-        save(); renderLoc(); refreshAll();
-      } catch (e) {
-        console.error('[NTR] Could not add the location', e);
-        toastr.error('Could not add the location: ' + (e && e.message ? e.message : e), 'Visual Novel');
-      }
+        save(); render(); refreshAll();
+      };
+      overlay.querySelector(`#m_${L.c}_add`).onclick = add;
+      overlay.querySelector(`#m_${L.c}_new`).onkeydown = (e) => { if (e.key === 'Enter') add(); };
+      return render;
     };
-    overlay.querySelector('#m_l_add').onclick = addLoc;
-    overlay.querySelector('#m_l_new').onkeydown = (e) => { if (e.key === 'Enter') addLoc(); };
-
-    // CG scenes
-    const cFile = overlay.querySelector('#m_c_file');
-    let cPending = null;
-    const renderCg = () => {
-      const box = overlay.querySelector('#m_c_list');
-      box.innerHTML = cgRowsHtml();
-      const v = V();
-      box.querySelectorAll('.m_c_name').forEach((inp) => {
-        inp.onchange = () => {
-          const g = v.cgs.find((x) => x.id === inp.dataset.id);
-          const nm = inp.value.trim();
-          if (!g) return;
-          if (!nm || v.cgs.some((x) => x !== g && normLoc(x.name) === normLoc(nm))) {
-            toastr.warning('CG names need to be unique and not empty.', 'Visual Novel');
-            inp.value = g.name;
-            return;
-          }
-          g.name = nm; save(); refreshAll();
-        };
-      });
-      box.querySelectorAll('.m_c_up').forEach((b) => { b.onclick = () => { cPending = b.dataset.id; cFile.click(); }; });
-      box.querySelectorAll('.m_c_url').forEach((b) => {
-        b.onclick = async () => {
-          const url = await askImageUrl('Illustration', b);
-          if (url) setCgImage(b.dataset.id, url);
-        };
-      });
-      box.querySelectorAll('.m_c_clr').forEach((b) => {
-        b.onclick = () => {
-          const g = v.cgs.find((x) => x.id === b.dataset.id);
-          if (!g) return;
-          const old = g.url; g.url = '';
-          save(); renderCg(); refreshAll();
-          A.deleteFileIfUnused(old);
-        };
-      });
-      box.querySelectorAll('.m_c_del').forEach((b) => {
-        b.onclick = async () => {
-          const g = v.cgs.find((x) => x.id === b.dataset.id);
-          if (!g || !(await A.askYes(b, `Delete the CG "${g.name}"${g.url ? ' and its image' : ''}?`, 'Delete', { danger: true }))) return;
-          v.cgs = v.cgs.filter((x) => x !== g);
-          save(); renderCg(); refreshAll();
-          A.deleteFileIfUnused(g.url);
-        };
-      });
-    };
-    const setCgImage = (id, url) => {
-      const g = V().cgs.find((x) => x.id === id);
-      let old;
-      if (g) { old = g.url; g.url = url; }
-      save(); renderCg(); refreshAll();
-      A.deleteFileIfUnused(old);
-    };
-    cFile.onchange = async () => {
-      if (!cFile.files.length || !cPending) return;
-      try {
-        setCgImage(cPending, await uploadImage(cFile.files[0], 'vncg', { max: 2560 }));
-      } catch (e) {
-        console.error('[NTR vn CG upload]', e);
-        toastr.error(e.message || 'CG upload failed', 'Visual Novel');
-      }
-      cFile.value = '';
-    };
-    const addCg = () => {
-      const inp = overlay.querySelector('#m_c_new');
-      const nm = inp.value.trim();
-      if (!nm) { toastr.info('Type the CG\'s name in the box first, then click Add.', 'Visual Novel'); inp.focus(); return; }
-      if (!A.store()) { toastr.warning('Open a character chat first. CGs are saved per character.', 'Visual Novel'); return; }
-      const v = V();
-      if (v.cgs.some((x) => normLoc(x.name) === normLoc(nm))) { toastr.warning('That CG already exists.', 'Visual Novel'); return; }
-      v.cgs.push({ id: newId('cg'), name: nm, url: '' });
-      inp.value = '';
-      save(); renderCg(); refreshAll();
-    };
-    overlay.querySelector('#m_c_add').onclick = addCg;
-    overlay.querySelector('#m_c_new').onkeydown = (e) => { if (e.key === 'Enter') addCg(); };
+    const renderLoc = namedList(NAMED.loc);
+    const renderCg = namedList(NAMED.cg);
 
     // Default art
     const artFile = overlay.querySelector('#m_art_file');
@@ -1316,38 +1239,39 @@
     }
   }
 
-  function cgRowsHtml() {
-    if (!A.store()) return '<div class="cb_hint">Open a character chat first. CGs are saved per character.</div>';
-    const v = V();
-    if (!v.cgs.length) return '<div class="cb_hint">No CGs yet.</div>';
-    return v.cgs.map((g) => {
-      const id = escapeHTML(g.id);
-      return `<div class="cb_spk"><div class="cb_spk_row">
-        <div class="cb_thumbbox cb_wide">${media(g.url) ? `<img src="${escapeHTML(media(g.url))}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
-        <input type="text" class="text_pole m_c_name" data-id="${id}" value="${escapeHTML(g.name)}" style="flex:1;min-width:0;margin:0;">
-        <button class="menu_button m_c_up" data-id="${id}" title="Upload illustration"><i class="fa-solid fa-upload"></i></button>
-        <button class="menu_button m_c_url" data-id="${id}" title="Use a link for the illustration"><i class="fa-solid fa-link"></i></button>
-        <button class="menu_button m_c_clr" data-id="${id}" title="Remove image" ${g.url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
-        <button class="menu_button danger_button m_c_del" data-id="${id}" title="Delete CG"><i class="fa-solid fa-trash"></i></button>
-      </div></div>`;
-    }).join('');
-  }
+  // Locations and CG Scenes are the same kind of list: each entry is a name that tags match, plus a picture.
+  // `c` is the letter in their element ids (m_l_*, m_c_*). Locations also have a Default background row.
+  const DEF_ID = '__default__';
+  const cap = (x) => x[0].toUpperCase() + x.slice(1);
+  const NAMED = {
+    loc: {
+      c: 'l', key: 'locations', idp: 'loc', name: 'location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc', fail: 'Background upload failed',
+      def: { key: 'locDefault', label: 'Default background', hint: 'used when nothing matches' },
+      // Map pins lose the deleted place, and go if they don't open another map either.
+      onDelete: (v, l) => { for (const mp of v.maps || []) mp.pins = (mp.pins || []).filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p)); },
+    },
+    cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', names: 'CGs', pic: 'illustration', picDel: 'image', prefix: 'vncg', fail: 'CG upload failed' },
+  };
 
-  function locRowsHtml() {
-    if (!A.store()) return '<div class="cb_hint">Open a character chat first. Locations are saved per character.</div>';
+  function namedRowsHtml(L) {
+    if (!A.store()) return `<div class="cb_hint">Open a character chat first. ${L.names} are saved per character.</div>`;
     const v = V();
-    const row = (id, name, url, isDef) => `
-      <div class="cb_spk"><div class="cb_spk_row">
+    const row = (id, name, url) => {
+      const isDef = id === DEF_ID;
+      return `<div class="cb_spk"><div class="cb_spk_row">
         <div class="cb_thumbbox cb_wide">${media(url) ? `<img src="${escapeHTML(media(url))}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
         ${isDef
-          ? '<span class="cb_spk_name"><strong>Default background</strong><small>used when nothing matches</small></span>'
-          : `<input type="text" class="text_pole m_l_name" data-id="${id}" value="${escapeHTML(name)}" style="flex:1;min-width:0;margin:0;">`}
-        <button class="menu_button m_l_up" data-id="${id}" title="Upload background"><i class="fa-solid fa-upload"></i></button>
-        <button class="menu_button m_l_url" data-id="${id}" title="Use a link for the background"><i class="fa-solid fa-link"></i></button>
-        <button class="menu_button m_l_clr" data-id="${id}" title="Remove image" ${url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
-        ${isDef ? '' : `<button class="menu_button danger_button m_l_del" data-id="${id}" title="Delete location"><i class="fa-solid fa-trash"></i></button>`}
+          ? `<span class="cb_spk_name"><strong>${L.def.label}</strong><small>${L.def.hint}</small></span>`
+          : `<input type="text" class="text_pole m_${L.c}_name" data-id="${id}" value="${escapeHTML(name)}" style="flex:1;min-width:0;margin:0;">`}
+        <button class="menu_button m_${L.c}_up" data-id="${id}" title="Upload ${L.pic}"><i class="fa-solid fa-upload"></i></button>
+        <button class="menu_button m_${L.c}_url" data-id="${id}" title="Use a link for the ${L.pic}"><i class="fa-solid fa-link"></i></button>
+        <button class="menu_button m_${L.c}_clr" data-id="${id}" title="Remove image" ${url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+        ${isDef ? '' : `<button class="menu_button danger_button m_${L.c}_del" data-id="${id}" title="Delete ${L.name}"><i class="fa-solid fa-trash"></i></button>`}
       </div></div>`;
-    return row('__default__', '', v.locDefault, true) + v.locations.map((l) => row(escapeHTML(l.id), l.name, l.url, false)).join('');
+    };
+    const rows = v[L.key].map((x) => row(escapeHTML(x.id), x.name, x.url));
+    if (L.def) rows.unshift(row(DEF_ID, '', v[L.def.key]));
+    return rows.length ? rows.join('') : `<div class="cb_hint">No ${L.names} yet.</div>`;
   }
 
   // ----- Dialogue box -----

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.5.2';
+  const VERSION = '2.6.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -83,6 +83,7 @@
     // Menu state
     uiOpen: { banner: true },
     uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
+    wandEntry: false,
 
     // Master switch + themes
     masterEnabled: true,
@@ -525,7 +526,7 @@
 
   // The main Enable switches are diamonds that still click on and off. They're styled by id because a class would rank
   // below SillyTavern's own checkbox styles, which would turn them back into square checkboxes.
-  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable'];
+  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable', 'm_wand'];
   const switches = (state) => SWITCH_IDS.map((id) => `#${id}${state}`).join(', ');
 
   function updateAvatarStyle() {
@@ -570,6 +571,7 @@
       #cb_fg_left { left: 0; object-position: left bottom; }
       #cb_fg_right { right: 0; object-position: right bottom; }
 
+      .cb_section h4.ntr_flat_head { display: flex; justify-content: space-between; align-items: center; margin: 0; padding: 0; border: 0; }
       .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
       .cb_subhead { margin-top: 10px; padding: 6px 4px; font-weight: bold; font-size: .92em; border-bottom: 1px dashed var(--SmartThemeBorderColor, #444); }
       .cb_subhead + .cb_collapse_content { padding: 8px 4px 4px; }
@@ -1455,6 +1457,14 @@
         ${vnSectionHtml(s)}
 
         <div class="cb_section">
+          <h4 class="ntr_flat_head">
+            <span><i class="fa-solid fa-wand-magic-sparkles"></i> Wand Menu</span>
+            <input type="checkbox" id="m_wand" title="Show Nitwit Tavern Redesign in the wand menu" ${s.wandEntry ? 'checked' : ''}>
+          </h4>
+          <div class="cb_hint">Adds Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there. Typing /ntr in the chat box opens it too.</div>
+        </div>
+
+        <div class="cb_section">
           ${secHead('data', 'fa-database', 'Data')}
           <div class="cb_collapse_content">
             <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Use this to remove it for good.</div>
@@ -1715,6 +1725,7 @@
     };
     
     bindThemes(overlay, s);
+    bindWand(overlay, s);
     bindData(overlay);
     bindVNSection(overlay, s);
     bindDisplay(overlay, s);
@@ -2944,6 +2955,10 @@
     };
   }
 
+  function bindWand(overlay, s) {
+    overlay.querySelector('#m_wand').onchange = function() { s.wandEntry = this.checked; save(); syncWandEntry(); };
+  }
+
   function bindData(overlay) {
     const panel = overlay.querySelector('#m_d_panel');
     overlay.querySelector('#m_d_rm').onclick = () => {
@@ -3232,10 +3247,39 @@
     syncExtBar();
   }
 
+  // ===== Wand menu entry and /ntr: other ways to open the menu, even with the power off =====
+  function syncWandEntry() {
+    const menu = document.getElementById('extensionsMenu');
+    const old = document.getElementById('ntr_wand_entry');
+    if (!settings().wandEntry) { old?.remove(); return; }
+    if (!menu || old) return;
+    const b = document.createElement('div');
+    b.id = 'ntr_wand_entry';
+    b.className = 'list-group-item flex-container flexGap5 interactable';
+    b.tabIndex = 0;
+    b.title = 'Open the Nitwit Tavern Redesign menu';
+    b.innerHTML = '<div class="fa-solid fa-layer-group extensionsMenuExtensionButton"></div><span>Nitwit Tavern Redesign</span>';
+    b.onclick = () => openCombinedModal();
+    b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
+    menu.appendChild(b);
+  }
+
+  function registerSlashCommand() {
+    const { SlashCommandParser, SlashCommand } = ctx();
+    if (!SlashCommandParser || !SlashCommand) return;
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+      name: 'ntr',
+      aliases: ['NTR'],
+      callback: () => { openCombinedModal(); return ''; },
+      helpString: 'Opens the Nitwit Tavern Redesign menu.',
+    }));
+  }
+
   function injectExtensionMenuButton() {
     const tick = () => {
       injectExtBar();
       injectNodeToggle();
+      syncWandEntry();
       if (isOn() && window.NTR.vn) window.NTR.vn.ensure();
     };
     tick();
@@ -3261,6 +3305,7 @@
   jQuery(() => {
     const { eventSource, event_types } = ctx();
     injectExtensionMenuButton();
+    registerSlashCommand();
     window.addEventListener('resize', () => syncWallpaper());
     eventSource.on(event_types.CHAT_CHANGED, () => {
       renderAll();

@@ -10,7 +10,7 @@ SillyTavern extension.
 - When a change touches `.js` or `.css` files, test it with `/run-ntr-extension` before opening the PR, comparing `main` with the branch.
 
 ## Docs and version
-- When a feature ships, tick it in `ROADMAP.md` and move it to Done, and update the `manifest.json` description.
+- When a feature ships, remove it from `ROADMAP.md` and update the `manifest.json` description.
 - For `README.md` and `CLAUDE.md`, show the proposed wording first; commit it only after approval.
 - Bump the version in every PR that changes `.js` or `.css`, in all 5 places: `manifest.json`, `index.js`, `vn.js`, `map.js`, `opening.js`. Last number for fixes, middle for new features, first only with approval. No bump for docs-only changes.
 

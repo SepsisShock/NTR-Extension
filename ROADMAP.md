@@ -1,6 +1,6 @@
 # Roadmap [Beta]
 
-Ideas and planned work for Nitwit Tavern Redesign. Tick a box when it ships; finished items move to **Done** so there is a record of what changed.
+Ideas and planned work for Nitwit Tavern Redesign. When something ships, it comes off the list; the PR history is the record.
 
 ## Planned
 
@@ -16,7 +16,7 @@ Keep the open-world feel, and let a card optionally have endings.
 - [ ] Cards with no flag or ending tags behave exactly as they do now.
 
 ### Reasoning Block and Text Formatting: follow-ups
-The sections themselves and the first batch of text effects shipped (see **Done**). Still open:
+The sections themselves and the first batch of text effects have shipped. Still open:
 
 - Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
 - A preset list of Google Fonts, each name shown in its own font.
@@ -26,7 +26,7 @@ The sections themselves and the first batch of text effects shipped (see **Done*
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
 ### Custom cursor (UI Display)
-Follows the scrollbar settings (see **Done**).
+Follows the Scrollbar settings in UI Display.
 
 - [ ] Upload a cursor image (through `uploadImage`), with a Size slider and a click point picked on the 3x3 grid.
 - [ ] Two slots: Normal, and Pointer for buttons and links. An empty Pointer slot keeps the system hand. The text cursor in typing boxes stays the system one.
@@ -86,71 +86,3 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 
 ### User Instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.
-
-## Done
-
-Finished items, newest first.
-
-### Safer theme files
-- [x] Themes get the same kind of checks as character cards when they're imported or applied: every number is kept to the range of its slider (a banner height of 99999 becomes 350), and every pick-one setting has to be one of the menu's choices, or it's left out.
-- [x] Text is limited to what the menu's boxes allow (16 characters for tag symbols and keywords), and the emotions list needs unique names and ids, up to 100 emotions. A list that breaks these is left out, so your own emotions stay.
-- [x] Themes already saved keep working; they're checked when applied.
-- [x] A theme's tag symbols and keywords also get the check that Apply runs in Tags & Delimiters, with your own filling in any the theme doesn't have. If they clash (for example the same opening symbol for speaker and narrator), all of them are left out and yours stay. The import panel says so.
-
-### Quicker ways to open the menu
-- [x] New **Wand Menu** section above Data that doesn't expand, with a switch that adds Nitwit Tavern Redesign to SillyTavern's wand menu next to the chat box. Off by default. New settings key `wandEntry`, not saved in themes.
-- [x] `/ntr` (or `/NTR`) typed in the chat box opens the menu.
-- [x] Both open the menu even when NTR is powered off. The Extensions page bar stays as it was.
-
-### Scrollbar (UI Display)
-- [x] New **Scrollbar** part in UI Display: Scrollbar Color, Track Color, Scrollbar Width (4 to 20 px) and Scrollbar Shape (Pill, Rounded, Square). Each has a checkbox; unticked means SillyTavern's look.
-- [x] Changes every scrollbar in SillyTavern, the NTR menu and Visual Novel Mode included. Firefox changes only the colors and width (thin or normal); phones mostly keep their own scrollbars.
-- [x] Saved in themes with the rest of UI Display. A theme file with a color or shape that isn't valid has it left out. New settings keys only.
-
-### Menu names and Overall Font Scale
-- [x] "Display Overrides" is now **UI Display**, and "Reasoning Block" is now **Reasoning Block Design**, so it's clear the section only changes how the block looks.
-- [x] Reasoning Block Design explains which SillyTavern setting makes the block show up: "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion).
-- [x] "Pfp Management" is now **Avatar Management**, and its column switches read **AI Avatar** and **User Avatar**.
-- [x] Font Scale moved from UI Display to the top of Text Formatting as **Overall Font Scale**, with a note that it scales all of SillyTavern's text. It now follows the Text Formatting switch. Same settings keys, so saved configs keep working.
-- [x] Themes keep Overall Font Scale with Text Formatting. Themes saved or exported before keep working.
-
-### Theme bar and removing NTR data
-- [x] Themes are picked from a dropdown that's there from the first install. Its first entry, **None (default look)**, can't be renamed or deleted; picking it resets the look to the defaults. The separate Reset button is gone.
-- [x] Naming, renaming, deleting, saving over and applying themes ask right in the menu instead of in browser popups. A taken or empty name shows a red hint before anything is saved.
-- [x] Every other question asks in the menu too, under the button that was pressed: removing banner images or videos, Reset AI/User, deleting emotions, speakers, locations, CGs and maps, removing the opening video, and every Link field. A Link field keeps asking until the link works, with a red hint under it instead of a popup message.
-- [x] Themes now hold the Global banner rotation (in Banner look) and the Global banner itself (images, YouTube link, video) as its own section. Older theme files leave both as they are.
-- [x] SillyTavern's "Also clean up extension data" option when deleting the extension (the manifest's `clean` hook): removes settings, themes and the uploaded files no character card still uses. Character cards stay as they are.
-- [x] New **Data** section at the bottom of the menu with **Remove NTR data**: settings and themes, and/or uploaded files and the NTR data in every character card. Asks first, then reloads the page.
-
-### Shared Global banner
-- [x] Global has its own banner: an image gallery (each image with its own Crop), a YouTube link and a video, shown on every character set to Global. Saved under a new settings key `bannerGlobal` (existing keys untouched).
-- [x] Char keeps the character's own banner in its card. Lock to top, Overlap messages and Overlap offset stay per character.
-- [x] The menu edits the shared banner on Global and the character's own on Char. The shared banner can be edited without a chat open.
-- [x] A character switched from Char to Global keeps its own images in its card, so switching back brings them back.
-- [x] Updating: a character on Global that already had its own images, YouTube link or video switches to Char, keeping its kind, rotation and look, so nothing on screen changes. Checked once per card (new card field `banner.sharedChecked`), also for cards made with an older version.
-
-### Text effects, Border Style and Custom CSS
-- [x] **Text Effect** in Reasoning Block Design and in Text Formatting (Names, User Text, AI Text): Glow, Shadow or Outline, with a strength slider and an optional **Effect Color**. Without a color, Glow uses the text color, and Shadow and Outline are black.
-- [x] **Border Style** for the reasoning block: Solid, Dashed, Dotted, Double or Glow.
-- [x] **Advanced: Custom CSS** for the reasoning block, in its own style tag so a typo can't break the rest. Saved in themes; themes from someone else bring it in switched off.
-
-### Video files and links
-- [x] Banner video from an uploaded mp4 or webm file: a new **Video** kind next to Image Gallery and YouTube Loop.
-- [x] Banner video from a link to an mp4 or webm file.
-- [x] Opening video from a link to an mp4 or webm file ("Video file or link").
-- [x] Banner video saved under new per-character fields `banner.video` and `banner.videoPos` (existing keys untouched).
-- [x] Loops with no controls. A speaker button on the banner turns sound on or off; the choice is saved right away (`bannerVideoSound`). If the browser blocks sound, it plays muted until clicked, without changing the choice.
-- [x] Crop slider for the banner video.
-
-### Reasoning Block and Text Formatting (PR #40)
-- [x] New menu order: Themes, Header Banner, Pfp Management, Reasoning Block, Text Formatting, Display Overrides, Foreground Images, Visual Novel Mode.
-- [x] Reasoning Block: font, size, weight, text color, italics color, border color, color strength.
-- [x] Reasoning Block, Header Text: your own label for "Thinking...", "Thought for {time}" and "Thought for some time". `{time}` uses SillyTavern's wording.
-- [x] Text Formatting: Names (color, font, size, weight), User Text and AI Text (font, size, main, italics, underline and quote colors).
-- [x] "Enable Reasoning Block" and "Enable Text Formatting" switches; off greys out the section and keeps the settings.
-- [x] Every setting has a checkbox; unticked means SillyTavern's own value. One note per section.
-- [x] Sizes are a multiplier (0.5x to 2x) of SillyTavern's font size.
-- [x] Fonts from the device or Google Fonts.
-- [x] Text Formatting applies in the Visual Novel box: AI Text on the dialogue, Names on the name tag.
-- [x] Both sections saved in themes. New settings keys only.
-- [x] Display Overrides labels lose the word "Override".

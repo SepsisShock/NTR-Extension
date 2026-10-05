@@ -18,13 +18,13 @@ Nitwit Tavern Redesign is a SillyTavern extension that changes how chats look. I
 
 ### `[ 02 ]` STYLING
 
-It styles the AI and user profile pictures separately, as a faded backdrop behind the message text or as a pop-out image that can be placed anywhere on screen. It also adds foreground images, display overrides for SillyTavern's chat settings, and themes that can be saved, imported and exported.
+It styles the AI and user profile pictures separately, as a faded backdrop behind the message text or as a pop-out image that can be placed anywhere on screen. It also adds foreground images, UI Display settings for SillyTavern's chat look, and themes that can be saved, imported and exported.
 
 ---
 
 ### `[ 03 ]` TEXT
 
-Reasoning Block styles SillyTavern's thinking block: font, size, colors, border style, text effects and its own "Thinking..." labels, plus custom CSS. Text Formatting styles names, user text and AI text, including in Visual Novel Mode. Fonts can come from your device or Google Fonts.
+Reasoning Block Design styles SillyTavern's thinking block: font, size, colors, border style, text effects and its own "Thinking..." labels, plus custom CSS. It only changes the look: if no block shows up, turn on "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) in SillyTavern. Text Formatting styles names, user text and AI text, including in Visual Novel Mode, plus an Overall Font Scale for all of SillyTavern's text. Fonts can come from your device or Google Fonts.
 
 ---
 

@@ -83,6 +83,12 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 
 Finished items, newest first.
 
+### Menu names and Overall Font Scale
+- [x] "Display Overrides" is now **UI Display**, and "Reasoning Block" is now **Reasoning Block Design**, so it's clear the section only changes how the block looks.
+- [x] Reasoning Block Design explains which SillyTavern setting makes the block show up: "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion).
+- [x] Font Scale moved from UI Display to the top of Text Formatting as **Overall Font Scale**, with a note that it scales all of SillyTavern's text. It now follows the Text Formatting switch. Same settings keys, so saved configs keep working.
+- [x] Themes keep Overall Font Scale with Text Formatting. Themes saved or exported before keep working.
+
 ### Theme bar and removing NTR data
 - [x] Themes are picked from a dropdown that's there from the first install. Its first entry, **None (default look)**, can't be renamed or deleted; picking it resets the look to the defaults. The separate Reset button is gone.
 - [x] Naming, renaming, deleting, saving over and applying themes ask right in the menu instead of in browser popups. A taken or empty name shows a red hint before anything is saved.

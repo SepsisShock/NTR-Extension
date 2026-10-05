@@ -7,6 +7,6 @@
   "css": "style.css",
   "hooks": { "clean": "onClean" },
   "author": "SepsisShock",
-  "version": "2.4.1",
-  "description": "Header banners, avatar styling, reasoning block and text styling, foreground images, display overrides, themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos."
+  "version": "2.4.2",
+  "description": "Header banners, avatar styling, reasoning block and text styling, foreground images, UI display settings, themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos."
 }

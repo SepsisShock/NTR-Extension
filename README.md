@@ -36,6 +36,6 @@ Visual Novel Mode is optional. It shows messages in a dialogue box with characte
 
 ### `[ 05 ]` SETTINGS
 
-All settings are in one menu, opened from the Extensions panel. Settings save automatically. Every section except Themes has an Enable switch; turning it off keeps its settings.
+All settings are in one menu, opened from the Extensions panel. Settings save automatically. Every section except Themes and Data has an Enable switch; turning it off keeps its settings.
 
 ---

@@ -75,7 +75,7 @@ Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The 
 - [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
 
 ### Text effects, second batch
-The first batch (Glow, Shadow, Outline) has shipped for the Reasoning Block and Text Formatting.
+The first batch (Glow, Shadow, Outline) has shipped for Text Formatting.
 
 - [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
 

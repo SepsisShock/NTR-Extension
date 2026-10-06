@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.10';
+  const VERSION = '2.9.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -56,11 +56,12 @@
     delimSpkOpen: '((', delimSpkClose: '))', delimNarOpen: '[[', delimNarClose: ']]',
     delimEmo: '%%', narratorWord: 'Narrator',
 
-    // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens)
-    rbEnabled: true, rbFontOn: false, rbFont: '', rbSizeOn: false, rbSize: 1, rbColorOn: false, rbColor: '', rbEmOn: false, rbEm: '',
-    rbBorderOn: false, rbBorder: '', rbWeightOn: false, rbWeight: 'medium', rbSatOn: false, rbSat: 50,
-    rbThinkOn: false, rbThink: 'Thinking...', rbDoneOn: false, rbDone: 'Thought for {time}', rbSomeOn: false, rbSome: 'Thought for some time',
-    rbFxOn: false, rbFx: 'glow', rbFxStr: 3, rbFxColorOn: false, rbFxColor: '', rbBorderStyleOn: false, rbBorderStyle: 'solid', rbCssOn: false, rbCss: '',
+    // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens; empty status text means ST's own)
+    rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbType: false,
+    rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnAlpha: 0, rbBtnTextOn: false, rbBtnText: '',
+    rbBtnShapeOn: false, rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '',
+    rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBorderStyleOn: false, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '',
+    rbCssOn: false, rbCss: '',
 
     // Text Formatting
     tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
@@ -165,6 +166,10 @@
       s.sideFadePxMigrated = true;
     }
     if (keepOldLook) { s.artBg = 'none'; s.artSprite = 'none'; }
+    // The reasoning status text had ticks; an unticked one meant ST's own text, which is now an empty box.
+    if ('rbThinkOn' in s) for (const k of ['rbThink', 'rbDone', 'rbSome']) if (!s[k + 'On']) s[k] = '';
+    for (const k of ['rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
+      'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor']) delete s[k];
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     if (s.bannerEnabled !== undefined && !s.migratedBanner) {
       s.bannerMode = s.bannerEnabled ? 'image' : 'off';
@@ -606,6 +611,7 @@
       .cb_posgrid label:hover { background: rgba(255,255,255,.08); }
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
+      .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
       .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
       .cb_cur_row { display: flex; align-items: center; gap: 6px; }
       .cb_cur_row .menu_button { margin: 0; padding: 4px 8px; }
@@ -2033,8 +2039,8 @@
       ? `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`
       : `<input type="color" class="m_o_col" data-key="${key}" value="${toHex(s[key])}">`;
   }
-  function ovText(s, key) {
-    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="100" style="width:100%;">`;
+  function ovText(s, key, placeholder = '') {
+    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="100" placeholder="${escapeHTML(placeholder)}" style="width:100%;">`;
   }
   function ovFx(s, p) {
     return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline']], s[p + 'Fx']) + rangeSlider(s, p + 'FxStr');
@@ -2053,12 +2059,12 @@
   const FONT_RE = /^[\p{L}\p{N} _-]{0,60}$/u;
   const cleanFont = (v) => String(v || '').replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   const NAME_WEIGHT = { normal: 400, bold: 700, extra: 800 };
-  const RB_WEIGHT = { normal: 400, medium: 500, bold: 700 };
   const FX = ['glow', 'shadow', 'outline'];
-  const FX_PARTS = ['rb', 'tfName', 'tfUser', 'tfAi'];
-  const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'glow'];
+  const FX_PARTS = ['tfName', 'tfUser', 'tfAi'];
+  const RB_BORDERS = ['none', 'solid', 'dashed', 'dotted', 'double', 'glow'];
+  const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbWeight: Object.keys(RB_WEIGHT), rbBorderStyle: BORDER_STYLES, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
     ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
@@ -2072,10 +2078,11 @@
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
-    rbColor: '--reasoning-body-color', rbEm: '--SmartThemeEmColor', rbBorder: '--reasoning-body-color', tfNameColor: '--SmartThemeBodyColor',
+    rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor',
+    tfNameColor: '--SmartThemeBodyColor',
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
-    rbFxColor: '--SmartThemeShadowColor', tfNameFxColor: '--SmartThemeShadowColor', tfUserFxColor: '--SmartThemeShadowColor', tfAiFxColor: '--SmartThemeShadowColor',
+    tfNameFxColor: '--SmartThemeShadowColor', tfUserFxColor: '--SmartThemeShadowColor', tfAiFxColor: '--SmartThemeShadowColor',
     ovScrollColor: '--grey7070a',
   };
   const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont'];
@@ -2112,25 +2119,28 @@
     };
     let css = '';
 
-    // Reasoning block. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
-    const rs = s.rbEnabled ? size('rbSize') : 0;
-    if (s.rbEnabled) css += rule('.mes_reasoning', {
-      '--reasoning-body-color': col('rbColor'),
-      '--reasoning-em-color': col('rbEm'),
-      '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
-      'border-left-color': col('rbBorder'),
-      'font-family': font('rbFont'),
-      'font-size': rs ? `calc(var(--mainFontSize) * ${rs})` : '',
-      'font-weight': on('rbWeight') ? RB_WEIGHT[s.rbWeight] : '',
-    });
-    if (rs) css += rule('.mes_reasoning', { 'line-height': `calc(var(--mainFontSize) * ${rs} + .5rem)` });
     if (s.rbEnabled) {
-      const bs = on('rbBorderStyle') && BORDER_STYLES.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
+      // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
+      const bs = on('rbBorderStyle') && RB_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
       css += rule('.mes_reasoning', {
-        ...fxProps(s, 'rb'),
+        '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
+        'border-left-color': col('rbBorder'),
+        'font-family': font('rbFont'),
         'border-left-style': bs && bs !== 'glow' ? bs : '',
         'border-left-width': bs === 'double' ? '4px' : '',
         'box-shadow': bs === 'glow' ? `-3px 0 8px -2px ${col('rbBorder') || 'var(--reasoning-body-color)'}` : '',
+      });
+      // The status button above it. ST's has no border, so a Border Color on its own adds a thin solid one.
+      const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : col('rbBtnBorderColor') ? 'solid' : '';
+      const bc = col('rbBtnBorderColor') || 'currentColor';
+      const see = on('rbBtnAlpha') ? rangeNum(s, 'rbBtnAlpha') : 0;
+      const fill = col('rbBtnColor') || (see ? 'var(--grey30)' : '');
+      css += rule('.mes_reasoning_header', {
+        'background-color': see ? `color-mix(in srgb, ${fill} ${100 - see}%, transparent)` : fill,
+        color: col('rbBtnText'),
+        'border-radius': on('rbBtnShape') ? RB_SHAPE[s.rbBtnShape] : '',
+        border: bb === 'none' ? 'none' : bb && bb !== 'glow' ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
+        'box-shadow': bb === 'glow' ? `0 0 8px ${bc}` : bb === 'none' ? 'none' : '',
       });
     }
 
@@ -2191,9 +2201,11 @@
     }
   }
 
-  // Reasoning header text. ST rewrites the label while it thinks and when it finishes; the label is swapped on screen
+  // Reasoning status text. ST rewrites the label while it thinks and when it finishes; the label is swapped on screen
   // only, after each of ST's updates. ST's own text is kept on the element so it comes back when the override is off.
+  // An empty box means ST's own text, which the menu shows greyed in the box.
   const RB_LABEL = { think: 'rbThink', done: 'rbDone', some: 'rbSome' };
+  const RB_ST_LABEL = { rbThink: 'Thinking...', rbDone: 'Thought for {time}', rbSome: 'Thought for some time' };
   function rbTime(sec) {
     const m = window.moment;
     if (m && m.duration) {
@@ -2201,28 +2213,68 @@
     }
     return `${Math.round(sec)} seconds`;
   }
-  function rbLabelFor(el, s) {
-    if (!isOn() || !s.rbEnabled) return null;
-    const d = el.dataset.duration;
-    const state = d === undefined ? 'think' : d === 'unknown' ? 'some' : 'done';
-    const k = RB_LABEL[state];
-    if (!s[k + 'On']) return null;
-    const txt = String(s[k] || '').slice(0, 100);
-    return state === 'done' ? txt.replace(/\{time\}/gi, rbTime(Number(d) || 0)) : txt;
+  const rbState = (el) => { const d = el.dataset.duration; return d === undefined ? 'think' : d === 'unknown' ? 'some' : 'done'; };
+  function rbLabelFor(el, s, state) {
+    const txt = String(s[RB_LABEL[state]] || '').slice(0, 100);
+    if (!txt.trim()) return null;
+    return state === 'done' ? txt.replace(/\{time\}/gi, rbTime(Number(el.dataset.duration) || 0)) : txt;
   }
+
+  // Typewriter. It plays only live: when a block starts thinking, and again when that thinking ends. Labels already in
+  // the chat show at once. Dots at the end of the thinking label keep looping until it's done.
+  const RB_TYPE_MS = 45, RB_DOT_MS = 350;
+  const rbAnim = new WeakMap();
+  const rbTyping = (s) => isOn() && s.rbEnabled && s.rbType && !ctx().powerUserSettings?.reduced_motion
+    && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  function rbNewAnim(text, state) {
+    const loop = state === 'think' && text.endsWith('...');
+    return { text, state, n: 1, loop, base: loop ? text.slice(0, -3) : text, dots: 3, done: false, timer: 0 };
+  }
+  const rbFrame = (a) => (a.n < a.text.length ? a.text.slice(0, a.n) : a.loop ? a.base + '.'.repeat(a.dots) : a.text);
+  function rbTick(el) {
+    const a = rbAnim.get(el);
+    if (!a || a.done) return;
+    if (!el.isConnected || !rbTyping(settings())) { a.done = true; if (el.isConnected) syncReasoningLabels(); return; }
+    if (a.n < a.text.length) a.n++;
+    else if (a.loop) a.dots = (a.dots + 1) % 4;
+    else { a.done = true; return; }
+    if (el.textContent !== el.dataset.ntrOwn) el.dataset.ntrSt = el.textContent; // ST wrote in between
+    el.textContent = el.dataset.ntrOwn = rbFrame(a);
+    a.timer = setTimeout(() => rbTick(el), a.n < a.text.length ? RB_TYPE_MS : RB_DOT_MS);
+  }
+
   function syncReasoningLabels() {
     const s = settings();
+    const on = isOn() && s.rbEnabled;
+    const typing = rbTyping(s);
     document.querySelectorAll('#chat .mes_reasoning_header_title').forEach((el) => {
-      const want = rbLabelFor(el, s);
-      if (want === null) {
-        if (el.dataset.ntrSt !== undefined) { el.textContent = el.dataset.ntrSt; delete el.dataset.ntrSt; delete el.dataset.ntrOwn; }
+      // Text NTR wrote itself isn't ST's, so changing a label twice still brings back ST's own text later.
+      const mine = el.dataset.ntrOwn !== undefined && el.textContent === el.dataset.ntrOwn;
+      const st = mine ? el.dataset.ntrSt : el.textContent;
+      const state = rbState(el);
+      const custom = on ? rbLabelFor(el, s, state) : null;
+      const full = custom ?? st;
+      let a = rbAnim.get(el);
+      if (typing && (a ? a.state !== state : el.closest('.mes_reasoning_details')?.dataset.state === 'thinking')) {
+        clearTimeout(a?.timer);
+        a = rbNewAnim(full, state);
+        rbAnim.set(el, a);
+        a.timer = setTimeout(() => rbTick(el), RB_TYPE_MS);
+      } else if (a && !a.done && a.text !== full) {
+        // The label changed mid-typing, from the menu: type on into the new one.
+        Object.assign(a, rbNewAnim(full, state), { n: Math.min(a.n, full.length), timer: a.timer });
+      }
+      const typingNow = typing && a && !a.done;
+      if (custom === null && !typingNow) {
+        if (mine && el.textContent !== st) el.textContent = st;
+        delete el.dataset.ntrSt;
+        delete el.dataset.ntrOwn;
         return;
       }
-      if (el.textContent === want) return;
-      // Text NTR wrote itself isn't ST's, so changing a label twice still brings back ST's own text later.
-      if (el.dataset.ntrSt === undefined || el.textContent !== el.dataset.ntrOwn) el.dataset.ntrSt = el.textContent;
-      el.textContent = want;
-      el.dataset.ntrOwn = want;
+      const show = typingNow ? rbFrame(a) : full;
+      el.dataset.ntrSt = st;
+      if (el.textContent !== show) el.textContent = show;
+      el.dataset.ntrOwn = show;
     });
   }
   let rbObs = null, rbQueued = false;
@@ -2240,29 +2292,41 @@
   const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
+    // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
+    const label = (key, title, hint = '') => `
+            <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
+    const borders = (def) => [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double'], ['glow', 'Glow']]
+      .map(([v, l]) => (v === def ? [v, l, 'SillyTavern\'s default'] : [v, l]));
     return pageHtml('reasoning', `
-          <div class="cb_hint">Only changes how the block looks. If no reasoning block shows up, turn on "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion and models that write their thinking into the reply).</div>
-          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
-          ${card('Style', `
-          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
-          ${ovRow(s, 'rbSizeOn', 'Size', rangeSlider(s, 'rbSize'))}
-          ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
-          ${ovRow(s, 'rbColorOn', 'Text Color', ovColor(s, 'rbColor'))}
-          ${ovRow(s, 'rbEmOn', 'Italics Color', ovColor(s, 'rbEm'))}
-          ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
-          ${ovRow(s, 'rbSatOn', 'Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
-          ${fxRows(s, 'rb')}
-          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double'], ['glow', 'Glow']], s.rbBorderStyle))}`)}
-          ${subHead('rb_header', 'Header Text')}
+          <div class="cb_hint">Only changes how the block looks. To show reasoning boxes, make sure "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion) are enabled.</div>
+          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
+          ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
-            ${ovRow(s, 'rbThinkOn', 'While Thinking', ovText(s, 'rbThink'))}
-            ${ovRow(s, 'rbDoneOn', 'Finished', ovText(s, 'rbDone'))}
-            ${ovRow(s, 'rbSomeOn', 'Finished, Time Unknown', ovText(s, 'rbSome'))}
+            <div class="cb_hint">The label on the button above the reasoning. Leave a box empty to use SillyTavern's own, shown in grey.</div>
+            <div class="cb_ovrow">
+              <label class="checkbox_label"><input type="checkbox" id="m_rb_type" ${s.rbType ? 'checked' : ''}><span>Typewriter Effect</span></label>
+              <div class="m_o_body"><div class="cb_hint">Types the label out live, with looping dots while thinking. Off with ST Reduced Motion enabled.</div></div>
+            </div>
+            ${label('rbThink', 'While Thinking')}
+            ${label('rbDone', 'Finished', '<div class="cb_hint">Note: {time} shows "12 seconds", "a minute", etc.</div>')}
+            ${label('rbSome', 'Finished, Time Unknown')}
           </div>
+          ${card('Basic Style: Status Button', `
+          ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
+          ${ovRow(s, 'rbBtnAlphaOn', 'Transparency', rangeSlider(s, 'rbBtnAlpha') + '<div class="cb_hint">0% is solid, 100% is see-through. Only the button changes, not its text.</div>')}
+          ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
+          ${ovRow(s, 'rbBtnShapeOn', 'Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
+          ${ovRow(s, 'rbBtnBorderOn', 'Border', pills('rbbtnborder', borders('none'), s.rbBtnBorder))}
+          ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color. SillyTavern\'s button has no border, so this alone adds a thin solid one.</div>')}`)}
+          ${card('Basic Style: Text Box', `
+          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
+          ${ovRow(s, 'rbSatOn', 'Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
+          ${ovRow(s, 'rbBorderStyleOn', 'Border', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
+          ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
-              + '<div class="cb_hint">CSS for the reasoning text, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics, and add <code>!important</code> if a setting doesn\'t take. To style the "Thought for..." header or the rest of SillyTavern, use SillyTavern\'s own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
+              + '<div class="cb_hint">CSS for the reasoning text, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics, and add <code>!important</code> if a setting doesn\'t take. To style more of the status button or the rest of SillyTavern, use SillyTavern\'s own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
           </div>
     `, { sw: ['m_rb_enable', s.rbEnabled] });
   }
@@ -2324,6 +2388,7 @@
         s[key] = this.checked; save(); updateAvatarStyle();
       };
     }
+    overlay.querySelector('#m_rb_type').onchange = function() { s.rbType = this.checked; save(); syncReasoningLabels(); };
     overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
       el.onchange = () => {
         s[el.dataset.key] = el.value.slice(0, 100);
@@ -2331,7 +2396,8 @@
         updateAvatarStyle();
       };
     });
-    onPills(overlay, 'rbweight', (v) => { s.rbWeight = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'rbbtnshape', (v) => { s.rbBtnShape = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'rbbtnborder', (v) => { s.rbBtnBorder = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
@@ -2836,7 +2902,7 @@
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out offsets).
   const NUM_RANGE = {
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
-    rbSize: [0.5, 2, 0.05, 'x'], rbSat: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],

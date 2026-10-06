@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.8.3';
+  const VN_VERSION = '2.8.4';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -245,7 +245,7 @@
     el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
   }
 
-  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null };
+  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null };
   let nodeQ = null, nodeQAnim = false;
   const spkOpen = new Set();
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1320,13 +1320,20 @@
     node.typing = false; node.finish = null;
   }
 
-  function typeInto(el, html, speed, done) {
+  // `shown` characters appear at once and typing goes on from there (a Continue, see nodeContinued).
+  function typeInto(el, html, speed, done, shown = 0) {
     el.innerHTML = html;
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     const items = [];
     let n;
     while ((n = walker.nextNode())) { items.push({ n, t: n.nodeValue }); n.nodeValue = ''; }
     let ii = 0, ci = 0;
+    for (let left = shown; left > 0 && ii < items.length;) {
+      const take = Math.min(left, items[ii].t.length - ci);
+      ci += take; left -= take;
+      items[ii].n.nodeValue = items[ii].t.slice(0, ci);
+      if (ci >= items[ii].t.length) { ii++; ci = 0; }
+    }
     node.typing = true;
     const finish = () => {
       clearInterval(node.typer); node.typer = null;
@@ -1343,7 +1350,7 @@
     }, speed);
   }
 
-  function nodeShow(animate) {
+  function nodeShow(animate, shown = 0) {
     const s = settings();
     const ov = ensureNodeLayer();
     nodeStopTyping();
@@ -1384,7 +1391,7 @@
       renderChoices(seg);
       if (s.nodeAuto && more && !waits && !node.held) node.auto = setTimeout(() => nodeStep(1), s.nodeAutoDelay);
     };
-    if (animate && s.nodeTypewriter && s.nodeSpeed > 0) typeInto(text, html, s.nodeSpeed, done);
+    if (animate && s.nodeTypewriter && s.nodeSpeed > 0) typeInto(text, html, s.nodeSpeed, done, shown);
     else { text.innerHTML = html; done(); }
     placeNode();
     setLocation(seg.loc);
@@ -1606,20 +1613,14 @@
   const currentLoc = () => stickyAt(chatLen()).loc;
   function visitedLocs() { const set = new Set(); stickyAt(chatLen(), set); return set; }
 
-  function nodeParseCurrent() {
-    const c = ctx();
-    const idx = node.list[node.pos];
-    const m = c.chat[idx];
-    node.prevTail = [];
-    if (!m) { node.segs = []; node.endLoc = null; node.endWx = null; node.endCast = null; return; }
+  // The dialogue parts of a message's tags and text (from parseMsg), each with the scene it plays in.
+  function buildSegs(idx, parts) {
     const s = settings();
     let { loc, wx } = stickyAt(idx);
     const cast = castAt(idx);
     const segs = [];
     // Effects and CGs belong to the next line; choices to the line before them.
     let fx = [], cg = null, choice = null;
-    // A new swipe being written still holds the old reply, so it shows "..." like SillyTavern's chat (see nodeSwiped).
-    const parts = idx === node.waitId ? [{ kind: 'narrator', name: '', emo: '', text: '...' }] : parseMsg(m);
     for (const seg of parts) {
       if (seg.kind === 'loc') { loc = seg.name; continue; }
       if (seg.kind === 'enter' || seg.kind === 'exit') { castStep(cast, seg); continue; }
@@ -1639,10 +1640,21 @@
       const textAfter = segs.slice(choice.after).some((x) => x.kind !== 'cg');
       (textAfter ? segs[Math.max(0, choice.after - 1)] : segs[segs.length - 1]).choices = choice.opts;
     }
-    node.segs = segs;
-    node.endLoc = loc;
-    node.endWx = wx;
-    node.endCast = castSnap(cast);
+    return { segs, loc, wx, cast: castSnap(cast) };
+  }
+
+  function nodeParseCurrent() {
+    const c = ctx();
+    const idx = node.list[node.pos];
+    const m = c.chat[idx];
+    node.prevTail = [];
+    if (!m) { node.segs = []; node.endLoc = null; node.endWx = null; node.endCast = null; return; }
+    // A new swipe being written still holds the old reply, so it shows "..." like SillyTavern's chat (see nodeSwiped).
+    const r = buildSegs(idx, idx === node.waitId ? [{ kind: 'narrator', name: '', emo: '', text: '...' }] : parseMsg(m));
+    node.segs = r.segs;
+    node.endLoc = r.loc;
+    node.endWx = r.wx;
+    node.endCast = r.cast;
     const prev = node.pos > 0 ? c.chat[node.list[node.pos - 1]] : null;
     if (prev) node.prevTail = parseMsg(prev).filter((x) => x.kind === 'char' && x.name).slice(-3);
   }
@@ -1827,10 +1839,13 @@
     syncNodeToggle();
     // SillyTavern clears every extension prompt when a chat opens or reloads, so the tag instructions go back in each time.
     updateInjection();
+    // Taken right away, so a Continue that ends while Visual Novel Mode is off doesn't apply later.
+    let jump = node.contJump;
+    node.contJump = null;
     const sig = chatSig();
     const opened = sig !== lastSig;
     lastSig = sig;
-    if (opened) { node.waitId = null; safe(() => window.NTR.map?.close()); }
+    if (opened) { node.waitId = null; node.cont = null; jump = null; safe(() => window.NTR.map?.close()); }
     if (!s.nodeEnabled || !A.isOn()) {
       nodeStopTyping(); ov.style.display = 'none'; node.list = []; setLocation(null); clearScene(); updateStage();
       node.held = false;
@@ -1852,7 +1867,50 @@
     node.pos = node.list.length - 1;
     nodeParseCurrent();
     node.i = 0;
+    if (jump && jump.id === node.list[node.pos]) {
+      const at = contStart(jump);
+      node.i = at.i;
+      return nodeShow(!!opts.animate && at.animate, at.shown);
+    }
     nodeShow(!!opts.animate);
+  }
+
+  // ----- Continue -----
+  // The text a part shows, without its formatting.
+  function plainText(t) {
+    const d = document.createElement('div');
+    d.innerHTML = nodeFmt(t);
+    return d.textContent;
+  }
+  // Where a continued message picks up: the old last part, with its old words shown at once.
+  // If those words changed (the model rewrote a cut-off tag, say), the whole part is typed instead.
+  function contStart(jump) {
+    const idx = node.list[node.pos];
+    const m = ctx().chat[idx];
+    const old = buildSegs(idx, parseMsg({ ...m, mes: jump.mes })).segs;
+    const last = node.segs.length - 1;
+    if (!old.length || last < 0) return { i: 0, shown: 0, animate: true };
+    const i = Math.min(old.length - 1, last);
+    const was = plainText(old[i].text), now = plainText(node.segs[i].text);
+    const same = old[i].kind === node.segs[i].kind && old[i].name === node.segs[i].name && now.startsWith(was);
+    if (!same) return { i, shown: 0, animate: true };
+    if (now.length > was.length) return { i, shown: was.length, animate: true };
+    // That part didn't grow: start at the first new part, or show the last one as it is if nothing was added.
+    if (i < last) return { i: i + 1, shown: 0, animate: true };
+    return { i, shown: 0, animate: false };
+  }
+  // SillyTavern says when a generation starts, while a continued message still holds only its old text.
+  function nodeGenStarted(type, dryRun) {
+    if (dryRun) return;
+    const chat = ctx().chat || [];
+    const id = chat.length - 1;
+    node.cont = type === 'continue' && chat[id] ? { id, mes: chat[id].mes || '' } : null;
+  }
+  // A Continue's reply is in: show it from where the old text ended.
+  function nodeContinued(id) {
+    if (node.cont && node.cont.id === id) node.contJump = node.cont;
+    node.cont = null;
+    nodeQueue(true);
   }
 
   // SillyTavern says a message was swiped before a new swipe is written, while it still holds the old reply.
@@ -1895,6 +1953,8 @@
     node.list = [];
     node.held = false;
     node.waitId = null;
+    node.cont = null;
+    node.contJump = null;
     setLocation(null);
     clearScene();
     safe(() => window.NTR.map?.close());
@@ -1915,6 +1975,8 @@
     queue: nodeQueue,
     swiped: nodeSwiped,
     endWait: nodeEndWait,
+    genStarted: nodeGenStarted,
+    continued: nodeContinued,
     cleanEmoTags,
     // For map.js and opening.js
     data: V,

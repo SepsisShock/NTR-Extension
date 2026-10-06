@@ -82,7 +82,6 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 ### Visual Novel Mode: new replies
 Found while checking the typewriter effect with streaming, which works fine. Each was seen in a local SillyTavern.
 
-- [ ] After Continue, the dialogue box types the whole message again from the first part instead of starting at the new text. Happens with streaming on or off.
 - [ ] With streaming on and Visual Novel Mode off, emotion tags (like `%%Happy`) show in the normal chat until the reply finishes. The code that hides them waits for the chat to stop changing, and a stream keeps changing it.
 
 ### User Instructions

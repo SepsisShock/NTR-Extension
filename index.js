@@ -1315,7 +1315,7 @@
 
         ${themesSectionHtml(s)}
 
-        ${pageHtml('banner', 'fa-images', 'Header Banner', `
+        ${pageHtml('banner', `
             ${card('Source', `
             <div><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char', BANNER_NOTE.char]], ownKind ? 'char' : 'global')}</div>
               <div style="margin-top: 10px;">
@@ -1410,7 +1410,7 @@
             ${ownKind ? '' : '<div class="cb_hint">Height, gap and transparent areas change every character set to Global.</div>'}`)}
         `, { sw: ['m_b_enable', s.bannerOn], legend: true })}
 
-        ${pageHtml('pfp', 'fa-user', 'Avatar Management', `
+        ${pageHtml('pfp', `
             <div class="ntr_cols">
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
@@ -1421,7 +1421,7 @@
         ${textSectionHtml(s)}
         ${displaySectionHtml(s)}
 
-        ${pageHtml('fg', 'fa-shapes', 'Foreground Images', `
+        ${pageHtml('fg', `
             ${card('', `
             <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${s.fgOpacity ?? 100}</span>%</span></div>
             <input type="range" id="m_f_o" min="0" max="100" step="1" value="${s.fgOpacity ?? 100}">
@@ -1765,6 +1765,7 @@
 
   // ===== Shared UI helpers =====
   // The menu's pages, in the order of the icon column: id, icon, short name for the column, full name.
+  // The only place they're written: the column and each page's title both read them from here.
   const PAGES = [
     ['themes', 'fa-bookmark', 'Themes', 'Themes'],
     ['banner', 'fa-images', 'Banner', 'Header Banner'],
@@ -1778,9 +1779,10 @@
   const navHtml = (cur) => PAGES.map(([id, icon, short, full]) =>
     `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
     + '<div class="ntr_navfill"></div>';
-  // One page: a big title with the section's icon and, for a section that can be switched off, its switch.
+  // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
   // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
-  function pageHtml(sec, icon, title, body, { sw = null, legend = false, note = '' } = {}) {
+  function pageHtml(sec, body, { sw = null, legend = false, note = '' } = {}) {
+    const [, icon, , title] = PAGES.find(([id]) => id === sec);
     return `
       <section class="ntr_page${sw && !sw[1] ? ' ntr_off' : ''}" data-page="${sec}"${settings().uiPage === sec ? '' : ' hidden'}>
         <div class="ntr_phead">
@@ -2230,7 +2232,7 @@
   const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
-    return pageHtml('reasoning', 'fa-comment-dots', 'Reasoning Block Design', `
+    return pageHtml('reasoning', `
           <div class="cb_hint">Only changes how the block looks. If no reasoning block shows up, turn on "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion and models that write their thinking into the reply).</div>
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
           ${card('Style', `
@@ -2265,7 +2267,7 @@
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
-    return pageHtml('text', 'fa-text-height', 'Text Formatting', `
+    return pageHtml('text', `
           <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', ovSlider(s, 'ovFont', 'x', 0.5, 2, 0.05) + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
           ${subHead('tf_names', 'Names')}
@@ -2349,7 +2351,7 @@
   function displaySectionHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
-    return pageHtml('display', 'fa-display', 'UI Display', `
+    return pageHtml('display', `
           <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           ${card('Chat', `
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
@@ -2991,7 +2993,7 @@
     const opts = [['', 'None (default look)'], ...s.themes.map((t) => [t.id, t.name])]
       .map(([v, l]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(l)}</option>`).join('');
     const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
-    return pageHtml('themes', 'fa-bookmark', 'Themes', `
+    return pageHtml('themes', `
         ${card('', `
           <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
@@ -3405,7 +3407,7 @@
     const vn = window.NTR.vn;
     if (vn) return vn.sectionHtml(s);
     const msg = modError.vn ? 'Visual Novel Mode failed to load: ' + escapeHTML(modError.vn) : 'Its settings appear here once it\'s switched on.';
-    return pageHtml('vn', 'fa-clapperboard', 'Visual Novel Mode', '',
+    return pageHtml('vn', '',
       { sw: ['m_n_enable', s.nodeEnabled], note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
   }
 

@@ -699,7 +699,7 @@
                   <button class="menu_button m_art_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
                   <button class="menu_button m_art_url" data-k="${k}" title="Use a link"><i class="fa-solid fa-link"></i></button>
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button></span>`;
-    return pageHtml('vn', 'fa-clapperboard', 'Visual Novel Mode', `
+    return pageHtml('vn', `
             ${subHead('vn_guide', 'How to write your card')}
             <div class="cb_collapse_content">
               <div class="cb_hint">Visual Novel Mode reads these tags from messages. Write them in your card's first message or in anything you write yourself. While the mode is on, the AI is told to use them too (see Prompt for your LLM). These examples use your current symbols and names.</div>

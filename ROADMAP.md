@@ -26,9 +26,9 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
 ### Sliders read their ranges from one place
-The UI Display, Reasoning Block and Text Formatting sliders now read their range, step and unit from `NUM_RANGE`, so the menu, the applied value and the theme file limits can't drift apart. The other pages follow, one page per PR, each with a plan first.
+The UI Display, Reasoning Block, Text Formatting and Overlays sliders now read their range, step and unit from `NUM_RANGE`, so the menu, the applied value and the theme file limits can't drift apart. The other pages follow, one page per PR, each with a plan first.
 
-- [ ] Banner, Avatars and Overlays. Some of these sliders are saved per character (crop, overlap offset, overlay size) and have their limits written in the menu and in `cleanStore`; those would read the same ranges.
+- [ ] Banner, then Avatars. Some Banner sliders are saved per character (crop, overlap offset) and have their limits written in the menu and in `cleanStore`; they read the same ranges through `cardNum`, like the Overlays size. Avatars' Move Horizontal and Vertical keep a narrower slider range than their saved limit, both in one entry.
 - [ ] Visual Novel Mode and opening video sliders in `vn.js` and `opening.js`, reading `NUM_RANGE` through `window.NTR`.
 - [ ] Every piece keeps setting names, defaults and the menu layout the same, and is compared on `main` and the branch with `/run-ntr-extension`.
 

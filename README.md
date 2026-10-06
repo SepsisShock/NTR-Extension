@@ -14,7 +14,7 @@
 
 ### `[ 01 ]` OVERVIEW
 
-NTR is a SillyTavern extension that changes how chats look. It adds a header banner above the chat, helps you style avatars, text, and the UI.
+NTR is a SillyTavern extension that changes how chats look. It adds a header banner above the chat, helps you style avatars, text, and the UI. Settings save automatically.
 
 #### `[ 02 ]` [banner example]
 
@@ -30,8 +30,8 @@ Visual Novel Mode is optional. It shows messages in a dialogue box with characte
 
 ---
 
-### `[ 06 ]` SETTINGS
+### `[ 06 ]` INSTALL INSTRUCTIONS
 
-All settings are in one menu. Open it from the Extensions panel, by typing /ntr in the chat box, or from SillyTavern's wand menu after turning on the wand button at the top of the menu. Pick a section from the icons down the left side; on a phone, tap the menu button to show them. Settings save automatically.
+TBD
 
 ---

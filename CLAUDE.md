@@ -19,6 +19,7 @@ SillyTavern extension.
 - Preserve existing settings keys so users' saved configs keep working.
 - `index.js` is the core; `vn.js`, `map.js` and `opening.js` use its helpers through `window.NTR`. Reuse them; don't copy them.
 - All uploads go through `uploadImage` or `uploadVideo`.
+- Number settings: put the range in `NUM_RANGE` as `[min, max, step, unit]` and read it with `rangeNum`, and with `rangeSlider` on pages that use `ovSlider`. Don't write the numbers into the menu or the code that applies them.
 - Global settings live in `extensionSettings.chatvisuals`; per-character data lives in the card under `extensions.ntr`.
 - Card data comes from other people. Any new field read from a card must be cleaned in `cleanStore` like the existing ones (ranges, length limits, safe links).
 

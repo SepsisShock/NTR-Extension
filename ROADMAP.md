@@ -25,12 +25,6 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
-### Sliders read their ranges from one place
-Every slider in `index.js` now reads its range, step and unit from `NUM_RANGE`, so the menu, the applied value, card cleaning and the theme file limits can't drift apart. The Visual Novel Mode and opening video sliders follow, with a plan first.
-
-- [ ] Visual Novel Mode and opening video sliders in `vn.js` and `opening.js`, reading `NUM_RANGE` through `window.NTR`.
-- [ ] Every piece keeps setting names, defaults and the menu layout the same, and is compared on `main` and the branch with `/run-ntr-extension`.
-
 ## Ideas
 
 - Built-in cursor. An arrow drawn in code with its own color, for people without a cursor image (Custom Cursor in UI Display).
@@ -77,10 +71,11 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Screen height changes when the address bar shows or hides.
 - [ ] Notch and home bar areas on iPhone.
 
-### Visual Novel Mode: new replies
-Found while checking the typewriter effect with streaming, which works fine. Each was seen in a local SillyTavern.
+### Visual Novel Mode and opening video sliders read `NUM_RANGE`
+Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The ones in `vn.js` and `opening.js` still have their own numbers. Users would see no difference, so this waits until those files are worked on anyway.
 
-- [ ] With streaming on and Visual Novel Mode off, emotion tags (like `%%Happy`) show in the normal chat until the reply finishes. The code that hides them waits for the chat to stop changing, and a stream keeps changing it.
+- [ ] Share `NUM_RANGE` through `window.NTR` and have these sliders and the code that applies them read it, keeping setting names, defaults and the menu layout the same.
+- [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
 
 ### User Instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.

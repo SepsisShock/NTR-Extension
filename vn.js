@@ -1,10 +1,10 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.7.3';
+  const VN_VERSION = '2.8.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, secHead, subHead, validateDelims } = A;
+  const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
   const TAG = A.TAG || '';
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
@@ -699,12 +699,7 @@
                   <button class="menu_button m_art_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
                   <button class="menu_button m_art_url" data-k="${k}" title="Use a link"><i class="fa-solid fa-link"></i></button>
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button></span>`;
-    return `
-      <div class="cb_section">
-        ${secHead('vn', 'fa-clapperboard', 'Visual Novel Mode')}
-        <div class="cb_collapse_content">
-          ${ck('m_n_enable', s.nodeEnabled, 'Enable Visual Novel Mode')}
-          <div id="m_n_body" class="${s.nodeEnabled ? '' : 'cb_dim'}">
+    return pageHtml('vn', 'fa-clapperboard', 'Visual Novel Mode', `
             ${subHead('vn_guide', 'How to write your card')}
             <div class="cb_collapse_content">
               <div class="cb_hint">Visual Novel Mode reads these tags from messages. Write them in your card's first message or in anything you write yourself. While the mode is on, the AI is told to use them too (see Prompt for your LLM). These examples use your current symbols and names.</div>
@@ -844,9 +839,7 @@
               <textarea id="m_p_text" class="text_pole" readonly rows="4" style="width:100%;resize:vertical;"></textarea>
               <button id="m_p_copy" class="menu_button" style="margin-top:6px;"><i class="fa-solid fa-copy"></i> Copy Prompt</button>
             </div>
-          </div>
-        </div>
-      </div>`;
+    `, { sw: ['m_n_enable', s.nodeEnabled], bodyId: 'm_n_body', legend: true });
   }
 
   function bindVN(overlay, s) {
@@ -860,7 +853,7 @@
     }
     const gotoDelims = (e) => {
       if (e) e.preventDefault();
-      s.uiOpen.vn = true; s.uiOpen.vn_tags = true; save();
+      s.uiPage = 'vn'; s.uiOpen.vn_tags = true; save();
       A.openMenu();
       setTimeout(() => document.querySelector('#cb_modal_overlay [data-sec="vn_tags"]')?.scrollIntoView({ block: 'start' }), 60);
     };

@@ -6,7 +6,7 @@
 //   node .claude/skills/run-ntr-extension/driver.cjs <<'EOF'
 //   select default_Seraphina.png
 //   menu fg
-//   shot fg #cb_modal_overlay .cb_section:has([data-sec="fg"])
+//   shot fg #cb_modal_overlay .cb_popup_content
 //   EOF
 const fs = require('fs');
 const path = require('path');
@@ -73,13 +73,16 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       await sleep(1500);
       return `chat open (character index ${i})`;
     },
-    // Open the NTR menu and expand sections by their data-sec name (a subsection needs its parent too: `menu vn vn_spk`).
+    // Open the NTR menu, go to a page by its icon (`menu fg`) and open folded parts by their data-sec name
+    // (`menu vn vn_tags`). Menus from before the icon column (2.7 and older) expand sections the same way.
     async menu(rest) {
       await page.evaluate(() => { window.toastr?.clear(); window.NTR.api.openMenu(); });
       for (const sec of rest.split(/\s+/).filter(Boolean)) {
         const ok = await page.evaluate((sec) => {
+          const nav = document.querySelector(`#cb_modal_overlay .ntr_navi[data-page="${sec}"]`);
+          if (nav) { nav.click(); return true; }
           const h = document.querySelector(`#cb_modal_overlay .cb_collapse_toggle[data-sec="${sec}"]`);
-          if (!h) return false;
+          if (!h) return !!document.querySelector(`#cb_modal_overlay [data-sec="${sec}"]`);
           if (h.nextElementSibling.style.display === 'none') h.click();
           return true;
         }, sec);

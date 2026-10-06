@@ -3601,7 +3601,8 @@
         const vn = window.NTR.vn;
         vn?.endWait?.();
         // A Continue picks up where the old text ended instead of typing the whole message again.
-        if (type === 'continue' && vn?.continued) vn.continued(Number(id));
+        // Without streaming, SillyTavern marks a finished Continue as 'appendFinal'.
+        if ((type === 'continue' || type === 'appendFinal') && vn?.continued) vn.continued(Number(id));
         else vn?.queue(true);
       });
     }

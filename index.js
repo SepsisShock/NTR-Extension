@@ -2298,7 +2298,7 @@
     const borders = (def) => [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double'], ['glow', 'Glow']]
       .map(([v, l]) => (v === def ? [v, l, 'SillyTavern\'s default'] : [v, l]));
     return pageHtml('reasoning', `
-          <div class="cb_hint">Only changes how the block looks. If no reasoning block shows up, turn on "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion and models that write their thinking into the reply).</div>
+          <div class="cb_hint">Only changes how the block looks. To show reasoning boxes, make sure "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion) are enabled.</div>
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">

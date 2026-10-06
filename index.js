@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.2';
+  const VERSION = '2.8.3';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -3591,8 +3591,16 @@
       if (document.getElementById('cb_modal_overlay')) openCombinedModal();
     });
 
-    for (const [name, anim] of [['CHARACTER_MESSAGE_RENDERED', true], ['USER_MESSAGE_RENDERED', true], ['MESSAGE_SWIPED', true], ['MESSAGE_EDITED', false], ['MESSAGE_UPDATED', false], ['MESSAGE_DELETED', false]]) {
+    for (const [name, anim] of [['USER_MESSAGE_RENDERED', true], ['MESSAGE_EDITED', false], ['MESSAGE_UPDATED', false], ['MESSAGE_DELETED', false]]) {
       if (event_types[name]) eventSource.on(event_types[name], () => window.NTR.vn?.queue(anim));
+    }
+    // A swipe to a new reply shows "..." until the reply arrives (see nodeSwiped in vn.js).
+    if (event_types.MESSAGE_SWIPED) eventSource.on(event_types.MESSAGE_SWIPED, (id) => (window.NTR.vn?.swiped ? window.NTR.vn.swiped(Number(id)) : window.NTR.vn?.queue(true)));
+    if (event_types.CHARACTER_MESSAGE_RENDERED) eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, () => { window.NTR.vn?.endWait?.(); window.NTR.vn?.queue(true); });
+    // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
+    // The short delay lets a reply that did arrive go first, so it still gets typed.
+    if (event_types.GENERATION_ENDED) {
+      eventSource.on(event_types.GENERATION_ENDED, () => setTimeout(() => { if (window.NTR.vn?.endWait?.()) window.NTR.vn.queue(false); }, 300));
     }
     if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); });
 

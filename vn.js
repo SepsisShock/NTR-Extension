@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.8.2';
+  const VN_VERSION = '2.8.3';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -245,7 +245,7 @@
     el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
   }
 
-  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null };
+  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null };
   let nodeQ = null, nodeQAnim = false;
   const spkOpen = new Set();
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1618,7 +1618,9 @@
     const segs = [];
     // Effects and CGs belong to the next line; choices to the line before them.
     let fx = [], cg = null, choice = null;
-    for (const seg of parseMsg(m)) {
+    // A new swipe being written still holds the old reply, so it shows "..." like SillyTavern's chat (see nodeSwiped).
+    const parts = idx === node.waitId ? [{ kind: 'narrator', name: '', emo: '', text: '...' }] : parseMsg(m);
+    for (const seg of parts) {
       if (seg.kind === 'loc') { loc = seg.name; continue; }
       if (seg.kind === 'enter' || seg.kind === 'exit') { castStep(cast, seg); continue; }
       castStep(cast, seg);
@@ -1828,7 +1830,7 @@
     const sig = chatSig();
     const opened = sig !== lastSig;
     lastSig = sig;
-    if (opened) safe(() => window.NTR.map?.close());
+    if (opened) { node.waitId = null; safe(() => window.NTR.map?.close()); }
     if (!s.nodeEnabled || !A.isOn()) {
       nodeStopTyping(); ov.style.display = 'none'; node.list = []; setLocation(null); clearScene(); updateStage();
       node.held = false;
@@ -1851,6 +1853,20 @@
     nodeParseCurrent();
     node.i = 0;
     nodeShow(!!opts.animate);
+  }
+
+  // SillyTavern says a message was swiped before a new swipe is written, while it still holds the old reply.
+  // A swipe to the empty slot past the last one is a new reply on its way: wait for it instead of typing the old one.
+  function nodeSwiped(id) {
+    const m = (ctx().chat || [])[id];
+    node.waitId = m && Array.isArray(m.swipes) && m.swipe_id >= m.swipes.length ? id : null;
+    nodeQueue(node.waitId === null);
+  }
+  // Stops waiting for a new swipe. True if it was waiting.
+  function nodeEndWait() {
+    if (node.waitId === null) return false;
+    node.waitId = null;
+    return true;
   }
 
   function nodeQueue(animate) {
@@ -1878,6 +1894,7 @@
     if (ov) ov.style.display = 'none';
     node.list = [];
     node.held = false;
+    node.waitId = null;
     setLocation(null);
     clearScene();
     safe(() => window.NTR.map?.close());
@@ -1896,6 +1913,8 @@
     teardown,
     ensure,
     queue: nodeQueue,
+    swiped: nodeSwiped,
+    endWait: nodeEndWait,
     cleanEmoTags,
     // For map.js and opening.js
     data: V,

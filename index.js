@@ -2304,8 +2304,8 @@
           <div class="cb_collapse_content">
             <div class="cb_hint">The label on the button above the reasoning. Leave a box empty to use SillyTavern's own, shown in grey.</div>
             <div class="cb_ovrow">
-              <label class="checkbox_label"><input type="checkbox" id="m_rb_type" ${s.rbType ? 'checked' : ''}><span>Typewriter</span></label>
-              <div class="m_o_body"><div class="cb_hint">Types the label out as the reply starts, and again when the thinking ends. Dots at the end of While Thinking keep going until it's done. Off when SillyTavern's Reduced Motion is on.</div></div>
+              <label class="checkbox_label"><input type="checkbox" id="m_rb_type" ${s.rbType ? 'checked' : ''}><span>Typewriter Effect</span></label>
+              <div class="m_o_body"><div class="cb_hint">Types the label out live, with looping dots while thinking. Off with ST Reduced Motion enabled.</div></div>
             </div>
             ${label('rbThink', 'While Thinking')}
             ${label('rbDone', 'Finished', '<div class="cb_hint">Note: {time} shows "12 seconds", "a minute", etc.</div>')}

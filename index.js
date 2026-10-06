@@ -59,8 +59,8 @@
     // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens; empty status text means ST's own)
     rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbTyping: 'off',
     rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnAlpha: 0, rbBtnTextOn: false, rbBtnText: '',
-    rbBtnShapeOn: false, rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnFxOn: false, rbBtnFx: 'glow', rbBtnFxSize: 8,
-    rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBorderStyleOn: false, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '', rbEdgeFxOn: false, rbEdgeFx: 'glow', rbEdgeFxSize: 8,
+    rbBtnShape: 'rounded', rbBtnBorder: 'none', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnFx: 'none', rbBtnFxSize: 8,
+    rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '', rbEdgeFx: 'none', rbEdgeFxSize: 8,
     rbCssOn: false, rbCss: '',
 
     // Text Formatting
@@ -168,7 +168,10 @@
     if (keepOldLook) { s.artBg = 'none'; s.artSprite = 'none'; }
     // The reasoning status text had ticks; an unticked one meant ST's own text, which is now an empty box.
     if ('rbThinkOn' in s) for (const k of ['rbThink', 'rbDone', 'rbSome']) if (!s[k + 'On']) s[k] = '';
-    for (const k of ['rbType', 'rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
+    for (const [on, k] of [['rbBtnShapeOn', 'rbBtnShape'], ['rbBtnBorderOn', 'rbBtnBorder'], ['rbBorderStyleOn', 'rbBorderStyle']]) {
+      if (on in s && !s[on]) s[k] = DEFAULTS[k];
+    }
+    for (const k of ['rbBtnShapeOn', 'rbBtnBorderOn', 'rbBorderStyleOn', 'rbType', 'rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
       'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor']) delete s[k];
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     if (s.bannerEnabled !== undefined && !s.migratedBanner) {
@@ -612,6 +615,7 @@
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
       .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
+      .cb_ovrow .cb_plab { padding-left: 26px; }
       .cb_ovrow.cb_sep { border-top: 1px solid rgba(255,255,255,.18); margin-top: 8px; padding-top: 12px; }
       .cb_ovrow:has(+ .cb_sep) { border-bottom: 0; }
       .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
@@ -2064,7 +2068,7 @@
   const FX = ['glow', 'shadow', 'outline'];
   const FX_PARTS = ['tfName', 'tfUser', 'tfAi'];
   const RB_BORDERS = ['none', 'solid', 'dashed', 'dotted', 'double'];
-  const RB_FX = ['glow', 'shadow'];
+  const RB_FX = ['none', 'glow', 'shadow'];
   const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
   const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
@@ -2124,13 +2128,13 @@
 
     // Border Effects: Glow in the border's color, or a black Shadow. The reasoning box's sits on its left edge.
     const edgeFx = (k, c, spread, left) => {
-      if (!on(k) || !RB_FX.includes(s[k])) return '';
+      if (!RB_FX.includes(s[k]) || s[k] === 'none') return '';
       const n = rangeNum(s, k + 'Size'), o = Math.ceil(n / 3);
       return s[k] === 'glow' ? `${left ? -o : 0}px 0 ${n}px ${spread} ${c}` : `${left ? -o : o}px ${o}px ${n}px ${spread} rgba(0, 0, 0, .6)`;
     };
     if (s.rbEnabled) {
       // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
-      const bs = on('rbBorderStyle') && RB_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
+      const bs = RB_BORDERS.includes(s.rbBorderStyle) && s.rbBorderStyle !== 'solid' ? s.rbBorderStyle : ''; // solid is ST's own line
       css += rule('.mes_reasoning', {
         '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
         'border-left-color': col('rbBorder'),
@@ -2139,16 +2143,16 @@
         'border-left-width': bs === 'double' ? '4px' : '',
         'box-shadow': edgeFx('rbEdgeFx', col('rbBorder') || 'var(--reasoning-body-color)', '-2px', true),
       });
-      // The status button above it. ST's has no border, so a Border Color on its own adds a thin solid one.
-      const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : col('rbBtnBorderColor') ? 'solid' : '';
+      // The status button above it. ST's has no border and rounded corners.
+      const bb = RB_BORDERS.includes(s.rbBtnBorder) && s.rbBtnBorder !== 'none' ? s.rbBtnBorder : '';
       const bc = col('rbBtnBorderColor') || 'currentColor';
       const see = on('rbBtnAlpha') ? rangeNum(s, 'rbBtnAlpha') : 0;
       const fill = col('rbBtnColor') || (see ? 'var(--grey30)' : '');
       css += rule('.mes_reasoning_header', {
         'background-color': see ? `color-mix(in srgb, ${fill} ${100 - see}%, transparent)` : fill,
         color: col('rbBtnText'),
-        'border-radius': on('rbBtnShape') ? RB_SHAPE[s.rbBtnShape] : '',
-        border: bb === 'none' ? 'none' : bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
+        'border-radius': s.rbBtnShape !== 'rounded' ? RB_SHAPE[s.rbBtnShape] || '' : '',
+        border: bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
         'box-shadow': edgeFx('rbBtnFx', bc, '0px', false),
       });
     }
@@ -2318,6 +2322,11 @@
             <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
     const borders = (def) => [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']]
       .map(([v, l]) => (v === def ? [v, l, 'SillyTavern\'s default'] : [v, l]));
+    // A pick-one row with no tick: its default choice is SillyTavern's own look.
+    const pickRow = (title, inner) => `
+          <div class="cb_ovrow"><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
+    const fxOpts = [['none', 'None', 'SillyTavern\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
+    const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
     return pageHtml('reasoning', `
           <div class="cb_hint">Only changes how the block looks. To show reasoning boxes, make sure "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion) are enabled.</div>
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
@@ -2336,16 +2345,16 @@
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
           ${ovRow(s, 'rbBtnAlphaOn', 'Transparency', rangeSlider(s, 'rbBtnAlpha') + '<div class="cb_hint">0% is solid, 100% is see-through. Only the button changes, not its text.</div>')}
           ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
-          ${ovRow(s, 'rbBtnShapeOn', 'Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
-          ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders('none'), s.rbBtnBorder))}
-          ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color. SillyTavern\'s button has no border, so this alone adds a thin solid one.</div>')}
-          ${ovRow(s, 'rbBtnFxOn', 'Border Effects', pills('rbbtnfx', [['glow', 'Glow'], ['shadow', 'Shadow']], s.rbBtnFx) + rangeSlider(s, 'rbBtnFxSize') + '<div class="cb_hint">Glow uses the Border Color, or the button\'s text color without one. Shadow is black.</div>')}`)}
+          ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
+          ${pickRow('Border Style', pills('rbbtnborder', borders('none'), s.rbBtnBorder))}
+          ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color.</div>')}
+          ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow uses the Border Color, or the button\'s text color without one. Shadow is black.</div>')}`)}
           ${card('Basic Style: Reasoning Box', `
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
-          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
+          ${pickRow('Border Style', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
-          ${ovRow(s, 'rbEdgeFxOn', 'Border Effects', pills('rbedgefx', [['glow', 'Glow'], ['shadow', 'Shadow']], s.rbEdgeFx) + rangeSlider(s, 'rbEdgeFxSize') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}`)}
+          ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
@@ -2421,8 +2430,12 @@
     });
     onPills(overlay, 'rbbtnshape', (v) => { s.rbBtnShape = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbbtnborder', (v) => { s.rbBtnBorder = v; save(); updateAvatarStyle(); });
-    onPills(overlay, 'rbbtnfx', (v) => { s.rbBtnFx = v; save(); updateAvatarStyle(); });
-    onPills(overlay, 'rbedgefx', (v) => { s.rbEdgeFx = v; save(); updateAvatarStyle(); });
+    for (const [name, k] of [['rbbtnfx', 'rbBtnFx'], ['rbedgefx', 'rbEdgeFx']]) {
+      onPills(overlay, name, (v) => {
+        s[k] = v; save(); updateAvatarStyle();
+        overlay.querySelector(`.m_rb_fxsize[data-for="${k}"]`).classList.toggle('cb_dim', v === 'none');
+      });
+    }
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });

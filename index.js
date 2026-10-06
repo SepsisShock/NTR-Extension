@@ -1,10 +1,10 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.9';
+  const VERSION = '2.8.10';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
-    bannerOn: true,
+    bannerOn: false,
     bannerMode: 'image', 
     bannerRotate: false,
     bannerRotateSec: 8,
@@ -320,8 +320,9 @@
   }
 
   function layoutFg() {
+    const layer = document.getElementById('cb_fg_layer');
     const chat = document.getElementById('chat');
-    if (!chat) return;
+    if (!layer || layer.style.display === 'none' || !chat) return;
     const r = chat.getBoundingClientRect();
     const L = document.getElementById('cb_fg_left');
     const C = document.getElementById('cb_fg_center');
@@ -332,7 +333,11 @@
   }
 
   function ensureFgLayer() {
+    const s = settings();
+    const show = isOn() && s.fgEnabled && !(s.fgHideVN && s.nodeEnabled);
     let layer = document.getElementById('cb_fg_layer');
+    // Nothing is built until foreground images are first switched on.
+    if (!layer && !show) return;
     if (!layer) {
       layer = document.createElement('div');
       layer.id = 'cb_fg_layer';
@@ -352,9 +357,7 @@
       document.body.appendChild(front);
     }
 
-    const s = settings();
     const F = fgData();
-    const show = isOn() && s.fgEnabled && !(s.fgHideVN && s.nodeEnabled);
     layer.style.display = show ? 'block' : 'none';
     front.style.display = show ? 'block' : 'none';
     document.documentElement.style.setProperty('--cb-fg-op', rangeNum(s, 'fgOpacity') / 100);

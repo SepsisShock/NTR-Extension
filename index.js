@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.7.3';
+  const VERSION = '2.8.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -83,6 +83,7 @@
 
     // Menu state
     uiOpen: { banner: true },
+    uiPage: 'banner',
     uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
     wandEntry: false,
 
@@ -527,7 +528,7 @@
 
   // The main Enable switches are sliders that still click on and off. They're styled by id because a class would rank
   // below SillyTavern's own checkbox styles, which would turn them back into square checkboxes.
-  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable', 'm_wand'];
+  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable'];
   const switches = (state) => SWITCH_IDS.map((id) => `#${id}${state}`).join(', ');
 
   function updateAvatarStyle() {
@@ -572,10 +573,7 @@
       #cb_fg_left { left: 0; object-position: left bottom; }
       #cb_fg_right { right: 0; object-position: right bottom; }
 
-      .cb_section h4.ntr_flat_head { display: flex; justify-content: space-between; align-items: center; margin: 0; padding: 0; border: 0; }
       .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
-      .cb_subhead { margin-top: 10px; padding: 6px 4px; font-weight: bold; font-size: .92em; border-bottom: 1px dashed var(--SmartThemeBorderColor, #444); }
-      .cb_subhead + .cb_collapse_content { padding: 8px 4px 4px; }
       .cb_dim { opacity: .4; pointer-events: none; filter: grayscale(.5); transition: opacity .15s; }
       .cb_hint { font-size: .8em; opacity: .7; margin: 4px 0 6px; }
       .cb_err { color: #ff8a8a; }
@@ -821,8 +819,8 @@
   // rot.idx is the image on screen while rotating. It's never saved, so the card isn't rewritten every few
   // seconds and each chat opens on the picked image (r.idx), which only the arrows and the menu change.
   const rot = { key: null, idx: null, timer: null, sec: 0, fade: false };
-  // Waits while the Header Banner settings are open, so the Crop slider works on the picked image.
-  const rotPaused = () => !!document.getElementById('cb_modal_overlay') && !!settings().uiOpen?.banner;
+  // Waits while the Header Banner page is open, so the Crop slider works on the picked image.
+  const rotPaused = () => !!document.getElementById('cb_modal_overlay') && settings().uiPage === 'banner';
   function shownIdx(key, r) {
     const n = r.images.length;
     return rot.key === key && rot.idx != null && rot.idx < n ? rot.idx : Math.min(r.idx, n - 1);
@@ -1228,8 +1226,9 @@
     const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${style === only ? 'flex' : 'none'};">${inner}</div>`;
 
     return `
-      <div id="m_${prefix}_col" class="cb_col">
-        <h5 class="col_header">${title}</h5>
+      <div class="ntr_colwrap">
+      <div class="ntr_glab">${title}</div>
+      <div id="m_${prefix}_col" class="cb_col ntr_card">
         <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>${title} Avatar</span></label>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
@@ -1259,6 +1258,7 @@
         <button id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px;"><i class="fa-solid fa-rotate-left"></i> Reset ${title}</button>
         </div>
       </div>
+      </div>
     `;
   }
 
@@ -1275,6 +1275,7 @@
     const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
     document.getElementById('cb_modal_overlay')?.remove();
     const s = settings();
+    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'banner';
     const F = fgData();
     const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
@@ -1296,42 +1297,35 @@
     overlay.innerHTML = `
       <div class="cb_popup_content">
         <div class="cb_popup_header">
+          <button class="cb_hbtn ntr_navbtn" title="Show the sections"><i class="fa-solid fa-bars"></i></button>
           <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
           <span class="ntr_hbtns">
+            <button class="cb_hbtn" id="m_wand"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
             <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
             <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
             <button class="cb_hbtn ntr_dockbtn" data-dock="right" title="Dock right"><i class="fa-solid fa-right-long"></i></button>
             <button class="cb_close_btn" title="Close">&times;</button>
           </span>
         </div>
-        <div class="ntr_body">
         ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. Use the power button on its bar in the Extensions panel to turn it back on.</div>'}
-        <div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>
+        <div class="ntr_main">
+        <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
+        <div class="ntr_shade"></div>
+        <div class="ntr_body">
 
         ${themesSectionHtml(s)}
 
-        <div class="cb_section">
-          ${secHead('banner', 'fa-images', 'Header Banner')}
-          <div class="cb_collapse_content">
-            <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_b_enable" ${s.bannerOn ? 'checked' : ''}><span>Enable Header Banner</span></label>
-            <div id="m_b_body" class="${s.bannerOn ? '' : 'cb_dim'}">
-            <div style="margin-bottom: 10px;"><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char', BANNER_NOTE.char]], ownKind ? 'char' : 'global')}</div>
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px;">
-              <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
-                <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>
-              </label>
-              <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
-                <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
-              </label>
-              <div>
+        ${pageHtml('banner', 'fa-images', 'Header Banner', `
+            ${card('Source', `
+            <div><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char', BANNER_NOTE.char]], ownKind ? 'char' : 'global')}</div>
+              <div style="margin-top: 10px;">
                 <strong>Kind:</strong>${ownKind ? ' ' + TAG : ''}${pills('bmode', [['image', 'Image Gallery'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind)}
                 ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}
-              </div>
-            </div>
-            
+              </div>`)}
+
             <!-- Image Controls -->
             <div id="m_b_img_controls" style="display: ${kind === 'image' ? 'block' : 'none'};">
-              <div style="margin-bottom: 6px;"><strong>Images</strong>${btag}</div>
+              ${card('Images' + btag, `
               ${shared}
               <div class="cb_actions">
                 <button id="m_b_up" class="menu_button"><i class="fa-solid fa-plus"></i> Add</button>
@@ -1351,10 +1345,10 @@
               ${curImg ? `
               <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_pval">${cNum(curImg.pos, 45, 0, 100)}</span>%</span></div>
               <input type="range" id="m_b_p" min="0" max="100" value="${cNum(curImg.pos, 45, 0, 100)}">
-              ` : ''}
+              ` : ''}`)}
 
-              <div style="margin-top: 12px;">
-                <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate through images${ownKind ? ' ' + TAG : ''}</span></label>
+              ${card('Rotation' + (ownKind ? ' ' + TAG : ''), `
+                <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate through images</span></label>
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
                   <div class="cb_row" style="margin-top: 8px;"><label>Every:</label><span><span id="m_b_rot_val">${ro.rotateSec}</span>s</span></div>
                   <input type="range" id="m_b_rot_sec" min="3" max="60" step="1" value="${ro.rotateSec}">
@@ -1362,20 +1356,20 @@
                   <div style="margin-top: 8px;"><strong>Order:</strong>${pills('brord', [['order', 'In order'], ['shuffle', 'Shuffled']], ro.rotateOrder)}</div>
                 </div>
                 ${n < 2 ? '<div class="cb_hint">Rotation needs 2 or more images.</div>' : ''}
-                ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}
-              </div>
+                ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}`)}
             </div>
 
             <!-- YouTube Controls -->
             <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
-              <label><strong>YouTube Video URL:</strong>${btag}</label>
+              ${card('YouTube Loop' + btag, `
+              <label><strong>YouTube Video URL:</strong></label>
               ${shared}
-              <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">
+              <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">`)}
             </div>
 
             <!-- Video Controls -->
             <div id="m_b_vid_controls" style="display: ${kind === 'video' ? 'block' : 'none'};">
-              <div style="margin-bottom: 6px;"><strong>Video</strong>${btag}</div>
+              ${card('Video' + btag, `
               ${shared}
               <div class="cb_row">
                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${src.video ? escapeHTML(String(src.video).split('/').pop()) : '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
@@ -1387,8 +1381,16 @@
               ${src.video ? `
               <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_vpval">${cNum(src.videoPos, 50, 0, 100)}</span>%</span></div>
               <input type="range" id="m_b_vp" min="0" max="100" value="${cNum(src.videoPos, 50, 0, 100)}">` : ''}
-              <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>
+              <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>`)}
             </div>
+
+            ${card('Layout', `
+              <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
+                <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>
+              </label>
+              <label class="checkbox_label" style="margin-top: 6px;${!key ? 'opacity:0.5;pointer-events:none;' : ''}">
+                <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
+              </label>
 
             <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:${btag}</label><span><span id="m_b_hval">${bl.height}</span>px</span></div>
             <input type="range" id="m_b_h" min="60" max="350" step="5" value="${bl.height}">
@@ -1405,40 +1407,31 @@
             </div>
 
             <div style="margin-top: 10px;"><strong>Transparent areas show:${btag}</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
-            ${ownKind ? '' : '<div class="cb_hint">Height, gap and transparent areas change every character set to Global.</div>'}
-            </div>
-          </div>
-        </div>
+            ${ownKind ? '' : '<div class="cb_hint">Height, gap and transparent areas change every character set to Global.</div>'}`)}
+        `, { sw: ['m_b_enable', s.bannerOn], bodyId: 'm_b_body', legend: true })}
 
-        <div class="cb_section">
-          ${secHead('pfp', 'fa-user', 'Avatar Management')}
-          <div class="cb_collapse_content">
-            <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_a_enable" ${s.avatarEnabled ? 'checked' : ''}><span>Enable NTR Avatars</span></label>
-
-            <div id="m_a_body" class="${s.avatarEnabled ? '' : 'cb_dim'}" style="display: flex; gap: 15px; width: 100%;">
+        ${pageHtml('pfp', 'fa-user', 'Avatar Management', `
+            <div class="ntr_cols">
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
             </div>
-          </div>
-        </div>
+        `, { sw: ['m_a_enable', s.avatarEnabled], bodyId: 'm_a_body' })}
 
         ${reasoningSectionHtml(s)}
         ${textSectionHtml(s)}
         ${displaySectionHtml(s)}
 
-        <div class="cb_section">
-          ${secHead('fg', 'fa-shapes', 'Foreground Images')}
-          <div class="cb_collapse_content">
-            <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_f_enable" ${s.fgEnabled ? 'checked' : ''}><span>Enable Foreground Overlays</span></label>
-            <div id="m_f_body" class="${s.fgEnabled ? '' : 'cb_dim'}">
-            <div class="cb_row" style="margin-top: 10px;"><label>Opacity:</label><span><span id="m_f_oval">${s.fgOpacity ?? 100}</span>%</span></div>
+        ${pageHtml('fg', 'fa-shapes', 'Foreground Images', `
+            ${card('', `
+            <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${s.fgOpacity ?? 100}</span>%</span></div>
             <input type="range" id="m_f_o" min="0" max="100" step="1" value="${s.fgOpacity ?? 100}">
-            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>
-            
-            ${chatOpen ? '' : '<div class="cb_hint" style="margin-top: 10px;">Open a character chat first. Foreground images are saved per character.</div>'}
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>`)}
+
+            <div class="ntr_glab">Images ${TAG}</div>
+            ${chatOpen ? '' : '<div class="cb_hint" style="margin-bottom: 8px;">Open a character chat first. Foreground images are saved per character.</div>'}
+            <div class="ntr_fgrid">
               ${['Left', 'Center', 'Right'].map(pos => `
-                <div class="cb_col" style="align-items: center; text-align: center;">
+                <div class="cb_col ntr_card" style="align-items: center; text-align: center;">
                   <strong>${pos} ${TAG}</strong>
                   <div style="width:100%; height:80px; background:rgba(0,0,0,0.3); border-radius:4px; margin:5px 0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
                     <img id="m_f_img_${pos}" src="${escapeHTML(media(F[pos]))}" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
@@ -1455,28 +1448,10 @@
                 </div>
               `).join('')}
             </div>
-            </div>
             <input type="file" id="m_f_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-          </div>
-        </div>
+        `, { sw: ['m_f_enable', s.fgEnabled], bodyId: 'm_f_body', legend: true })}
 
         ${vnSectionHtml(s)}
-
-        <div class="cb_section">
-          <h4 class="ntr_flat_head">
-            <span><i class="fa-solid fa-fw fa-wand-magic-sparkles"></i> Wand Menu</span>
-            <input type="checkbox" id="m_wand" title="Show Nitwit Tavern Redesign in the wand menu" ${s.wandEntry ? 'checked' : ''}>
-          </h4>
-          <div class="cb_hint">Adds Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there. Typing /ntr in the chat box opens it too.</div>
-        </div>
-
-        <div class="cb_section">
-          ${secHead('data', 'fa-database', 'Data')}
-          <div class="cb_collapse_content">
-            <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Use this to remove it for good.</div>
-            <button id="m_d_rm" class="menu_button danger_button ntr_dbtn"><i class="fa-solid fa-trash"></i> Remove NTR data</button>
-            <div id="m_d_panel"></div>
-          </div>
         </div>
         </div>
       </div>
@@ -1486,11 +1461,11 @@
     document.body.appendChild(overlay);
 
     bindCollapses(overlay, s);
-    // Rotation waits while the Header Banner settings are open, showing the picked image, and starts a fresh count
-    // when they're collapsed or the menu closes.
-    if (s.uiOpen.banner && rot.idx != null) { rot.idx = null; updateBanner(); }
-    const rotRestart = () => { if (s.uiOpen.banner) rot.idx = null; stopRotation(); updateBanner(); };
-    overlay.querySelector('.cb_collapse_toggle[data-sec="banner"]')?.addEventListener('click', rotRestart);
+    // Rotation waits while the Header Banner page is open, showing the picked image, and starts a fresh count
+    // when another page is picked or the menu closes.
+    if (s.uiPage === 'banner' && rot.idx != null) { rot.idx = null; updateBanner(); }
+    const rotRestart = () => { if (s.uiPage === 'banner') rot.idx = null; stopRotation(); updateBanner(); };
+    bindPages(overlay, s, rotRestart);
 
     setupPanel(overlay, prevScroll);
 
@@ -1791,15 +1766,43 @@
   }
 
   // ===== Shared UI helpers =====
-  function secHead(sec, icon, title) {
+  // The menu's pages, in the order of the icon column: id, icon, short name for the column, full name.
+  const PAGES = [
+    ['themes', 'fa-bookmark', 'Themes', 'Themes'],
+    ['banner', 'fa-images', 'Banner', 'Header Banner'],
+    ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
+    ['reasoning', 'fa-comment-dots', 'Reasoning', 'Reasoning Block Design'],
+    ['text', 'fa-text-height', 'Text', 'Text Formatting'],
+    ['display', 'fa-display', 'Display', 'UI Display'],
+    ['fg', 'fa-shapes', 'Overlays', 'Foreground Images'],
+    ['vn', 'fa-clapperboard', 'VN', 'Visual Novel Mode'],
+  ];
+  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) =>
+    `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
+    + '<div class="ntr_navfill"></div>';
+  // One page: a big title with the section's icon and, for a section that can be switched off, its switch.
+  // A switched-off section's settings are dimmed. A note sits between the title and the settings and is never dimmed.
+  function pageHtml(sec, icon, title, body, { sw = null, bodyId = '', legend = false, note = '' } = {}) {
+    const off = !!sw && !sw[1];
     return `
-          <h4 class="cb_collapse_toggle" data-sec="${sec}">
-            <span><i class="fa-solid fa-fw ${icon}"></i> ${title}</span>
-            <i class="fa-solid fa-chevron-right cb_chevron"></i>
-          </h4>`;
+      <section class="ntr_page" data-page="${sec}"${settings().uiPage === sec ? '' : ' hidden'}>
+        <div class="ntr_phead">
+          <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
+          <h3 class="ntr_ptitle">${title}</h3>
+          ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
+          ${legend ? `<div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>` : ''}
+        </div>
+        ${note}
+        <div ${bodyId ? `id="${bodyId}" ` : ''}class="ntr_pbody${off ? ' cb_dim' : ''}">${body}</div>
+      </section>`;
   }
+  // A group of settings: a small label, then the settings in a soft card.
+  const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
+  // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
+  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css']);
   function subHead(sec, title) {
-    return `<div class="cb_collapse_toggle cb_subhead" data-sec="${sec}"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
+    if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
+    return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
   }
   function pills(name, opts, cur) {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
@@ -1818,6 +1821,8 @@
       const icon = h.querySelector('.cb_chevron');
       const apply = (open) => {
         content.style.display = open ? 'block' : 'none';
+        h.classList.toggle('ntr_open', open);
+        h.setAttribute('aria-expanded', open ? 'true' : 'false');
         icon.classList.toggle('fa-chevron-down', open);
         icon.classList.toggle('fa-chevron-right', !open);
       };
@@ -1828,6 +1833,41 @@
         save();
         apply(open);
       });
+      h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); h.click(); } });
+    });
+  }
+
+  // The icon column switches pages. On a phone or a narrow panel it hides behind the menu button.
+  function bindPages(overlay, s, onSwitch) {
+    const content = overlay.querySelector('.cb_popup_content');
+    overlay.querySelectorAll('.ntr_navi').forEach((b) => {
+      b.onclick = () => {
+        content.classList.remove('ntr_navopen');
+        if (b.dataset.page === s.uiPage) return;
+        s.uiPage = b.dataset.page;
+        save();
+        showPage(overlay, s.uiPage);
+        overlay.querySelector('.ntr_body').scrollTop = 0;
+        onSwitch();
+      };
+    });
+    overlay.querySelector('.ntr_navbtn').onclick = () => content.classList.toggle('ntr_navopen');
+    overlay.querySelector('.ntr_shade').onclick = () => content.classList.remove('ntr_navopen');
+    overlay.addEventListener('change', (e) => { if (e.target.classList.contains('ntr_pswitch')) syncPageOff(overlay); });
+    syncPageOff(overlay);
+  }
+  function showPage(overlay, page) {
+    overlay.querySelectorAll('.ntr_page').forEach((p) => { p.hidden = p.dataset.page !== page; });
+    overlay.querySelectorAll('.ntr_navi').forEach((b) => b.classList.toggle('on', b.dataset.page === page));
+  }
+  // A switched-off section greys out: its icon in the column, its title, and its settings.
+  function syncPageOff(overlay) {
+    if (!overlay) return;
+    overlay.querySelectorAll('.ntr_page').forEach((p) => {
+      const sw = p.querySelector('.ntr_pswitch');
+      const off = !!sw && !sw.checked;
+      p.classList.toggle('ntr_off', off);
+      overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
     });
   }
 
@@ -2193,14 +2233,10 @@
   const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
-    return `
-      <div class="cb_section">
-        ${secHead('reasoning', 'fa-comment-dots', 'Reasoning Block Design')}
-        <div class="cb_collapse_content">
-          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_rb_enable" ${s.rbEnabled ? 'checked' : ''}><span>Enable Reasoning Block Design</span></label>
-          <div id="m_rb_body" class="${s.rbEnabled ? '' : 'cb_dim'}">
+    return pageHtml('reasoning', 'fa-comment-dots', 'Reasoning Block Design', `
           <div class="cb_hint">Only changes how the block looks. If no reasoning block shows up, turn on "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion and models that write their thinking into the reply).</div>
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
+          ${card('Style', `
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
           ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
@@ -2209,7 +2245,7 @@
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
           ${ovRow(s, 'rbSatOn', 'Color Strength', ovSlider(s, 'rbSat', '%', 0, 100, 1) + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
           ${fxRows(s, 'rb')}
-          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double'], ['glow', 'Glow']], s.rbBorderStyle))}
+          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double'], ['glow', 'Glow']], s.rbBorderStyle))}`)}
           ${subHead('rb_header', 'Header Text')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbThinkOn', 'While Thinking', ovText(s, 'rbThink'))}
@@ -2221,9 +2257,7 @@
             ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
               + '<div class="cb_hint">CSS for the reasoning text, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics, and add <code>!important</code> if a setting doesn\'t take. To style the "Thought for..." header or the rest of SillyTavern, use SillyTavern\'s own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
           </div>
-          </div>
-        </div>
-      </div>`;
+    `, { sw: ['m_rb_enable', s.rbEnabled], bodyId: 'm_rb_body' });
   }
 
   function textSectionHtml(s) {
@@ -2234,14 +2268,9 @@
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
-    return `
-      <div class="cb_section">
-        ${secHead('text', 'fa-text-height', 'Text Formatting')}
-        <div class="cb_collapse_content">
-          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_tf_enable" ${s.tfEnabled ? 'checked' : ''}><span>Enable Text Formatting</span></label>
-          <div id="m_tf_body" class="${s.tfEnabled ? '' : 'cb_dim'}">
+    return pageHtml('text', 'fa-text-height', 'Text Formatting', `
           <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
-          ${ovRow(s, 'ovFontOn', 'Overall Font Scale', ovSlider(s, 'ovFont', 'x', 0.5, 2, 0.05) + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>')}
+          ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', ovSlider(s, 'ovFont', 'x', 0.5, 2, 0.05) + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
           ${subHead('tf_names', 'Names')}
           <div class="cb_collapse_content">
             <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
@@ -2256,9 +2285,7 @@
           ${subHead('tf_ai', 'AI Text')}
           <div class="cb_collapse_content">${part('tfAi')}
           </div>
-          </div>
-        </div>
-      </div>`;
+    `, { sw: ['m_tf_enable', s.tfEnabled], bodyId: 'm_tf_body' });
   }
 
   function bindTextFormatting(overlay, s) {
@@ -2326,20 +2353,16 @@
   function displaySectionHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
-    return `
-      <div class="cb_section">
-        ${secHead('display', 'fa-display', 'UI Display')}
-        <div class="cb_collapse_content">
-          <label class="checkbox_label" style="margin-bottom: 5px;"><input type="checkbox" id="m_ov_enable" ${s.ovEnabled ? 'checked' : ''}><span>Enable UI Display</span></label>
-          <div id="m_ov_body" class="${s.ovEnabled ? '' : 'cb_dim'}">
+    return pageHtml('display', 'fa-display', 'UI Display', `
           <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
+          ${card('Chat', `
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
           ${row('ovWidthOn', 'Chat Width', sl('ovWidth', 'vw', 25, 100, 1))}
           ${row('ovBlurOn', 'Blur Strength', sl('ovBlur', '', 0, 30, 1))}
           ${row('ovShadowOn', 'Shadow Width', sl('ovShadow', '', 0, 5, 1))}
           ${row('ovChatStyleOn', 'Chat Style', pills('ochat', [['flat', 'Flat'], ['bubbles', 'Bubbles'], ['document', 'Document']], s.ovChatStyle))}
           ${row('ovAvatarOn', 'Avatar Shape', pills('oavatar', [['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']], s.ovAvatar)
-            + '<div class="cb_hint" style="margin-top:6px;">Shapes the normal chat avatars. When NTR Avatars is on, those replace the chat avatars, so this has nothing to shape.</div>')}
+            + '<div class="cb_hint" style="margin-top:6px;">Shapes the normal chat avatars. When NTR Avatars is on, those replace the chat avatars, so this has nothing to shape.</div>')}`)}
           ${subHead('ov_scroll', 'Scrollbar')}
           <div class="cb_collapse_content">
             <div class="cb_hint">Changes every scrollbar in SillyTavern. Firefox can change only the colors and width; phones mostly show their own scrollbars.</div>
@@ -2357,9 +2380,7 @@
               + '<div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don\'t allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>'
               + '<input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>')}
           </div>
-          </div>
-        </div>
-      </div>`;
+    `, { sw: ['m_ov_enable', s.ovEnabled], bodyId: 'm_ov_body' });
   }
 
   function bindDisplay(overlay, s) {
@@ -2975,10 +2996,8 @@
     const opts = [['', 'None (default look)'], ...s.themes.map((t) => [t.id, t.name])]
       .map(([v, l]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(l)}</option>`).join('');
     const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
-    return `
-      <div class="cb_section">
-        ${secHead('themes', 'fa-bookmark', 'Themes')}
-        <div class="cb_collapse_content">
+    return pageHtml('themes', 'fa-bookmark', 'Themes', `
+        ${card('', `
           <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
           <div class="ntr_tbar">
@@ -2990,9 +3009,12 @@
             ${b('m_t_exp', 'fa-file-export', 'Export the selected theme (or your current look)')}
           </div>
           <div id="m_t_panel"></div>
-          <input type="file" id="m_t_file" accept=".json,application/json" hidden>
-        </div>
-      </div>`;
+          <input type="file" id="m_t_file" accept=".json,application/json" hidden>`)}
+        ${card('Data', `
+          <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Use this to remove it for good.</div>
+          <button id="m_d_rm" class="menu_button danger_button ntr_dbtn"><i class="fa-solid fa-trash"></i> Remove NTR data</button>
+          <div id="m_d_panel"></div>`)}
+    `);
   }
 
   function bindThemes(overlay, s) {
@@ -3181,8 +3203,24 @@
     };
   }
 
+  // The wand button in the menu's title bar adds the menu to SillyTavern's wand menu. Lit means it's in there.
   function bindWand(overlay, s) {
-    overlay.querySelector('#m_wand').onchange = function() { s.wandEntry = this.checked; save(); syncWandEntry(); };
+    const b = overlay.querySelector('#m_wand');
+    const show = () => {
+      b.classList.toggle('on', !!s.wandEntry);
+      b.setAttribute('aria-pressed', s.wandEntry ? 'true' : 'false');
+      b.title = s.wandEntry
+        ? 'In the wand menu next to the chat box. Click to take it out.'
+        : 'Add Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there';
+    };
+    show();
+    b.onclick = () => {
+      s.wandEntry = !s.wandEntry;
+      save();
+      syncWandEntry();
+      show();
+      toastr.info(s.wandEntry ? 'Added to the wand menu next to the chat box.' : 'Taken out of the wand menu.', 'Nitwit Tavern Redesign');
+    };
   }
 
   function bindData(overlay) {
@@ -3193,7 +3231,7 @@
           <div><strong>This can't be undone.</strong> Pick what to remove:</div>
           <label class="checkbox_label"><input type="checkbox" id="m_d_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.</span></label>
           <label class="checkbox_label"><input type="checkbox" id="m_d_chars"><span><strong>Uploaded files and character data</strong>: banners, foreground images, Visual Novel art, maps and opening videos, plus the NTR data saved in each character card.</span></label>
-          <div class="cb_hint">Want to keep your themes? Export them first in the Themes section.</div>
+          <div class="cb_hint">Want to keep your themes? Export them first, above.</div>
           <div class="cb_actions">
             <button class="menu_button danger_button" id="m_d_go"><i class="fa-solid fa-trash"></i> Remove</button>
             <button class="menu_button" id="m_d_cancel">Cancel</button>
@@ -3235,7 +3273,7 @@
       b.style.display = isNarrow() ? 'none' : '';
       b.classList.toggle('on', b.dataset.dock === P.dock);
     });
-    if (isNarrow()) { content.classList.add('ntr_sheet'); return; }
+    if (isNarrow()) { content.classList.add('ntr_sheet'); syncCompact(content); return; }
     const maxW = Math.round(window.innerWidth * 0.9);
     if (P.dock === 'left' || P.dock === 'right') {
       const w = clamp(P.w || 440, 320, maxW);
@@ -3251,6 +3289,14 @@
       content.classList.add('ntr_float');
       Object.assign(content.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
     }
+    syncCompact(content);
+  }
+
+  // On a phone or in a narrow panel, the icon column hides behind the menu button in the title bar.
+  function syncCompact(content) {
+    const compact = isNarrow() || content.getBoundingClientRect().width < 400;
+    content.classList.toggle('ntr_compact', compact);
+    if (!compact) content.classList.remove('ntr_navopen');
   }
 
   function setupPanel(overlay, prevScroll) {
@@ -3322,6 +3368,7 @@
     if (window.ResizeObserver) {
       let t = null;
       new ResizeObserver(() => {
+        syncCompact(content);
         if (P.dock !== 'float' || !content.classList.contains('ntr_float')) return;
         clearTimeout(t);
         t = setTimeout(() => { P.fw = Math.round(content.offsetWidth); P.fh = Math.round(content.offsetHeight); save(); }, 300);
@@ -3362,14 +3409,9 @@
   function vnSectionHtml(s) {
     const vn = window.NTR.vn;
     if (vn) return vn.sectionHtml(s);
-    return `
-      <div class="cb_section">
-        ${secHead('vn', 'fa-clapperboard', 'Visual Novel Mode')}
-        <div class="cb_collapse_content">
-          <label class="checkbox_label"><input type="checkbox" id="m_n_enable" ${s.nodeEnabled ? 'checked' : ''}><span>Enable Visual Novel Mode</span></label>
-          <div class="cb_hint">${modError.vn ? 'Visual Novel Mode failed to load: ' + escapeHTML(modError.vn) : 'Its settings appear here once it\'s switched on.'}</div>
-        </div>
-      </div>`;
+    const msg = modError.vn ? 'Visual Novel Mode failed to load: ' + escapeHTML(modError.vn) : 'Its settings appear here once it\'s switched on.';
+    return pageHtml('vn', 'fa-clapperboard', 'Visual Novel Mode', '',
+      { sw: ['m_n_enable', s.nodeEnabled], bodyId: 'm_n_body', note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
   }
 
   function bindVNSection(overlay, s) {
@@ -3409,6 +3451,7 @@
         const cb = document.getElementById('m_n_enable');
         if (cb) cb.checked = s.nodeEnabled;
         document.getElementById('m_n_body')?.classList.toggle('cb_dim', !s.nodeEnabled);
+        syncPageOff(document.getElementById('cb_modal_overlay'));
       }
     }
   }
@@ -3515,7 +3558,7 @@
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, posGrid, onPills, secHead, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
+    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,

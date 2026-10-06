@@ -9,9 +9,13 @@
 }
 
 /* Menu: a floating panel. No dark backdrop, and SillyTavern stays clickable behind it. */
+/* SillyTavern's page root has a transform, and on screens up to 1000px wide its body is fixed, which leaves the root
+   0px tall. Fixed boxes measure against that root, so their heights come from the screen instead. */
 .cb_popup_overlay {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
   z-index: 9999;
   pointer-events: none;
   background: transparent;
@@ -34,24 +38,33 @@
   flex-direction: column;
 }
 
-/* Only the body scrolls, so nothing can slide under or above the title bar. */
-.ntr_body {
+/* Below the title bar: the icon column and the page beside it. Only the page scrolls, so nothing can slide under the title bar. */
+.ntr_main {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  padding: 4px 20px 20px;
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  position: relative;
+}
+.ntr_body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px 24px;
 }
 
-/* Keep sections at full height when the panel has a fixed height (otherwise they get squished under the title bar). */
-.cb_popup_content > *:not(.ntr_body) { flex-shrink: 0; }
+/* Keep the title bar and the note under it at full height when the panel has a fixed height. */
+.cb_popup_content > *:not(.ntr_main) { flex-shrink: 0; }
 
+.cb_popup_content.ntr_dock_right,
+.cb_popup_content.ntr_dock_left,
+.cb_popup_content.ntr_sheet,
+#ntr_edge,
+#ntr_preview { height: 100vh; height: 100dvh; }
 .cb_popup_content.ntr_dock_right { top: 0; right: 0; bottom: 0; border-radius: 10px 0 0 10px; }
 .cb_popup_content.ntr_dock_left { top: 0; left: 0; bottom: 0; border-radius: 0 10px 10px 0; }
 .cb_popup_content.ntr_float { resize: both; min-width: 320px; min-height: 240px; }
-.cb_popup_content.ntr_sheet { inset: 0; width: auto; height: auto; border-radius: 0; }
+.cb_popup_content.ntr_sheet { inset: 0; width: auto; border-radius: 0; }
 
 #ntr_edge {
   position: fixed;
@@ -83,6 +96,7 @@
   font-size: 1.1em;
   font-weight: bold;
   flex: none;
+  gap: 6px;
   padding: 14px 16px 12px 20px;
   border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
   cursor: move;
@@ -90,6 +104,7 @@
   touch-action: none;
 }
 .ntr_sheet .cb_popup_header { cursor: default; }
+.ntr_title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ntr_hbtns { display: flex; align-items: center; gap: 2px; }
 
@@ -110,13 +125,135 @@
 .cb_hbtn.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
 
 .ntr_tag { font-size: 0.75em; opacity: 0.6; margin-left: 4px; }
-.ntr_legend { margin: 8px 0 0; }
 .ntr_offnote {
+  margin: 10px 12px 0;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px dashed var(--SmartThemeBorderColor, #555);
   font-size: 0.85em;
 }
+
+/* Icon column. The picked section shares the page's background; the others sit on a darker strip. */
+.ntr_nav {
+  flex: none;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ntr_nav::-webkit-scrollbar { display: none; }
+.ntr_nav::before { content: ''; flex: none; height: 6px; }
+.ntr_nav::before,
+.ntr_navi,
+.ntr_navfill { background: rgba(0, 0, 0, 0.22); }
+.ntr_navfill { flex: 1 0 0; }
+.ntr_navi {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 2px;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 0.68em;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.ntr_navi i { font-size: 1.7em; }
+.ntr_navi > * { opacity: 0.8; }
+.ntr_navi:hover > *,
+.ntr_navi.on > * { opacity: 1; }
+.ntr_navi:not(.on):hover { background: rgba(0, 0, 0, 0.12); }
+.ntr_navi.on { background: transparent; }
+.ntr_navi.ntr_off > * { opacity: 0.35; }
+.ntr_navi.on.ntr_off > * { opacity: 0.55; }
+.ntr_navi:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px; }
+
+/* Phone or narrow panel: the icon column slides out from the menu button in the title bar. */
+.ntr_navbtn { display: none; }
+.ntr_compact .ntr_navbtn { display: inline-block; }
+.ntr_navopen .ntr_navbtn { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
+.ntr_compact .ntr_nav {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  background: var(--SmartThemeBlurTintColor, #1e1e24);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform 0.2s ease, visibility 0.2s;
+}
+.ntr_compact.ntr_navopen .ntr_nav { transform: none; visibility: visible; box-shadow: 8px 0 24px rgba(0, 0, 0, 0.5); }
+.ntr_shade { display: none; position: absolute; inset: 0; z-index: 2; background: rgba(0, 0, 0, 0.45); }
+.ntr_compact.ntr_navopen .ntr_shade { display: block; }
+
+/* A page: big title with the section's icon and switch, then its settings grouped into cards. */
+.ntr_page[hidden] { display: none !important; }
+.ntr_phead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 18px 2px 4px;
+}
+.ntr_picon { color: var(--SmartThemeQuoteColor, #6cf); font-size: 1.3em; }
+.ntr_ptitle {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.ntr_phead .ntr_legend { grid-column: 2 / -1; margin: 6px 0 0; }
+.ntr_pnote { margin: 12px 2px 0; }
+.ntr_pbody > .cb_hint:first-child { margin-top: 12px; }
+.ntr_page.ntr_off .ntr_picon,
+.ntr_page.ntr_off .ntr_ptitle { opacity: 0.45; filter: grayscale(1); }
+.ntr_page.ntr_off .ntr_pbody { opacity: 0.38; filter: grayscale(1); pointer-events: none; }
+
+.ntr_glab {
+  margin: 18px 4px 6px;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.ntr_page .ntr_card,
+.ntr_glab + .cb_collapse_content,
+.ntr_fold,
+.ntr_fold + .cb_collapse_content {
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ntr_page .ntr_card,
+.ntr_glab + .cb_collapse_content { margin-top: 14px; padding: 10px 12px; }
+.ntr_page .ntr_glab + .ntr_card,
+.ntr_glab + .cb_collapse_content { margin-top: 0; }
+.ntr_card > .cb_ovrow:last-child,
+.cb_collapse_content > .cb_ovrow:last-child { border-bottom: 0; }
+
+/* Long reference parts: one row that opens into the rest of its card. */
+.ntr_fold { margin-top: 14px; padding: 11px 12px; gap: 10px; font-weight: 600; }
+.ntr_fold .cb_chevron { font-size: 0.75em; opacity: 0.55; }
+.ntr_fold.ntr_open { border-radius: 10px 10px 0 0; }
+.ntr_fold + .cb_collapse_content { padding: 2px 12px 12px; border-top: 0; border-radius: 0 0 10px 10px; }
+.ntr_fold:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
+
+.ntr_cols { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.ntr_colwrap { flex: 1 1 240px; min-width: 0; }
+.ntr_fgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ntr_page .ntr_fgrid .ntr_card { margin: 0; padding: 8px; }
 
 .ntr_tsel { width: 100%; margin: 8px 0 0; }
 .ntr_terr { color: var(--warning, #e57373); font-size: 0.85em; }
@@ -152,21 +289,6 @@
 #ntr_power { cursor: pointer; padding: 4px 6px; opacity: 0.45; transition: opacity 0.15s, color 0.15s; }
 #ntr_power.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
 
-.cb_section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.1);
-  padding: 10px;
-  border-radius: 8px;
-}
-
-.cb_section h4 {
-  margin: 0 0 5px 0;
-  border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
-  padding-bottom: 4px;
-}
-
 .cb_row {
   display: flex;
   align-items: center;
@@ -186,11 +308,3 @@
 }
 
 .cb_popup_content input[type="range"] { width: 100%; }
-
-.col_header {
-  margin: 0 0 10px 0;
-  text-align: center;
-  color: var(--SmartThemeBodyColor);
-  border-bottom: 1px solid var(--SmartThemeBorderColor);
-  padding-bottom: 4px;
-}

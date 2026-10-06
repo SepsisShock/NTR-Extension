@@ -30,7 +30,7 @@ select default_Seraphina.png
 vn on
 eval !!SillyTavern.getContext().extensionPrompts.ntr_vn_tags?.value
 menu fg
-shot fg #cb_modal_overlay .cb_section:has([data-sec="fg"])
+shot fg #cb_modal_overlay .cb_popup_content
 close
 ss page
 errors
@@ -42,11 +42,11 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | command | what it does |
 |---|---|
 | `select [avatar]` | opens that character's chat (default `default_Seraphina.png`) |
-| `menu [section...]` | opens the NTR menu and expands sections by `data-sec` (`themes`, `banner`, `pfp`, `reasoning`, `rb_css`, `text`, `display`, `fg`, `vn`, `vn_spk`, `vn_loc`, `vn_cg`, `vn_map`, `vn_open`, ...). A subsection needs its parent: `menu vn vn_spk` |
+| `menu [page] [part...]` | opens the NTR menu, goes to a page by its icon (`themes`, `banner`, `pfp`, `reasoning`, `text`, `display`, `fg`, `vn`) and opens folded parts by `data-sec` (`rb_css`, `vn_guide`, `vn_tags`, `vn_prompt`): `menu vn vn_tags`. Other parts (`vn_spk`, `vn_loc`, `vn_map`, ...) are always open, and naming one only checks it's there. On 2.7 and older, where every section folds, it expands them instead |
 | `close` | closes the menu |
 | `vn on` / `vn off` | Visual Novel Mode, through its toolbar button |
 | `power on` / `power off` | the extension's own power button |
-| `click <css>` | clicks through the DOM, so it reaches collapsed sections. A disabled button ignores it, like for a user |
+| `click <css>` | clicks through the DOM, so it reaches other pages and folded parts. A disabled button ignores it, like for a user |
 | `set <css> \| <text>` | types into a field and fires `input` and `change` |
 | `upload <css> \| <file> [file...]` | puts files in a file input. Most Upload buttons pick a slot first, so `click` the button, then `upload` |
 | `ok` / `cancel` | presses the main button or Cancel of the question NTR shows under the last button clicked (Delete, Remove, Reset...) |
@@ -116,7 +116,7 @@ for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs 
 
 ## Gotchas
 
-- **The menu's sections are collapsed**, and Playwright's own `fill` and `waitForSelector` time out on elements inside them. Use the driver's `click` and `set`. In raw Playwright, set values through `page.evaluate` and wait with `{ state: 'attached' }`.
+- **The menu shows one page at a time and some parts are folded**, and Playwright's own `fill` and `waitForSelector` time out on elements that are hidden. Use the driver's `click` and `set`. In raw Playwright, set values through `page.evaluate` and wait with `{ state: 'attached' }`.
 - **Upload buttons open their file input from code**, and a headless page shows no file picker for that; even a forced Playwright click produced no file chooser. `click` the Upload button (it records the slot), then `upload` to the hidden input.
 - **SillyTavern clears every extension prompt when a chat opens, starts or reloads.** That's how NTR's Visual Novel instructions once went missing. Check `extensionPrompts.ntr_vn_tags` after `select` or `reloadCurrentChat()`, never only before.
 - **Card data is written 0.7 s after the last change**, and the driver closes the browser when its commands run out. A change made right before the end never reaches the card. End with `wait 1500` when the next run (or a `reload`) has to see it.
@@ -130,5 +130,5 @@ for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs 
 - **`pageerror: Unexpected token 'I', "Internal S"... is not valid JSON`** with a `500` from `/api/horde/text-models`: SillyTavern's AI Horde lookup can't reach the internet. It isn't the extension's; `errors` leaves it out.
 - **`SillyTavern or the extension didn't load at http://127.0.0.1:8000/: page.goto: net::ERR_CONNECTION_REFUSED`**: the server isn't running. Run `st.sh start`, and read `/tmp/sillytavern.log` if that fails.
 - **`SillyTavern or the extension didn't load at http://127.0.0.1:8000/: page.waitForFunction: Timeout 60000ms exceeded`**: usually the first-run "Welcome" dialog (see Gotchas). `st.sh reset` puts back data with it turned off.
-- **`page.fill: Timeout 30000ms exceeded`** or **`page.waitForSelector: Timeout`** in your own Playwright script: the element is in a collapsed menu section (see Gotchas).
+- **`page.fill: Timeout 30000ms exceeded`** or **`page.waitForSelector: Timeout`** in your own Playwright script: the element is on another menu page or in a folded part (see Gotchas).
 - **No file chooser after clicking an Upload button**: expected headless; use `upload`.

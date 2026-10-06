@@ -38,6 +38,6 @@ Visual Novel Mode is optional. It shows messages in a dialogue box with characte
 
 ### `[ 05 ]` SETTINGS
 
-All settings are in one menu. Open it from the Extensions panel, by typing /ntr in the chat box, or from SillyTavern's wand menu after switching on Wand Menu. Settings save automatically. Every section except Themes, Wand Menu and Data has an Enable switch; turning it off keeps its settings. Data can remove NTR's settings, themes and uploaded files.
+All settings are in one menu. Open it from the Extensions panel, by typing /ntr in the chat box, or from SillyTavern's wand menu after turning on the wand button at the top of the menu. Pick a section from the icons down the left side; on a phone, tap the menu button to show them. Settings save automatically. Every section except Themes has an on/off switch next to its title; turning it off keeps its settings, and its icon greys out. The bottom of the Themes page can remove NTR's settings, themes and uploaded files.
 
 ---

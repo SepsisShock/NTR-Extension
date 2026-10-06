@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.7';
+  const VERSION = '2.8.8';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -188,16 +188,17 @@
     const h = s[`${prefix}Side`][1]; 
     const style = s[`${prefix}Style`] === 'popout' ? 'popout' : 'backdrop';
     const fit = s[`${prefix}Fit`];
-    const scale = s[`${prefix}Scale`];
-    const pad = s[`${prefix}Pad`];
-    const popX = Number(s[`${prefix}PopX`]) || 0;
-    const popY = Number(s[`${prefix}PopY`]) || 0;
+    const n = (key) => rangeNum(s, prefix + key);
+    const scale = n('Scale');
+    const pad = n('Pad');
+    const popX = n('PopX');
+    const popY = n('PopY');
     
-    const topFade = s[`${prefix}TopFade`];
-    const botFade = s[`${prefix}BotFade`];
-    const leftFade = s[`${prefix}LeftFadePx`];
-    const rightFade = s[`${prefix}RightFadePx`];
-    const blurAmount = s[`${prefix}Blur`];
+    const topFade = n('TopFade');
+    const botFade = n('BotFade');
+    const leftFade = n('LeftFadePx');
+    const rightFade = n('RightFadePx');
+    const blurAmount = n('Blur');
     const keepBg = s[`${prefix}MsgBg`] !== false;
     
     const width = Math.floor(scale * 3); 
@@ -437,7 +438,7 @@
         const s = settings();
         popSession = {
           prefix, id: e.pointerId, sx: e.clientX, sy: e.clientY,
-          ox: Number(s[`${prefix}PopX`]) || 0, oy: Number(s[`${prefix}PopY`]) || 0,
+          ox: rangeNum(s, `${prefix}PopX`), oy: rangeNum(s, `${prefix}PopY`),
         };
         e.preventDefault();
         e.stopPropagation();
@@ -451,6 +452,8 @@
       const { prefix } = popSession;
       s[`${prefix}PopX`] = Math.round(popSession.ox + e.clientX - popSession.sx);
       s[`${prefix}PopY`] = Math.round(popSession.oy + e.clientY - popSession.sy);
+      // Kept to the saved limit, which goes wider than the sliders.
+      for (const k of ['PopX', 'PopY']) s[prefix + k] = rangeNum(s, prefix + k);
       updateAvatarStyle();
       syncPopSliders(prefix);
     }, true);
@@ -1222,9 +1225,9 @@
   function getColHtml(prefix, title, s) {
     const style = s[`${prefix}Style`] === 'popout' ? 'popout' : 'backdrop';
 
-    const slider = (id, key, label, unit, min, max, step) => `
-      <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val">${s[`${prefix}${key}`]}</span>${unit}</span></div>
-      <input type="range" id="m_${prefix}_${id}" min="${min}" max="${max}" step="${step}" value="${s[`${prefix}${key}`]}">`;
+    const slider = (id, key, label) => `
+      <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val">${rangeNum(s, prefix + key)}</span>${NUM_RANGE[prefix + key][3]}</span></div>
+      <input type="range" id="m_${prefix}_${id}" ${rangeAttrs(prefix + key)} value="${rangeNum(s, prefix + key)}">`;
     const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${style === only ? 'flex' : 'none'};">${inner}</div>`;
 
     return `
@@ -1238,23 +1241,23 @@
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
         ${grp('backdrop', `<div><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['cover', 'Fill'], ['contain', 'Fit'], ['original', 'Original']], s[`${prefix}Fit`])}</div>`)}
 
-        ${slider('sc', 'Scale', 'Image Scale:', '%', 10, 300, 5)}
-        ${slider('pad', 'Pad', 'Text Padding:', 'px', 0, 400, 5)}
+        ${slider('sc', 'Scale', 'Image Scale:')}
+        ${slider('pad', 'Pad', 'Text Padding:')}
 
         ${grp('backdrop', `<div class="cb_sub">Fades</div>`
-          + slider('tf', 'TopFade', 'Top Fade:', 'px', 0, 400, 5)
-          + slider('bf', 'BotFade', 'Bottom Fade:', 'px', 0, 400, 5)
-          + slider('lf', 'LeftFadePx', 'Left Fade:', 'px', 0, 400, 5)
-          + slider('rf', 'RightFadePx', 'Right Fade:', 'px', 0, 400, 5))}
+          + slider('tf', 'TopFade', 'Top Fade:')
+          + slider('bf', 'BotFade', 'Bottom Fade:')
+          + slider('lf', 'LeftFadePx', 'Left Fade:')
+          + slider('rf', 'RightFadePx', 'Right Fade:'))}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_drag" ${popDrag[prefix] ? 'checked' : ''}><span>Drag it on screen</span></label>
           <div id="m_${prefix}_pstat" style="font-size: 0.8em; opacity: 0.75;">${escapeHTML(popMsg[prefix] || '')}</div>`
-          + slider('ox', 'PopX', 'Move Horizontal:', 'px', -1500, 1500, 5)
-          + slider('oy', 'PopY', 'Move Vertical:', 'px', -1500, 1500, 5))}
+          + slider('ox', 'PopX', 'Move Horizontal:')
+          + slider('oy', 'PopY', 'Move Vertical:'))}
 
         <div class="cb_sub">Effects</div>
-        ${slider('bl', 'Blur', 'Blur Effect:', 'px', 0, 20, 1)}
+        ${slider('bl', 'Blur', 'Blur Effect:')}
         <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_bg" ${s[`${prefix}MsgBg`] !== false ? 'checked' : ''}><span>Keep message background</span></label>
 
         <button id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px;"><i class="fa-solid fa-rotate-left"></i> Reset ${title}</button>
@@ -2827,6 +2830,7 @@
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
+  // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out offsets).
   const NUM_RANGE = {
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
     rbSize: [0.5, 2, 0.05, 'x'], rbSat: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
@@ -2840,17 +2844,18 @@
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
-      [p + 'Scale']: [10, 300], [p + 'Pad']: [0, 400], [p + 'TopFade']: [0, 400], [p + 'BotFade']: [0, 400], [p + 'LeftFadePx']: [0, 400],
-      [p + 'RightFadePx']: [0, 400], [p + 'Blur']: [0, 20], [p + 'PopX']: [-10000, 10000], [p + 'PopY']: [-10000, 10000],
+      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
+      [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'Blur']: [0, 20, 1, 'px'],
+      [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
     });
   }
   // A number setting kept to its range, or its default if it isn't a number.
   const rangeNum = (s, k) => cNum(s[k], DEFAULTS[k], NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // A slider whose range, step and unit come from NUM_RANGE.
-  const rangeSlider = (s, k) => { const [min, max, step, unit] = NUM_RANGE[k]; return ovSlider(s, k, unit, min, max, step); };
+  const rangeSlider = (s, k) => { const [min, max, step, unit, smin = min, smax = max] = NUM_RANGE[k]; return ovSlider(s, k, unit, smin, smax, step); };
   // The min, max and step of a slider written out by hand, from NUM_RANGE.
-  const rangeAttrs = (k) => { const [min, max, step] = NUM_RANGE[k]; return `min="${min}" max="${max}" step="${step}"`; };
+  const rangeAttrs = (k) => { const [min, max, step, , smin = min, smax = max] = NUM_RANGE[k]; return `min="${smin}" max="${smax}" step="${step}"`; };
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
   const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.

@@ -19,8 +19,6 @@ Keep the open-world feel, and let a card optionally have endings.
 The sections themselves and the first batch of text effects have shipped. Still open:
 
 - Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
-- A preset list of Google Fonts, each name shown in its own font.
-- Uploading font files, so no outside request is needed.
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
@@ -80,6 +78,12 @@ Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The 
 The first batch (Glow, Shadow, Outline) has shipped for the Reasoning Block and Text Formatting.
 
 - [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
+
+### Fonts
+Font boxes already take any font installed on the device, or a Google Fonts name.
+
+- [ ] A preset list of Google Fonts, each name shown in its own font.
+- [ ] Uploading font files (like a downloaded .ttf that isn't installed), saved in SillyTavern's files so they work on any device and need no request to Google.
 
 ### User Instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.

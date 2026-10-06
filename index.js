@@ -2316,7 +2316,7 @@
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
-            <div class="cb_hint">The label on the button above the reasoning. Leave a box empty to use SillyTavern's own, shown in grey.</div>
+            <div class="cb_hint">Leave a box empty to use ST's own wording.</div>
             ${label('rbThink', 'While Thinking')}
             ${label('rbDone', 'Finished', '<div class="cb_hint">Note: {time} shows "12 seconds", "a minute", etc.</div>')}
             ${label('rbSome', 'Finished, Time Unknown')}

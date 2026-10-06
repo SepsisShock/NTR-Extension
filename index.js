@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.3';
+  const VERSION = '2.8.4';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -3596,7 +3596,16 @@
     }
     // A swipe to a new reply shows "..." until the reply arrives (see nodeSwiped in vn.js).
     if (event_types.MESSAGE_SWIPED) eventSource.on(event_types.MESSAGE_SWIPED, (id) => (window.NTR.vn?.swiped ? window.NTR.vn.swiped(Number(id)) : window.NTR.vn?.queue(true)));
-    if (event_types.CHARACTER_MESSAGE_RENDERED) eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, () => { window.NTR.vn?.endWait?.(); window.NTR.vn?.queue(true); });
+    if (event_types.CHARACTER_MESSAGE_RENDERED) {
+      eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, (id, type) => {
+        const vn = window.NTR.vn;
+        vn?.endWait?.();
+        // A Continue picks up where the old text ended instead of typing the whole message again.
+        if (type === 'continue' && vn?.continued) vn.continued(Number(id));
+        else vn?.queue(true);
+      });
+    }
+    if (event_types.GENERATION_STARTED) eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => window.NTR.vn?.genStarted?.(type, dryRun));
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
     // The short delay lets a reply that did arrive go first, so it still gets typed.
     if (event_types.GENERATION_ENDED) {

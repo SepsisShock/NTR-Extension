@@ -61,7 +61,8 @@
     rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnAlpha: 0, rbBtnTextOn: false, rbBtnText: '',
     rbBtnShape: 'rounded', rbBtnBorder: 'none', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnFx: 'none', rbBtnFxSize: 8,
     rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '', rbEdgeFx: 'none', rbEdgeFxSize: 8,
-    rbCssOn: false, rbCss: '',
+    rbBoxColorOn: false, rbBoxColor: '', rbBoxAlphaOn: false, rbBoxAlpha: 0,
+    rbCssOn: false, rbCss: '', rbBtnCssOn: false, rbBtnCss: '',
 
     // Text Formatting
     tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
@@ -2085,7 +2086,7 @@
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
-    rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor',
+    rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor', rbBoxColor: '--SmartThemeBlurTintColor',
     tfNameColor: '--SmartThemeBodyColor',
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
@@ -2134,8 +2135,11 @@
     };
     if (s.rbEnabled) {
       // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
+      const boxSee = on('rbBoxAlpha') ? rangeNum(s, 'rbBoxAlpha') : 0;
+      const boxFill = col('rbBoxColor') || (boxSee ? 'var(--SmartThemeBlurTintColor)' : '');
       const bs = RB_BORDERS.includes(s.rbBorderStyle) && s.rbBorderStyle !== 'solid' ? s.rbBorderStyle : ''; // solid is ST's own line
       css += rule('.mes_reasoning', {
+        'background-color': boxSee ? `color-mix(in srgb, ${boxFill} ${100 - boxSee}%, transparent)` : boxFill,
         '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
         'border-left-color': col('rbBorder'),
         'font-family': font('rbFont'),
@@ -2187,14 +2191,19 @@
     return css ? css + '\n' : '';
   }
 
-  // Custom CSS for the reasoning block, in its own style tag so a typo can't break the extension's other styles.
+  // Custom CSS for the reasoning button and box, in its own style tag so a typo can't break the extension's other styles.
+  const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning']];
   function syncCustomCss() {
     const s = settings();
-    const v = isOn() && s.rbEnabled && s.rbCssOn ? String(s.rbCss || '').slice(0, 2000).trim() : '';
+    const live = isOn() && s.rbEnabled;
+    const v = RB_CSS.map(([k, sel]) => {
+      const c = live && s[k + 'On'] ? String(s[k] || '').slice(0, 2000).trim() : '';
+      return c ? `${sel} { ${c} }` : '';
+    }).filter(Boolean).join('\n');
     let el = document.getElementById('ntr_rb_css');
     if (!v) { el?.remove(); return; }
     if (!el) { el = document.createElement('style'); el.id = 'ntr_rb_css'; document.head.appendChild(el); }
-    el.textContent = `.mes_reasoning { ${v} }`;
+    el.textContent = v;
   }
 
   // Google Fonts load only for font boxes that are ticked and filled in. One link per font, so a name Google
@@ -2322,6 +2331,7 @@
             <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
     const borders = (def) => [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']]
       .map(([v, l]) => (v === def ? [v, l, 'SillyTavern\'s default'] : [v, l]));
+    const cssBox = (k, ph) => `<textarea class="text_pole m_rb_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
     // A pick-one row with no tick: its default choice is SillyTavern's own look.
     const pickRow = (title, inner) => `
           <div class="cb_ovrow"><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
@@ -2350,6 +2360,8 @@
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color.</div>')}
           ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow uses the Border Color, or the button\'s text color without one. Shadow is black.</div>')}`)}
           ${card('Basic Style: Reasoning Box', `
+          ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor') + '<div class="cb_hint">SillyTavern\'s box has no background.</div>')}
+          ${ovRow(s, 'rbBoxAlphaOn', 'Transparency', rangeSlider(s, 'rbBoxAlpha') + '<div class="cb_hint">0% is solid, 100% is see-through. Only the box changes, not its text.</div>')}
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
           ${pickRow('Border Style', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
@@ -2357,8 +2369,9 @@
           ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
-            ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
-              + '<div class="cb_hint">CSS for the reasoning text, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics, and add <code>!important</code> if a setting doesn\'t take. To style more of the status button or the rest of SillyTavern, use SillyTavern\'s own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
+            ${ovRow(s, 'rbBtnCssOn', 'Button CSS', cssBox('rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;') + '<div class="cb_hint">CSS for the reasoning button, like <code>text-transform: uppercase;</code>.</div>')}
+            ${ovRow(s, 'rbCssOn', 'Box CSS', cssBox('rbCss', 'letter-spacing: 1px;&#10;& em { color: gold; }') + '<div class="cb_hint">CSS for the reasoning box, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics.</div>')}
+            <div class="cb_hint">Add <code>!important</code> if a setting doesn't take. To style the rest of SillyTavern, use SillyTavern's own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>
           </div>
     `, { sw: ['m_rb_enable', s.rbEnabled] });
   }
@@ -2439,9 +2452,10 @@
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
-    const cssBox = overlay.querySelector('#m_rb_css');
-    cssBox.oninput = () => { s.rbCss = cssBox.value.slice(0, 2000); syncCustomCss(); };
-    cssBox.onchange = save;
+    overlay.querySelectorAll('.m_rb_css').forEach((box) => {
+      box.oninput = () => { s[box.dataset.key] = box.value.slice(0, 2000); syncCustomCss(); };
+      box.onchange = save;
+    });
   }
 
   // One cursor picture: preview, Upload / Link / Remove, and the click point on the 3x3 grid.
@@ -2940,7 +2954,7 @@
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out offsets).
   const NUM_RANGE = {
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
-    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], rbBoxAlpha: [0, 100, 1, '%'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
@@ -2966,7 +2980,7 @@
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
   const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
-  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, mapGoText: 200 };
+  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;
@@ -3287,7 +3301,8 @@
         return;
       }
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
-      const css = secs.includes('reasoning') ? String(cleanLookSection('reasoning', j.sections.reasoning).rbCss || '').slice(0, 2000).trim() : '';
+      const rbPart = secs.includes('reasoning') ? cleanLookSection('reasoning', j.sections.reasoning) : {};
+      const css = RB_CSS.map(([k, sel]) => { const c = String(rbPart[k] || '').slice(0, 2000).trim(); return c ? `${sel} { ${c} }` : ''; }).filter(Boolean).join('\n');
       panel.innerHTML = `
         <div class="ntr_tpanel">
           <strong>Import theme</strong>
@@ -3310,7 +3325,7 @@
         const base = name;
         for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
-        if (data.reasoning && String(data.reasoning.rbCss || '').trim()) data.reasoning.rbCssOn = false;
+        for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s images...', 'Themes');
           const r = await unpackFiles(data);

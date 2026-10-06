@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.6';
+  const VERSION = '2.8.7';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -784,7 +784,7 @@
     const own = !!r && r.scope === 'char';
     const o = {};
     for (const [k, g] of Object.entries(ROT_KEYS)) o[k] = own ? r[k] : s[g];
-    o.rotateSec = Math.min(60, Math.max(3, Math.round(Number(o.rotateSec)) || 8));
+    o.rotateSec = Math.round(cardNum(o.rotateSec, 'bannerRotateSec', DEFAULTS.bannerRotateSec));
     return o;
   }
 
@@ -804,6 +804,8 @@
     const own = !!r && r.scope === 'char';
     const o = {};
     for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) o[k] = own && r[k] != null ? r[k] : s[g];
+    o.height = cardNum(o.height, 'bannerHeight', DEFAULTS.bannerHeight);
+    o.gap = cardNum(o.gap, 'bannerGap', DEFAULTS.bannerGap);
     return o;
   }
   function currentLook() {
@@ -916,7 +918,7 @@
       const im = src.images[i] || src.images[0];
       const u = media(im.url);
       if (!u) { banner.style.display = 'none'; return; }
-      const pos = `50% ${im.pos ?? 45}%`;
+      const pos = `50% ${cardNum(im.pos, 'bannerPos', 45)}%`;
       if (img.getAttribute('src') !== u && fade && img.getAttribute('src')) crossfade(img, u, pos);
       else {
         delete img.dataset.next;
@@ -957,7 +959,7 @@
       yt.style.display = 'none';
       nav.style.display = 'none';
       vid.style.display = 'block';
-      vid.style.objectPosition = `50% ${cNum(src.videoPos, 50, 0, 100)}%`;
+      vid.style.objectPosition = `50% ${cardNum(src.videoPos, 'bannerVideoPos', 50)}%`;
       banner.querySelector('.cb_snd').style.display = '';
       if (vid.getAttribute('src') !== u) { vid.src = u; playBannerVid(vid); }
       else if (vid.paused) playBannerVid(vid);
@@ -997,7 +999,7 @@
       attachBanner(chat, r.locked);
       
       if (r.overlap) {
-        chat.style.paddingTop = r.overlapOffset + 'px';
+        chat.style.paddingTop = cardNum(r.overlapOffset, 'bannerOffset', 0) + 'px';
       }
       
       updateBanner();
@@ -1343,15 +1345,15 @@
               <div class="cb_thumbs">${src.images.map((im, i) => `<img class="cb_thumb${i === src.idx ? ' active' : ''}" data-i="${i}" src="${escapeHTML(media(im.url))}" alt="">`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No images yet</div>`}
 
               ${curImg ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_pval">${cNum(curImg.pos, 45, 0, 100)}</span>%</span></div>
-              <input type="range" id="m_b_p" min="0" max="100" value="${cNum(curImg.pos, 45, 0, 100)}">
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_pval">${cardNum(curImg.pos, 'bannerPos', 45)}</span>${NUM_RANGE.bannerPos[3]}</span></div>
+              <input type="range" id="m_b_p" ${rangeAttrs('bannerPos')} value="${cardNum(curImg.pos, 'bannerPos', 45)}">
               ` : ''}`)}
 
               ${card('Rotation' + (ownKind ? ' ' + TAG : ''), `
                 <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate through images</span></label>
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
-                  <div class="cb_row" style="margin-top: 8px;"><label>Every:</label><span><span id="m_b_rot_val">${ro.rotateSec}</span>s</span></div>
-                  <input type="range" id="m_b_rot_sec" min="3" max="60" step="1" value="${ro.rotateSec}">
+                  <div class="cb_row" style="margin-top: 8px;"><label>Every:</label><span><span id="m_b_rot_val">${ro.rotateSec}</span>${NUM_RANGE.bannerRotateSec[3]}</span></div>
+                  <input type="range" id="m_b_rot_sec" ${rangeAttrs('bannerRotateSec')} value="${ro.rotateSec}">
                   <div style="margin-top: 8px;"><strong>Change:</strong>${pills('brfx', [['fade', 'Crossfade'], ['swap', 'Instant']], ro.rotateFx)}</div>
                   <div style="margin-top: 8px;"><strong>Order:</strong>${pills('brord', [['order', 'In order'], ['shuffle', 'Shuffled']], ro.rotateOrder)}</div>
                 </div>
@@ -1379,8 +1381,8 @@
               </div>
               <input type="file" id="m_b_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
               ${src.video ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_vpval">${cNum(src.videoPos, 50, 0, 100)}</span>%</span></div>
-              <input type="range" id="m_b_vp" min="0" max="100" value="${cNum(src.videoPos, 50, 0, 100)}">` : ''}
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_vpval">${cardNum(src.videoPos, 'bannerVideoPos', 50)}</span>${NUM_RANGE.bannerVideoPos[3]}</span></div>
+              <input type="range" id="m_b_vp" ${rangeAttrs('bannerVideoPos')} value="${cardNum(src.videoPos, 'bannerVideoPos', 50)}">` : ''}
               <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>`)}
             </div>
 
@@ -1392,18 +1394,18 @@
                 <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
               </label>
 
-            <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:${btag}</label><span><span id="m_b_hval">${bl.height}</span>px</span></div>
-            <input type="range" id="m_b_h" min="60" max="350" step="5" value="${bl.height}">
+            <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:${btag}</label><span><span id="m_b_hval">${bl.height}</span>${NUM_RANGE.bannerHeight[3]}</span></div>
+            <input type="range" id="m_b_h" ${rangeAttrs('bannerHeight')} value="${bl.height}">
             <div id="m_b_guide" class="cb_hint" style="margin-top: 4px;">${escapeHTML(bannerGuideText())}</div>
 
             <div id="m_b_gap_wrapper" style="${r.overlap ? 'opacity: 0.5; pointer-events: none;' : ''}">
-              <div class="cb_row" style="margin-top: 10px;"><label>Gap Below Banner:${btag}</label><span><span id="m_b_gapval">${bl.gap}</span>px</span></div>
-              <input type="range" id="m_b_gap" min="0" max="40" step="1" value="${bl.gap}">
+              <div class="cb_row" style="margin-top: 10px;"><label>Gap Below Banner:${btag}</label><span><span id="m_b_gapval">${bl.gap}</span>${NUM_RANGE.bannerGap[3]}</span></div>
+              <input type="range" id="m_b_gap" ${rangeAttrs('bannerGap')} value="${bl.gap}">
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
-              <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval">${cNum(r.overlapOffset, 0, 0, 300)}</span>px</span></div>
-              <input type="range" id="m_b_offset" min="0" max="300" step="5" value="${cNum(r.overlapOffset, 0, 0, 300)}" ${!key ? 'disabled' : ''}>
+              <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval">${cardNum(r.overlapOffset, 'bannerOffset', 0)}</span>${NUM_RANGE.bannerOffset[3]}</span></div>
+              <input type="range" id="m_b_offset" ${rangeAttrs('bannerOffset')} value="${cardNum(r.overlapOffset, 'bannerOffset', 0)}" ${!key ? 'disabled' : ''}>
             </div>
 
             <div style="margin-top: 10px;"><strong>Transparent areas show:${btag}</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
@@ -2491,13 +2493,13 @@
   function cleanBannerSrc(b) {
     if (!isObj(b)) b = {};
     cleaned.add(b);
-    const images = cList(b.images, 200, (im) => ({ ...im, url: cUrl(im.url), pos: cNum(im.pos, 45, 0, 100) })).filter((im) => im.url);
+    const images = cList(b.images, 200, (im) => ({ ...im, url: cUrl(im.url), pos: cardNum(im.pos, 'bannerPos', 45) })).filter((im) => im.url);
     return Object.assign(b, {
       images,
       idx: Math.round(cNum(b.idx, 0, 0, Math.max(0, images.length - 1))),
       youtubeUrl: cStr(b.youtubeUrl, 500),
       video: cUrl(b.video),
-      videoPos: cNum(b.videoPos, 50, 0, 100),
+      videoPos: cardNum(b.videoPos, 'bannerVideoPos', 50),
     });
   }
 
@@ -2506,16 +2508,16 @@
     Object.assign(b, {
       locked: cBool(b.locked, true),
       overlap: cBool(b.overlap, false),
-      overlapOffset: cNum(b.overlapOffset, 0, 0, 300),
+      overlapOffset: cardNum(b.overlapOffset, 'bannerOffset', 0),
       scope: cPick(b.scope, ['global', 'char']),
       mode: cPick(b.mode, ['', 'image', 'youtube', 'video']),
       sharedChecked: cBool(b.sharedChecked, false),
       rotate: cBool(b.rotate, false),
-      rotateSec: Math.round(cNum(b.rotateSec, 8, 3, 60)),
+      rotateSec: Math.round(cardNum(b.rotateSec, 'bannerRotateSec', DEFAULTS.bannerRotateSec)),
       rotateFx: cPick(b.rotateFx, ['fade', 'swap']),
       rotateOrder: cPick(b.rotateOrder, ['order', 'shuffle']),
-      height: b.height == null ? null : Math.round(cNum(b.height, 120, 60, 350)),
-      gap: b.gap == null ? null : Math.round(cNum(b.gap, 10, 0, 40)),
+      height: b.height == null ? null : Math.round(cardNum(b.height, 'bannerHeight', DEFAULTS.bannerHeight)),
+      gap: b.gap == null ? null : Math.round(cardNum(b.gap, 'bannerGap', DEFAULTS.bannerGap)),
       backdrop: b.backdrop == null ? null : cPick(b.backdrop, ['wallpaper', 'panel']),
       videoSound: b.videoSound == null ? null : cBool(b.videoSound, false),
     });
@@ -2826,14 +2828,14 @@
   // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   const NUM_RANGE = {
-    bannerHeight: [60, 350], bannerGap: [0, 40], bannerRotateSec: [3, 60], fgOpacity: [0, 100, 1, '%'],
+    bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
     rbSize: [0.5, 2, 0.05, 'x'], rbSat: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
-    // Saved per character in the card, not in the settings (see cardNum).
-    fgScale: [10, 300, 5, '%'],
+    // Saved in card data (and the shared Global banner), not as settings keys (see cardNum).
+    fgScale: [10, 300, 5, '%'], bannerPos: [0, 100, 1, '%'], bannerVideoPos: [0, 100, 1, '%'], bannerOffset: [0, 300, 5, 'px'],
   };
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
   for (const p of ['ai', 'us']) {

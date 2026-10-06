@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.1';
+  const VERSION = '2.8.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1914,9 +1914,9 @@
   function overrideCss(s) {
     let v = '';
     if (s.ovEnabled) {
-      if (s.ovWidthOn) v += `--sheldWidth: ${s.ovWidth}vw !important; `;
-      if (s.ovBlurOn) v += `--blurStrength: ${s.ovBlur} !important; `;
-      if (s.ovShadowOn) v += `--shadowWidth: ${s.ovShadow} !important; `;
+      if (s.ovWidthOn) v += `--sheldWidth: ${rangeNum(s, 'ovWidth')}vw !important; `;
+      if (s.ovBlurOn) v += `--blurStrength: ${rangeNum(s, 'ovBlur')} !important; `;
+      if (s.ovShadowOn) v += `--shadowWidth: ${rangeNum(s, 'ovShadow')} !important; `;
     }
     // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts.
     if (s.tfEnabled && s.ovFontOn) v += `--fontScale: ${s.ovFont} !important; `;
@@ -1929,7 +1929,7 @@
     if (!s.ovEnabled) return '';
     const color = s.ovScrollColorOn && COLOR_RE.test(s.ovScrollColor) ? s.ovScrollColor : '';
     const track = s.ovScrollTrackOn && COLOR_RE.test(s.ovScrollTrack) ? s.ovScrollTrack : '';
-    const width = s.ovScrollWidthOn ? Math.min(20, Math.max(4, Number(s.ovScrollWidth) || 11)) : 0;
+    const width = s.ovScrollWidthOn ? rangeNum(s, 'ovScrollWidth') : 0;
     const radius = s.ovScrollShapeOn ? SCROLL_RADIUS[s.ovScrollShape] : '';
     let css = '';
     if (width) css += `\n      ::-webkit-scrollbar { width: ${width}px; height: ${width}px; }`;
@@ -1978,7 +1978,7 @@
   function cursorCss(s) {
     cursorKinds = {};
     if (!s.ovEnabled || !s.ovCursorOn) return '';
-    const size = Math.min(128, Math.max(16, Number(s.ovCursorSize) || 32));
+    const size = rangeNum(s, 'ovCursorSize');
     const one = (src, spot, fallback) => {
       const u = cUrl(src);
       const c = u && cursorImg(u, size);
@@ -2350,14 +2350,14 @@
 
   function displaySectionHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
-    const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
+    const sl = (key) => rangeSlider(s, key);
     return pageHtml('display', `
           <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           ${card('Chat', `
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
-          ${row('ovWidthOn', 'Chat Width', sl('ovWidth', 'vw', 25, 100, 1))}
-          ${row('ovBlurOn', 'Blur Strength', sl('ovBlur', '', 0, 30, 1))}
-          ${row('ovShadowOn', 'Shadow Width', sl('ovShadow', '', 0, 5, 1))}
+          ${row('ovWidthOn', 'Chat Width', sl('ovWidth'))}
+          ${row('ovBlurOn', 'Blur Strength', sl('ovBlur'))}
+          ${row('ovShadowOn', 'Shadow Width', sl('ovShadow'))}
           ${row('ovChatStyleOn', 'Chat Style', pills('ochat', [['flat', 'Flat'], ['bubbles', 'Bubbles'], ['document', 'Document']], s.ovChatStyle))}
           ${row('ovAvatarOn', 'Avatar Shape', pills('oavatar', [['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']], s.ovAvatar)
             + '<div class="cb_hint" style="margin-top:6px;">Shapes the normal chat avatars. When NTR Avatars is on, those replace the chat avatars, so this has nothing to shape.</div>')}`)}
@@ -2366,7 +2366,7 @@
             <div class="cb_hint">Changes every scrollbar in SillyTavern. Firefox can change only the colors and width; phones mostly show their own scrollbars.</div>
             ${row('ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
             ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar. SillyTavern leaves it see-through.</div>')}
-            ${row('ovScrollWidthOn', 'Scrollbar Width', sl('ovScrollWidth', 'px', 4, 20, 1))}
+            ${row('ovScrollWidthOn', 'Scrollbar Width', sl('ovScrollWidth'))}
             ${row('ovScrollShapeOn', 'Scrollbar Shape', pills('oscroll', [['pill', 'Pill', 'SillyTavern\'s default'], ['rounded', 'Rounded'], ['square', 'Square']], s.ovScrollShape))}
           </div>
           ${subHead('ov_cursor', 'Cursor')}
@@ -2374,7 +2374,7 @@
             <div class="cb_hint">Your own pictures for the mouse cursor. Typing boxes keep the normal text cursor. Phones and tablets have no cursor.</div>
             ${row('ovCursorOn', 'Custom Cursor', cursorSlot('ovCursorImg', 'ovCursorSpot', 'Normal', 'Everywhere else.', 'fa-arrow-pointer', s)
               + cursorSlot('ovCursorPtrImg', 'ovCursorPtrSpot', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer', s)
-              + '<div class="cb_hint">Size</div>' + sl('ovCursorSize', 'px', 16, 128, 1)
+              + '<div class="cb_hint">Size</div>' + sl('ovCursorSize')
               + '<div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don\'t allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>'
               + '<input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>')}
           </div>
@@ -2824,10 +2824,11 @@
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
+  // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   const NUM_RANGE = {
     bannerHeight: [60, 350], bannerGap: [0, 40], bannerRotateSec: [3, 60], fgOpacity: [0, 100],
     rbSize: [0.5, 2], rbSat: [0, 100], ovFont: [0.5, 2], tfNameSize: [0.5, 2], tfUserSize: [0.5, 2], tfAiSize: [0.5, 2],
-    ovWidth: [25, 100], ovBlur: [0, 30], ovShadow: [0, 5], ovScrollWidth: [4, 20], ovCursorSize: [16, 128],
+    ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
@@ -2840,6 +2841,10 @@
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
     });
   }
+  // A number setting kept to its range, or its default if it isn't a number.
+  const rangeNum = (s, k) => cNum(s[k], DEFAULTS[k], NUM_RANGE[k][0], NUM_RANGE[k][1]);
+  // A slider whose range, step and unit come from NUM_RANGE.
+  const rangeSlider = (s, k) => { const [min, max, step, unit] = NUM_RANGE[k]; return ovSlider(s, k, unit, min, max, step); };
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
   const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);

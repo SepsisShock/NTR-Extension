@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.8.0';
+  const VN_VERSION = '2.8.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -699,7 +699,7 @@
                   <button class="menu_button m_art_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
                   <button class="menu_button m_art_url" data-k="${k}" title="Use a link"><i class="fa-solid fa-link"></i></button>
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button></span>`;
-    return pageHtml('vn', 'fa-clapperboard', 'Visual Novel Mode', `
+    return pageHtml('vn', `
             ${subHead('vn_guide', 'How to write your card')}
             <div class="cb_collapse_content">
               <div class="cb_hint">Visual Novel Mode reads these tags from messages. Write them in your card's first message or in anything you write yourself. While the mode is on, the AI is told to use them too (see Prompt for your LLM). These examples use your current symbols and names.</div>
@@ -839,11 +839,10 @@
               <textarea id="m_p_text" class="text_pole" readonly rows="4" style="width:100%;resize:vertical;"></textarea>
               <button id="m_p_copy" class="menu_button" style="margin-top:6px;"><i class="fa-solid fa-copy"></i> Copy Prompt</button>
             </div>
-    `, { sw: ['m_n_enable', s.nodeEnabled], bodyId: 'm_n_body', legend: true });
+    `, { sw: ['m_n_enable', s.nodeEnabled], legend: true });
   }
 
   function bindVN(overlay, s) {
-    const body = overlay.querySelector('#m_n_body');
     const refreshPrompt = () => { overlay.querySelector('#m_p_text').value = buildPrompt(s); };
     function renderGuide() {
       const box = overlay.querySelector('#m_g_body');
@@ -863,7 +862,6 @@
     overlay.querySelector('#m_n_enable').onchange = function() {
       s.nodeEnabled = this.checked; save();
       if (this.checked) s.vnUsed = true;
-      body.classList.toggle('cb_dim', !this.checked);
       refresh({ switchedOn: this.checked });
     };
     const chk = (id, key, after) => { const el = overlay.querySelector(id); if (el) el.onchange = function() { s[key] = this.checked; save(); if (after) after(); }; };

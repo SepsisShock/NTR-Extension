@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.0';
+  const VERSION = '2.8.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -82,7 +82,7 @@
     ovCursorOn: false, ovCursorImg: '', ovCursorSpot: 'tl', ovCursorPtrImg: '', ovCursorPtrSpot: 'tc', ovCursorSize: 32,
 
     // Menu state
-    uiOpen: { banner: true },
+    uiOpen: {},
     uiPage: 'banner',
     uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
     wandEntry: false,
@@ -562,7 +562,7 @@
       #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
       #cb_drag_pill { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: none; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px; background: rgba(0,0,0,0.85); color: #fff; font-size: 13px; line-height: 1.2; white-space: nowrap; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
       #cb_drag_pill button { border: none; border-radius: 999px; padding: 5px 14px; font-weight: bold; cursor: pointer; background: var(--SmartThemeQuoteColor, #6cf); color: #000; }
-      .cb_col { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px; }
+      .cb_col { display: flex; flex-direction: column; gap: 8px; }
       .cb_grp { flex-direction: column; gap: 8px; }
       .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
       .cb_sub { font-size: 0.75em; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--SmartThemeBorderColor, #444); }
@@ -1315,7 +1315,7 @@
 
         ${themesSectionHtml(s)}
 
-        ${pageHtml('banner', 'fa-images', 'Header Banner', `
+        ${pageHtml('banner', `
             ${card('Source', `
             <div><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char', BANNER_NOTE.char]], ownKind ? 'char' : 'global')}</div>
               <div style="margin-top: 10px;">
@@ -1408,20 +1408,20 @@
 
             <div style="margin-top: 10px;"><strong>Transparent areas show:${btag}</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
             ${ownKind ? '' : '<div class="cb_hint">Height, gap and transparent areas change every character set to Global.</div>'}`)}
-        `, { sw: ['m_b_enable', s.bannerOn], bodyId: 'm_b_body', legend: true })}
+        `, { sw: ['m_b_enable', s.bannerOn], legend: true })}
 
-        ${pageHtml('pfp', 'fa-user', 'Avatar Management', `
+        ${pageHtml('pfp', `
             <div class="ntr_cols">
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
             </div>
-        `, { sw: ['m_a_enable', s.avatarEnabled], bodyId: 'm_a_body' })}
+        `, { sw: ['m_a_enable', s.avatarEnabled] })}
 
         ${reasoningSectionHtml(s)}
         ${textSectionHtml(s)}
         ${displaySectionHtml(s)}
 
-        ${pageHtml('fg', 'fa-shapes', 'Foreground Images', `
+        ${pageHtml('fg', `
             ${card('', `
             <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${s.fgOpacity ?? 100}</span>%</span></div>
             <input type="range" id="m_f_o" min="0" max="100" step="1" value="${s.fgOpacity ?? 100}">
@@ -1449,7 +1449,7 @@
               `).join('')}
             </div>
             <input type="file" id="m_f_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-        `, { sw: ['m_f_enable', s.fgEnabled], bodyId: 'm_f_body', legend: true })}
+        `, { sw: ['m_f_enable', s.fgEnabled], legend: true })}
 
         ${vnSectionHtml(s)}
         </div>
@@ -1565,7 +1565,6 @@
     for (const pos of FG_POS) onPills(overlay, 'fgl' + pos, (val) => { F[pos + 'Layer'] = val; save(); ensureFgLayer(); });
     overlay.querySelector('#m_f_enable').onchange = function() {
       s.fgEnabled = this.checked; save(); ensureFgLayer();
-      overlay.querySelector('#m_f_body').classList.toggle('cb_dim', !this.checked);
     };
     
     const fo = overlay.querySelector('#m_f_o');
@@ -1703,7 +1702,6 @@
 
     overlay.querySelector('#m_a_enable').onchange = function() {
       s.avatarEnabled = this.checked; save(); updateAvatarStyle();
-      overlay.querySelector('#m_a_body').classList.toggle('cb_dim', !this.checked);
     };
     
     bindThemes(overlay, s);
@@ -1767,6 +1765,7 @@
 
   // ===== Shared UI helpers =====
   // The menu's pages, in the order of the icon column: id, icon, short name for the column, full name.
+  // The only place they're written: the column and each page's title both read them from here.
   const PAGES = [
     ['themes', 'fa-bookmark', 'Themes', 'Themes'],
     ['banner', 'fa-images', 'Banner', 'Header Banner'],
@@ -1780,12 +1779,12 @@
   const navHtml = (cur) => PAGES.map(([id, icon, short, full]) =>
     `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
     + '<div class="ntr_navfill"></div>';
-  // One page: a big title with the section's icon and, for a section that can be switched off, its switch.
-  // A switched-off section's settings are dimmed. A note sits between the title and the settings and is never dimmed.
-  function pageHtml(sec, icon, title, body, { sw = null, bodyId = '', legend = false, note = '' } = {}) {
-    const off = !!sw && !sw[1];
+  // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
+  // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
+  function pageHtml(sec, body, { sw = null, legend = false, note = '' } = {}) {
+    const [, icon, , title] = PAGES.find(([id]) => id === sec);
     return `
-      <section class="ntr_page" data-page="${sec}"${settings().uiPage === sec ? '' : ' hidden'}>
+      <section class="ntr_page${sw && !sw[1] ? ' ntr_off' : ''}" data-page="${sec}"${settings().uiPage === sec ? '' : ' hidden'}>
         <div class="ntr_phead">
           <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
           <h3 class="ntr_ptitle">${title}</h3>
@@ -1793,7 +1792,7 @@
           ${legend ? `<div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>` : ''}
         </div>
         ${note}
-        <div ${bodyId ? `id="${bodyId}" ` : ''}class="ntr_pbody${off ? ' cb_dim' : ''}">${body}</div>
+        <div class="ntr_pbody">${body}</div>
       </section>`;
   }
   // A group of settings: a small label, then the settings in a soft card.
@@ -2233,7 +2232,7 @@
   const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
-    return pageHtml('reasoning', 'fa-comment-dots', 'Reasoning Block Design', `
+    return pageHtml('reasoning', `
           <div class="cb_hint">Only changes how the block looks. If no reasoning block shows up, turn on "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion and models that write their thinking into the reply).</div>
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
           ${card('Style', `
@@ -2257,7 +2256,7 @@
             ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
               + '<div class="cb_hint">CSS for the reasoning text, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics, and add <code>!important</code> if a setting doesn\'t take. To style the "Thought for..." header or the rest of SillyTavern, use SillyTavern\'s own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
           </div>
-    `, { sw: ['m_rb_enable', s.rbEnabled], bodyId: 'm_rb_body' });
+    `, { sw: ['m_rb_enable', s.rbEnabled] });
   }
 
   function textSectionHtml(s) {
@@ -2268,7 +2267,7 @@
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
-    return pageHtml('text', 'fa-text-height', 'Text Formatting', `
+    return pageHtml('text', `
           <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', ovSlider(s, 'ovFont', 'x', 0.5, 2, 0.05) + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
           ${subHead('tf_names', 'Names')}
@@ -2285,7 +2284,7 @@
           ${subHead('tf_ai', 'AI Text')}
           <div class="cb_collapse_content">${part('tfAi')}
           </div>
-    `, { sw: ['m_tf_enable', s.tfEnabled], bodyId: 'm_tf_body' });
+    `, { sw: ['m_tf_enable', s.tfEnabled] });
   }
 
   function bindTextFormatting(overlay, s) {
@@ -2315,7 +2314,6 @@
     for (const [id, key] of [['m_rb_enable', 'rbEnabled'], ['m_tf_enable', 'tfEnabled']]) {
       overlay.querySelector('#' + id).onchange = function() {
         s[key] = this.checked; save(); updateAvatarStyle();
-        overlay.querySelector('#' + id.replace('enable', 'body')).classList.toggle('cb_dim', !this.checked);
       };
     }
     overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
@@ -2353,7 +2351,7 @@
   function displaySectionHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key, unit, min, max, step) => ovSlider(s, key, unit, min, max, step);
-    return pageHtml('display', 'fa-display', 'UI Display', `
+    return pageHtml('display', `
           <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           ${card('Chat', `
           <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
@@ -2380,14 +2378,13 @@
               + '<div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don\'t allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>'
               + '<input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>')}
           </div>
-    `, { sw: ['m_ov_enable', s.ovEnabled], bodyId: 'm_ov_body' });
+    `, { sw: ['m_ov_enable', s.ovEnabled] });
   }
 
   function bindDisplay(overlay, s) {
     overlay.querySelector('#m_f_trans').onchange = function() { s.chatTransparent = this.checked; save(); updateAvatarStyle(); };
     overlay.querySelector('#m_ov_enable').onchange = function() {
       s.ovEnabled = this.checked; save(); updateAvatarStyle();
-      overlay.querySelector('#m_ov_body').classList.toggle('cb_dim', !this.checked);
     };
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
       c.onchange = () => {
@@ -2996,7 +2993,7 @@
     const opts = [['', 'None (default look)'], ...s.themes.map((t) => [t.id, t.name])]
       .map(([v, l]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(l)}</option>`).join('');
     const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
-    return pageHtml('themes', 'fa-bookmark', 'Themes', `
+    return pageHtml('themes', `
         ${card('', `
           <div class="cb_hint">A theme holds your look: banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
@@ -3410,8 +3407,8 @@
     const vn = window.NTR.vn;
     if (vn) return vn.sectionHtml(s);
     const msg = modError.vn ? 'Visual Novel Mode failed to load: ' + escapeHTML(modError.vn) : 'Its settings appear here once it\'s switched on.';
-    return pageHtml('vn', 'fa-clapperboard', 'Visual Novel Mode', '',
-      { sw: ['m_n_enable', s.nodeEnabled], bodyId: 'm_n_body', note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
+    return pageHtml('vn', '',
+      { sw: ['m_n_enable', s.nodeEnabled], note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
   }
 
   function bindVNSection(overlay, s) {
@@ -3450,7 +3447,6 @@
       else {
         const cb = document.getElementById('m_n_enable');
         if (cb) cb.checked = s.nodeEnabled;
-        document.getElementById('m_n_body')?.classList.toggle('cb_dim', !s.nodeEnabled);
         syncPageOff(document.getElementById('cb_modal_overlay'));
       }
     }
@@ -3496,7 +3492,6 @@
   function injectExtBar() {
     const host = document.getElementById('extensions_settings2');
     if (!host || document.getElementById('ntr_ext_bar')) return;
-    document.getElementById('cv_ext_btn_container')?.remove();
     const wrap = document.createElement('div');
     wrap.id = 'ntr_ext_bar';
     wrap.className = 'inline-drawer';

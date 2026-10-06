@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.5';
+  const VERSION = '2.8.6';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -356,14 +356,14 @@
     const show = isOn() && s.fgEnabled && !(s.fgHideVN && s.nodeEnabled);
     layer.style.display = show ? 'block' : 'none';
     front.style.display = show ? 'block' : 'none';
-    document.documentElement.style.setProperty('--cb-fg-op', (s.fgOpacity ?? 100) / 100);
+    document.documentElement.style.setProperty('--cb-fg-op', rangeNum(s, 'fgOpacity') / 100);
 
     for (const pos of FG_POS) {
       const el = document.getElementById(`cb_fg_${pos.toLowerCase()}`);
       const target = F[pos + 'Layer'] === 'front' ? front : layer;
       if (el.parentNode !== target) target.appendChild(el);
       const src = media(F[pos]);
-      const sc = (Number(F[pos + 'Scale']) || 100) / 100;
+      const sc = cardNum(F[pos + 'Scale'], 'fgScale', 100) / 100;
       el.style.transformOrigin = pos === 'Left' ? 'left bottom' : pos === 'Right' ? 'right bottom' : 'center bottom';
       el.style.transform = `scale(${sc})`;
       if (src) {
@@ -1423,8 +1423,8 @@
 
         ${pageHtml('fg', `
             ${card('', `
-            <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${s.fgOpacity ?? 100}</span>%</span></div>
-            <input type="range" id="m_f_o" min="0" max="100" step="1" value="${s.fgOpacity ?? 100}">
+            <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${rangeNum(s, 'fgOpacity')}</span>${NUM_RANGE.fgOpacity[3]}</span></div>
+            <input type="range" id="m_f_o" ${rangeAttrs('fgOpacity')} value="${rangeNum(s, 'fgOpacity')}">
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>`)}
 
             <div class="ntr_glab">Images ${TAG}</div>
@@ -1442,8 +1442,8 @@
                     <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
                     <button class="menu_button danger_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Clear ${pos} image" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
                   </div>
-                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cNum(F[pos + 'Scale'], 100, 10, 300)}</span>%</span></div>
-                  <input type="range" class="m_f_scale" data-pos="${pos}" min="10" max="300" step="5" value="${cNum(F[pos + 'Scale'], 100, 10, 300)}" style="width:100%;">
+                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cardNum(F[pos + 'Scale'], 'fgScale', 100)}</span>${NUM_RANGE.fgScale[3]}</span></div>
+                  <input type="range" class="m_f_scale" data-pos="${pos}" ${rangeAttrs('fgScale')} value="${cardNum(F[pos + 'Scale'], 'fgScale', 100)}" style="width:100%;">
                   <div style="width:100%; margin-top:6px; text-align:left;"><small>In Visual Novel Mode, sit:</small>${pills('fgl' + pos, [['behind', 'Behind sprites'], ['front', 'In front']], F[pos + 'Layer'])}</div>
                 </div>
               `).join('')}
@@ -2524,7 +2524,7 @@
   function cleanFg(f) {
     for (const p of FG_POS) {
       f[p] = cUrl(f[p]);
-      f[p + 'Scale'] = cNum(f[p + 'Scale'], 100, 10, 300);
+      f[p + 'Scale'] = cardNum(f[p + 'Scale'], 'fgScale', 100);
       f[p + 'Layer'] = cPick(f[p + 'Layer'], ['behind', 'front']);
     }
   }
@@ -2826,12 +2826,14 @@
   // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   const NUM_RANGE = {
-    bannerHeight: [60, 350], bannerGap: [0, 40], bannerRotateSec: [3, 60], fgOpacity: [0, 100],
+    bannerHeight: [60, 350], bannerGap: [0, 40], bannerRotateSec: [3, 60], fgOpacity: [0, 100, 1, '%'],
     rbSize: [0.5, 2, 0.05, 'x'], rbSat: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
+    // Saved per character in the card, not in the settings (see cardNum).
+    fgScale: [10, 300, 5, '%'],
   };
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
   for (const p of ['ai', 'us']) {
@@ -2845,6 +2847,10 @@
   const rangeNum = (s, k) => cNum(s[k], DEFAULTS[k], NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // A slider whose range, step and unit come from NUM_RANGE.
   const rangeSlider = (s, k) => { const [min, max, step, unit] = NUM_RANGE[k]; return ovSlider(s, k, unit, min, max, step); };
+  // The min, max and step of a slider written out by hand, from NUM_RANGE.
+  const rangeAttrs = (k) => { const [min, max, step] = NUM_RANGE[k]; return `min="${min}" max="${max}" step="${step}"`; };
+  // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
+  const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
   const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);

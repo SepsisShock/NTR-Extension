@@ -20,7 +20,7 @@ The sections themselves and the first batch of text effects have shipped. Still 
 
 - Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
-- Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
+- Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ## Ideas
 

@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.8.8';
+  const VN_VERSION = '2.8.9';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -245,7 +245,7 @@
     el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
   }
 
-  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null };
+  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null, writing: false };
   let nodeQ = null, nodeQAnim = false;
   const spkOpen = new Set();
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -363,24 +363,37 @@
   }
 
   // Normal chat view: ((Rafe%%Sad)) -> ((Rafe)), and location, effect, weather, CG, enter and exit tags disappear.
-  function cleanEmoTags() {
+  // `els` limits it to some messages' .mes_text (the chat watcher passes the ones that just changed).
+  function cleanEmoTags(els) {
     const s = settings();
     if (!A.isOn() || !s.nodeHideEmo) return;
     const so = reEsc(s.delimSpkOpen), sc = reEsc(s.delimSpkClose), no = reEsc(s.delimNarOpen), nc = reEsc(s.delimNarClose);
-    const emoRe = s.delimEmo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${reEsc(s.delimEmo)}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
+    const emo = s.delimEmo ? reEsc(s.delimEmo) : '';
+    const emoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${emo}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
     const dirWords = [s.locWord, s.effectWord, s.weatherWord, s.cgWord, s.enterWord, s.exitWord].filter(Boolean).map(reEsc).join('|');
     const locRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:(?:(?!${nc})[^\\n]){0,80}?${nc}[ \\t]*`, 'gi');
-    document.querySelectorAll('#chat .mes_text').forEach((el) => {
+    // A reply being written can end partway through a tag: ((Rafe%%Sa, ((Rafe% or [[Location:Fo. That part is hidden too.
+    const emoStart = emo ? [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|') : '';
+    const openEmoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`) : null;
+    const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:(?:(?!${nc})[^\\n]){0,80}$`, 'i');
+    const writing = node.writing && document.querySelector('#chat .mes.last_mes .mes_text');
+    for (const el of els || document.querySelectorAll('#chat .mes_text')) {
       const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-      let n;
+      let n, last = null;
       while ((n = w.nextNode())) {
         if (n.parentElement?.closest('textarea')) continue;
+        if (n.nodeValue.trim()) last = n;
         let val = n.nodeValue;
         if (emoRe && val.includes(s.delimEmo)) val = val.replace(emoRe, '$1$2');
         if (val.includes(s.delimNarOpen)) val = val.replace(locRe, '');
         if (val !== n.nodeValue) n.nodeValue = val;
       }
-    });
+      if (el !== writing || !last) continue;
+      let val = last.nodeValue;
+      if (openEmoRe) val = val.replace(openEmoRe, '$1');
+      val = val.replace(openLocRe, '');
+      if (val !== last.nodeValue) last.nodeValue = val;
+    }
   }
 
   let chatObs = null, cleanT = null;
@@ -388,7 +401,23 @@
     const chat = document.getElementById('chat');
     if (!chat || !window.MutationObserver || (chatObs && chatObs._el === chat)) return;
     if (chatObs) chatObs.disconnect();
-    chatObs = new MutationObserver(() => { clearTimeout(cleanT); cleanT = setTimeout(cleanEmoTags, 120); });
+    // The messages that changed are cleaned right away, before the browser draws them, so a reply that streams in
+    // never shows its tags. A full pass after the chat goes quiet catches anything else.
+    chatObs = new MutationObserver((recs) => {
+      const els = new Set();
+      for (const r of recs) {
+        const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+        const m = t && t.closest('.mes_text');
+        if (m) { els.add(m); continue; }
+        for (const a of r.addedNodes) {
+          if (a.nodeType !== 1) continue;
+          if (a.matches('.mes_text')) els.add(a);
+          a.querySelectorAll('.mes_text').forEach((e) => els.add(e));
+        }
+      }
+      if (els.size) cleanEmoTags([...els].filter((e) => chat.contains(e)));
+      clearTimeout(cleanT); cleanT = setTimeout(() => cleanEmoTags(), 120);
+    });
     chatObs.observe(chat, { childList: true, subtree: true, characterData: true });
     chatObs._el = chat;
     cleanEmoTags();
@@ -1902,10 +1931,13 @@
   // SillyTavern says when a generation starts, while a continued message still holds only its old text.
   function nodeGenStarted(type, dryRun) {
     if (dryRun) return;
+    node.writing = type !== 'quiet' && type !== 'impersonate';
     const chat = ctx().chat || [];
     const id = chat.length - 1;
     node.cont = type === 'continue' && chat[id] ? { id, mes: chat[id].mes || '' } : null;
   }
+  // The reply is done: unfinished tags at its end are no longer hidden while it's written.
+  function nodeGenEnded() { node.writing = false; }
   // A Continue's reply is in: show it from where the old text ended.
   function nodeContinued(id) {
     if (node.cont && node.cont.id === id) node.contJump = node.cont;
@@ -1976,6 +2008,7 @@
     swiped: nodeSwiped,
     endWait: nodeEndWait,
     genStarted: nodeGenStarted,
+    genEnded: nodeGenEnded,
     continued: nodeContinued,
     cleanEmoTags,
     // For map.js and opening.js

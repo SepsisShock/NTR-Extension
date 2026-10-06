@@ -77,10 +77,5 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Screen height changes when the address bar shows or hides.
 - [ ] Notch and home bar areas on iPhone.
 
-### Visual Novel Mode: new replies
-Found while checking the typewriter effect with streaming, which works fine. Each was seen in a local SillyTavern.
-
-- [ ] With streaming on and Visual Novel Mode off, emotion tags (like `%%Happy`) show in the normal chat until the reply finishes. The code that hides them waits for the chat to stop changing, and a stream keeps changing it.
-
 ### User Instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.

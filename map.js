@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Maps module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const MAP_VERSION = '2.8.8';
+  const MAP_VERSION = '2.8.9';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;

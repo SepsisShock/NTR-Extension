@@ -57,7 +57,7 @@
     delimEmo: '%%', narratorWord: 'Narrator',
 
     // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens; empty status text means ST's own)
-    rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbType: false,
+    rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbTyping: 'off',
     rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnAlpha: 0, rbBtnTextOn: false, rbBtnText: '',
     rbBtnShapeOn: false, rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '',
     rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBorderStyleOn: false, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '',
@@ -168,7 +168,7 @@
     if (keepOldLook) { s.artBg = 'none'; s.artSprite = 'none'; }
     // The reasoning status text had ticks; an unticked one meant ST's own text, which is now an empty box.
     if ('rbThinkOn' in s) for (const k of ['rbThink', 'rbDone', 'rbSome']) if (!s[k + 'On']) s[k] = '';
-    for (const k of ['rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
+    for (const k of ['rbType', 'rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
       'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor']) delete s[k];
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     if (s.bannerEnabled !== undefined && !s.migratedBanner) {
@@ -612,6 +612,8 @@
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
       .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
+      .cb_ovrow.cb_sep { border-top: 1px solid rgba(255,255,255,.18); margin-top: 8px; padding-top: 12px; }
+      .cb_ovrow:has(+ .cb_sep) { border-bottom: 0; }
       .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
       .cb_cur_row { display: flex; align-items: center; gap: 6px; }
       .cb_cur_row .menu_button { margin: 0; padding: 4px 8px; }
@@ -2064,7 +2066,7 @@
   const RB_BORDERS = ['none', 'solid', 'dashed', 'dotted', 'double', 'glow'];
   const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbTyping: ['off', 'think', 'both'], bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
     ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
@@ -2220,43 +2222,55 @@
     return state === 'done' ? txt.replace(/\{time\}/gi, rbTime(Number(el.dataset.duration) || 0)) : txt;
   }
 
-  // Typewriter. It plays only live: when a block starts thinking, and again when that thinking ends. Labels already in
-  // the chat show at once. Dots at the end of the thinking label keep looping until it's done.
+  // Typewriter Effect. It plays only live: on a block that's thinking now, and (if picked) on its finished label when the
+  // thinking ends. Labels already in the chat show at once. Dots at the end of the thinking label keep looping until it's done.
   const RB_TYPE_MS = 45, RB_DOT_MS = 350;
   const rbAnim = new WeakMap();
-  const rbTyping = (s) => isOn() && s.rbEnabled && s.rbType && !ctx().powerUserSettings?.reduced_motion
+  const rbKey = new WeakMap();
+  const rbMotion = (s) => isOn() && s.rbEnabled && s.rbTyping !== 'off' && !ctx().powerUserSettings?.reduced_motion
     && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   function rbNewAnim(text, state) {
     const loop = state === 'think' && text.endsWith('...');
     return { text, state, n: 1, loop, base: loop ? text.slice(0, -3) : text, dots: 3, done: false, timer: 0 };
   }
-  const rbFrame = (a) => (a.n < a.text.length ? a.text.slice(0, a.n) : a.loop ? a.base + '.'.repeat(a.dots) : a.text);
+  // A frame is the typed part and the rest. The rest is laid out but hidden, so the button keeps its full width while typing.
+  const rbFrame = (a) => (a.n < a.text.length ? [a.text.slice(0, a.n), a.text.slice(a.n)]
+    : a.loop ? [a.base + '.'.repeat(a.dots), '.'.repeat(3 - a.dots)] : [a.text, '']);
+  function rbWrite(el, [shown, rest]) {
+    el.textContent = shown;
+    if (rest) { const r = document.createElement('span'); r.style.visibility = 'hidden'; r.textContent = rest; el.append(r); }
+    el.dataset.ntrOwn = el.innerHTML;
+    rbKey.set(el, shown + '\0' + rest);
+  }
   function rbTick(el) {
     const a = rbAnim.get(el);
     if (!a || a.done) return;
-    if (!el.isConnected || !rbTyping(settings())) { a.done = true; if (el.isConnected) syncReasoningLabels(); return; }
+    if (!el.isConnected || !rbMotion(settings())) { a.done = true; if (el.isConnected) syncReasoningLabels(); return; }
     if (a.n < a.text.length) a.n++;
     else if (a.loop) a.dots = (a.dots + 1) % 4;
     else { a.done = true; return; }
-    if (el.textContent !== el.dataset.ntrOwn) el.dataset.ntrSt = el.textContent; // ST wrote in between
-    el.textContent = el.dataset.ntrOwn = rbFrame(a);
+    if (el.innerHTML !== el.dataset.ntrOwn) el.dataset.ntrSt = el.textContent; // ST wrote in between
+    rbWrite(el, rbFrame(a));
     a.timer = setTimeout(() => rbTick(el), a.n < a.text.length ? RB_TYPE_MS : RB_DOT_MS);
   }
 
   function syncReasoningLabels() {
     const s = settings();
     const on = isOn() && s.rbEnabled;
-    const typing = rbTyping(s);
+    const motion = rbMotion(s);
     document.querySelectorAll('#chat .mes_reasoning_header_title').forEach((el) => {
       // Text NTR wrote itself isn't ST's, so changing a label twice still brings back ST's own text later.
-      const mine = el.dataset.ntrOwn !== undefined && el.textContent === el.dataset.ntrOwn;
+      const mine = el.dataset.ntrOwn !== undefined && el.innerHTML === el.dataset.ntrOwn;
       const st = mine ? el.dataset.ntrSt : el.textContent;
       const state = rbState(el);
       const custom = on ? rbLabelFor(el, s, state) : null;
       const full = custom ?? st;
+      const wants = motion && (state === 'think' || s.rbTyping === 'both');
       let a = rbAnim.get(el);
-      if (typing && (a ? a.state !== state : el.closest('.mes_reasoning_details')?.dataset.state === 'thinking')) {
-        clearTimeout(a?.timer);
+      // A label still typing is over once the block moves on, from thinking to finished.
+      if (a && !a.done && a.state !== state) { clearTimeout(a.timer); a.done = true; }
+      // Typing waits until the button shows: ST hides the block until the first reasoning text arrives.
+      if (wants && (a ? a.state !== state : el.closest('.mes_reasoning_details')?.dataset.state === 'thinking') && el.getClientRects().length) {
         a = rbNewAnim(full, state);
         rbAnim.set(el, a);
         a.timer = setTimeout(() => rbTick(el), RB_TYPE_MS);
@@ -2264,17 +2278,17 @@
         // The label changed mid-typing, from the menu: type on into the new one.
         Object.assign(a, rbNewAnim(full, state), { n: Math.min(a.n, full.length), timer: a.timer });
       }
-      const typingNow = typing && a && !a.done;
+      const typingNow = wants && a && !a.done;
       if (custom === null && !typingNow) {
-        if (mine && el.textContent !== st) el.textContent = st;
+        if (mine && (el.textContent !== st || el.childElementCount)) el.textContent = st;
         delete el.dataset.ntrSt;
         delete el.dataset.ntrOwn;
+        rbKey.delete(el);
         return;
       }
-      const show = typingNow ? rbFrame(a) : full;
+      const frame = typingNow ? rbFrame(a) : [full, ''];
       el.dataset.ntrSt = st;
-      if (el.textContent !== show) el.textContent = show;
-      el.dataset.ntrOwn = show;
+      if (!mine || rbKey.get(el) !== frame.join('\0')) rbWrite(el, frame);
     });
   }
   let rbObs = null, rbQueued = false;
@@ -2303,13 +2317,13 @@
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
             <div class="cb_hint">The label on the button above the reasoning. Leave a box empty to use SillyTavern's own, shown in grey.</div>
-            <div class="cb_ovrow">
-              <label class="checkbox_label"><input type="checkbox" id="m_rb_type" ${s.rbType ? 'checked' : ''}><span>Typewriter Effect</span></label>
-              <div class="m_o_body"><div class="cb_hint">Types the label out live, with looping dots while thinking. Off with ST Reduced Motion enabled.</div></div>
-            </div>
             ${label('rbThink', 'While Thinking')}
             ${label('rbDone', 'Finished', '<div class="cb_hint">Note: {time} shows "12 seconds", "a minute", etc.</div>')}
             ${label('rbSome', 'Finished, Time Unknown')}
+            <div class="cb_ovrow cb_sep">
+              <div>Typewriter Effect</div>
+              <div class="m_o_body cb_flat">${pills('rbtyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']], s.rbTyping)}<div class="cb_hint">Types the label out live, with looping dots while thinking. Off with ST Reduced Motion enabled.</div></div>
+            </div>
           </div>
           ${card('Basic Style: Status Button', `
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
@@ -2388,7 +2402,7 @@
         s[key] = this.checked; save(); updateAvatarStyle();
       };
     }
-    overlay.querySelector('#m_rb_type').onchange = function() { s.rbType = this.checked; save(); syncReasoningLabels(); };
+    onPills(overlay, 'rbtyping', (v) => { s.rbTyping = v; save(); syncReasoningLabels(); });
     overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
       el.onchange = () => {
         s[el.dataset.key] = el.value.slice(0, 100);

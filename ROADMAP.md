@@ -21,7 +21,6 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
 - A preset list of Google Fonts, each name shown in its own font.
 - Uploading font files, so no outside request is needed.
-- Text effects, second batch: Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
 - Left out for now: line height, letter spacing, background color per part. Custom CSS covers these for the reasoning block.
 
@@ -76,6 +75,11 @@ Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The 
 
 - [ ] Share `NUM_RANGE` through `window.NTR` and have these sliders and the code that applies them read it, keeping setting names, defaults and the menu layout the same.
 - [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
+
+### Text effects, second batch
+The first batch (Glow, Shadow, Outline) has shipped for the Reasoning Block and Text Formatting.
+
+- [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
 
 ### User Instructions
 - [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.

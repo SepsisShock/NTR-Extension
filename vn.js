@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.8.9';
+  const VN_VERSION = '2.8.10';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -367,6 +367,15 @@
   function cleanEmoTags(els) {
     const s = settings();
     if (!A.isOn() || !s.nodeHideEmo) return;
+    const writing = node.writing && document.querySelector('#chat .mes.last_mes .mes_text');
+    // Only messages that hold a tag are worth a closer look. A reply being written also counts if it has an open
+    // speaker tag, since its emotion part may be only half written.
+    const has = (t, d) => !!d && t.includes(d);
+    const todo = [...(els || document.querySelectorAll('#chat .mes_text'))].filter((el) => {
+      const t = el.textContent;
+      return has(t, s.delimEmo) || has(t, s.delimNarOpen) || (el === writing && has(t, s.delimSpkOpen));
+    });
+    if (!todo.length) return;
     const so = reEsc(s.delimSpkOpen), sc = reEsc(s.delimSpkClose), no = reEsc(s.delimNarOpen), nc = reEsc(s.delimNarClose);
     const emo = s.delimEmo ? reEsc(s.delimEmo) : '';
     const emoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${emo}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
@@ -376,8 +385,7 @@
     const emoStart = emo ? [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|') : '';
     const openEmoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`) : null;
     const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:(?:(?!${nc})[^\\n]){0,80}$`, 'i');
-    const writing = node.writing && document.querySelector('#chat .mes.last_mes .mes_text');
-    for (const el of els || document.querySelectorAll('#chat .mes_text')) {
+    for (const el of todo) {
       const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let n, last = null;
       while ((n = w.nextNode())) {
@@ -1334,9 +1342,11 @@
     });
     const port = ov.querySelector('.cb_n_port');
     port.querySelector('img').onerror = () => port.classList.add('cb_noimg');
-    window.addEventListener('resize', () => { placeNode(); updateStage(); });
+    // While Visual Novel Mode is off the box is hidden, so there's nothing to move.
+    const vnOn = () => A.isOn() && settings().nodeEnabled;
+    window.addEventListener('resize', () => { if (vnOn()) { placeNode(); updateStage(); } });
     if (window.ResizeObserver) {
-      const ro = new ResizeObserver(placeNode);
+      const ro = new ResizeObserver(() => { if (vnOn()) placeNode(); });
       for (const id of ['chat', 'form_sheld']) { const el = document.getElementById(id); if (el) ro.observe(el); }
     }
     nodeApplyLook();

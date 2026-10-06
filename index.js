@@ -59,8 +59,8 @@
     // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens; empty status text means ST's own)
     rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbTyping: 'off',
     rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnAlpha: 0, rbBtnTextOn: false, rbBtnText: '',
-    rbBtnShapeOn: false, rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnGlowOn: false, rbBtnGlow: 8,
-    rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBorderStyleOn: false, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '', rbGlowOn: false, rbGlow: 8,
+    rbBtnShapeOn: false, rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnFxOn: false, rbBtnFx: 'glow', rbBtnFxSize: 8,
+    rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBorderStyleOn: false, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '', rbEdgeFxOn: false, rbEdgeFx: 'glow', rbEdgeFxSize: 8,
     rbCssOn: false, rbCss: '',
 
     // Text Formatting
@@ -2064,9 +2064,10 @@
   const FX = ['glow', 'shadow', 'outline'];
   const FX_PARTS = ['tfName', 'tfUser', 'tfAi'];
   const RB_BORDERS = ['none', 'solid', 'dashed', 'dotted', 'double'];
+  const RB_FX = ['glow', 'shadow'];
   const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbTyping: ['off', 'think', 'both'], bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
     ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
@@ -2121,6 +2122,12 @@
     };
     let css = '';
 
+    // Border Effects: Glow in the border's color, or a black Shadow. The reasoning box's sits on its left edge.
+    const edgeFx = (k, c, spread, left) => {
+      if (!on(k) || !RB_FX.includes(s[k])) return '';
+      const n = rangeNum(s, k + 'Size'), o = Math.ceil(n / 3);
+      return s[k] === 'glow' ? `${left ? -o : 0}px 0 ${n}px ${spread} ${c}` : `${left ? -o : o}px ${o}px ${n}px ${spread} rgba(0, 0, 0, .6)`;
+    };
     if (s.rbEnabled) {
       // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
       const bs = on('rbBorderStyle') && RB_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
@@ -2130,7 +2137,7 @@
         'font-family': font('rbFont'),
         'border-left-style': bs,
         'border-left-width': bs === 'double' ? '4px' : '',
-        'box-shadow': on('rbGlow') ? `-${Math.ceil(rangeNum(s, 'rbGlow') / 3)}px 0 ${rangeNum(s, 'rbGlow')}px -2px ${col('rbBorder') || 'var(--reasoning-body-color)'}` : '',
+        'box-shadow': edgeFx('rbEdgeFx', col('rbBorder') || 'var(--reasoning-body-color)', '-2px', true),
       });
       // The status button above it. ST's has no border, so a Border Color on its own adds a thin solid one.
       const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : col('rbBtnBorderColor') ? 'solid' : '';
@@ -2142,7 +2149,7 @@
         color: col('rbBtnText'),
         'border-radius': on('rbBtnShape') ? RB_SHAPE[s.rbBtnShape] : '',
         border: bb === 'none' ? 'none' : bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
-        'box-shadow': on('rbBtnGlow') ? `0 0 ${rangeNum(s, 'rbBtnGlow')}px ${bc}` : '',
+        'box-shadow': edgeFx('rbBtnFx', bc, '0px', false),
       });
     }
 
@@ -2330,15 +2337,15 @@
           ${ovRow(s, 'rbBtnAlphaOn', 'Transparency', rangeSlider(s, 'rbBtnAlpha') + '<div class="cb_hint">0% is solid, 100% is see-through. Only the button changes, not its text.</div>')}
           ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
           ${ovRow(s, 'rbBtnShapeOn', 'Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
-          ${ovRow(s, 'rbBtnBorderOn', 'Border', pills('rbbtnborder', borders('none'), s.rbBtnBorder))}
+          ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders('none'), s.rbBtnBorder))}
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color. SillyTavern\'s button has no border, so this alone adds a thin solid one.</div>')}
-          ${ovRow(s, 'rbBtnGlowOn', 'Glow', rangeSlider(s, 'rbBtnGlow') + '<div class="cb_hint">Uses the Border Color, or the button\'s text color without one.</div>')}`)}
+          ${ovRow(s, 'rbBtnFxOn', 'Border Effects', pills('rbbtnfx', [['glow', 'Glow'], ['shadow', 'Shadow']], s.rbBtnFx) + rangeSlider(s, 'rbBtnFxSize') + '<div class="cb_hint">Glow uses the Border Color, or the button\'s text color without one. Shadow is black.</div>')}`)}
           ${card('Basic Style: Reasoning Box', `
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
-          ${ovRow(s, 'rbBorderStyleOn', 'Border', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
+          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
-          ${ovRow(s, 'rbGlowOn', 'Glow', rangeSlider(s, 'rbGlow') + '<div class="cb_hint">Uses the Border Color, or the text color without one.</div>')}`)}
+          ${ovRow(s, 'rbEdgeFxOn', 'Border Effects', pills('rbedgefx', [['glow', 'Glow'], ['shadow', 'Shadow']], s.rbEdgeFx) + rangeSlider(s, 'rbEdgeFxSize') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbCssOn', 'Custom CSS', `<textarea id="m_rb_css" class="text_pole" rows="5" maxlength="2000" spellcheck="false" placeholder="letter-spacing: 1px;&#10;& em { color: gold; }" style="width:100%;font-family:monospace;">${escapeHTML(s.rbCss)}</textarea>`
@@ -2414,6 +2421,8 @@
     });
     onPills(overlay, 'rbbtnshape', (v) => { s.rbBtnShape = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbbtnborder', (v) => { s.rbBtnBorder = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'rbbtnfx', (v) => { s.rbBtnFx = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'rbedgefx', (v) => { s.rbEdgeFx = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
@@ -2918,7 +2927,7 @@
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out offsets).
   const NUM_RANGE = {
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
-    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], rbGlow: [2, 30, 1, 'px'], rbBtnGlow: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],

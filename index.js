@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.8.4';
+  const VERSION = '2.8.5';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1919,7 +1919,7 @@
       if (s.ovShadowOn) v += `--shadowWidth: ${rangeNum(s, 'ovShadow')} !important; `;
     }
     // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts.
-    if (s.tfEnabled && s.ovFontOn) v += `--fontScale: ${s.ovFont} !important; `;
+    if (s.tfEnabled && s.ovFontOn) v += `--fontScale: ${rangeNum(s, 'ovFont')} !important; `;
     return v ? `\n      :root { ${v}}\n` : '';
   }
 
@@ -2029,7 +2029,7 @@
     return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="100" style="width:100%;">`;
   }
   function ovFx(s, p) {
-    return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline']], s[p + 'Fx']) + ovSlider(s, p + 'FxStr', '', 1, 10, 1);
+    return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline']], s[p + 'Fx']) + rangeSlider(s, p + 'FxStr');
   }
   function fxRows(s, p) {
     return `
@@ -2085,7 +2085,7 @@
   // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
   function fxProps(s, p) {
     if (!s[p + 'FxOn'] || !FX.includes(s[p + 'Fx'])) return {};
-    const n = Math.min(10, Math.max(1, Number(s[p + 'FxStr']) || 3));
+    const n = rangeNum(s, p + 'FxStr');
     const fx = s[p + 'Fx'];
     const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)';
     if (fx === 'glow') return { 'text-shadow': `0 0 ${n * 2}px ${c}, 0 0 ${n}px ${c}` };
@@ -2097,7 +2097,7 @@
     const on = (k) => s[k + 'On'];
     const col = (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : '');
     const font = (k) => { const f = on(k) ? cleanFont(s[k]) : ''; return f ? `"${f}", var(--mainFontFamily)` : ''; };
-    const size = (k) => (on(k) ? Math.min(2, Math.max(0.5, Number(s[k]) || 1)) : 0);
+    const size = (k) => (on(k) ? rangeNum(s, k) : 0);
     const rule = (sel, props) => {
       const body = Object.entries(props).filter(([, v]) => v !== '' && v != null).map(([p, v]) => `${p}: ${v} !important;`).join(' ');
       return body ? `\n      ${sel} { ${body} }` : '';
@@ -2109,7 +2109,7 @@
     if (s.rbEnabled) css += rule('.mes_reasoning', {
       '--reasoning-body-color': col('rbColor'),
       '--reasoning-em-color': col('rbEm'),
-      '--reasoning-saturation': on('rbSat') ? Math.min(100, Math.max(0, Number(s.rbSat) || 0)) / 100 : '',
+      '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
       'border-left-color': col('rbBorder'),
       'font-family': font('rbFont'),
       'font-size': rs ? `calc(var(--mainFontSize) * ${rs})` : '',
@@ -2237,12 +2237,12 @@
           <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE} In Header Text, type your own label; {time} becomes how long it thought, like "12 seconds".</div>
           ${card('Style', `
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
-          ${ovRow(s, 'rbSizeOn', 'Size', ovSlider(s, 'rbSize', 'x', 0.5, 2, 0.05))}
+          ${ovRow(s, 'rbSizeOn', 'Size', rangeSlider(s, 'rbSize'))}
           ${ovRow(s, 'rbWeightOn', 'Weight', pills('rbweight', [['normal', 'Normal'], ['medium', 'Medium', 'SillyTavern\'s default'], ['bold', 'Bold']], s.rbWeight))}
           ${ovRow(s, 'rbColorOn', 'Text Color', ovColor(s, 'rbColor'))}
           ${ovRow(s, 'rbEmOn', 'Italics Color', ovColor(s, 'rbEm'))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
-          ${ovRow(s, 'rbSatOn', 'Color Strength', ovSlider(s, 'rbSat', '%', 0, 100, 1) + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
+          ${ovRow(s, 'rbSatOn', 'Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
           ${fxRows(s, 'rb')}
           ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double'], ['glow', 'Glow']], s.rbBorderStyle))}`)}
           ${subHead('rb_header', 'Header Text')}
@@ -2262,19 +2262,19 @@
   function textSectionHtml(s) {
     const part = (p) => `
           ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
-          ${ovRow(s, p + 'SizeOn', 'Size', ovSlider(s, p + 'Size', 'x', 0.5, 2, 0.05))}
+          ${ovRow(s, p + 'SizeOn', 'Size', rangeSlider(s, p + 'Size'))}
           ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
     return pageHtml('text', `
           <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
-          ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', ovSlider(s, 'ovFont', 'x', 0.5, 2, 0.05) + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
+          ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', rangeSlider(s, 'ovFont') + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
           ${subHead('tf_names', 'Names')}
           <div class="cb_collapse_content">
             <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
             ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
-            ${ovRow(s, 'tfNameSizeOn', 'Size', ovSlider(s, 'tfNameSize', 'x', 0.5, 2, 0.05))}
+            ${ovRow(s, 'tfNameSizeOn', 'Size', rangeSlider(s, 'tfNameSize'))}
             ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'SillyTavern\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
             ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}${fxRows(s, 'tfName')}
           </div>
@@ -2827,13 +2827,13 @@
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   const NUM_RANGE = {
     bannerHeight: [60, 350], bannerGap: [0, 40], bannerRotateSec: [3, 60], fgOpacity: [0, 100],
-    rbSize: [0.5, 2], rbSat: [0, 100], ovFont: [0.5, 2], tfNameSize: [0.5, 2], tfUserSize: [0.5, 2], tfAiSize: [0.5, 2],
+    rbSize: [0.5, 2, 0.05, 'x'], rbSat: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
   };
-  for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10];
+  for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
       [p + 'Scale']: [10, 300], [p + 'Pad']: [0, 400], [p + 'TopFade']: [0, 400], [p + 'BotFade']: [0, 400], [p + 'LeftFadePx']: [0, 400],

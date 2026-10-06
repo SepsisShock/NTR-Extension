@@ -23,3 +23,4 @@ Only Claude Code writes the code and handles branches, opening pull requests, te
   - Duplicate or leftover code: new code that repeats a helper or logic that already exists, or old code the change left unused. Mark it as Verify, not Bug. Some is on purpose: code that keeps old saved settings or older SillyTavern versions working, and exceptions explained in the pull request description or a code comment.
 - Ignore the rest of `CLAUDE.md`: its workflow rules are for Claude.
 - If you find nothing worth flagging, leave one short overall review comment saying so.
+- Every GitHub review comment you post must begin with `ChatGPT review:` so it is clear the comment was written by ChatGPT rather than the repository owner.

@@ -41,7 +41,6 @@ Rearrange the NTR menu pages:
 - [ ] An Advanced box with Custom CSS for anything the settings don't cover.
 
 ### Send box
-- [ ] Remove the Visual Novel Mode button (chat bubbles icon) from the send box. VN Mode can still be switched on and off with the switch on the VN page.
 - [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
 - [ ] Maybe let the send box stretch across the whole screen, keeping its contents in the center.
 

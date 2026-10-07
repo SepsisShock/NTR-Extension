@@ -113,3 +113,10 @@ A Scrollbar Color that changes from top to bottom (a vertical gradient) instead 
 
 - [ ] A second color for the bottom of the scrollbar, with Scrollbar Color as the top.
 - [ ] Firefox can show only one flat color, so it keeps the top color.
+
+### Replace the once-a-second check with events
+`injectExtensionMenuButton` in `index.js` runs a check every second to put back its buttons and the wand menu entry and to keep Visual Novel Mode running. In a sandbox test it was most of NTR's idle cost: about 0.8% CPU with everything on, which no user would notice. Users would see no difference, so this is tidying, not a fix.
+
+- [ ] Run the same steps on SillyTavern's events (app ready, chat changed, settings updated) instead of on a timer.
+- [ ] Keep a fallback for anything that has no event, like SillyTavern rebuilding its Extensions panel, using a watcher on just that part instead of the whole page.
+- [ ] Check the buttons, the wand entry and Visual Novel Mode still come back after a chat switch, a reload and a theme change.

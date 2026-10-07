@@ -120,3 +120,10 @@ A Scrollbar Color that changes from top to bottom (a vertical gradient) instead 
 - [ ] Run the same steps on SillyTavern's events (app ready, chat changed, settings updated) instead of on a timer.
 - [ ] Keep a fallback for anything that has no event, like SillyTavern rebuilding its Extensions panel, using a watcher on just that part instead of the whole page.
 - [ ] Check the buttons, the wand entry and Visual Novel Mode still come back after a chat switch, a reload and a theme change.
+
+### Compatibility with other extensions
+If NTR ever needs fixes for other extensions (like a top bar or side panel another extension adds), detect them in JavaScript and set a class on the page, like `body.ntr-has-topbar`, then use that class in CSS. A `body:has(...)` rule in CSS makes the browser check the whole page on every change, even for people who don't have that extension: in a sandbox test, rules like that made up about half of another theme's extra work while a reply streamed in. NTR's own two `:has()` rules only look inside small menu parts, so nothing needs changing now.
+
+- [ ] Detect the other extension at load and when the Extensions panel changes, and add or remove the class.
+- [ ] Keep the fixes in CSS under that class, so they only apply when the extension is there.
+- [ ] Check the speed with `st.sh bench`, with and without the other extension installed.

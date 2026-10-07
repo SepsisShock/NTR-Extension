@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.13.1';
+  const VERSION = '2.13.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -2021,11 +2021,15 @@
     // Chat panel. Transparent also clears the boxes around it, as Make Chat Panel Transparent did.
     if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += rule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...noBlur, border: 'none', 'box-shadow': 'none' });
     else if (on('ovPanelBg')) css += rule('#chat', { 'background-color': fill('Panel') });
+    // The top stays flush with SillyTavern's square top bar: no rounded top corners and no line along the top.
+    // The bottom corners round only when the send box stands apart; joined, it meets the send box.
     const pr = on('ovShape') ? (s.ovShape === 'square' ? 0 : rangeNum(s, 'ovRound')) : null;
+    const line = on('ovPanelBorder') && s.ovPanelBorder !== 'none';
     css += rule('#chat', {
-      'border-radius': pr === null ? '' : separate ? `${pr}px` : `${pr}px ${pr}px 0 0`,
+      'border-radius': pr === null ? '' : separate ? `0 0 ${pr}px ${pr}px` : '0',
       border: on('ovPanelBorder') ? border('Panel') : '',
-      'border-bottom': on('ovPanelBorder') && !separate && s.ovPanelBorder !== 'none' ? 'none' : '',
+      'border-top': line ? 'none' : '',
+      'border-bottom': line && !separate ? 'none' : '',
     });
     if (on('ovMesGap')) css += rule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
 
@@ -2700,7 +2704,7 @@
           ${card('Whole Interface', `
           ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
             + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))
-            + '<div class="cb_hint">Rounds or squares the chat panel\'s corners. Messages and the send box have their own Shape.</div>')}
+            + '<div class="cb_hint">Rounds the chat panel\'s bottom corners when the Send Box is Separate. The top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
           ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + '<div class="cb_hint">The frosted-glass blur behind the chat, menus, drawers and popups.</div>')}
           ${row('ovShadowOn', 'Shadow Width', sl('ovShadow') + '<div class="cb_hint">The dark glow around all text in SillyTavern.</div>')}`)}
           ${card('Chat Panel', `

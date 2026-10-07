@@ -84,6 +84,3 @@ Font boxes already take any font installed on the device, or a Google Fonts name
 
 - [ ] A preset list of Google Fonts, each name shown in its own font.
 - [ ] Uploading font files (like a downloaded .ttf that isn't installed), saved in SillyTavern's files so they work on any device and need no request to Google.
-
-### User Instructions
-- [ ] Visual instructions (screenshots) for installing extensions in SillyTavern, in general.

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.14.1';
+  const VERSION = '2.14.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -710,6 +710,9 @@
     `;
 
     if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + textFormatCss(s) + chatLookCss(s);
+    // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
+    // repainted all of it, avatar fades included.
+    if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
     else cursorKinds = {};
 
     if (isOn() && s.avatarEnabled) {
@@ -2462,11 +2465,14 @@
     a.timer = setTimeout(() => rbTick(el), a.n < a.text.length ? RB_TYPE_MS : RB_DOT_MS);
   }
 
-  function syncReasoningLabels() {
+  // Labels to check: those in the given messages, or every one in the chat.
+  function syncReasoningLabels(mes) {
     const s = settings();
     const on = isOn() && s.rbEnabled;
     const motion = rbMotion(s);
-    document.querySelectorAll('#chat .mes_reasoning_header_title').forEach((el) => {
+    const els = mes ? mes.flatMap((m) => [...m.querySelectorAll('.mes_reasoning_header_title')])
+      : document.querySelectorAll('#chat .mes_reasoning_header_title');
+    els.forEach((el) => {
       // Text NTR wrote itself isn't ST's, so changing a label twice still brings back ST's own text later.
       const mine = el.dataset.ntrOwn !== undefined && el.innerHTML === el.dataset.ntrOwn;
       const st = mine ? el.dataset.ntrSt : el.textContent;
@@ -2499,14 +2505,30 @@
       if (!mine || rbKey.get(el) !== frame.join('\0')) rbWrite(el, frame);
     });
   }
-  let rbObs = null, rbQueued = false;
+  // Streaming changes one message many times a second, so only the messages that changed are checked, not the whole chat.
+  let rbObs = null, rbQueued = null;
   function watchReasoningLabels() {
     const chat = document.getElementById('chat');
     if (rbObs || !chat || !window.MutationObserver) return;
-    rbObs = new MutationObserver(() => {
-      if (rbQueued) return;
-      rbQueued = true;
-      requestAnimationFrame(() => { rbQueued = false; syncReasoningLabels(); });
+    rbObs = new MutationObserver((recs) => {
+      const first = !rbQueued;
+      rbQueued ??= new Set();
+      for (const r of recs) {
+        const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+        const m = t && t.closest('.mes');
+        if (m) { rbQueued.add(m); continue; }
+        for (const a of r.addedNodes) {
+          if (a.nodeType !== 1) continue;
+          if (a.matches('.mes')) rbQueued.add(a);
+          a.querySelectorAll('.mes').forEach((e) => rbQueued.add(e));
+        }
+      }
+      if (!first) return;
+      requestAnimationFrame(() => {
+        const mes = [...rbQueued].filter((m) => chat.contains(m));
+        rbQueued = null;
+        syncReasoningLabels(mes);
+      });
     });
     rbObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
   }

@@ -80,6 +80,7 @@ The first batch (Glow, Shadow, Outline) has shipped for Text Formatting.
 - [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
 
 ### Background Pattern: Fade
+- [ ] Fade isn't working correctly yet. Find what's wrong and fix it.
 - [ ] Give Fade its own section in Background Pattern (Reasoning Box), so a fade can be combined with Notebook, Lines, Dots or Checkers.
 - [ ] Gradient fade options, like how far the fade reaches and how soft it is.
 

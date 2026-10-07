@@ -100,3 +100,10 @@ Font boxes already take any font installed on the device, or a Google Fonts name
 
 - [ ] A preset list of Google Fonts, each name shown in its own font.
 - [ ] Uploading font files (like a downloaded .ttf that isn't installed), saved in SillyTavern's files so they work on any device and need no request to Google.
+
+### Interface Shape for the rest of SillyTavern
+Interface Shape (UI Display, Whole Interface) rounds or squares the chat panel. Extend it to SillyTavern's own drawers, menus, popups and top bar, so the whole interface matches.
+
+- [ ] Find which of ST's parts set their own corners, and override them only while Interface Shape is ticked; unticked keeps ST's look.
+- [ ] Check that rounded corners don't cut off anything inside them, like drawer edges, menu items or popup buttons.
+- [ ] Messages, the send box and avatars keep their own Shape; the VN box, Reasoning and Scrollbar keep theirs too.

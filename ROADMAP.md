@@ -52,6 +52,11 @@ The sections themselves and the first batch of text effects have shipped. Still 
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
+- Emotions outside Visual Novel Mode. Move Emotions out of the Visual Novel menu into its own section, so emotion pictures can also show in the normal chat when Visual Novel Mode is off.
+  - The new section holds the emotion list and each speaker's emotion pictures. The Visual Novel menu keeps what only it uses (full portrait, keep the face on stage, sprite size) and points to the new section.
+  - The emotion code stays out of `index.js`.
+  - Saved settings keep their names (`emotions`, `emoDefault`, `delimEmo`, `nodeHideEmo`) so saved configs keep working.
+  - Open questions: where the emotion comes from with Visual Novel Mode off (the same speaker tags with their own switch and shorter instructions, or SillyTavern's Character Expressions extension); which pictures change (chat avatars, avatar backdrop, avatar pop-out); whether each message keeps its own emotion or only the latest one changes; which tag wins when a message has several; whether the tag delimiters move too; whether emotions leave the Visual Novel group in saved themes.
 
 ## Low priority
 

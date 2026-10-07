@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.11.0';
+  const VERSION = '2.12.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -60,7 +60,7 @@
     rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbTyping: 'off',
     rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnAlpha: 0, rbBtnTextOn: false, rbBtnText: '',
     rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnFx: 'none', rbBtnFxSize: 8,
-    rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBoxShapeOn: false, rbBoxShape: 'rounded', rbBorderStyleOn: false, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '', rbEdgeFx: 'none', rbEdgeFxSize: 8,
+    rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBoxShapeOn: false, rbBoxShape: 'rounded', rbBorderStyleOn: false, rbBorderStyle: 'none', rbBorderOn: false, rbBorder: '', rbEdgeFx: 'none', rbEdgeFxSize: 8,
     rbBoxColorOn: false, rbBoxColor: '', rbBoxAlphaOn: false, rbBoxAlpha: 0,
     rbPat: 'none', rbPatH: true, rbPatV: false, rbPatR: false, rbPatL: false, rbPatFade: 'tc', rbPatShade: 'light',
     rbPatColorOn: false, rbPatColor: '', rbPatThick: 1, rbPatSize: 1,
@@ -175,6 +175,8 @@
     // The reasoning status text had ticks; an unticked one meant ST's own text, which is now an empty box.
     if ('rbThinkOn' in s) for (const k of ['rbThink', 'rbDone', 'rbSome']) if (!s[k + 'On']) s[k] = '';
     if ('rbBtnShapeOn' in s && !s.rbBtnShapeOn) s.rbBtnShape = DEFAULTS.rbBtnShape;
+    // The box's Border Style has no Solid, since ST's own line is solid: a Solid pick is ST's look, so it's unticked.
+    if (s.rbBorderStyle === 'solid') { s.rbBorderStyle = 'none'; s.rbBorderStyleOn = false; }
     for (const k of ['rbBtnShapeOn', 'rbType', 'rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
       'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor']) delete s[k];
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
@@ -1823,7 +1825,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css']);
+  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css', 'rb_pattern']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -2062,17 +2064,25 @@
           ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + '<div class="cb_hint">Without this, Glow uses the text color, and Shadow and Outline are black.</div>')}`;
   }
   function ovFont(s, key) {
-    return `<input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="60" placeholder="Font name, e.g. Lora" style="width:100%;">`;
+    return `<input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="300" placeholder="Lora, or a link like fonts.google.com/specimen/Lora" style="width:100%;">`;
   }
 
   // ===== Reasoning Block and Text Formatting =====
   const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\))$/i;
   const FONT_RE = /^[\p{L}\p{N} _-]{0,60}$/u;
   const cleanFont = (v) => String(v || '').replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  // What's typed in a font box: a font name, or a Google Fonts link (a font's page or a stylesheet link), from which the name is taken.
+  function fontName(v) {
+    const m = /fonts\.google(?:apis)?\.com\/(?:specimen\/([^/?#]+)|css2?\?family=([^&:;#]+))/i.exec(String(v || ''));
+    if (!m) return cleanFont(v);
+    const name = (m[1] || m[2]).replace(/\+/g, ' ');
+    try { return cleanFont(decodeURIComponent(name)); } catch (e) { return cleanFont(name); }
+  }
   const NAME_WEIGHT = { normal: 400, bold: 700, extra: 800 };
   const FX = ['glow', 'shadow', 'outline'];
   const FX_PARTS = ['tfName', 'tfUser', 'tfAi'];
   const RB_BORDERS = ['none', 'solid', 'dashed', 'dotted', 'double'];
+  const RB_BOX_BORDERS = RB_BORDERS.filter((b) => b !== 'solid'); // the box's own line is already solid
   const RB_FX = ['none', 'glow', 'shadow'];
   const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const RB_BOX_SHAPE = { rounded: '10px', extra: '20px' }; // unticked: ST's own 2px
@@ -2080,7 +2090,7 @@
   // Fade From: the side the shade starts on, on the same 3x3 grid as picture positions. The center glows outward.
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
     ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
@@ -2149,9 +2159,9 @@
       const q = `${+(1.6 * u).toFixed(2)}em`;
       return [`conic-gradient(${P} 25%, transparent 0 50%, ${P} 0 75%, transparent 0) 0 0 / ${q} ${q}`];
     }
-    const strong = own || `color-mix(in srgb, ${shade} 30%, ${C})`;
+    // Fade: the Box Color itself turns see-through, starting on the Fade From side.
     const dir = RB_FADE[s.rbPatFade] ?? 'to bottom';
-    return [dir ? `linear-gradient(${dir}, ${strong}, transparent)` : `radial-gradient(circle, ${strong}, transparent 75%)`];
+    return [dir ? `linear-gradient(${dir}, transparent, ${C})` : `radial-gradient(closest-side, transparent, ${C})`];
   }
 
   function textFormatCss(s) {
@@ -2177,11 +2187,11 @@
       const boxFill = col('rbBoxColor') || (boxSee ? 'var(--SmartThemeBlurTintColor)' : '');
       const boxBg = boxSee ? `color-mix(in srgb, ${boxFill} ${100 - boxSee}%, transparent)` : boxFill;
       const pat = boxPattern(s, col, boxBg);
-      const bs = on('rbBorderStyle') && RB_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
+      const bs = on('rbBorderStyle') && RB_BOX_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
       css += rule('.mes_reasoning', {
         'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
         'background-color': pat.length ? '' : boxBg,
-        background: pat.length ? [...pat, boxBg || 'transparent'].join(', ') : '',
+        background: pat.length ? [...pat, s.rbPat === 'fade' ? 'transparent' : boxBg || 'transparent'].join(', ') : '',
         'padding-left': s.rbPat === 'notebook' ? '2.1em' : '',
         '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
         'border-left-color': col('rbBorder'),
@@ -2366,14 +2376,13 @@
     rbObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
   }
 
-  const FONT_NOTE = 'Fonts can be on your device (works offline) or from Google Fonts (downloaded from Google). Type the name exactly as it\'s written.';
+  const FONT_NOTE = 'Use a font on your device, or any font from Google Fonts by its name or a link to it. Google fonts load on their own while you\'re online. Type the name exactly as it\'s written.';
 
   function reasoningSectionHtml(s) {
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => `
             <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
-    const borders = (def) => [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']]
-      .map(([v, l]) => (v === def ? [v, l, 'SillyTavern\'s default'] : [v, l]));
+    const borders = [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']];
     const cssBox = (k, ph) => `<textarea class="text_pole m_rb_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
     // A pick-one row with no tick: its default choice is SillyTavern's own look.
     const pickRow = (title, inner, attrs = '') => `
@@ -2383,10 +2392,11 @@
     const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
     return pageHtml('reasoning', `
           <div class="cb_hint">Only changes how the block looks. To show reasoning boxes, make sure "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion) are enabled.</div>
-          <div class="cb_hint">Styles SillyTavern's reasoning (thinking) block. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
+          <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look.</div>
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
-            <div class="cb_hint">Leave a box empty to use ST's own wording.</div>
+            ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
+            <div class="cb_hint" style="margin-top:6px;">Leave a box empty to use ST's own wording.</div>
             ${label('rbThink', 'While Thinking')}
             ${label('rbDone', 'Finished', '<div class="cb_hint">Note: {time} shows "12 seconds", "a minute", etc.</div>')}
             ${label('rbSome', 'Finished, Time Unknown')}
@@ -2395,32 +2405,33 @@
               <div class="m_o_body cb_flat">${pills('rbtyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']], s.rbTyping)}<div class="cb_hint">Types the label out live, with looping dots while thinking. Off with ST Reduced Motion enabled.</div></div>
             </div>
           </div>
-          ${card('Basic Style: Reasoning Button', `
+          ${card('Reasoning Button', `
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
-          ${ovRow(s, 'rbBtnAlphaOn', 'Transparency', rangeSlider(s, 'rbBtnAlpha') + '<div class="cb_hint">0% is solid, 100% is see-through. Only the button changes, not its text.</div>')}
-          ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
+          ${ovRow(s, 'rbBtnAlphaOn', 'Background Color Transparency', rangeSlider(s, 'rbBtnAlpha'))}
           ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
-          ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders('none'), s.rbBtnBorder))}
+          ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders, s.rbBtnBorder))}
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color.</div>')}
           ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow uses the Border Color, or the button\'s text color without one. Shadow is black.</div>')}`)}
-          ${card('Basic Style: Reasoning Box', `
+          ${card('Reasoning Box', `
           ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor') + '<div class="cb_hint">SillyTavern\'s box has no background.</div>')}
-          ${ovRow(s, 'rbBoxAlphaOn', 'Transparency', rangeSlider(s, 'rbBoxAlpha') + '<div class="cb_hint">0% is solid, 100% is see-through. Only the box changes, not its text.</div>')}
-          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont'))}
+          ${ovRow(s, 'rbBoxAlphaOn', 'Background Color Transparency', rangeSlider(s, 'rbBoxAlpha'))}
+          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + `<div class="cb_hint">${FONT_NOTE}</div>`)}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
           ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', pills('rbboxshape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']], s.rbBoxShape))}
-          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
+          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', borders.filter(([v]) => v !== 'solid'), s.rbBorderStyle))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
-          ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}`)}
-          ${card('Basic Style: Box Pattern', `
+          ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}
+          ${subHead('rb_pattern', 'Background Pattern')}
+          <div class="cb_collapse_content">
           ${pickRow('Pattern', pills('rbpat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers'], ['fade', 'Fade']], s.rbPat))}
           ${pickRow('Lines', `<div class="ntr_rbpat_lines">${patLine('rbPatH', 'Horizontal')}${patLine('rbPatV', 'Vertical')}${patLine('rbPatR', 'Diagonal /')}${patLine('rbPatL', 'Diagonal \\')}</div>`
             + '<button class="menu_button" id="m_rb_patreset" style="margin:6px 0 0;">Reset</button><div class="cb_hint">Mix them: Horizontal and Vertical make a grid, both diagonals make diamonds. Horizontal follows the text lines.</div>', ' data-rbpat="lines"')}
-          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">Where the shade starts. The center glows from the middle.</div>', ' data-rbpat="fade"')}
-          ${pickRow('Pattern Shade', pills('rbpatshade', [['light', 'Lighter'], ['dark', 'Darker']], s.rbPatShade) + '<div class="cb_hint">Darker flips it: dark dots or squares on the box color.</div>', ' data-rbpat="any"')}
-          <div data-rbpat="any">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor') + '<div class="cb_hint">Without this, the pattern is a shade of the Box Color.</div>')}</div>
-          ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">How thick the lines are, or how big the dots are. Checkers and Fade don't use it.</div>`, ' data-rbpat="any"')}
-          ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Spacing of the pattern. Notebook and Horizontal lines follow the text lines instead, and Fade has no size.</div>`, ' data-rbpat="any"')}`)}
+          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">The Box Color fades to see-through from this side. The center fades from the middle out. Needs a Box Color.</div>', ' data-rbpat="fade"')}
+          ${pickRow('Pattern Shade', pills('rbpatshade', [['light', 'Lighter'], ['dark', 'Darker']], s.rbPatShade) + '<div class="cb_hint">Darker flips it: dark dots or squares on the box color.</div>', ' data-rbpat="drawn"')}
+          <div data-rbpat="drawn">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor') + '<div class="cb_hint">Without this, the pattern is a shade of the Box Color.</div>')}</div>
+          ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">How thick the lines are, or how big the dots are. Checkers doesn't use it.</div>`, ' data-rbpat="drawn"')}
+          ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Spacing of the pattern. Notebook and Horizontal lines follow the text lines instead.</div>`, ' data-rbpat="drawn"')}
+          </div>`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbBtnCssOn', 'Button CSS', cssBox('rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;') + '<div class="cb_hint">CSS for the reasoning button, like <code>text-transform: uppercase;</code>.</div>')}
@@ -2476,7 +2487,7 @@
     });
     overlay.querySelectorAll('.m_o_txt').forEach((el) => {
       el.onchange = () => {
-        el.value = cleanFont(el.value);
+        el.value = fontName(el.value);
         s[el.dataset.key] = el.value;
         save();
         updateAvatarStyle();
@@ -2508,10 +2519,10 @@
     // Box Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
     const syncPatRows = () => {
       const p = s.rbPat;
-      overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'any' && p !== 'none') ? '' : 'none'; });
+      overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'drawn' && p !== 'none' && p !== 'fade') ? '' : 'none'; });
       const onlyH = p === 'lines' && s.rbPatH && !s.rbPatV && !s.rbPatR && !s.rbPatL;
-      overlay.querySelector('.m_rb_patdim[data-for="thick"]').classList.toggle('cb_dim', p === 'checkers' || p === 'fade');
-      overlay.querySelector('.m_rb_patdim[data-for="size"]').classList.toggle('cb_dim', p === 'notebook' || p === 'fade' || onlyH);
+      overlay.querySelector('.m_rb_patdim[data-for="thick"]').classList.toggle('cb_dim', p === 'checkers');
+      overlay.querySelector('.m_rb_patdim[data-for="size"]').classList.toggle('cb_dim', p === 'notebook' || onlyH);
     };
     const patSet = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncPatRows(); };
     onPills(overlay, 'rbpat', (v) => patSet('rbPat', v));

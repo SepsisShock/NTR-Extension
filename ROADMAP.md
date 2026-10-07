@@ -11,26 +11,59 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
-## Ideas
+### Dragging and placement
+Pop-out avatars can already be dragged ("Drag it on screen" in Screen Placement). Extend that to portraits and other parts of the screen that support it.
 
-- Built-in cursor. An arrow drawn in code with its own color, for people without a cursor image (Custom Cursor in UI Display).
-- Banners in group chats. The shared Global banner could show in group chats too, which have no banner now.
-  - Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
-- Regex. Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
-  - Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
-- More Avatar Shapes (Avatar Management) beyond SillyTavern's four (Round, Rectangle, Square, Rounded).
-  - Open question: whether the extra shapes also apply to NTR Avatars, the avatar backdrop and the VN portrait box, or only the normal chat avatars.
-- Graphic borders around profiles. Decorative image frames around profile pictures, beyond the current plain border and shape choices.
-  - Open questions: which pictures get them (chat avatars, avatar backdrop, avatar pop-out, VN portrait box); built-in frames drawn in code like the default art, uploaded frames, or both; how a frame fits each shape (round, rounded, square, tall); per character, global, or saved in themes.
-- Graphic borders around the UI. Decorative image borders around interface parts, stretched to fit any size.
-  - Open questions: which parts (VN dialogue box, name tag, choice buttons, map window, NTR menu, SillyTavern's chat messages); built-in, uploaded, or both; one border style for all parts or one per part; saved in themes.
-- Folder of pre-generated locations. A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
-  - Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
-- Emotions outside Visual Novel Mode. Move Emotions out of the Visual Novel menu into its own section, so emotion pictures can also show in the normal chat when Visual Novel Mode is off.
-  - The new section holds the emotion list and each speaker's emotion pictures. The Visual Novel menu keeps what only it uses (full portrait, keep the face on stage, sprite size) and points to the new section.
-  - The emotion code stays out of `index.js`.
-  - Saved settings keep their names (`emotions`, `emoDefault`, `delimEmo`, `nodeHideEmo`) so saved configs keep working.
-  - Open questions: where the emotion comes from with Visual Novel Mode off (the same speaker tags with their own switch and shorter instructions, or SillyTavern's Character Expressions extension); which pictures change (chat avatars, avatar backdrop, avatar pop-out); whether each message keeps its own emotion or only the latest one changes; which tag wins when a message has several; whether the tag delimiters move too; whether emotions leave the Visual Novel group in saved themes.
+- [ ] Free dragging, plus Snap to Grid with adjustable grid spacing.
+- [ ] An Edit Placement mode that turns dragging on; only the selected item can be dragged.
+- [ ] A clear Done button to leave Edit Placement.
+- [ ] Block page scrolling only while the selected item is being dragged.
+- [ ] Undo Last Move, and Reset to the default placement.
+- [ ] Consider replacing the pop-out avatar Move Horizontal and Move Vertical sliders with dragging.
+
+### Saving
+- [ ] Keep autosave: sliders save when released, dragged items when dropped.
+- [ ] Show SillyTavern's green confirmation popup after a successful save.
+- [ ] Find out why saving fails when the connection drops.
+- [ ] Consider keeping unsaved changes on the device and retrying when SillyTavern reconnects.
+
+### Menu order
+Rearrange the NTR menu pages:
+
+- [ ] Themes, Avatars, Text, UI Display, Scenery, Reasoning, Regexes, then a divider line, then VN.
+- [ ] Scenery joins Header Banner and Foreground Images (Overlays) into one page. Background images may go there later too, not only for Visual Novel Mode.
+- [ ] Regexes is the page for Regex (below) once it's built.
+- [ ] Page ids stay the same, so the saved last open page keeps working.
+
+### Custom Cursor: follow-ups
+- [ ] A Text cursor picture for typing boxes (the "I" shape), next to Normal, Pointer and Click. Typing boxes now always show the system one.
+- [ ] Keep Size (CSS can't resize a cursor picture, so NTR redraws it at that size).
+- [ ] An Advanced box with Custom CSS for anything the settings don't cover.
+
+### Send box
+- [ ] Show the Visual Novel Mode button (chat bubbles icon) only while VN Mode is on, so it works as a quick way out. VN Mode is switched on from the VN page.
+- [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
+- [ ] Maybe let the send box stretch across the whole screen, keeping its contents in the center.
+
+### SillyTavern's top bar
+- [ ] Let the top menu bar be moved to another place on the screen.
+
+### Message details
+Find out how to make these movable and designable, and which details SillyTavern makes available.
+
+- [ ] Details like message number, time spent thinking (outside the reasoning block), token count and date.
+- [ ] Move the time and date.
+- [ ] Move the character and user names, maybe with a background image or border behind them.
+- [ ] Text alignment for chat messages: left, right, center or justified.
+
+### NTR Avatars: more styles
+- [ ] A third style next to Backdrop and Pop Out, where the avatar sits in line with the message.
+- [ ] An avatar that shows only once on screen and stays put while scrolling.
+
+### Regex
+Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
+
+- Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
 
 ## Visual Novel Mode (Low Priority)
 
@@ -139,3 +172,42 @@ If NTR ever needs fixes for other extensions (like a top bar or side panel anoth
 - [ ] Detect the other extension at load and when the Extensions panel changes, and add or remove the class.
 - [ ] Keep the fixes in CSS under that class, so they only apply when the extension is there.
 - [ ] Check the speed with `st.sh bench`, with and without the other extension installed.
+
+### Built-in cursor
+An arrow drawn in code with its own color, for people without a cursor image (Custom Cursor in UI Display).
+
+### Banners in group chats
+The shared Global banner could show in group chats too, which have no banner now.
+
+- Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
+
+### More Avatar Shapes
+More shapes in Avatar Management, beyond SillyTavern's four (Round, Rectangle, Square, Rounded).
+
+- Open question: whether the extra shapes also apply to NTR Avatars, the avatar backdrop and the VN portrait box, or only the normal chat avatars.
+
+### Graphic borders around profiles
+Decorative image frames around profile pictures, beyond the current plain border and shape choices.
+
+- Open questions: which pictures get them (chat avatars, avatar backdrop, avatar pop-out, VN portrait box); built-in frames drawn in code like the default art, uploaded frames, or both; how a frame fits each shape (round, rounded, square, tall); per character, global, or saved in themes.
+
+### Graphic borders around the UI
+Decorative image borders around interface parts, stretched to fit any size.
+
+- Open questions: which parts (VN dialogue box, name tag, choice buttons, map window, NTR menu, SillyTavern's chat messages); built-in, uploaded, or both; one border style for all parts or one per part; saved in themes.
+
+### Folder of pre-generated locations
+A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
+
+- Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
+
+### Emotions outside Visual Novel Mode
+Move Emotions out of the Visual Novel menu into its own section, so emotion pictures can also show in the normal chat when Visual Novel Mode is off.
+
+- The new section holds the emotion list and each speaker's emotion pictures. The Visual Novel menu keeps what only it uses (full portrait, keep the face on stage, sprite size) and points to the new section.
+- The emotion code stays out of `index.js`.
+- Saved settings keep their names (`emotions`, `emoDefault`, `delimEmo`, `nodeHideEmo`) so saved configs keep working.
+- Open questions: where the emotion comes from with Visual Novel Mode off (the same speaker tags with their own switch and shorter instructions, or SillyTavern's Character Expressions extension); which pictures change (chat avatars, avatar backdrop, avatar pop-out); whether each message keeps its own emotion or only the latest one changes; which tag wins when a message has several; whether the tag delimiters move too; whether emotions leave the Visual Novel group in saved themes.
+
+### SillyTavern's top bar icons
+- [ ] Change the icons in SillyTavern's top menu bar.

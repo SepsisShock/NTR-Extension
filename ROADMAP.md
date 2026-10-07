@@ -27,6 +27,39 @@ Pop-out avatars can already be dragged ("Drag it on screen" in Screen Placement)
 - [ ] Find out why saving fails when the connection drops.
 - [ ] Consider keeping unsaved changes on the device and retrying when SillyTavern reconnects.
 
+### Menu order
+Rearrange the NTR menu pages:
+
+- [ ] Themes, Avatars, Text, UI Display, Scenery, Reasoning, Regexes, then a divider line, then VN.
+- [ ] Scenery joins Header Banner and Foreground Images (Overlays) into one page. Background images may go there later too, not only for Visual Novel Mode.
+- [ ] Regexes is the page for Regex (below) once it's built.
+- [ ] Page ids stay the same, so the saved last open page keeps working.
+
+### Custom Cursor: follow-ups
+- [ ] A Text cursor picture for typing boxes (the "I" shape), next to Normal, Pointer and Click. Typing boxes now always show the system one.
+- [ ] Keep Size (CSS can't resize a cursor picture, so NTR redraws it at that size).
+- [ ] An Advanced box with Custom CSS for anything the settings don't cover.
+
+### Send box
+- [ ] Remove the Visual Novel Mode button (chat bubbles icon) from the send box. VN Mode can still be switched on and off with the switch on the VN page.
+- [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
+- [ ] Maybe let the send box stretch across the whole screen, keeping its contents in the center.
+
+### SillyTavern's top bar
+- [ ] Let the top menu bar be moved to another place on the screen.
+
+### Message details
+Find out how to make these movable and designable, and which details SillyTavern makes available.
+
+- [ ] Details like message number, time spent thinking (outside the reasoning block), token count and date.
+- [ ] Move the time and date.
+- [ ] Move the character and user names, maybe with a background image or border behind them.
+- [ ] Text alignment for chat messages: left, right, center or justified.
+
+### NTR Avatars: more styles
+- [ ] A third style next to Backdrop and Pop Out, where the avatar sits in line with the message.
+- [ ] An avatar that shows only once on screen and stays put while scrolling.
+
 ### Regex
 Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
 
@@ -175,3 +208,6 @@ Move Emotions out of the Visual Novel menu into its own section, so emotion pict
 - The emotion code stays out of `index.js`.
 - Saved settings keep their names (`emotions`, `emoDefault`, `delimEmo`, `nodeHideEmo`) so saved configs keep working.
 - Open questions: where the emotion comes from with Visual Novel Mode off (the same speaker tags with their own switch and shorter instructions, or SillyTavern's Character Expressions extension); which pictures change (chat avatars, avatar backdrop, avatar pop-out); whether each message keeps its own emotion or only the latest one changes; which tag wins when a message has several; whether the tag delimiters move too; whether emotions leave the Visual Novel group in saved themes.
+
+### SillyTavern's top bar icons
+- [ ] Change the icons in SillyTavern's top menu bar.

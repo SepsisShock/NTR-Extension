@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.12.0';
+  const VERSION = '2.13.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -21,13 +21,13 @@
     // AI Settings
     aiStyle: 'backdrop', aiPopX: 0, aiPopY: 0,
     aiSide: 'tl', aiFit: 'cover', aiScale: 100, aiPad: 140, 
-    aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0, aiMsgBg: true,
+    aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     
     // User Settings
     usStyle: 'backdrop', usPopX: 0, usPopY: 0,
     usSide: 'tr', usFit: 'cover', usScale: 100, usPad: 140, 
-    usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0, usMsgBg: true,
+    usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
 
     // Foreground Settings
@@ -39,7 +39,6 @@
     fgLeftScale: 100,
     fgCenterScale: 100,
     fgRightScale: 100,
-    chatTransparent: true,
 
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
@@ -58,10 +57,10 @@
 
     // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens; empty status text means ST's own)
     rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbTyping: 'off',
-    rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnAlpha: 0, rbBtnTextOn: false, rbBtnText: '',
+    rbBtnColorOn: false, rbBtnColor: '', rbBtnAlphaOn: false, rbBtnOpacity: 100, rbBtnTextOn: false, rbBtnText: '',
     rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnFx: 'none', rbBtnFxSize: 8,
     rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBoxShapeOn: false, rbBoxShape: 'rounded', rbBorderStyleOn: false, rbBorderStyle: 'none', rbBorderOn: false, rbBorder: '', rbEdgeFx: 'none', rbEdgeFxSize: 8,
-    rbBoxColorOn: false, rbBoxColor: '', rbBoxAlphaOn: false, rbBoxAlpha: 0,
+    rbBoxColorOn: false, rbBoxColor: '', rbBoxAlphaOn: false, rbBoxOpacity: 100,
     rbPat: 'none', rbPatH: true, rbPatV: false, rbPatR: false, rbPatL: false, rbPatFade: 'tc', rbPatShade: 'light',
     rbPatColorOn: false, rbPatColor: '', rbPatThick: 1, rbPatSize: 1,
     rbCssOn: false, rbCss: '', rbBtnCssOn: false, rbBtnCss: '',
@@ -79,8 +78,13 @@
     // Display overrides
     ovEnabled: true,
     ovWidthOn: false, ovWidth: 50, ovFontOn: false, ovFont: 1,
-    ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2,
-    ovChatStyleOn: false, ovChatStyle: 'bubbles', ovAvatarOn: false, ovAvatar: 'round',
+    ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2, ovAvatarOn: false, ovAvatar: 'round',
+    // Interface Shape shapes the chat panel. Empty colors mean SillyTavern's own (see COLOR_FROM).
+    ovShapeOn: false, ovShape: 'rounded', ovRound: 10,
+    ovPanelBgOn: true, ovPanelBg: 'clear', ovPanelBgColor: '', ovPanelBgOpacity: 100,
+    ovPanelBorderOn: false, ovPanelBorder: 'line', ovPanelBorderColor: '', ovPanelBorderWidth: 1, ovPanelBorderOpacity: 100,
+    ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false, ovNames: 'show',
+    ovSendPosOn: false, ovSendPos: 'separate', ovSendGap: 8,
     ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
     ovScrollWidthOn: false, ovScrollWidth: 11, ovScrollShapeOn: false, ovScrollShape: 'pill',
     ovCursorOn: false, ovCursorImg: '', ovCursorSpot: 'tl', ovCursorPtrImg: '', ovCursorPtrSpot: 'tc', ovCursorSize: 32,
@@ -113,8 +117,19 @@
     themes: [],
     themeActive: null
   };
+  // AI Message, User Message and Send Box each have their own Shape, Background and Border.
+  const OV_PARTS = ['Ai', 'Us', 'Send'];
+  for (const p of OV_PARTS) {
+    Object.assign(DEFAULTS, {
+      [`ov${p}ShapeOn`]: false, [`ov${p}Shape`]: 'rounded', [`ov${p}Round`]: 10,
+      [`ov${p}BgOn`]: false, [`ov${p}Bg`]: 'color', [`ov${p}BgColor`]: '', [`ov${p}BgOpacity`]: 100,
+      [`ov${p}BorderOn`]: false, [`ov${p}Border`]: 'line', [`ov${p}BorderColor`]: '', [`ov${p}BorderWidth`]: 1, [`ov${p}BorderOpacity`]: 100,
+    });
+  }
   // Overall Font Scale keeps its old UI Display key names so saved configs keep working; it now lives in Text Formatting.
   const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
+  // Avatar Shape keeps its UI Display key names too; it now lives in Avatar Management.
+  const AVATAR_SHAPE_KEYS = ['ovAvatarOn', 'ovAvatar'];
 
   const ctx = () => SillyTavern.getContext();
   const save = () => {
@@ -136,6 +151,51 @@
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
   const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
 
+  // Settings from before the UI Display redesign, turned into the new ones so the chat looks the same. Works on the
+  // settings and on a theme's keys put together; the new keys win if both are there.
+  function upgradeLook(o) {
+    const put = (k, v) => { if (!(k in o)) o[k] = v; };
+    const msgs = (fn) => { for (const p of ['Ai', 'Us']) fn(p); };
+    // NTR Avatars had its own see-through, 15px rounded messages.
+    const ntrAv = (p) => o.avatarEnabled !== false && o[p.toLowerCase() + 'Enabled'] !== false;
+    // Make Chat Panel Transparent is the Chat Panel's Background set to Transparent.
+    if ('chatTransparent' in o) {
+      put('ovPanelBgOn', !!o.chatTransparent);
+      put('ovPanelBg', 'clear');
+      delete o.chatTransparent;
+    }
+    // Chat Style is now made of the message settings, with Bubbles' own 10px corners, 1px line and 5px space (the defaults).
+    // Empty colors are SillyTavern's own message and border colors.
+    if ('ovChatStyle' in o || 'ovChatStyleOn' in o) {
+      const st = o.ovChatStyleOn ? o.ovChatStyle : '';
+      if (st === 'bubbles') {
+        msgs((p) => {
+          if (!ntrAv(p)) { put(`ov${p}ShapeOn`, true); put(`ov${p}Shape`, 'rounded'); put(`ov${p}Round`, DEFAULTS.ovAiRound); put(`ov${p}BgOn`, true); put(`ov${p}Bg`, 'color'); }
+          put(`ov${p}BorderOn`, true); put(`ov${p}Border`, 'line'); put(`ov${p}BorderWidth`, DEFAULTS.ovAiBorderWidth);
+        });
+        put('ovMesGapOn', true); put('ovMesGap', DEFAULTS.ovMesGap);
+      } else if (st === 'flat' || st === 'document') {
+        msgs((p) => { put(`ov${p}BgOn`, true); put(`ov${p}Bg`, 'clear'); put(`ov${p}BorderOn`, true); put(`ov${p}Border`, 'none'); });
+        if (st === 'document') { put('ovNamesOn', true); put('ovNames', 'hide'); }
+      }
+      delete o.ovChatStyle; delete o.ovChatStyleOn;
+    }
+    // Keep message background (NTR Avatars): unticked made that side's messages see-through.
+    for (const [old, p] of [['aiMsgBg', 'Ai'], ['usMsgBg', 'Us']]) {
+      if (!(old in o)) continue;
+      if (o[old] === false && ntrAv(p)) { put(`ov${p}BgOn`, true); put(`ov${p}Bg`, 'clear'); }
+      delete o[old];
+    }
+    // Reasoning's Background Color Transparency is now Opacity: 30% see-through is 70% opacity.
+    for (const k of ['rbBtn', 'rbBox']) {
+      if (!(k + 'Alpha' in o)) continue;
+      const n = Number(o[k + 'Alpha']);
+      put(k + 'Opacity', 100 - Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0)));
+      delete o[k + 'Alpha'];
+    }
+    return o;
+  }
+
   // While NTR data is being removed, nothing may write the settings back: until the page reloads, code that
   // still runs gets a throwaway copy of the defaults.
   let wiping = false;
@@ -150,6 +210,7 @@
     // Border Style had no tick in 2.10.0, so a border picked there stays on.
     if ('rbBtnBorder' in s && !('rbBtnBorderOn' in s)) s.rbBtnBorderOn = s.rbBtnBorder !== 'none';
     if ('rbBorderStyle' in s && !('rbBorderStyleOn' in s)) s.rbBorderStyleOn = s.rbBorderStyle !== 'solid';
+    if (!fresh) upgradeLook(s);
     for (const k of Object.keys(DEFAULTS)) {
       if (s[k] === undefined) s[k] = structuredClone(DEFAULTS[k]);
     }
@@ -190,7 +251,9 @@
     if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
-    if (!s.themeFontMoved) { s.themes.forEach((th) => moveLookKeys(th && th.data)); s.themeFontMoved = true; }
+    if (!s.themeLookV2) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV2 = true; }
+    // Avatar Shape moved to Avatar Management, so UI Display's switch no longer turns it off.
+    if (!s.avatarShapeMoved) { if (!s.ovEnabled) s.ovAvatarOn = false; s.avatarShapeMoved = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
@@ -213,7 +276,6 @@
     const leftFade = n('LeftFadePx');
     const rightFade = n('RightFadePx');
     const blurAmount = n('Blur');
-    const keepBg = s[`${prefix}MsgBg`] !== false;
     
     const width = Math.floor(scale * 3); 
 
@@ -229,7 +291,6 @@
     const shared = `
       .mes[is_user="${isUserStr}"] .mes_block { ${padCss} }
       .mes[is_user="${isUserStr}"] .ch_name { display: flex !important; justify-content: ${justify} !important; text-align: ${align} !important; width: 100% !important; }
-      ${keepBg ? '' : `.mes[is_user="${isUserStr}"] { background-color: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }`}
     `;
 
     if (style === 'popout') {
@@ -498,7 +559,7 @@
     if (pill) pill.style.display = (popDrag.ai || popDrag.us) ? 'flex' : 'none';
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
-      const on = isOn() && s.avatarEnabled && s[`${prefix}Enabled`] !== false && s[`${prefix}Style`] === 'popout';
+      const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
       let src = on ? popSrcFor(flag) : null;
       if (!src && on && prefix === 'ai') {
         const c = ctx();
@@ -635,24 +696,12 @@
       .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
 
-    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + textFormatCss(s);
+    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + textFormatCss(s) + chatLookCss(s);
     else cursorKinds = {};
-
-    if (isOn() && s.ovEnabled && s.chatTransparent) {
-      cssString += `
-        #chat, #sheld, #chat-container, .chat-container {
-          background: transparent !important;
-          backdrop-filter: none !important;
-          -webkit-backdrop-filter: none !important;
-          border: none !important;
-          box-shadow: none !important;
-        }
-      `;
-    }
 
     if (isOn() && s.avatarEnabled) {
       for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-        if (s[`${prefix}Enabled`] === false) continue;
+        if (!ntrAvatars(s, prefix)) continue;
         const m = `.mes[is_user="${flag}"]`;
         cssString += `
         ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; }
@@ -1280,7 +1329,6 @@
 
         <div class="cb_sub">Effects</div>
         ${slider('bl', 'Blur', 'Blur Effect:')}
-        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_bg" ${s[`${prefix}MsgBg`] !== false ? 'checked' : ''}><span>Keep message background</span></label>
 
         <button id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px;"><i class="fa-solid fa-rotate-left"></i> Reset ${title}</button>
         </div>
@@ -1442,7 +1490,8 @@
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
             </div>
-        `, { sw: ['m_a_enable', s.avatarEnabled] })}
+        `, { sw: ['m_a_enable', s.avatarEnabled], note: card('Chat Avatars', ovRow(s, 'ovAvatarOn', 'Avatar Shape', pills('oavatar', [['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']], s.ovAvatar)
+          + '<div class="cb_hint" style="margin-top:6px;">Shapes SillyTavern\'s normal chat avatars, even with Avatar Management switched off. Where NTR Avatars is on, it replaces them, so there\'s nothing to shape there.</div>')) })}
 
         ${reasoningSectionHtml(s)}
         ${textSectionHtml(s)}
@@ -1753,7 +1802,6 @@
         col.querySelector(`#m_${prefix}_body`).classList.toggle('cb_dim', !this.checked);
       };
       overlay.querySelector(`#m_${prefix}_drag`).onchange = function() { popDrag[prefix] = this.checked; syncPopouts(); };
-      overlay.querySelector(`#m_${prefix}_bg`).onchange = function() { s[`${prefix}MsgBg`] = this.checked; save(); updateAvatarStyle(); };
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); updateAvatarStyle(); });
 
@@ -1898,12 +1946,10 @@
   }
 
   // ===== UI Display =====
-  // SillyTavern's flat chat style and round avatars are the absence of a class.
-  const CHAT_CLS = { flat: '', bubbles: 'bubblechat', document: 'documentstyle' };
+  // SillyTavern's round avatars are the absence of a class. Avatar Shape lives in Avatar Management but keeps these keys.
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
-  const ALL_CHAT = ['bubblechat', 'documentstyle'];
   const ALL_AV = ['big-avatars', 'square-avatars', 'rounded-avatars'];
-  const bodyTouched = { chat: false, av: false };
+  let bodyTouched = false;
   let bodySnap = null, bodyObs = null;
 
   function setBodyClasses(all, want) {
@@ -1918,21 +1964,16 @@
     const s = settings();
     const b = document.body;
     if (!b) return;
-    if (!bodySnap) bodySnap = { chat: ALL_CHAT.filter((c) => b.classList.contains(c)), av: ALL_AV.filter((c) => b.classList.contains(c)) };
+    if (!bodySnap) bodySnap = ALL_AV.filter((c) => b.classList.contains(c));
     const p = ctx().powerUserSettings;
-    const stChat = p && p.chat_display !== undefined ? [['', ...ALL_CHAT][Number(p.chat_display)]].filter(Boolean) : bodySnap.chat;
-    const stAv = p && p.avatar_style !== undefined ? [['', ...ALL_AV][Number(p.avatar_style)]].filter(Boolean) : bodySnap.av;
+    const stAv = p && p.avatar_style !== undefined ? [['', ...ALL_AV][Number(p.avatar_style)]].filter(Boolean) : bodySnap;
 
-    if (isOn() && s.ovEnabled && s.ovChatStyleOn) { setBodyClasses(ALL_CHAT, [CHAT_CLS[s.ovChatStyle]].filter(Boolean)); bodyTouched.chat = true; }
-    else if (bodyTouched.chat) { setBodyClasses(ALL_CHAT, stChat); bodyTouched.chat = false; }
-
-    if (isOn() && s.ovEnabled && s.ovAvatarOn) { setBodyClasses(ALL_AV, [AV_CLS[s.ovAvatar]].filter(Boolean)); bodyTouched.av = true; }
-    else if (bodyTouched.av) { setBodyClasses(ALL_AV, stAv); bodyTouched.av = false; }
+    if (isOn() && s.ovAvatarOn) { setBodyClasses(ALL_AV, [AV_CLS[s.ovAvatar]].filter(Boolean)); bodyTouched = true; }
+    else if (bodyTouched) { setBodyClasses(ALL_AV, stAv); bodyTouched = false; }
 
     if (!bodyObs && window.MutationObserver) {
       bodyObs = new MutationObserver(() => {
-        const st = settings();
-        if (isOn() && st.ovEnabled && (st.ovChatStyleOn || st.ovAvatarOn)) applyBodyOverrides();
+        if (isOn() && settings().ovAvatarOn) applyBodyOverrides();
       });
       bodyObs.observe(b, { attributes: true, attributeFilter: ['class'] });
     }
@@ -1948,6 +1989,77 @@
     // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts.
     if (s.tfEnabled && s.ovFontOn) v += `--fontScale: ${rangeNum(s, 'ovFont')} !important; `;
     return v ? `\n      :root { ${v}}\n` : '';
+  }
+
+  // Names and Pictures: Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.
+  const namesHidden = (s) => isOn() && s.ovEnabled && s.ovNamesOn && s.ovNames === 'hide';
+  // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar.
+  const ntrAvatars = (s, prefix) => isOn() && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
+
+  // Chat panel, messages and send box. Each setting is SillyTavern's own look while it's unticked.
+  const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
+  function chatLookCss(s) {
+    if (!s.ovEnabled) return '';
+    const on = (k) => s[k + 'On'];
+    const color = (k, opacity) => {
+      const c = COLOR_RE.test(s[k]) ? s[k] : `var(${COLOR_FROM[k]})`;
+      const o = rangeNum(s, opacity);
+      return o < 100 ? `color-mix(in srgb, ${c} ${o}%, transparent)` : c;
+    };
+    const radius = (p) => (s[`ov${p}Shape`] === 'square' ? 0 : rangeNum(s, `ov${p}Round`));
+    const border = (p) => (s[`ov${p}Border`] === 'none' ? 'none' : `${rangeNum(s, `ov${p}BorderWidth`)}px solid ${color(`ov${p}BorderColor`, `ov${p}BorderOpacity`)}`);
+    const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : color(`ov${p}BgColor`, `ov${p}BgOpacity`));
+    const rule = (sel, props) => {
+      const body = Object.entries(props).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}: ${v} !important;`).join(' ');
+      return body ? `\n      ${sel} { ${body} }` : '';
+    };
+    // Joined is SillyTavern's own: the send box right under the chat panel, flat where they meet.
+    const separate = on('ovSendPos') && s.ovSendPos === 'separate';
+    const noBlur = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
+    let css = '';
+
+    // Chat panel. Transparent also clears the boxes around it, as Make Chat Panel Transparent did.
+    if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += rule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...noBlur, border: 'none', 'box-shadow': 'none' });
+    else if (on('ovPanelBg')) css += rule('#chat', { 'background-color': fill('Panel') });
+    const pr = on('ovShape') ? (s.ovShape === 'square' ? 0 : rangeNum(s, 'ovRound')) : null;
+    css += rule('#chat', {
+      'border-radius': pr === null ? '' : separate ? `${pr}px` : `${pr}px ${pr}px 0 0`,
+      border: on('ovPanelBorder') ? border('Panel') : '',
+      'border-bottom': on('ovPanelBorder') && !separate && s.ovPanelBorder !== 'none' ? 'none' : '',
+    });
+    if (on('ovMesGap')) css += rule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
+
+    if (namesHidden(s)) {
+      css += rule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
+    }
+
+    // AI and User messages. A message with its own background or border gets the room ST's Bubbles style gives it,
+    // unless NTR Avatars lays it out.
+    for (const p of ['Ai', 'Us']) {
+      const sel = MES_SEL[p];
+      const boxed = (on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'color') || (on(`ov${p}Border`) && s[`ov${p}Border`] === 'line');
+      const r = on(`ov${p}Shape`) ? `${radius(p)}px` : '';
+      css += rule(sel, {
+        'border-radius': r,
+        'background-color': on(`ov${p}Bg`) ? fill(p) : '',
+        ...(on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'clear' ? noBlur : {}),
+        border: on(`ov${p}Border`) ? border(p) : '',
+        padding: boxed && !ntrAvatars(s, p.toLowerCase()) ? '10px' : '',
+      });
+      // NTR Avatars' backdrop picture follows the message's corners.
+      if (r && ntrAvatars(s, p.toLowerCase())) css += rule(`${sel} .avatar`, { 'border-radius': r });
+    }
+
+    // Send box.
+    const sr = on('ovSendShape') ? radius('Send') : null;
+    // #form_sheld in front: SillyTavern's Fast UI gives the send box its color with a stronger rule.
+    css += rule('#form_sheld #send_form', {
+      'border-radius': sr === null ? '' : separate ? `${sr}px` : `0 0 ${sr}px ${sr}px`,
+      ...(on('ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...noBlur } : { 'background-color': on('ovSendBg') ? fill('Send') : '' }),
+      border: on('ovSendBorder') ? border('Send') : '',
+    });
+    if (separate) css += rule('#form_sheld', { 'margin-top': `${rangeNum(s, 'ovSendGap')}px` });
+    return css ? css + '\n' : '';
   }
 
   // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color and scrollbar-width,
@@ -2090,15 +2202,20 @@
   // Fade From: the side the shade starts on, on the same 3x3 grid as picture positions. The center glows outward.
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
+  const OV_SHAPES = ['rounded', 'square'];
   const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
     ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
-    bannerBackdrop: ['wallpaper', 'panel'], ovChatStyle: Object.keys(CHAT_CLS), ovAvatar: Object.keys(AV_CLS),
+    bannerBackdrop: ['wallpaper', 'panel'], ovAvatar: Object.keys(AV_CLS), ovShape: OV_SHAPES, ovNames: ['show', 'hide'], ovSendPos: ['joined', 'separate'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
   });
+  for (const p of ['Panel', ...OV_PARTS]) {
+    Object.assign(PICK_KEYS, { [`ov${p}Bg`]: ['clear', 'color'], [`ov${p}Border`]: ['none', 'line'] });
+    if (p !== 'Panel') PICK_KEYS[`ov${p}Shape`] = OV_SHAPES;
+  }
   for (const p of ['ai', 'us']) {
     Object.assign(PICK_KEYS, { [p + 'Style']: ['backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'] });
   }
@@ -2110,6 +2227,8 @@
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
     tfNameFxColor: '--SmartThemeShadowColor', tfUserFxColor: '--SmartThemeShadowColor', tfAiFxColor: '--SmartThemeShadowColor',
     ovScrollColor: '--grey7070a',
+    ovPanelBgColor: '--SmartThemeChatTintColor', ovAiBgColor: '--SmartThemeBotMesBlurTintColor', ovUsBgColor: '--SmartThemeUserMesBlurTintColor', ovSendBgColor: '--SmartThemeBlurTintColor',
+    ovPanelBorderColor: '--SmartThemeBorderColor', ovAiBorderColor: '--SmartThemeBorderColor', ovUsBorderColor: '--SmartThemeBorderColor', ovSendBorderColor: '--SmartThemeBorderColor',
   };
   const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont'];
 
@@ -2183,7 +2302,7 @@
     };
     if (s.rbEnabled) {
       // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
-      const boxSee = on('rbBoxAlpha') ? rangeNum(s, 'rbBoxAlpha') : 0;
+      const boxSee = on('rbBoxAlpha') ? 100 - rangeNum(s, 'rbBoxOpacity') : 0;
       const boxFill = col('rbBoxColor') || (boxSee ? 'var(--SmartThemeBlurTintColor)' : '');
       const boxBg = boxSee ? `color-mix(in srgb, ${boxFill} ${100 - boxSee}%, transparent)` : boxFill;
       const pat = boxPattern(s, col, boxBg);
@@ -2203,7 +2322,7 @@
       // The status button above it. ST's has no border and rounded corners.
       const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) && s.rbBtnBorder !== 'none' ? s.rbBtnBorder : '';
       const bc = col('rbBtnBorderColor') || 'currentColor';
-      const see = on('rbBtnAlpha') ? rangeNum(s, 'rbBtnAlpha') : 0;
+      const see = on('rbBtnAlpha') ? 100 - rangeNum(s, 'rbBtnOpacity') : 0;
       const fill = col('rbBtnColor') || (see ? 'var(--grey30)' : '');
       css += rule('.mes_reasoning_header', {
         'background-color': see ? `color-mix(in srgb, ${fill} ${100 - see}%, transparent)` : fill,
@@ -2407,14 +2526,14 @@
           </div>
           ${card('Reasoning Button', `
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
-          ${ovRow(s, 'rbBtnAlphaOn', 'Background Color Transparency', rangeSlider(s, 'rbBtnAlpha'))}
+          ${ovRow(s, 'rbBtnAlphaOn', 'Background Color Opacity', rangeSlider(s, 'rbBtnOpacity'))}
           ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
           ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders, s.rbBtnBorder))}
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color.</div>')}
           ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow uses the Border Color, or the button\'s text color without one. Shadow is black.</div>')}`)}
           ${card('Reasoning Box', `
           ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor') + '<div class="cb_hint">SillyTavern\'s box has no background.</div>')}
-          ${ovRow(s, 'rbBoxAlphaOn', 'Background Color Transparency', rangeSlider(s, 'rbBoxAlpha'))}
+          ${ovRow(s, 'rbBoxAlphaOn', 'Background Color Opacity', rangeSlider(s, 'rbBoxOpacity'))}
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + `<div class="cb_hint">${FONT_NOTE}</div>`)}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
           ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', pills('rbboxshape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']], s.rbBoxShape))}
@@ -2558,19 +2677,42 @@
       </div>`;
   }
 
+  // Pick-one rows of UI Display: the radio name is the key in lower case, with "o" in front.
+  const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
+  // Shown only while a pick has a certain value, like Roundness under Rounded.
+  const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
+  const ovLabel = (label, inner) => `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${inner}`;
+
   function displaySectionHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key) => rangeSlider(s, key);
+    const shape = (p) => row(`ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
+      + ovWhen(`ov${p}Shape`, 'rounded', ovLabel('Roundness', sl(`ov${p}Round`))));
+    const bg = (p, hint = '') => row(`ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
+      + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', sl(`ov${p}BgOpacity`))) + hint);
+    const border = (p) => row(`ov${p}BorderOn`, 'Border', ovPick(s, `ov${p}Border`, [['none', 'None'], ['line', 'Line']])
+      + ovWhen(`ov${p}Border`, 'line', ovLabel('Line Color', ovColor(s, `ov${p}BorderColor`)) + ovLabel('Thickness', sl(`ov${p}BorderWidth`)) + ovLabel('Opacity', sl(`ov${p}BorderOpacity`))));
     return pageHtml('display', `
           <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
-          ${card('Chat', `
-          <label class="checkbox_label" style="margin-bottom:6px;"><input type="checkbox" id="m_f_trans" ${s.chatTransparent ? 'checked' : ''}><span>Make Chat Panel Transparent</span></label>
+          ${card('Whole Interface', `
+          ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
+            + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))
+            + '<div class="cb_hint">Rounds or squares the chat panel\'s corners. Messages and the send box have their own Shape.</div>')}
+          ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + '<div class="cb_hint">The frosted-glass blur behind the chat, menus, drawers and popups.</div>')}
+          ${row('ovShadowOn', 'Shadow Width', sl('ovShadow') + '<div class="cb_hint">The dark glow around all text in SillyTavern.</div>')}`)}
+          ${card('Chat Panel', `
+          ${bg('Panel', '<div class="cb_hint">Transparent shows the background picture through the chat.</div>')}
           ${row('ovWidthOn', 'Chat Width', sl('ovWidth'))}
-          ${row('ovBlurOn', 'Blur Strength', sl('ovBlur'))}
-          ${row('ovShadowOn', 'Shadow Width', sl('ovShadow'))}
-          ${row('ovChatStyleOn', 'Chat Style', pills('ochat', [['flat', 'Flat'], ['bubbles', 'Bubbles'], ['document', 'Document']], s.ovChatStyle))}
-          ${row('ovAvatarOn', 'Avatar Shape', pills('oavatar', [['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']], s.ovAvatar)
-            + '<div class="cb_hint" style="margin-top:6px;">Shapes the normal chat avatars. When NTR Avatars is on, those replace the chat avatars, so this has nothing to shape.</div>')}`)}
+          ${border('Panel')}
+          ${row('ovMesGapOn', 'Space Between Messages', sl('ovMesGap'))}
+          ${row('ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
+            + '<div class="cb_hint">Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.</div>')}`)}
+          ${card('AI Message', shape('Ai') + bg('Ai') + border('Ai'))}
+          ${card('User Message', shape('Us') + bg('Us') + border('Us'))}
+          ${card('Send Box', shape('Send') + bg('Send') + border('Send')
+            + row('ovSendPosOn', 'Position', ovPick(s, 'ovSendPos', [['joined', 'Joined'], ['separate', 'Separate']])
+              + ovWhen('ovSendPos', 'separate', ovLabel('Gap', sl('ovSendGap')))
+              + '<div class="cb_hint">Joined sits right under the chat panel, flat where they meet, like SillyTavern. Separate is its own box with a gap above it.</div>'))}
           ${subHead('ov_scroll', 'Scrollbar')}
           <div class="cb_collapse_content">
             <div class="cb_hint">Changes every scrollbar in SillyTavern. Firefox can change only the colors and width; phones mostly show their own scrollbars.</div>
@@ -2592,7 +2734,6 @@
   }
 
   function bindDisplay(overlay, s) {
-    overlay.querySelector('#m_f_trans').onchange = function() { s.chatTransparent = this.checked; save(); updateAvatarStyle(); };
     overlay.querySelector('#m_ov_enable').onchange = function() {
       s.ovEnabled = this.checked; save(); updateAvatarStyle();
     };
@@ -2612,8 +2753,12 @@
       };
       sl.onchange = save;
     });
-    onPills(overlay, 'ochat', (v) => { s.ovChatStyle = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'oavatar', (v) => { s.ovAvatar = v; save(); updateAvatarStyle(); });
+    const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
+    for (const k of Object.keys(PICK_KEYS)) {
+      if (k.startsWith('ov') && !['ovAvatar', 'ovScrollShape', 'ovCursorSpot', 'ovCursorPtrSpot'].includes(k)) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
+    }
+    syncWhen();
     onPills(overlay, 'oscroll', (v) => { s.ovScrollShape = v; save(); updateAvatarStyle(); });
 
     const curFile = overlay.querySelector('#m_cur_file');
@@ -2983,10 +3128,10 @@
   const LOOK = {
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
-    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS] },
+    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS] },
     reasoning: { label: 'Reasoning Block Design', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
-    display: { label: 'UI Display', keys: ['chatTransparent', ...Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !FONT_SCALE_KEYS.includes(k))] },
+    display: { label: 'UI Display', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !FONT_SCALE_KEYS.includes(k) && !AVATAR_SHAPE_KEYS.includes(k)) },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
@@ -3038,8 +3183,9 @@
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out offsets).
   const NUM_RANGE = {
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
-    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], rbBoxAlpha: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
+    ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
@@ -3047,6 +3193,10 @@
     fgScale: [10, 300, 5, '%'], bannerPos: [0, 100, 1, '%'], bannerVideoPos: [0, 100, 1, '%'], bannerOffset: [0, 300, 5, 'px'],
   };
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
+  for (const p of ['Panel', ...OV_PARTS]) {
+    Object.assign(NUM_RANGE, { [`ov${p}BgOpacity`]: [0, 100, 1, '%'], [`ov${p}BorderWidth`]: [1, 6, 1, 'px'], [`ov${p}BorderOpacity`]: [0, 100, 1, '%'] });
+    if (p !== 'Panel') NUM_RANGE[`ov${p}Round`] = NUM_RANGE.ovRound;
+  }
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
       [p + 'Scale']: [10, 300, 5, '%'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
@@ -3104,15 +3254,23 @@
     return structuredClone(v);
   }
 
-  // Overall Font Scale moved from a theme's UI Display part to Text Formatting; themes saved or exported before keep it under display.
-  function moveLookKeys(data) {
-    const d = data && data.display;
-    if (!d || typeof d !== 'object') return;
-    for (const k of FONT_SCALE_KEYS) {
-      if (!(k in d)) continue;
-      if (!data.text || typeof data.text !== 'object') data.text = {};
-      if (!(k in data.text)) data.text[k] = d[k];
-      delete d[k];
+  // Themes saved or exported before keep some keys in the part they used to belong to (Overall Font Scale in UI Display,
+  // Avatar Shape in UI Display) and settings from before the UI Display redesign. Each key is moved to its part now,
+  // and the old settings are turned into the new ones.
+  function upgradeTheme(data) {
+    if (!data || typeof data !== 'object') return;
+    const flat = {};
+    for (const sec of Object.keys(data)) {
+      const part = data[sec];
+      if (!LOOK[sec] || !part || typeof part !== 'object') continue;
+      // A key already in its own part wins over the same key left in an old part.
+      for (const k of Object.keys(part)) if (!(k in flat) || LOOK[sec].keys.includes(k)) flat[k] = part[k];
+    }
+    upgradeLook(flat);
+    for (const sec of Object.keys(LOOK)) {
+      const part = {};
+      for (const k of LOOK[sec].keys) if (k in flat) part[k] = flat[k];
+      if (Object.keys(part).length || sec in data) data[sec] = part;
     }
   }
 
@@ -3375,7 +3533,7 @@
       let j;
       try { j = JSON.parse(await readText(f)); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
-      moveLookKeys(j.sections);
+      upgradeTheme(j.sections);
       const secs = Object.keys(LOOK).filter((k) => Object.keys(cleanLookSection(k, j.sections[k])).length);
       // Tag symbols that are fine one by one but clash together get left out (see cleanLookSection); say so, so it's clear why yours stay.
       const vnIn = isObj(j.sections.vn) ? j.sections.vn : {};

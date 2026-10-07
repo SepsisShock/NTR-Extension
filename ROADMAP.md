@@ -19,7 +19,7 @@ Keep the open-world feel, and let a card optionally have endings.
 The sections themselves and the first batch of text effects have shipped. Still open:
 
 - Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
-- Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability), with Corners (Square, Rounded, Pill).
+- Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ## Ideas
@@ -78,6 +78,15 @@ Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The 
 The first batch (Glow, Shadow, Outline) has shipped for Text Formatting.
 
 - [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
+
+### Reasoning Arrow
+A "Basic Style: Reasoning Arrow" card above Advanced, for the arrow on the reasoning button (`.mes_reasoning_arrow`, which ST flips upside down when the block is closed).
+
+- [ ] Arrow: Default, None, Symbol (any character or emoji) or Image (Upload or Link, square, 64×64 px is plenty). None shrinks the button's right padding.
+- [ ] Arrow Color, Arrow Size (0.5× to 3× of ST's size, so it scales the same on desktop and mobile; the button's padding grows with it), and Flip When Closed.
+- [ ] While Thinking animation: Off, Spin, Pulse or Bounce. Stops when thinking ends; off with ST Reduced Motion.
+- [ ] Arrow CSS as a third box in Advanced: Custom CSS, switched off when it comes from someone else's theme.
+- [ ] Saved in themes, with the image following the rules for other theme images.
 
 ### Fonts
 Font boxes already take any font installed on the device, or a Google Fonts name.

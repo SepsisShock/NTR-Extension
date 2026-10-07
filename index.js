@@ -266,8 +266,7 @@
     if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
-    // Saved themes are upgraded once. A look taken from an old theme may hold ST's English status text too.
-    if (!s.themeLookV3) { s.themes.forEach((th) => upgradeTheme(th && th.data)); stLabelsEmpty(s); s.themeLookV3 = true; }
+    if (!s.themeLookV3) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV3 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
@@ -3291,17 +3290,11 @@
       for (const k of Object.keys(part)) if (!(k in flat) || LOOK[sec].keys.includes(k)) flat[k] = part[k];
     }
     upgradeLook(flat);
-    stLabelsEmpty(flat);
     for (const sec of Object.keys(LOOK)) {
       const part = {};
       for (const k of LOOK[sec].keys) if (k in flat) part[k] = flat[k];
       if (Object.keys(part).length || sec in data) data[sec] = part;
     }
-  }
-  // Themes made while the status text had ticks hold ST's English text even where it was unticked. An empty box shows
-  // ST's own text instead, in any language.
-  function stLabelsEmpty(o) {
-    for (const [k, t] of Object.entries(RB_ST_LABEL)) if (o[k] === t) o[k] = '';
   }
 
   function cleanLookSection(sec, part) {

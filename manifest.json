@@ -7,6 +7,6 @@
   "css": "style.css",
   "hooks": { "clean": "onClean" },
   "author": "SepsisShock",
-  "version": "2.13.2",
-  "description": "Header banners, avatar styling, reasoning block styling (button, box, background patterns, typewriter status text), text styling, foreground images, UI display settings (shape, color, opacity and border for the chat panel, messages and send box, hidden names and pictures, scrollbar, custom cursor), themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos. Open the menu from the Extensions page, the wand menu (optional) or /ntr."
+  "version": "2.14.0",
+  "description": "Header banners, avatar styling, reasoning block styling (button, box, background patterns, typewriter status text), text styling, foreground images, UI display settings (shape, color, opacity and border for the chat panel, messages and send box, hidden names and pictures, scrollbar colors and custom CSS, custom cursor for normal, pointer and click), themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos. Open the menu from the Extensions page, the wand menu (optional) or /ntr."
 }

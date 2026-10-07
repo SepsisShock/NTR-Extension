@@ -35,8 +35,8 @@ The sections themselves and the first batch of text effects have shipped. Still 
   - Open question: what SillyTavern makes available to extensions for creating a branch.
 - Regex. Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
   - Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
-- Move Avatar Shape from UI Display to Avatar Management, so all avatar settings sit in one place. Possibly add more shapes beyond SillyTavern's four (Round, Rectangle, Square, Rounded).
-  - Open questions: whether the extra shapes also apply to NTR Avatars, the avatar backdrop and the VN portrait box, or only the normal chat avatars; keep the `ovAvatarOn` and `ovAvatar` keys so saved configs and themes keep working.
+- More Avatar Shapes (Avatar Management) beyond SillyTavern's four (Round, Rectangle, Square, Rounded).
+  - Open question: whether the extra shapes also apply to NTR Avatars, the avatar backdrop and the VN portrait box, or only the normal chat avatars.
 - Graphic borders around profiles. Decorative image frames around profile pictures, beyond the current plain border and shape choices.
   - Open questions: which pictures get them (chat avatars, avatar backdrop, avatar pop-out, VN portrait box); built-in frames drawn in code like the default art, uploaded frames, or both; how a frame fits each shape (round, rounded, square, tall); per character, global, or saved in themes.
 - Graphic borders around the UI. Decorative image borders around interface parts, stretched to fit any size.
@@ -100,3 +100,10 @@ Font boxes already take any font installed on the device, or a Google Fonts name
 
 - [ ] A preset list of Google Fonts, each name shown in its own font.
 - [ ] Uploading font files (like a downloaded .ttf that isn't installed), saved in SillyTavern's files so they work on any device and need no request to Google.
+
+### Interface Shape for the rest of SillyTavern
+Interface Shape (UI Display, Whole Interface) rounds or squares the chat panel. Extend it to SillyTavern's own drawers, menus, popups and top bar, so the whole interface matches.
+
+- [ ] Find which of ST's parts set their own corners, and override them only while Interface Shape is ticked; unticked keeps ST's look.
+- [ ] Check that rounded corners don't cut off anything inside them, like drawer edges, menu items or popup buttons.
+- [ ] Messages, the send box and avatars keep their own Shape; the VN box, Reasoning and Scrollbar keep theirs too.

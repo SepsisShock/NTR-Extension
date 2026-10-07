@@ -1,6 +1,6 @@
 ---
 name: run-ntr-extension
-description: Run, test and screenshot the Nitwit Tavern Redesign (NTR) extension inside a real local SillyTavern. Sets up SillyTavern, installs this repo as an extension (the working tree or any git ref, for before/after comparisons), starts and stops the server, and drives the UI headlessly with a Playwright command driver (open a chat, the NTR menu, Visual Novel Mode, uploads, page evaluation, screenshots). Use when asked to run, start, test, verify, reproduce a bug in, or screenshot the extension, or to confirm a change works in SillyTavern.
+description: Run, test and screenshot the Nitwit Tavern Redesign (NTR) extension inside a real local SillyTavern. Sets up SillyTavern, installs this repo as an extension (the working tree or any git ref, for before/after comparisons), starts and stops the server, and drives the UI headlessly with a Playwright command driver (open a chat, the NTR menu, Visual Novel Mode, uploads, page evaluation, screenshots). Also has a speed test (streaming, adding messages, scrolling, idle CPU) for comparing NTR against plain SillyTavern or another git ref. Use when asked to run, start, test, verify, reproduce a bug in, screenshot or speed test the extension, or to confirm a change works in SillyTavern.
 ---
 
 NTR is a SillyTavern extension, so running it means running SillyTavern with this repo installed as an extension. `.claude/skills/run-ntr-extension/st.sh` manages a local SillyTavern, and `.claude/skills/run-ntr-extension/driver.cjs` drives it in headless Chromium from commands piped on stdin. All paths are relative to the repo root.
@@ -101,6 +101,31 @@ diff /tmp/main.txt /tmp/branch.txt
 ```
 
 To try new code on the running server without resetting the data, `st.sh install` is enough; no restart.
+
+### Speed test
+
+`st.sh bench` measures how much work SillyTavern does with NTR, so a change can be checked for slowdowns before a release. Each run starts from the clean data, opens Seraphina's chat in a fresh page and measures:
+
+- **streaming**: a 400-word reply with a reasoning block, one word every 15 ms, updated the way SillyTavern updates a message while streaming;
+- **adding 80 messages**, user and character in turn;
+- **scrolling** the long chat from top to bottom;
+- **idle**: 10 s of doing nothing, which catches timers and animations that keep running.
+
+```bash
+bash .claude/skills/run-ntr-extension/st.sh bench plain none          # SillyTavern without NTR
+bash .claude/skills/run-ntr-extension/st.sh bench main origin/main    # NTR from a git ref
+bash .claude/skills/run-ntr-extension/st.sh bench branch full        # the working tree, with most features on
+bash .claude/skills/run-ntr-extension/st.sh bench table plain main branch
+```
+
+Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Display styling and a custom cursor, through `bench-full.txt`), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen) and `runs=N` (default 3). Each run takes about a minute, and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
+
+Reading the numbers:
+
+- **busy** is how long the page's main thread was working, so less is better. **restyling** is the part spent working out styles; heavy `:has()` rules on `body` make it jump on every streamed word.
+- **95% of frames under** is about 16.7 ms when smooth (60 frames a second). 33 or 50 ms means visible stutter.
+- Compare runs from the same session only. Without a graphics card everything is drawn in software, so the numbers show how setups differ, not what a real phone would get. Differences under about 10% are noise.
+- With `vn`, most of the chat sits behind the dialogue box, so its streaming numbers can come out lower than plain SillyTavern.
 
 ## Run (human path)
 

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.13.2';
+  const VERSION = '2.14.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -86,8 +86,8 @@
     ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false, ovNames: 'show',
     ovSendPosOn: false, ovSendPos: 'separate', ovSendGap: 8,
     ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
-    ovScrollWidthOn: false, ovScrollWidth: 11, ovScrollShapeOn: false, ovScrollShape: 'pill',
-    ovCursorOn: false, ovCursorImg: '', ovCursorSpot: 'tl', ovCursorPtrImg: '', ovCursorPtrSpot: 'tc', ovCursorSize: 32,
+    ovScrollCssOn: false, ovScrollCss: '',
+    ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorSize: 32,
 
     // Menu state
     uiOpen: {},
@@ -239,7 +239,7 @@
     // The box's Border Style has no Solid, since ST's own line is solid: a Solid pick is ST's look, so it's unticked.
     if (s.rbBorderStyle === 'solid') { s.rbBorderStyle = 'none'; s.rbBorderStyleOn = false; }
     for (const k of ['rbBtnShapeOn', 'rbType', 'rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
-      'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor']) delete s[k];
+      'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor', 'ovScrollWidthOn', 'ovScrollWidth', 'ovScrollShapeOn', 'ovScrollShape', 'ovCursorSpot', 'ovCursorPtrSpot']) delete s[k];
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     if (s.bannerEnabled !== undefined && !s.migratedBanner) {
       s.bannerMode = s.bannerEnabled ? 'image' : 'off';
@@ -1873,7 +1873,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css', 'rb_pattern']);
+  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -2069,24 +2069,16 @@
     return css ? css + '\n' : '';
   }
 
-  // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color and scrollbar-width,
-  // and Chrome drops the -webkit- parts when it sees those, so Firefox gets them on their own.
+  // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color,
+  // and Chrome drops the -webkit- parts when it sees it, so Firefox gets it on its own.
   function scrollbarCss(s) {
     if (!s.ovEnabled) return '';
     const color = s.ovScrollColorOn && COLOR_RE.test(s.ovScrollColor) ? s.ovScrollColor : '';
     const track = s.ovScrollTrackOn && COLOR_RE.test(s.ovScrollTrack) ? s.ovScrollTrack : '';
-    const width = s.ovScrollWidthOn ? rangeNum(s, 'ovScrollWidth') : 0;
-    const radius = s.ovScrollShapeOn ? SCROLL_RADIUS[s.ovScrollShape] : '';
     let css = '';
-    if (width) css += `\n      ::-webkit-scrollbar { width: ${width}px; height: ${width}px; }`;
     if (track) css += `\n      ::-webkit-scrollbar-track { background-color: ${track}; }\n      ::-webkit-scrollbar-corner { background-color: ${track}; }`;
-    // SillyTavern keeps a 2px see-through gap and a thin outline around the thumb; narrow bars drop both so the thumb stays visible.
-    const thumb = (color ? `background-color: ${color}; ` : '') + (radius ? `border-radius: ${radius}; ` : '') + (width && width < 8 ? 'border-width: 0; box-shadow: none; ' : '');
-    if (thumb) css += `\n      ::-webkit-scrollbar-thumb:vertical, ::-webkit-scrollbar-thumb:horizontal { ${thumb}}`;
-    let fx = '';
-    if (color || track) fx += `scrollbar-color: ${color || 'auto'} ${track || 'transparent'}; `;
-    if (width) fx += `scrollbar-width: ${width <= 8 ? 'thin' : 'auto'}; `;
-    if (fx) css += `\n      @supports not selector(::-webkit-scrollbar) { * { ${fx}} }`;
+    if (color) css += `\n      ::-webkit-scrollbar-thumb:vertical, ::-webkit-scrollbar-thumb:horizontal { background-color: ${color}; }`;
+    if (color || track) css += `\n      @supports not selector(::-webkit-scrollbar) { * { scrollbar-color: ${color || 'auto'} ${track || 'transparent'}; } }`;
     return css ? css + '\n' : '';
   }
 
@@ -2115,33 +2107,36 @@
     i.src = src;
     return cursorLast.get(src) || null;
   }
-  const cursorSpot = (spot, w, h) => {
-    const at = (c, n) => (c === 'l' || c === 't' ? 0 : c === 'c' ? Math.round(n / 2) : n - 1);
-    return [at(spot[1], w), at(spot[0], h)];
-  };
-  // Which cursors have a picture right now, for onCursorOver.
+  const TEXT_CURSOR_SEL = 'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], [contenteditable="true"]';
+  // Which cursors have a picture right now, for onCursorOver and onCursorDown.
   let cursorKinds = {};
   function cursorCss(s) {
     cursorKinds = {};
     if (!s.ovEnabled || !s.ovCursorOn) return '';
     const size = rangeNum(s, 'ovCursorSize');
-    const one = (src, spot, fallback) => {
+    // The picture's top-left corner is the spot that clicks.
+    const one = (src, fallback) => {
       const u = cUrl(src);
       const c = u && cursorImg(u, size);
-      if (!c) return '';
-      const [x, y] = cursorSpot(POS_GRID.some(([v]) => v === spot) ? spot : 'tl', c.w, c.h);
-      return `url("${c.url}") ${x} ${y}, ${fallback}`;
+      return c ? `url("${c.url}"), ${fallback}` : '';
     };
-    const normal = one(s.ovCursorImg, s.ovCursorSpot, 'auto');
-    const ptr = one(s.ovCursorPtrImg, s.ovCursorPtrSpot, 'pointer');
-    cursorKinds = { normal: !!normal, ptr: !!ptr };
+    const normal = one(s.ovCursorImg, 'auto');
+    const ptr = one(s.ovCursorPtrImg, 'pointer');
+    const down = one(s.ovCursorDownImg, 'auto');
+    cursorKinds = { normal: !!normal, ptr: !!ptr, down: !!down };
     let css = '';
     // Everything takes the Normal cursor from the page, except what has its own: SillyTavern's hand, resize edges and so on.
     // Typing boxes keep the text cursor.
-    if (normal) css += `\n      html, body { cursor: ${normal}; }\n      :where(textarea, input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], [contenteditable="true"]) { cursor: text; }\n      [data-ntr-cur="normal"] { cursor: ${normal} !important; }`;
+    if (normal) css += `\n      html, body { cursor: ${normal}; }\n      :where(${TEXT_CURSOR_SEL}) { cursor: text; }\n      [data-ntr-cur="normal"] { cursor: ${normal} !important; }`;
     if (ptr) css += `\n      [data-ntr-cur="ptr"] { cursor: ${ptr} !important; }`;
+    // While the mouse button is down, everything but typing boxes takes the Click cursor.
+    if (down) css += `\n      html.ntr_cur_down, html.ntr_cur_down *:not(${TEXT_CURSOR_SEL}) { cursor: ${down} !important; }`;
     return css ? css + '\n' : '';
   }
+  function onCursorDown(e) {
+    if (e.pointerType === 'mouse' && cursorKinds.down) document.documentElement.classList.add('ntr_cur_down');
+  }
+  const onCursorUp = () => document.documentElement.classList.remove('ntr_cur_down');
   // SillyTavern gives the hand to many kinds of things, too many to list. So the thing under the mouse is checked as the
   // mouse moves onto it: if its own cursor is the hand (or the plain arrow), it's marked to get the custom one instead.
   let cursorEl = null;
@@ -2208,10 +2203,8 @@
   const RB_PATS = ['none', 'notebook', 'lines', 'dots', 'checkers', 'fade'];
   // Fade From: the side the shade starts on, on the same 3x3 grid as picture positions. The center glows outward.
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
-  const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
   const OV_SHAPES = ['rounded', 'square'];
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
-    ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
@@ -2370,7 +2363,8 @@
     return css ? css + '\n' : '';
   }
 
-  // Custom CSS for the reasoning button and box, in its own style tag so a typo can't break the extension's other styles.
+  // Custom CSS for the reasoning button and box, and for the scrollbar, each in its own style tag so a typo can't break
+  // the extension's other styles.
   const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning']];
   function syncCustomCss() {
     const s = settings();
@@ -2379,9 +2373,13 @@
       const c = live && s[k + 'On'] ? String(s[k] || '').slice(0, 2000).trim() : '';
       return c ? `${sel} { ${c} }` : '';
     }).filter(Boolean).join('\n');
-    let el = document.getElementById('ntr_rb_css');
+    cssTag('ntr_rb_css', v);
+    cssTag('ntr_scroll_css', isOn() && s.ovEnabled && s.ovScrollCssOn ? String(s.ovScrollCss || '').slice(0, 2000).trim() : '');
+  }
+  function cssTag(id, v) {
+    let el = document.getElementById(id);
     if (!v) { el?.remove(); return; }
-    if (!el) { el = document.createElement('style'); el.id = 'ntr_rb_css'; document.head.appendChild(el); }
+    if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
     el.textContent = v;
   }
 
@@ -2504,12 +2502,20 @@
 
   const FONT_NOTE = 'Use a font on your device, or any font from Google Fonts by its name or a link to it. Google fonts load on their own while you\'re online. Type the name exactly as it\'s written.';
 
+  const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
+  function bindCssBoxes(overlay, prefix) {
+    overlay.querySelectorAll(`.m_css[data-key^="${prefix}"]`).forEach((box) => {
+      box.oninput = () => { settings()[box.dataset.key] = box.value.slice(0, 2000); syncCustomCss(); };
+      box.onchange = save;
+    });
+  }
+
   function reasoningSectionHtml(s) {
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => `
             <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
     const borders = [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']];
-    const cssBox = (k, ph) => `<textarea class="text_pole m_rb_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
+    const cssBox = (k, ph) => customCssBox(s, k, ph);
     // A pick-one row with no tick: its default choice is SillyTavern's own look.
     const pickRow = (title, inner, attrs = '') => `
           <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
@@ -2662,14 +2668,11 @@
     syncPatRows();
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
-    overlay.querySelectorAll('.m_rb_css').forEach((box) => {
-      box.oninput = () => { s[box.dataset.key] = box.value.slice(0, 2000); syncCustomCss(); };
-      box.onchange = save;
-    });
+    bindCssBoxes(overlay, 'rb');
   }
 
-  // One cursor picture: preview, Upload / Link / Remove, and the click point on the 3x3 grid.
-  function cursorSlot(k, spotKey, label, hint, icon, s) {
+  // One cursor picture: preview, Upload / Link / Remove.
+  function cursorSlot(k, label, hint, icon) {
     return `
       <div class="cb_cur_slot">
         <div class="cb_cur_row">
@@ -2679,8 +2682,6 @@
           <button class="menu_button m_cur_url" data-k="${k}" data-label="${label} cursor" title="Use a link"><i class="fa-solid fa-link"></i></button>
           <button class="menu_button m_cur_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button>
         </div>
-        <div class="cb_hint" style="margin-top:6px;">Click point: the spot of the picture that clicks.</div>
-        ${posGrid('o' + spotKey, s[spotKey])}
       </div>`;
   }
 
@@ -2722,17 +2723,22 @@
               + '<div class="cb_hint">Joined sits right under the chat panel, flat where they meet, like SillyTavern. Separate is its own box with a gap above it.</div>'))}
           ${subHead('ov_scroll', 'Scrollbar')}
           <div class="cb_collapse_content">
-            <div class="cb_hint">Changes every scrollbar in SillyTavern. Firefox can change only the colors and width; phones mostly show their own scrollbars.</div>
+            <div class="cb_hint">Changes every scrollbar in SillyTavern. Phones mostly show their own scrollbars.</div>
             ${row('ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
             ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar. SillyTavern leaves it see-through.</div>')}
-            ${row('ovScrollWidthOn', 'Scrollbar Width', sl('ovScrollWidth'))}
-            ${row('ovScrollShapeOn', 'Scrollbar Shape', pills('oscroll', [['pill', 'Pill', 'SillyTavern\'s default'], ['rounded', 'Rounded'], ['square', 'Square']], s.ovScrollShape))}
+            ${subHead('ov_scroll_css', 'Advanced: Custom CSS')}
+            <div class="cb_collapse_content">
+              ${row('ovScrollCssOn', 'Scrollbar CSS', customCssBox(s, 'ovScrollCss', '::-webkit-scrollbar { width: 6px; height: 6px; }&#10;::-webkit-scrollbar-thumb { border-radius: 0; }')
+                + '<div class="cb_hint">Whole CSS rules, like <code>::-webkit-scrollbar { width: 6px; }</code> for the width or <code>::-webkit-scrollbar-thumb { border-radius: 0; }</code> for square corners. Firefox ignores <code>::-webkit-scrollbar</code> rules. Add <code>!important</code> if a setting doesn\'t take. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
+            </div>
           </div>
           ${subHead('ov_cursor', 'Cursor')}
           <div class="cb_collapse_content">
             <div class="cb_hint">Your own pictures for the mouse cursor. Typing boxes keep the normal text cursor. Phones and tablets have no cursor.</div>
-            ${row('ovCursorOn', 'Custom Cursor', cursorSlot('ovCursorImg', 'ovCursorSpot', 'Normal', 'Everywhere else.', 'fa-arrow-pointer', s)
-              + cursorSlot('ovCursorPtrImg', 'ovCursorPtrSpot', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer', s)
+            ${row('ovCursorOn', 'Custom Cursor', cursorSlot('ovCursorImg', 'Normal', 'Everywhere else.', 'fa-arrow-pointer')
+              + cursorSlot('ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer')
+              + cursorSlot('ovCursorDownImg', 'Click', 'While the mouse button is held down. Empty keeps the cursor you had.', 'fa-computer-mouse')
+              + '<div class="cb_hint">The top-left corner of each picture is the spot that clicks.</div>'
               + '<div class="cb_hint">Size</div>' + sl('ovCursorSize')
               + '<div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don\'t allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>'
               + '<input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>')}
@@ -2763,15 +2769,15 @@
     onPills(overlay, 'oavatar', (v) => { s.ovAvatar = v; save(); updateAvatarStyle(); });
     const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
     for (const k of Object.keys(PICK_KEYS)) {
-      if (k.startsWith('ov') && !['ovAvatar', 'ovScrollShape', 'ovCursorSpot', 'ovCursorPtrSpot'].includes(k)) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
+      if (k.startsWith('ov') && k !== 'ovAvatar') onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
     }
     syncWhen();
-    onPills(overlay, 'oscroll', (v) => { s.ovScrollShape = v; save(); updateAvatarStyle(); });
+    bindCssBoxes(overlay, 'ov');
 
     const curFile = overlay.querySelector('#m_cur_file');
     let curPending = null;
     const renderCursor = () => {
-      for (const k of ['ovCursorImg', 'ovCursorPtrImg']) {
+      for (const k of ['ovCursorImg', 'ovCursorPtrImg', 'ovCursorDownImg']) {
         const box = overlay.querySelector(`#m_cur_prev_${k}`);
         box.innerHTML = s[k] ? `<img src="${escapeHTML(s[k])}" alt="">` : `<i class="fa-solid ${box.dataset.icon}"></i>`;
         overlay.querySelector(`.m_cur_clr[data-k="${k}"]`).disabled = !s[k];
@@ -2801,7 +2807,6 @@
       }
       curFile.value = '';
     };
-    for (const k of ['ovCursorSpot', 'ovCursorPtrSpot']) onPills(overlay, 'o' + k, (v) => { s[k] = v; save(); updateAvatarStyle(); });
     renderCursor();
   }
 
@@ -3183,7 +3188,7 @@
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorDownImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
@@ -3191,7 +3196,7 @@
   const NUM_RANGE = {
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
-    ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
+    ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
@@ -3221,7 +3226,7 @@
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
   const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
-  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, mapGoText: 200 };
+  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, ovScrollCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;
@@ -3552,6 +3557,8 @@
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
       const rbPart = secs.includes('reasoning') ? cleanLookSection('reasoning', j.sections.reasoning) : {};
       const css = RB_CSS.map(([k, sel]) => { const c = String(rbPart[k] || '').slice(0, 2000).trim(); return c ? `${sel} { ${c} }` : ''; }).filter(Boolean).join('\n');
+      const ovPart = secs.includes('display') ? cleanLookSection('display', j.sections.display) : {};
+      const scrollCss = String(ovPart.ovScrollCss || '').slice(0, 2000).trim();
       panel.innerHTML = `
         <div class="ntr_tpanel">
           <strong>Import theme</strong>
@@ -3560,6 +3567,8 @@
           ${secBoxes(secs)}
           ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Reasoning Block Design, Advanced: Custom CSS, and tick it to use it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
+          ${scrollCss ? `<div class="cb_hint">This theme includes Custom CSS for the scrollbar. It's added switched off: after applying the theme, check it under UI Display, Scrollbar, Advanced: Custom CSS, and tick it to use it.</div>
+          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(scrollCss)}</pre>` : ''}
           ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Visual Novel Mode, Tags &amp; Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add theme</button>
@@ -3575,6 +3584,7 @@
         for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
+        if (data.display && String(data.display.ovScrollCss || '').trim()) data.display.ovScrollCssOn = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s images...', 'Themes');
           const r = await unpackFiles(data);
@@ -3960,6 +3970,9 @@
     injectExtensionMenuButton();
     registerSlashCommand();
     document.addEventListener('pointerover', onCursorOver, true);
+    document.addEventListener('pointerdown', onCursorDown, true);
+    for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, onCursorUp, true);
+    window.addEventListener('blur', onCursorUp);
     window.addEventListener('resize', () => {
       syncWallpaper();
       layoutFg();

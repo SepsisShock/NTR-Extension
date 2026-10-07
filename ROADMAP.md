@@ -106,4 +106,10 @@ Interface Shape (UI Display, Whole Interface) rounds or squares the chat panel. 
 
 - [ ] Find which of ST's parts set their own corners, and override them only while Interface Shape is ticked; unticked keeps ST's look.
 - [ ] Check that rounded corners don't cut off anything inside them, like drawer edges, menu items or popup buttons.
-- [ ] Messages, the send box and avatars keep their own Shape; the VN box, Reasoning and Scrollbar keep theirs too.
+- [ ] Messages, the send box and avatars keep their own Shape; the VN box and Reasoning keep theirs too. Scrollbars keep what their Custom CSS sets.
+
+### Scrollbar vertical color
+A Scrollbar Color that changes from top to bottom (a vertical gradient) instead of one flat color.
+
+- [ ] A second color for the bottom of the scrollbar, with Scrollbar Color as the top.
+- [ ] Firefox can show only one flat color, so it keeps the top color.

@@ -4,17 +4,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-### Flags and endings (Visual Novel Mode)
-Keep the open-world feel, and let a card optionally have endings.
-
-- [ ] `[[Flag:Name]]` tag: the model marks that something happened (e.g. Trust, Betrayal).
-- [ ] `[[Ending:Name]]` tag: shows an ending title card.
-- [ ] Work out current flags and reached endings by scanning the chat, like locations already work, so swipes, edits and branches stay correct.
-- [ ] Add the current flags to the prompt text the extension already sends, so the model doesn't have to remember them.
-- [ ] Endings gallery in the VN menu with seen/unseen state, saved under a new settings key (existing keys untouched).
-- [ ] Hide the new tags in the normal chat view, like the other scene tags.
-- [ ] Cards with no flag or ending tags behave exactly as they do now.
-
 ### Reasoning Block and Text Formatting: follow-ups
 The sections themselves and the first batch of text effects have shipped. Still open:
 
@@ -27,12 +16,6 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Built-in cursor. An arrow drawn in code with its own color, for people without a cursor image (Custom Cursor in UI Display).
 - Banners in group chats. The shared Global banner could show in group chats too, which have no banner now.
   - Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
-- Chapters and save points. In Visual Novel Mode, each message is a chapter.
-  - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
-  - Title card when a chapter starts.
-  - Chapter list to jump to any chapter.
-  - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
-  - Open question: what SillyTavern makes available to extensions for creating a branch.
 - Regex. Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
   - Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
 - More Avatar Shapes (Avatar Management) beyond SillyTavern's four (Round, Rectangle, Square, Rounded).
@@ -43,6 +26,35 @@ The sections themselves and the first batch of text effects have shipped. Still 
   - Open questions: which parts (VN dialogue box, name tag, choice buttons, map window, NTR menu, SillyTavern's chat messages); built-in, uploaded, or both; one border style for all parts or one per part; saved in themes.
 - Folder of pre-generated locations. A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
   - Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
+- Emotions outside Visual Novel Mode. Move Emotions out of the Visual Novel menu into its own section, so emotion pictures can also show in the normal chat when Visual Novel Mode is off.
+  - The new section holds the emotion list and each speaker's emotion pictures. The Visual Novel menu keeps what only it uses (full portrait, keep the face on stage, sprite size) and points to the new section.
+  - The emotion code stays out of `index.js`.
+  - Saved settings keep their names (`emotions`, `emoDefault`, `delimEmo`, `nodeHideEmo`) so saved configs keep working.
+  - Open questions: where the emotion comes from with Visual Novel Mode off (the same speaker tags with their own switch and shorter instructions, or SillyTavern's Character Expressions extension); which pictures change (chat avatars, avatar backdrop, avatar pop-out); whether each message keeps its own emotion or only the latest one changes; which tag wins when a message has several; whether the tag delimiters move too; whether emotions leave the Visual Novel group in saved themes.
+
+## Visual Novel Mode (Low Priority)
+
+Will be worked on when the main part is done, unless there are bugs or issues to take care of.
+
+### Flags and endings
+Keep the open-world feel, and let a card optionally have endings.
+
+- [ ] `[[Flag:Name]]` tag: the model marks that something happened (e.g. Trust, Betrayal).
+- [ ] `[[Ending:Name]]` tag: shows an ending title card.
+- [ ] Work out current flags and reached endings by scanning the chat, like locations already work, so swipes, edits and branches stay correct.
+- [ ] Add the current flags to the prompt text the extension already sends, so the model doesn't have to remember them.
+- [ ] Endings gallery in the VN menu with seen/unseen state, saved under a new settings key (existing keys untouched).
+- [ ] Hide the new tags in the normal chat view, like the other scene tags.
+- [ ] Cards with no flag or ending tags behave exactly as they do now.
+
+### Ideas
+
+- Chapters and save points. In Visual Novel Mode, each message is a chapter.
+  - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
+  - Title card when a chapter starts.
+  - Chapter list to jump to any chapter.
+  - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
+  - Open question: what SillyTavern makes available to extensions for creating a branch.
 - NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
   - For the author and for everyone else, so it needs to be friendly for first-time card makers.
   - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
@@ -52,13 +64,8 @@ The sections themselves and the first batch of text effects have shipped. Still 
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
-- Emotions outside Visual Novel Mode. Move Emotions out of the Visual Novel menu into its own section, so emotion pictures can also show in the normal chat when Visual Novel Mode is off.
-  - The new section holds the emotion list and each speaker's emotion pictures. The Visual Novel menu keeps what only it uses (full portrait, keep the face on stage, sprite size) and points to the new section.
-  - The emotion code stays out of `index.js`.
-  - Saved settings keep their names (`emotions`, `emoDefault`, `delimEmo`, `nodeHideEmo`) so saved configs keep working.
-  - Open questions: where the emotion comes from with Visual Novel Mode off (the same speaker tags with their own switch and shorter instructions, or SillyTavern's Character Expressions extension); which pictures change (chat avatars, avatar backdrop, avatar pop-out); whether each message keeps its own emotion or only the latest one changes; which tag wins when a message has several; whether the tag delimiters move too; whether emotions leave the Visual Novel group in saved themes.
 
-## Low priority
+## Misc (Low Priority)
 
 Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
 

@@ -23,7 +23,7 @@ Pop-out avatars can already be dragged ("Drag it on screen" in Screen Placement)
 
 ### Saving
 - [ ] Keep autosave: sliders save when released, dragged items when dropped.
-- [ ] Show SillyTavern's blue confirmation popup after a successful save.
+- [ ] Show SillyTavern's green confirmation popup after a successful save.
 - [ ] Find out why saving fails when the connection drops.
 - [ ] Consider keeping unsaved changes on the device and retrying when SillyTavern reconnects.
 

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.10.1';
+  const VERSION = '2.11.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -62,6 +62,8 @@
     rbBtnShape: 'rounded', rbBtnBorderOn: false, rbBtnBorder: 'solid', rbBtnBorderColorOn: false, rbBtnBorderColor: '', rbBtnFx: 'none', rbBtnFxSize: 8,
     rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBoxShapeOn: false, rbBoxShape: 'rounded', rbBorderStyleOn: false, rbBorderStyle: 'solid', rbBorderOn: false, rbBorder: '', rbEdgeFx: 'none', rbEdgeFxSize: 8,
     rbBoxColorOn: false, rbBoxColor: '', rbBoxAlphaOn: false, rbBoxAlpha: 0,
+    rbPat: 'none', rbPatH: true, rbPatV: false, rbPatR: false, rbPatL: false, rbPatFade: 'tc', rbPatShade: 'light',
+    rbPatColorOn: false, rbPatColor: '', rbPatThick: 1, rbPatSize: 1,
     rbCssOn: false, rbCss: '', rbBtnCssOn: false, rbBtnCss: '',
 
     // Text Formatting
@@ -618,6 +620,7 @@
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
       .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
       .cb_ovrow .cb_plab { padding-left: 26px; }
+      .ntr_rbpat_lines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
       .cb_ovrow.cb_sep { border-top: 1px solid rgba(255,255,255,.18); margin-top: 8px; padding-top: 12px; }
       .cb_ovrow:has(+ .cb_sep) { border-bottom: 0; }
       .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
@@ -2073,8 +2076,11 @@
   const RB_FX = ['none', 'glow', 'shadow'];
   const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const RB_BOX_SHAPE = { rounded: '10px', extra: '20px' }; // unticked: ST's own 2px
+  const RB_PATS = ['none', 'notebook', 'lines', 'dots', 'checkers', 'fade'];
+  // Fade From: the side the shade starts on, on the same 3x3 grid as picture positions. The center glows outward.
+  const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
   const SCROLL_RADIUS = { pill: '999px', rounded: '6px', square: '0' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'], ovScrollShape: Object.keys(SCROLL_RADIUS),
     ovCursorSpot: POS_GRID.map(([v]) => v), ovCursorPtrSpot: POS_GRID.map(([v]) => v) };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
@@ -2088,7 +2094,7 @@
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
-    rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor', rbBoxColor: '--SmartThemeBlurTintColor',
+    rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor', rbBoxColor: '--SmartThemeBlurTintColor', rbPatColor: '--SmartThemeQuoteColor',
     tfNameColor: '--SmartThemeBodyColor',
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
@@ -2118,6 +2124,36 @@
     return { '-webkit-text-stroke': `${(n * 0.2).toFixed(1)}px ${c}`, 'paint-order': 'stroke fill' };
   }
 
+  // Box Pattern: background layers drawn over the Box Color, in a shade of it or the Pattern Color. Sizes are in em, so
+  // they scale with the text; ruled lines use 1lh, so they sit under each line of text.
+  function boxPattern(s, col, base) {
+    const kind = RB_PATS.includes(s.rbPat) ? s.rbPat : 'none';
+    if (kind === 'none') return [];
+    const C = base || 'transparent';
+    const own = s.rbPatColorOn && col('rbPatColor');
+    const shade = s.rbPatShade === 'dark' ? 'black' : 'white';
+    const P = own || `color-mix(in srgb, ${shade} 16%, ${C})`;
+    const w = rangeNum(s, 'rbPatThick'), u = rangeNum(s, 'rbPatSize');
+    const gap = `calc(${+(1.2 * u).toFixed(2)}em + ${w}px)`;
+    const ruled = `linear-gradient(to bottom, transparent calc(1lh - ${w}px), ${P} calc(1lh - ${w}px)) 0 0 / 100% 1lh content-box`;
+    const stripes = (deg) => `repeating-linear-gradient(${deg}deg, ${P} 0 ${w}px, transparent ${w}px ${gap})`;
+    if (kind === 'notebook') return [`linear-gradient(90deg, transparent 1.5em, rgba(220, 110, 110, .55) 1.5em calc(1.5em + ${w}px), transparent 0) padding-box`, ruled];
+    if (kind === 'lines') {
+      return [[s.rbPatH, ruled], [s.rbPatV, stripes(90)], [s.rbPatR, stripes(135)], [s.rbPatL, stripes(45)]].filter(([on]) => on).map(([, l]) => l);
+    }
+    if (kind === 'dots') {
+      const r = Math.min(45, 10 + w * 5); // Thickness makes the dots bigger
+      return [`radial-gradient(${P} ${r}%, transparent ${r + 2}%) 0 0 / ${u}em ${u}em`];
+    }
+    if (kind === 'checkers') {
+      const q = `${+(1.6 * u).toFixed(2)}em`;
+      return [`conic-gradient(${P} 25%, transparent 0 50%, ${P} 0 75%, transparent 0) 0 0 / ${q} ${q}`];
+    }
+    const strong = own || `color-mix(in srgb, ${shade} 30%, ${C})`;
+    const dir = RB_FADE[s.rbPatFade] ?? 'to bottom';
+    return [dir ? `linear-gradient(${dir}, ${strong}, transparent)` : `radial-gradient(circle, ${strong}, transparent 75%)`];
+  }
+
   function textFormatCss(s) {
     const on = (k) => s[k + 'On'];
     const col = (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : '');
@@ -2139,10 +2175,14 @@
       // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
       const boxSee = on('rbBoxAlpha') ? rangeNum(s, 'rbBoxAlpha') : 0;
       const boxFill = col('rbBoxColor') || (boxSee ? 'var(--SmartThemeBlurTintColor)' : '');
+      const boxBg = boxSee ? `color-mix(in srgb, ${boxFill} ${100 - boxSee}%, transparent)` : boxFill;
+      const pat = boxPattern(s, col, boxBg);
       const bs = on('rbBorderStyle') && RB_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
       css += rule('.mes_reasoning', {
         'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
-        'background-color': boxSee ? `color-mix(in srgb, ${boxFill} ${100 - boxSee}%, transparent)` : boxFill,
+        'background-color': pat.length ? '' : boxBg,
+        background: pat.length ? [...pat, boxBg || 'transparent'].join(', ') : '',
+        'padding-left': s.rbPat === 'notebook' ? '2.1em' : '',
         '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
         'border-left-color': col('rbBorder'),
         'font-family': font('rbFont'),
@@ -2336,8 +2376,9 @@
       .map(([v, l]) => (v === def ? [v, l, 'SillyTavern\'s default'] : [v, l]));
     const cssBox = (k, ph) => `<textarea class="text_pole m_rb_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
     // A pick-one row with no tick: its default choice is SillyTavern's own look.
-    const pickRow = (title, inner) => `
-          <div class="cb_ovrow"><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
+    const pickRow = (title, inner, attrs = '') => `
+          <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
+    const patLine = (k, label) => `<label class="checkbox_label"><input type="checkbox" class="m_rb_patline" data-key="${k}" ${s[k] ? 'checked' : ''}><span>${label}</span></label>`;
     const fxOpts = [['none', 'None', 'SillyTavern\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
     const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
     return pageHtml('reasoning', `
@@ -2371,6 +2412,15 @@
           ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', borders('solid'), s.rbBorderStyle))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
           ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}`)}
+          ${card('Basic Style: Box Pattern', `
+          ${pickRow('Pattern', pills('rbpat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers'], ['fade', 'Fade']], s.rbPat))}
+          ${pickRow('Lines', `<div class="ntr_rbpat_lines">${patLine('rbPatH', 'Horizontal')}${patLine('rbPatV', 'Vertical')}${patLine('rbPatR', 'Diagonal /')}${patLine('rbPatL', 'Diagonal \\')}</div>`
+            + '<button class="menu_button" id="m_rb_patreset" style="margin:6px 0 0;">Reset</button><div class="cb_hint">Mix them: Horizontal and Vertical make a grid, both diagonals make diamonds. Horizontal follows the text lines.</div>', ' data-rbpat="lines"')}
+          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">Where the shade starts. The center glows from the middle.</div>', ' data-rbpat="fade"')}
+          ${pickRow('Pattern Shade', pills('rbpatshade', [['light', 'Lighter'], ['dark', 'Darker']], s.rbPatShade) + '<div class="cb_hint">Darker flips it: dark dots or squares on the box color.</div>', ' data-rbpat="any"')}
+          <div data-rbpat="any">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor') + '<div class="cb_hint">Without this, the pattern is a shade of the Box Color.</div>')}</div>
+          ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">How thick the lines are, or how big the dots are. Checkers and Fade don't use it.</div>`, ' data-rbpat="any"')}
+          ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Spacing of the pattern. Notebook and Horizontal lines follow the text lines instead, and Fade has no size.</div>`, ' data-rbpat="any"')}`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbBtnCssOn', 'Button CSS', cssBox('rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;') + '<div class="cb_hint">CSS for the reasoning button, like <code>text-transform: uppercase;</code>.</div>')}
@@ -2455,6 +2505,24 @@
     }
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbboxshape', (v) => { s.rbBoxShape = v; save(); updateAvatarStyle(); });
+    // Box Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
+    const syncPatRows = () => {
+      const p = s.rbPat;
+      overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'any' && p !== 'none') ? '' : 'none'; });
+      const onlyH = p === 'lines' && s.rbPatH && !s.rbPatV && !s.rbPatR && !s.rbPatL;
+      overlay.querySelector('.m_rb_patdim[data-for="thick"]').classList.toggle('cb_dim', p === 'checkers' || p === 'fade');
+      overlay.querySelector('.m_rb_patdim[data-for="size"]').classList.toggle('cb_dim', p === 'notebook' || p === 'fade' || onlyH);
+    };
+    const patSet = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncPatRows(); };
+    onPills(overlay, 'rbpat', (v) => patSet('rbPat', v));
+    onPills(overlay, 'rbpatshade', (v) => patSet('rbPatShade', v));
+    onPills(overlay, 'rbpatfade', (v) => patSet('rbPatFade', v));
+    overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.onchange = () => patSet(c.dataset.key, c.checked); });
+    overlay.querySelector('#m_rb_patreset').onclick = () => {
+      overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.checked = false; s[c.dataset.key] = false; });
+      patSet('rbPatH', false);
+    };
+    syncPatRows();
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
     overlay.querySelectorAll('.m_rb_css').forEach((box) => {
@@ -2959,7 +3027,7 @@
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out offsets).
   const NUM_RANGE = {
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
-    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], rbBoxAlpha: [0, 100, 1, '%'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnAlpha: [0, 100, 1, '%'], rbBoxAlpha: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovScrollWidth: [4, 20, 1, 'px'], ovCursorSize: [16, 128, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],

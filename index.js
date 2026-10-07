@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.13.0';
+  const VERSION = '2.13.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -2057,6 +2057,9 @@
       'border-radius': sr === null ? '' : separate ? `${sr}px` : `0 0 ${sr}px ${sr}px`,
       ...(on('ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...noBlur } : { 'background-color': on('ovSendBg') ? fill('Send') : '' }),
       border: on('ovSendBorder') ? border('Send') : '',
+      // Bars other extensions put inside it, with their own square backgrounds, follow its rounded corners.
+      // SillyTavern's own menus open outside it, so nothing gets cut off.
+      overflow: sr ? 'clip' : '',
     });
     if (separate) css += rule('#form_sheld', { 'margin-top': `${rangeNum(s, 'ovSendGap')}px` });
     return css ? css + '\n' : '';

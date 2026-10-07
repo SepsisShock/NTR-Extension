@@ -11,6 +11,22 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
+### Dragging and placement
+Pop-out avatars can already be dragged ("Drag it on screen" in Screen Placement). Extend that to portraits and other parts of the screen that support it.
+
+- [ ] Free dragging, plus Snap to Grid with adjustable grid spacing.
+- [ ] An Edit Placement mode that turns dragging on; only the selected item can be dragged.
+- [ ] A clear Done button to leave Edit Placement.
+- [ ] Block page scrolling only while the selected item is being dragged.
+- [ ] Undo Last Move, and Reset to the default placement.
+- [ ] Consider replacing the pop-out avatar Move Horizontal and Move Vertical sliders with dragging.
+
+### Saving
+- [ ] Keep autosave: sliders save when released, dragged items when dropped.
+- [ ] Show SillyTavern's blue confirmation popup after a successful save.
+- [ ] Find out why saving fails when the connection drops.
+- [ ] Consider keeping unsaved changes on the device and retrying when SillyTavern reconnects.
+
 ## Ideas
 
 - Built-in cursor. An arrow drawn in code with its own color, for people without a cursor image (Custom Cursor in UI Display).

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.14.0';
+  const VERSION = '2.14.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -151,8 +151,8 @@
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
   const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
 
-  // Settings from before the UI Display redesign, turned into the new ones so the chat looks the same. Works on the
-  // settings and on a theme's keys put together; the new keys win if both are there.
+  // Settings from before the UI Display and Reasoning Block Design redesigns, turned into the new ones so the chat looks
+  // the same. Works on the settings and on a theme's keys put together; the new keys win if both are there.
   function upgradeLook(o) {
     const put = (k, v) => { if (!(k in o)) o[k] = v; };
     const msgs = (fn) => { for (const p of ['Ai', 'Us']) fn(p); };
@@ -162,6 +162,8 @@
     if ('chatTransparent' in o) {
       put('ovPanelBgOn', !!o.chatTransparent);
       put('ovPanelBg', 'clear');
+      // Avatar Shape was in UI Display then, so UI Display's switch turned it off too. It's in Avatar Management now.
+      if (o.ovEnabled === false) o.ovAvatarOn = false;
       delete o.chatTransparent;
     }
     // Chat Style is now made of the message settings, with Bubbles' own 10px corners, 1px line and 5px space (the defaults).
@@ -193,6 +195,22 @@
       put(k + 'Opacity', 100 - Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0)));
       delete o[k + 'Alpha'];
     }
+    // The reasoning status text had ticks; an unticked one meant ST's own text, which is now an empty box.
+    if ('rbThinkOn' in o) {
+      for (const k of ['rbThink', 'rbDone', 'rbSome']) { if (!o[k + 'On']) o[k] = ''; delete o[k + 'On']; }
+    }
+    // The box's Border Style had Glow, now a Border Effect over ST's own line, and Solid, which is ST's own line.
+    // Both go back to unticked.
+    if (o.rbBorderStyle === 'glow' || o.rbBorderStyle === 'solid') {
+      if (o.rbBorderStyle === 'glow' && o.rbBorderStyleOn && (o.rbEdgeFx ?? 'none') === 'none') {
+        o.rbEdgeFx = 'glow';
+        put('rbEdgeFxSize', DEFAULTS.rbEdgeFxSize); // the old glow's size
+      }
+      o.rbBorderStyle = 'none';
+      o.rbBorderStyleOn = false;
+    }
+    // The button's Border Style had None, which is ST's own look: unticked.
+    if (o.rbBtnBorder === 'none') { o.rbBtnBorder = DEFAULTS.rbBtnBorder; o.rbBtnBorderOn = false; }
     return o;
   }
 
@@ -233,13 +251,10 @@
       s.sideFadePxMigrated = true;
     }
     if (keepOldLook) { s.artBg = 'none'; s.artSprite = 'none'; }
-    // The reasoning status text had ticks; an unticked one meant ST's own text, which is now an empty box.
-    if ('rbThinkOn' in s) for (const k of ['rbThink', 'rbDone', 'rbSome']) if (!s[k + 'On']) s[k] = '';
     if ('rbBtnShapeOn' in s && !s.rbBtnShapeOn) s.rbBtnShape = DEFAULTS.rbBtnShape;
-    // The box's Border Style has no Solid, since ST's own line is solid: a Solid pick is ST's look, so it's unticked.
-    if (s.rbBorderStyle === 'solid') { s.rbBorderStyle = 'none'; s.rbBorderStyleOn = false; }
-    for (const k of ['rbBtnShapeOn', 'rbType', 'rbThinkOn', 'rbDoneOn', 'rbSomeOn', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
-      'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor', 'ovScrollWidthOn', 'ovScrollWidth', 'ovScrollShapeOn', 'ovScrollShape', 'ovCursorSpot', 'ovCursorPtrSpot']) delete s[k];
+    for (const k of ['rbBtnShapeOn', 'rbType', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
+      'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor', 'ovScrollWidthOn', 'ovScrollWidth', 'ovScrollShapeOn', 'ovScrollShape', 'ovCursorSpot', 'ovCursorPtrSpot',
+      'themeFontMoved', 'themeLookV2', 'avatarShapeMoved']) delete s[k];
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     if (s.bannerEnabled !== undefined && !s.migratedBanner) {
       s.bannerMode = s.bannerEnabled ? 'image' : 'off';
@@ -251,9 +266,7 @@
     if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
-    if (!s.themeLookV2) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV2 = true; }
-    // Avatar Shape moved to Avatar Management, so UI Display's switch no longer turns it off.
-    if (!s.avatarShapeMoved) { if (!s.ovEnabled) s.ovAvatarOn = false; s.avatarShapeMoved = true; }
+    if (!s.themeLookV3) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV3 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
@@ -1996,45 +2009,45 @@
   // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar.
   const ntrAvatars = (s, prefix) => isOn() && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
 
+  // One CSS rule, each property !important. Empty properties are left out, and a rule with none left is no rule.
+  function cssRule(sel, props) {
+    const body = Object.entries(props).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}: ${v} !important;`).join(' ');
+    return body ? `\n      ${sel} { ${body} }` : '';
+  }
+  // A color at an opacity in %: below 100, it's mixed with see-through.
+  const seeThrough = (c, opacity) => (opacity < 100 ? `color-mix(in srgb, ${c} ${opacity}%, transparent)` : c);
+
   // Chat panel, messages and send box. Each setting is SillyTavern's own look while it's unticked.
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
   function chatLookCss(s) {
     if (!s.ovEnabled) return '';
     const on = (k) => s[k + 'On'];
-    const color = (k, opacity) => {
-      const c = COLOR_RE.test(s[k]) ? s[k] : `var(${COLOR_FROM[k]})`;
-      const o = rangeNum(s, opacity);
-      return o < 100 ? `color-mix(in srgb, ${c} ${o}%, transparent)` : c;
-    };
+    const color = (k, opacity) => seeThrough(COLOR_RE.test(s[k]) ? s[k] : `var(${COLOR_FROM[k]})`, rangeNum(s, opacity));
     const radius = (p) => (s[`ov${p}Shape`] === 'square' ? 0 : rangeNum(s, `ov${p}Round`));
     const border = (p) => (s[`ov${p}Border`] === 'none' ? 'none' : `${rangeNum(s, `ov${p}BorderWidth`)}px solid ${color(`ov${p}BorderColor`, `ov${p}BorderOpacity`)}`);
     const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : color(`ov${p}BgColor`, `ov${p}BgOpacity`));
-    const rule = (sel, props) => {
-      const body = Object.entries(props).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}: ${v} !important;`).join(' ');
-      return body ? `\n      ${sel} { ${body} }` : '';
-    };
     // Joined is SillyTavern's own: the send box right under the chat panel, flat where they meet.
     const separate = on('ovSendPos') && s.ovSendPos === 'separate';
     const noBlur = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
     let css = '';
 
     // Chat panel. Transparent also clears the boxes around it, as Make Chat Panel Transparent did.
-    if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += rule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...noBlur, border: 'none', 'box-shadow': 'none' });
-    else if (on('ovPanelBg')) css += rule('#chat', { 'background-color': fill('Panel') });
+    if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...noBlur, border: 'none', 'box-shadow': 'none' });
+    else if (on('ovPanelBg')) css += cssRule('#chat', { 'background-color': fill('Panel') });
     // The top stays flush with SillyTavern's square top bar: no rounded top corners and no line along the top.
     // The bottom corners round only when the send box stands apart; joined, it meets the send box.
     const pr = on('ovShape') ? (s.ovShape === 'square' ? 0 : rangeNum(s, 'ovRound')) : null;
     const line = on('ovPanelBorder') && s.ovPanelBorder !== 'none';
-    css += rule('#chat', {
+    css += cssRule('#chat', {
       'border-radius': pr === null ? '' : separate ? `0 0 ${pr}px ${pr}px` : '0',
       border: on('ovPanelBorder') ? border('Panel') : '',
       'border-top': line ? 'none' : '',
       'border-bottom': line && !separate ? 'none' : '',
     });
-    if (on('ovMesGap')) css += rule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
+    if (on('ovMesGap')) css += cssRule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
 
     if (namesHidden(s)) {
-      css += rule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
+      css += cssRule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
     }
 
     // AI and User messages. A message with its own background or border gets the room ST's Bubbles style gives it,
@@ -2043,7 +2056,7 @@
       const sel = MES_SEL[p];
       const boxed = (on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'color') || (on(`ov${p}Border`) && s[`ov${p}Border`] === 'line');
       const r = on(`ov${p}Shape`) ? `${radius(p)}px` : '';
-      css += rule(sel, {
+      css += cssRule(sel, {
         'border-radius': r,
         'background-color': on(`ov${p}Bg`) ? fill(p) : '',
         ...(on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'clear' ? noBlur : {}),
@@ -2051,13 +2064,13 @@
         padding: boxed && !ntrAvatars(s, p.toLowerCase()) ? '10px' : '',
       });
       // NTR Avatars' backdrop picture follows the message's corners.
-      if (r && ntrAvatars(s, p.toLowerCase())) css += rule(`${sel} .avatar`, { 'border-radius': r });
+      if (r && ntrAvatars(s, p.toLowerCase())) css += cssRule(`${sel} .avatar`, { 'border-radius': r });
     }
 
     // Send box.
     const sr = on('ovSendShape') ? radius('Send') : null;
     // #form_sheld in front: SillyTavern's Fast UI gives the send box its color with a stronger rule.
-    css += rule('#form_sheld #send_form', {
+    css += cssRule('#form_sheld #send_form', {
       'border-radius': sr === null ? '' : separate ? `${sr}px` : `0 0 ${sr}px ${sr}px`,
       ...(on('ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...noBlur } : { 'background-color': on('ovSendBg') ? fill('Send') : '' }),
       border: on('ovSendBorder') ? border('Send') : '',
@@ -2065,7 +2078,7 @@
       // SillyTavern's own menus open outside it, so nothing gets cut off.
       overflow: sr ? 'clip' : '',
     });
-    if (separate) css += rule('#form_sheld', { 'margin-top': `${rangeNum(s, 'ovSendGap')}px` });
+    if (separate) css += cssRule('#form_sheld', { 'margin-top': `${rangeNum(s, 'ovSendGap')}px` });
     return css ? css + '\n' : '';
   }
 
@@ -2158,8 +2171,9 @@
       </div>`;
   }
   function ovSlider(s, key, unit, min, max, step) {
+    const v = rangeNum(s, key);
     return `
-      <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_o_${key}val">${s[key]}</span>${unit}</span></div>`;
+      <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_o_${key}val">${v}</span>${unit}</span></div>`;
   }
   function ovColor(s, key) {
     return customElements.get('toolcool-color-picker')
@@ -2195,8 +2209,8 @@
   const NAME_WEIGHT = { normal: 400, bold: 700, extra: 800 };
   const FX = ['glow', 'shadow', 'outline'];
   const FX_PARTS = ['tfName', 'tfUser', 'tfAi'];
-  const RB_BORDERS = ['none', 'solid', 'dashed', 'dotted', 'double'];
-  const RB_BOX_BORDERS = RB_BORDERS.filter((b) => b !== 'solid'); // the box's own line is already solid
+  const RB_BORDERS = ['solid', 'dashed', 'dotted', 'double']; // the button's: unticked is ST's, which has none
+  const RB_BOX_BORDERS = ['none', ...RB_BORDERS.filter((b) => b !== 'solid')]; // the box's own line is already solid
   const RB_FX = ['none', 'glow', 'shadow'];
   const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const RB_BOX_SHAPE = { rounded: '10px', extra: '20px' }; // unticked: ST's own 2px
@@ -2253,7 +2267,7 @@
     return { '-webkit-text-stroke': `${(n * 0.2).toFixed(1)}px ${c}`, 'paint-order': 'stroke fill' };
   }
 
-  // Box Pattern: background layers drawn over the Box Color, in a shade of it or the Pattern Color. Sizes are in em, so
+  // Background Pattern: layers drawn over the Box Color, in a shade of it or the Pattern Color. Sizes are in em, so
   // they scale with the text; ruled lines use 1lh, so they sit under each line of text.
   function boxPattern(s, col, base) {
     const kind = RB_PATS.includes(s.rbPat) ? s.rbPat : 'none';
@@ -2288,10 +2302,6 @@
     const col = (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : '');
     const font = (k) => { const f = on(k) ? cleanFont(s[k]) : ''; return f ? `"${f}", var(--mainFontFamily)` : ''; };
     const size = (k) => (on(k) ? rangeNum(s, k) : 0);
-    const rule = (sel, props) => {
-      const body = Object.entries(props).filter(([, v]) => v !== '' && v != null).map(([p, v]) => `${p}: ${v} !important;`).join(' ');
-      return body ? `\n      ${sel} { ${body} }` : '';
-    };
     let css = '';
 
     // Border Effects: Glow in the border's color, or a black Shadow. The reasoning box's sits on its left edge.
@@ -2302,12 +2312,12 @@
     };
     if (s.rbEnabled) {
       // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
-      const boxSee = on('rbBoxAlpha') ? 100 - rangeNum(s, 'rbBoxOpacity') : 0;
-      const boxFill = col('rbBoxColor') || (boxSee ? 'var(--SmartThemeBlurTintColor)' : '');
-      const boxBg = boxSee ? `color-mix(in srgb, ${boxFill} ${100 - boxSee}%, transparent)` : boxFill;
+      const boxOp = on('rbBoxAlpha') ? rangeNum(s, 'rbBoxOpacity') : 100;
+      const boxFill = col('rbBoxColor') || (boxOp < 100 ? 'var(--SmartThemeBlurTintColor)' : '');
+      const boxBg = boxFill && seeThrough(boxFill, boxOp);
       const pat = boxPattern(s, col, boxBg);
       const bs = on('rbBorderStyle') && RB_BOX_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
-      css += rule('.mes_reasoning', {
+      css += cssRule('.mes_reasoning', {
         'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
         'background-color': pat.length ? '' : boxBg,
         background: pat.length ? [...pat, s.rbPat === 'fade' ? 'transparent' : boxBg || 'transparent'].join(', ') : '',
@@ -2319,13 +2329,13 @@
         'border-left-width': bs === 'double' ? '4px' : '',
         'box-shadow': edgeFx('rbEdgeFx', col('rbBorder') || 'var(--reasoning-body-color)', '-2px', true),
       });
-      // The status button above it. ST's has no border and rounded corners.
-      const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) && s.rbBtnBorder !== 'none' ? s.rbBtnBorder : '';
+      // The Reasoning Button above it. ST's has no border and rounded corners.
+      const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : '';
       const bc = col('rbBtnBorderColor') || 'currentColor';
-      const see = on('rbBtnAlpha') ? 100 - rangeNum(s, 'rbBtnOpacity') : 0;
-      const fill = col('rbBtnColor') || (see ? 'var(--grey30)' : '');
-      css += rule('.mes_reasoning_header', {
-        'background-color': see ? `color-mix(in srgb, ${fill} ${100 - see}%, transparent)` : fill,
+      const op = on('rbBtnAlpha') ? rangeNum(s, 'rbBtnOpacity') : 100;
+      const fill = col('rbBtnColor') || (op < 100 ? 'var(--grey30)' : '');
+      css += cssRule('.mes_reasoning_header', {
+        'background-color': fill && seeThrough(fill, op),
         color: col('rbBtnText'),
         'border-radius': s.rbBtnShape !== 'rounded' ? RB_SHAPE[s.rbBtnShape] || '' : '',
         border: bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
@@ -2337,43 +2347,44 @@
 
     // Names on chat messages, and the speaker's name tag in Visual Novel Mode.
     const ns = size('tfNameSize');
-    css += rule('.mes .name_text', {
+    css += cssRule('.mes .name_text', {
       color: col('tfNameColor'),
       'font-family': font('tfNameFont'),
       'font-size': ns ? `calc(var(--mainFontSize) * ${ns})` : '',
       'font-weight': on('tfNameWeight') ? NAME_WEIGHT[s.tfNameWeight] : '',
       ...fxProps(s, 'tfName'),
     });
-    css += rule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
+    css += cssRule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
-      css += rule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', ...fxProps(s, p) });
-      css += rule(`${m} i, ${m} em`, { color: col(p + 'Em') });
-      css += rule(`${m} u`, { color: col(p + 'Under') });
-      css += rule(`${m} q`, { color: col(p + 'Quote') });
-      if (col(p + 'Em')) css += rule(`${m} q i, ${m} q em`, { color: 'inherit' });
+      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', ...fxProps(s, p) });
+      css += cssRule(`${m} i, ${m} em`, { color: col(p + 'Em') });
+      css += cssRule(`${m} u`, { color: col(p + 'Under') });
+      css += cssRule(`${m} q`, { color: col(p + 'Quote') });
+      if (col(p + 'Em')) css += cssRule(`${m} q i, ${m} q em`, { color: 'inherit' });
     }
-    css += rule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), ...fxProps(s, 'tfAi') });
-    css += rule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
-    css += rule('#cb_node .cb_q', { color: col('tfAiQuote') });
-    if (col('tfAiEm')) css += rule('#cb_node .cb_q em', { color: 'inherit' });
+    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), ...fxProps(s, 'tfAi') });
+    css += cssRule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
+    css += cssRule('#cb_node .cb_q', { color: col('tfAiQuote') });
+    if (col('tfAiEm')) css += cssRule('#cb_node .cb_q em', { color: 'inherit' });
     return css ? css + '\n' : '';
   }
 
   // Custom CSS for the reasoning button and box, and for the scrollbar, each in its own style tag so a typo can't break
   // the extension's other styles.
   const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning']];
+  // The reasoning Custom CSS boxes that `get` gives text for, each inside its part's selector.
+  const rbCssText = (get) => RB_CSS.map(([k, sel]) => {
+    const c = String(get(k) || '').slice(0, 2000).trim();
+    return c ? `${sel} { ${c} }` : '';
+  }).filter(Boolean).join('\n');
   function syncCustomCss() {
     const s = settings();
     const live = isOn() && s.rbEnabled;
-    const v = RB_CSS.map(([k, sel]) => {
-      const c = live && s[k + 'On'] ? String(s[k] || '').slice(0, 2000).trim() : '';
-      return c ? `${sel} { ${c} }` : '';
-    }).filter(Boolean).join('\n');
-    cssTag('ntr_rb_css', v);
+    cssTag('ntr_rb_css', rbCssText((k) => live && s[k + 'On'] && s[k]));
     cssTag('ntr_scroll_css', isOn() && s.ovEnabled && s.ovScrollCssOn ? String(s.ovScrollCss || '').slice(0, 2000).trim() : '');
   }
   function cssTag(id, v) {
@@ -2514,7 +2525,7 @@
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => `
             <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
-    const borders = [['none', 'None'], ['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']];
+    const borders = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']];
     const cssBox = (k, ph) => customCssBox(s, k, ph);
     // A pick-one row with no tick: its default choice is SillyTavern's own look.
     const pickRow = (title, inner, attrs = '') => `
@@ -2524,7 +2535,7 @@
     const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
     return pageHtml('reasoning', `
           <div class="cb_hint">Only changes how the block looks. To show reasoning boxes, make sure "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion) are enabled.</div>
-          <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look.</div>
+          <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look. Settings without a tick start on ST's look.</div>
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
@@ -2550,7 +2561,7 @@
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + `<div class="cb_hint">${FONT_NOTE}</div>`)}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
           ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', pills('rbboxshape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']], s.rbBoxShape))}
-          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', borders.filter(([v]) => v !== 'solid'), s.rbBorderStyle))}
+          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')], s.rbBorderStyle))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
           ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}
           ${subHead('rb_pattern', 'Background Pattern')}
@@ -2648,7 +2659,7 @@
     }
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbboxshape', (v) => { s.rbBoxShape = v; save(); updateAvatarStyle(); });
-    // Box Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
+    // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
     const syncPatRows = () => {
       const p = s.rbPat;
       overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'drawn' && p !== 'none' && p !== 'fade') ? '' : 'none'; });
@@ -3267,8 +3278,8 @@
   }
 
   // Themes saved or exported before keep some keys in the part they used to belong to (Overall Font Scale in UI Display,
-  // Avatar Shape in UI Display) and settings from before the UI Display redesign. Each key is moved to its part now,
-  // and the old settings are turned into the new ones.
+  // Avatar Shape in UI Display) and settings from before the UI Display and Reasoning Block Design redesigns. Each key
+  // is moved to its part now, and the old settings are turned into the new ones.
   function upgradeTheme(data) {
     if (!data || typeof data !== 'object') return;
     const flat = {};
@@ -3556,7 +3567,7 @@
       }
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
       const rbPart = secs.includes('reasoning') ? cleanLookSection('reasoning', j.sections.reasoning) : {};
-      const css = RB_CSS.map(([k, sel]) => { const c = String(rbPart[k] || '').slice(0, 2000).trim(); return c ? `${sel} { ${c} }` : ''; }).filter(Boolean).join('\n');
+      const css = rbCssText((k) => rbPart[k]);
       const ovPart = secs.includes('display') ? cleanLookSection('display', j.sections.display) : {};
       const scrollCss = String(ovPart.ovScrollCss || '').slice(0, 2000).trim();
       panel.innerHTML = `

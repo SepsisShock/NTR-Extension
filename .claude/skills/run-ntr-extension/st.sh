@@ -6,6 +6,9 @@
 #   st.sh start | stop   start in the background (waits until it answers) | stop
 #   st.sh reset [ref]    stop, put back the clean data, install the extension (start again afterwards)
 #   st.sh lazy on|off    SillyTavern's lazy character loading (restart to apply)
+#   st.sh bench <name> [ref|none] [full] [vn] [phone] [runs=N]
+#                        speed test on clean data (see SKILL.md); stops the server when done
+#   st.sh bench table <name> [name...]   compare saved results
 #
 # SillyTavern lives in $ST_DIR (default ~/sillytavern) and answers on http://127.0.0.1:8000. Log: $ST_LOG.
 set -euo pipefail
@@ -78,9 +81,65 @@ reset() {
 }
 
 lazy() {
-  local want; case "${1:-}" in on) want=true ;; off) want=false ;; *) echo "usage: st.sh lazy on|off"; exit 1 ;; esac
+  local want; bench() {
+  local here; here="$(dirname "${BASH_SOURCE[0]}")"
+  if [ "${1:-}" = table ]; then shift; node "$here/bench.cjs" table "$@"; return; fi
+  local name="${1:-}" ref="" full="" runs=3 flags=()
+  [ -n "$name" ] || { echo "usage: st.sh bench <name> [ref|none] [full] [vn] [phone] [runs=N]"; exit 1; }
+  shift
+  for a in "$@"; do
+    case "$a" in full) full=1 ;; vn) flags+=(--vn) ;; phone) flags+=(--phone) ;; runs=*) runs="${a#runs=}" ;; *) ref="$a" ;; esac
+  done
+  if [ "$ref" = none ]; then reset; rm -rf "$EXT_DIR"; echo "no extension installed"; else reset "$ref"; fi
+  start
+  if [ -n "$full" ]; then
+    [ "$ref" != none ] || { echo "full needs the extension"; stop; exit 1; }
+    # Test images from SillyTavern's own content: its three largest backgrounds for the banner, Seraphina for the foreground.
+    local img="${NTR_BENCH:-/tmp/ntr-bench}/img" banners=() f
+    rm -rf "$img" && mkdir -p "$img"
+    while read -r f; do
+      cp "$ST_DIR/default/content/backgrounds/$f" "$img/banner${#banners[@]}.${f##*.}"
+      banners+=("$img/banner${#banners[@]}.${f##*.}")
+    done < <(ls -S "$ST_DIR/default/content/backgrounds" | grep -iE '\.(png|jpe?g|webp)$' | head -3)
+    cp "$ST_DIR/default/content/default_Seraphina.png" "$img/fg.png"
+    sed -e "s#@BANNERS@#${banners[*]}#" -e "s#@IMG@#$img#g" "$here/bench-full.txt" | node "$here/driver.cjs" \
+      || { echo "turning on NTR's features failed"; stop; exit 1; }
+  fi
+  node "$here/bench.cjs" run "$name" --runs "$runs" "${flags[@]}" || { stop; exit 1; }
+  stop
+}
+
+case "${1:-}" in on) want=true ;; off) want=false ;; *) echo "usage: st.sh lazy on|off"; exit 1 ;; esac
   sed -i -E "s/^(\s*lazyLoadCharacters:).*/\1 $want/" "$ST_DIR/config.yaml"
   grep -E '^\s*lazyLoadCharacters:' "$ST_DIR/config.yaml"
+}
+
+bench() {
+  local here; here="$(dirname "${BASH_SOURCE[0]}")"
+  if [ "${1:-}" = table ]; then shift; node "$here/bench.cjs" table "$@"; return; fi
+  local name="${1:-}" ref="" full="" runs=3 flags=()
+  [ -n "$name" ] || { echo "usage: st.sh bench <name> [ref|none] [full] [vn] [phone] [runs=N]"; exit 1; }
+  shift
+  for a in "$@"; do
+    case "$a" in full) full=1 ;; vn) flags+=(--vn) ;; phone) flags+=(--phone) ;; runs=*) runs="${a#runs=}" ;; *) ref="$a" ;; esac
+  done
+  if [ "$ref" = none ]; then reset; rm -rf "$EXT_DIR"; echo "no extension installed"; else reset "$ref"; fi
+  start
+  if [ -n "$full" ]; then
+    [ "$ref" != none ] || { echo "full needs the extension"; stop; exit 1; }
+    # Test images from SillyTavern's own content: its three largest backgrounds for the banner, Seraphina for the foreground.
+    local img="${NTR_BENCH:-/tmp/ntr-bench}/img" banners=() f
+    rm -rf "$img" && mkdir -p "$img"
+    while read -r f; do
+      cp "$ST_DIR/default/content/backgrounds/$f" "$img/banner${#banners[@]}.${f##*.}"
+      banners+=("$img/banner${#banners[@]}.${f##*.}")
+    done < <(ls -S "$ST_DIR/default/content/backgrounds" | grep -iE '\.(png|jpe?g|webp)$' | head -3)
+    cp "$ST_DIR/default/content/default_Seraphina.png" "$img/fg.png"
+    sed -e "s#@BANNERS@#${banners[*]}#" -e "s#@IMG@#$img#g" "$here/bench-full.txt" | node "$here/driver.cjs" \
+      || { echo "turning on NTR's features failed"; stop; exit 1; }
+  fi
+  node "$here/bench.cjs" run "$name" --runs "$runs" "${flags[@]}" || { stop; exit 1; }
+  stop
 }
 
 case "${1:-}" in
@@ -90,5 +149,6 @@ case "${1:-}" in
   stop) stop ;;
   reset) reset "${2:-}" ;;
   lazy) lazy "${2:-}" ;;
-  *) sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  bench) shift; bench "$@" ;;
+  *) sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

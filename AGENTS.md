@@ -40,7 +40,6 @@ The "Code" section of `CLAUDE.md` says what correct code looks like here. Read i
 - Saved settings keys must not be renamed or removed, so users' configurations keep working.
 - `vn.js`, `map.js`, and `opening.js` reuse helpers from `index.js` through `window.NTR` instead of copying them.
 - Number ranges live in `NUM_RANGE`, not typed directly into the menu or other code.
-- A change to `.js` or `.css` should come with a version bump in all five places: `manifest.json`, `index.js`, `vn.js`, `map.js`, and `opening.js`.
 - Check for new code that repeats existing helpers or logic, and old code the change leaves unused. Mark these findings as Verify, not Bug. Some duplication or retained code is intentional, including support for old saved settings or older SillyTavern versions. Respect exceptions explained in the pull request description or a code comment.
 
 Ignore the rest of `CLAUDE.md`. Its workflow rules are for Claude.

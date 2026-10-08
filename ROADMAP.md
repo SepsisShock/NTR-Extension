@@ -19,13 +19,13 @@ Pop-out avatars can already be dragged ("Drag it on screen" in Screen Placement)
 - [ ] A clear Done button to leave Edit Placement.
 - [ ] Block page scrolling only while the selected item is being dragged.
 - [ ] Undo Last Move, and Reset to the default placement.
-- [ ] Consider replacing the pop-out avatar Move Horizontal and Move Vertical sliders with dragging.
+- [ ] Consider replacing the pop-out avatar Move Horizontal and Move Vertical sliders with Snap to Grid.
 
 ### Saving
-- [ ] Keep autosave: sliders save when released, dragged items when dropped.
-- [ ] Show SillyTavern's green confirmation popup after a successful save.
-- [ ] Find out why saving fails when the connection drops.
-- [ ] Consider keeping unsaved changes on the device and retrying when SillyTavern reconnects.
+- [ ] Keep autosave(?): sliders save when released, dragged items when dropped.
+- [ ] Show SillyTavern's green confirmation popup after a successful save if adding manual save.
+- [ ] Find out why saving fails when the connection drops (if it does.)
+- [ ] Consider keeping unsaved (connection issues?) changes on the device and retrying when SillyTavern reconnects.
 
 ### Menu order
 Rearrange the NTR menu pages:
@@ -37,7 +37,6 @@ Rearrange the NTR menu pages:
 
 ### Custom Cursor: follow-ups
 - [ ] A Text cursor picture for typing boxes (the "I" shape), next to Normal, Pointer and Click. Typing boxes now always show the system one.
-- [ ] Keep Size (CSS can't resize a cursor picture, so NTR redraws it at that size).
 - [ ] An Advanced box with Custom CSS for anything the settings don't cover.
 
 ### Send box
@@ -61,9 +60,7 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] An avatar that shows only once on screen and stays put while scrolling.
 
 ### Regex
-Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
-
-- Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
+SillyTavern's Regex extension, but not regex.
 
 ## Visual Novel Mode (Low Priority)
 

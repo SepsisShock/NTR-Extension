@@ -80,9 +80,9 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Text alignment for chat messages: left, right, center or justified.
 
 ### Regex
-Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
+A Regexes page for organizing regex in one place, with folders. Includes find and replace, HTML output, and SillyTavern regex import.
 
-- Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
+- Open questions: build on SillyTavern's regex engine or run NTR's own; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
 
 ## Visual Novel Mode (Low Priority)
 

@@ -813,10 +813,12 @@
       #cb_banner .cb_wall { position: absolute; background-size: cover; background-position: center; background-repeat: no-repeat; pointer-events: none; z-index: 0; }
       #cb_banner .cb_img, #cb_banner .cb_yt { position: relative; z-index: 1; }
       #cb_banner .cb_xfade { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; transition: opacity .8s ease; }
-      #cb_pop_layer { position: fixed; inset: 0; z-index: 2500; pointer-events: none; overflow: hidden; }
+      /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) can leave a
+         fixed box with no height, which hid pop-outs and foreground images. */
+      #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
+      #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
       #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
-      /* A set size, not inset: 0: SillyTavern's phone layout can leave a fixed box with no height. */
-      #cb_place_layer { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 9990; display: none; pointer-events: none; }
+      #cb_place_layer { position: fixed; z-index: 9990; display: none; pointer-events: none; }
       #cb_place_layer .cb_place_grid { position: absolute; inset: 0; display: none; background-image: linear-gradient(to right, rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.14) 1px, transparent 1px); }
       .cb_place_box { position: absolute; display: none; box-sizing: border-box; outline: 2px dashed rgba(255,255,255,.6); outline-offset: -2px; background: rgba(255,255,255,.04); pointer-events: auto; cursor: pointer; touch-action: none; }
       .cb_place_box > span { position: absolute; left: 4px; top: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; white-space: nowrap; display: none; }
@@ -837,8 +839,8 @@
       .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
       .cb_sub { font-size: 0.75em; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--SmartThemeBorderColor, #444); }
       
-      #cb_fg_layer { position: fixed; inset: 0; z-index: 2400; pointer-events: none; opacity: var(--cb-fg-op, 1); }
-      #cb_fg_front { position: fixed; inset: 0; z-index: 2420; pointer-events: none; opacity: var(--cb-fg-op, 1); }
+      #cb_fg_layer { position: fixed; z-index: 2400; pointer-events: none; opacity: var(--cb-fg-op, 1); }
+      #cb_fg_front { position: fixed; z-index: 2420; pointer-events: none; opacity: var(--cb-fg-op, 1); }
       .cb_fg_img { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; pointer-events: none; }
       #cb_fg_left { left: 0; object-position: left bottom; }
       #cb_fg_right { right: 0; object-position: right bottom; }

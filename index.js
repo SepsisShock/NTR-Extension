@@ -20,14 +20,14 @@
     
     // AI Settings
     aiStyle: 'backdrop', aiPopX: 0, aiPopY: 0,
-    aiSide: 'tl', aiFit: 'cover', aiScale: 100, aiPad: 140, 
+    aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 40, aiFadeLeft: 0, aiFadeRight: 50, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
     
     // User Settings
     usStyle: 'backdrop', usPopX: 0, usPopY: 0,
-    usSide: 'tr', usFit: 'cover', usScale: 100, usPad: 140, 
+    usSide: 'tr', usFit: 'contain', usShape: 'none', usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
     usFadeTop: 0, usFadeBot: 40, usFadeLeft: 50, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0,
@@ -158,6 +158,10 @@
     cr: ['FadeRight', 'Right'], bl: ['FadeBL', 'Bottom Left'], bc: ['FadeBot', 'Bottom'], br: ['FadeBR', 'Bottom Right'],
   };
 
+  // Avatar shapes, like SillyTavern's own: [height for a width of 1, corner as a share of the width]. Round is a circle.
+  const SHAPES = { round: [1, 0.5], rectangle: [1.5, 1 / 6], square: [1, 0.04], rounded: [1, 0.2] };
+  const SHAPE_OPTS = [['none', 'None'], ['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']];
+
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
   const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
 
@@ -168,6 +172,12 @@
     const msgs = (fn) => { for (const p of ['Ai', 'Us']) fn(p); };
     // NTR Avatars had its own see-through, 15px rounded messages.
     const ntrAv = (p) => o.avatarEnabled !== false && o[p.toLowerCase() + 'Enabled'] !== false;
+    // Avatar Shape was one setting for SillyTavern's chat avatars and only showed where NTR Avatars was off. Each side
+    // has its own Shape now, so it moves to those sides.
+    if (o.ovAvatarOn) {
+      for (const p of ['Ai', 'Us']) if (!ntrAv(p)) put(p.toLowerCase() + 'Shape', o.ovAvatar);
+      o.ovAvatarOn = false;
+    }
     // Avatar fades are a % of the picture, so they keep their share of it at any Image Scale and message height. Pixel
     // fades become a % of the picture at Scale 100 (300px wide), taken as a portrait 1.5 times as tall as wide. A smaller
     // Scale made pixel fades swallow the picture, so its own Scale would carry that over.
@@ -302,6 +312,7 @@
     const h = s[`${prefix}Side`][1]; 
     const style = s[`${prefix}Style`] === 'popout' ? 'popout' : 'backdrop';
     const fit = s[`${prefix}Fit`];
+    const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
     const n = (key) => rangeNum(s, prefix + key);
     const scale = n('Scale');
     const pad = n('Pad');
@@ -315,6 +326,10 @@
     const blurAmount = n('Blur');
     
     const width = Math.floor(scale * 3); 
+    // A shape is a frame Image Scale sizes: its width, and its height from the shape. Round is a circle.
+    const [aspect, corner] = shape ? SHAPES[shape] : [1, 0];
+    const frameH = Math.round(width * aspect);
+    const frameR = shape === 'round' ? '50%' : `${Math.round(width * corner)}px`;
 
     let padCss = '';
     if (h === 'l') padCss = `padding-left: ${pad}px !important;`;
@@ -340,7 +355,8 @@
         .mes[is_user="${isUserStr}"] .avatar { display: none !important; }
         #cb_pop_${prefix} {
           ${vA} ${hA}
-          width: ${width}px; height: auto;
+          width: ${width}px; height: ${shape ? frameH + 'px' : 'auto'};
+          ${shape ? `object-fit: cover; border-radius: ${frameR};` : ''}
           transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px));
           ${blurAmount > 0 ? `filter: blur(${blurAmount}px);` : ''}
         }
@@ -348,10 +364,18 @@
       `;
     }
 
-    let wrapperPos = '';
-    if (h === 'l') wrapperPos = 'left: 0 !important; right: auto !important;';
-    else if (h === 'c') wrapperPos = 'left: 50% !important; transform: translateX(-50%) !important;';
-    else if (h === 'r') wrapperPos = 'left: auto !important; right: 0 !important;';
+    // Without a shape the box runs the message's full height. With one it's a frame placed by Position, no taller than
+    // the message. Original keeps the picture's own size, so a shape only gives it that shape's corners.
+    const framed = shape && fit !== 'original';
+    const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
+      + (!framed ? ' top: 0 !important; bottom: 0 !important; height: 100% !important;'
+        : (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
+          + ` height: min(100%, ${frameH}px) !important; aspect-ratio: 1 / ${aspect} !important;`)
+      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${framed && v === 'c' ? '-50%' : '0'}) !important;`;
+    const boxW = framed ? 'auto' : fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
+    const shapeCss = !shape ? ''
+      : framed ? `#chat .mes[is_user="${isUserStr}"] .avatar { border-radius: ${frameR} !important; }`
+      : `#chat .mes[is_user="${isUserStr}"] .avatar img { border-radius: ${shape === 'round' ? '50%' : `calc(100cqw * ${corner})`} !important; }`;
 
     const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black ${100 - rightFade}%, transparent 100%)`;
     const vMask = `linear-gradient(to bottom, transparent 0%, black ${topFade}%, black ${100 - botFade}%, transparent 100%)`;
@@ -374,14 +398,14 @@
 
     return `
       .mes[is_user="${isUserStr}"] .avatar { 
-        position: absolute !important; top: 0 !important; bottom: 0 !important; height: 100% !important;
-        width: ${width}px !important; max-width: 80% !important; 
+        position: absolute !important; ${boxPos}
+        width: ${boxW} !important; max-width: 80% !important; 
         margin: 0 !important; padding: 0 !important; z-index: 0 !important; pointer-events: none !important; 
         overflow: hidden !important; container-type: size !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; 
         display: block !important; background: transparent !important; border: none !important;
-        ${wrapperPos}
         ${filterRule} 
       }
+      ${shapeCss}
       .mes[is_user="${isUserStr}"] .avatar img { 
         position: absolute !important; ${imgBoxCss}
         display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
@@ -395,9 +419,35 @@
     `;
   }
 
-  // A chat avatar picture's shape, so the image can be sized to the picture (see getAvatarCss).
+  // A chat avatar picture's shape and width, so the image can be sized to the picture (see getAvatarCss).
   function setAvatarRatio(img) {
-    if (img.naturalWidth && img.naturalHeight) img.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    img.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
+    img.parentElement?.style.setProperty('--cb-nw', img.naturalWidth + 'px');
+  }
+
+  // NTR's Backdrop shows the full-size picture, not SillyTavern's small thumbnail. It's loaded first and only swapped
+  // in once it's there: SillyTavern replaces a chat avatar that fails to load with a "missing" icon.
+  function fullAvatar(img) {
+    const mes = img.closest('#chat .mes');
+    const src = img.getAttribute('src');
+    if (!mes || !src) return;
+    const p = mes.getAttribute('is_user') === 'true' ? 'us' : 'ai';
+    const s = settings();
+    if (!ntrAvatars(s, p) || s[p + 'Style'] === 'popout') return;
+    const full = fullResUrl(src);
+    if (full === src || img.dataset.ntrFull === full) return;
+    img.dataset.ntrFull = full;
+    const pre = new Image();
+    pre.onload = () => { if (img.getAttribute('src') === src) img.src = full; };
+    pre.src = full;
+  }
+
+  // SillyTavern's own chat avatars in a side's Shape, where NTR Avatars is off for that side.
+  function stShapeCss(flag, shape) {
+    const [w, h] = shape === 'rectangle' ? ['calc(var(--avatar-base-width) * 1.2)', 'calc(var(--avatar-base-height) * 1.8)'] : ['var(--avatar-base-width)', 'var(--avatar-base-height)'];
+    const r = { round: 'var(--avatar-base-border-radius-round)', rectangle: 'calc(var(--avatar-base-border-radius) * 5)', square: 'var(--avatar-base-border-radius)', rounded: 'var(--avatar-base-border-radius-rounded)' }[shape];
+    return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; }\n`;
   }
 
   function setPopStatus(prefix, msg) {
@@ -952,9 +1002,14 @@
       `;
       }
     }
+    if (isOn()) {
+      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) cssString += stShapeCss(flag, s[prefix + 'Shape']);
+      }
+    }
 
     styleEl.textContent = cssString;
-    document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); });
+    document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); fullAvatar(img); });
     syncGoogleFonts();
     syncCustomCss();
     watchReasoningLabels();
@@ -1549,13 +1604,16 @@
       <div class="ntr_glab">${title}</div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
         <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>${title} Avatar</span></label>
+        <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}
+          <div class="cb_hint" style="margin: 4px 0 0;">Crops the avatar to this shape, sized by Image Scale. With ${title} Avatar off, it shapes SillyTavern's own chat avatar. None keeps the whole picture.</div></div>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
-        ${grp('backdrop', `<div><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['cover', 'Fill'], ['contain', 'Fit'], ['original', 'Original']], s[`${prefix}Fit`])}</div>`)}
+        ${grp('backdrop', `<div><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>`)}
 
-        ${slider('sc', 'Scale', 'Image Scale:')}
+        <div id="m_${prefix}_scwrap" class="${style === 'backdrop' && s[`${prefix}Fit`] === 'original' ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Image Scale:')}</div>
+        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${style === 'backdrop' && s[`${prefix}Fit`] === 'original' ? '' : ' display: none;'}">Original shows the picture at its own size, so Image Scale is off.</div>
         ${slider('pad', 'Pad', 'Text Padding:')}
 
         ${grp('backdrop', `<div class="cb_sub">Fades</div>`
@@ -1734,8 +1792,7 @@
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
             </div>
-        `, { sw: ['m_a_enable', s.avatarEnabled], note: card('Chat Avatars', ovRow(s, 'ovAvatarOn', 'Avatar Shape', pills('oavatar', [['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']], s.ovAvatar)
-          + '<div class="cb_hint" style="margin-top:6px;">Shapes SillyTavern\'s normal chat avatars, even with Avatar Management switched off. Where NTR Avatars is on, it replaces them, so there\'s nothing to shape there.</div>')) })}
+        `, { sw: ['m_a_enable', s.avatarEnabled] })}
 
         ${reasoningSectionHtml(s)}
         ${textSectionHtml(s)}
@@ -2051,19 +2108,27 @@
       const col = overlay.querySelector(`#m_${prefix}_col`);
       const label = prefix === 'ai' ? 'AI' : 'User';
 
+      // Image Scale is off for Backdrop's Original, which keeps the picture's own size.
+      const syncScale = () => {
+        const off = s[`${prefix}Style`] !== 'popout' && s[`${prefix}Fit`] === 'original';
+        col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', off);
+        col.querySelector(`#m_${prefix}_orighint`).style.display = off ? '' : 'none';
+      };
       onPills(col, `${prefix}style`, (v) => {
         s[`${prefix}Style`] = v;
         save();
         col.querySelectorAll('.cb_grp').forEach((g) => { g.style.display = g.dataset.only === v ? 'flex' : 'none'; });
+        syncScale();
         updateAvatarStyle();
       });
+      onPills(col, `${prefix}shape`, (v) => { s[`${prefix}Shape`] = v; save(); updateAvatarStyle(); });
       overlay.querySelector(`#m_${prefix}_on`).onchange = function() {
         s[`${prefix}Enabled`] = this.checked; save(); updateAvatarStyle();
         col.querySelector(`#m_${prefix}_body`).classList.toggle('cb_dim', !this.checked);
       };
       overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
-      onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); updateAvatarStyle(); });
+      onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); syncScale(); updateAvatarStyle(); });
       // One slider for the fade picked on the fade grid.
       const fadeSl = col.querySelector(`#m_${prefix}_fade`);
       let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`)?.value || 'bc';
@@ -2233,7 +2298,7 @@
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
   const ALL_AV = ['big-avatars', 'square-avatars', 'rounded-avatars'];
   let bodyTouched = false;
-  let bodySnap = null, bodyObs = null;
+  let bodySnap = null;
 
   function setBodyClasses(all, want) {
     const b = document.body;
@@ -2251,15 +2316,8 @@
     const p = ctx().powerUserSettings;
     const stAv = p && p.avatar_style !== undefined ? [['', ...ALL_AV][Number(p.avatar_style)]].filter(Boolean) : bodySnap;
 
-    if (isOn() && s.ovAvatarOn) { setBodyClasses(ALL_AV, [AV_CLS[s.ovAvatar]].filter(Boolean)); bodyTouched = true; }
-    else if (bodyTouched) { setBodyClasses(ALL_AV, stAv); bodyTouched = false; }
-
-    if (!bodyObs && window.MutationObserver) {
-      bodyObs = new MutationObserver(() => {
-        if (isOn() && settings().ovAvatarOn) applyBodyOverrides();
-      });
-      bodyObs.observe(b, { attributes: true, attributeFilter: ['class'] });
-    }
+    // Avatar Shape used to set SillyTavern's avatar classes on the page; it's per side now (see stShapeCss).
+    if (bodyTouched) { setBodyClasses(ALL_AV, stAv); bodyTouched = false; }
   }
 
   function overrideCss(s) {
@@ -2501,7 +2559,7 @@
     if (p !== 'Panel') PICK_KEYS[`ov${p}Shape`] = OV_SHAPES;
   }
   for (const p of ['ai', 'us']) {
-    Object.assign(PICK_KEYS, { [p + 'Style']: ['backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'] });
+    Object.assign(PICK_KEYS, { [p + 'Style']: ['backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v) });
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
@@ -3066,7 +3124,6 @@
       };
       sl.onchange = save;
     });
-    onPills(overlay, 'oavatar', (v) => { s.ovAvatar = v; save(); updateAvatarStyle(); });
     const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
     for (const k of Object.keys(PICK_KEYS)) {
       if (k.startsWith('ov') && k !== 'ovAvatar') onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
@@ -4276,7 +4333,11 @@
     registerSlashCommand();
     document.addEventListener('pointerover', onCursorOver, true);
     document.addEventListener('pointerdown', onCursorDown, true);
-    document.addEventListener('load', (e) => { if (e.target instanceof HTMLImageElement && e.target.matches('#chat .mes .avatar img')) setAvatarRatio(e.target); }, true);
+    document.addEventListener('load', (e) => {
+      if (!(e.target instanceof HTMLImageElement) || !e.target.matches('#chat .mes .avatar img')) return;
+      setAvatarRatio(e.target);
+      fullAvatar(e.target);
+    }, true);
     for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, onCursorUp, true);
     window.addEventListener('blur', onCursorUp);
     window.addEventListener('resize', () => {

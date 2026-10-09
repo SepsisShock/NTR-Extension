@@ -52,6 +52,11 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 - [ ] Text alignment for chat messages: left, right, center or justified.
 
+### Backdrop Image Scale
+With Shape set to None, Backdrop's Image Scale only sets the avatar box's width; the box is always as tall as its message. On Fill, a bigger Scale zooms and crops the picture instead of showing more of it, which is most visible on short User messages. The other Shapes are frames that Image Scale sizes, so they don't have this.
+
+- [ ] Make Image Scale resize the whole picture for Shape None too. The fades already follow the picture (a share of it, not pixels).
+
 ### NTR Avatars: more styles
 - [ ] A third style next to Backdrop and Pop Out, where the avatar sits in line with the message.
 - [ ] An avatar that shows only once on screen and stays put while scrolling.

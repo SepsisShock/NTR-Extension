@@ -23,14 +23,14 @@
     aiSide: 'tl', aiFit: 'cover', aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
-    aiFadeTop: 0, aiFadeBot: 40, aiFadeLeft: 0, aiFadeRight: 50,
+    aiFadeTop: 0, aiFadeBot: 40, aiFadeLeft: 0, aiFadeRight: 50, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
     
     // User Settings
     usStyle: 'backdrop', usPopX: 0, usPopY: 0,
     usSide: 'tr', usFit: 'cover', usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
-    usFadeTop: 0, usFadeBot: 40, usFadeLeft: 50, usFadeRight: 0,
+    usFadeTop: 0, usFadeBot: 40, usFadeLeft: 50, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0,
 
     // Foreground Settings
     fgEnabled: false,
@@ -150,6 +150,12 @@
     return String(str).replace(/[&<>'"]/g, match => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     }[match]));
+  };
+
+  // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
+  const FADE_PARTS = {
+    tl: ['FadeTL', 'Top Left'], tc: ['FadeTop', 'Top'], tr: ['FadeTR', 'Top Right'], cl: ['FadeLeft', 'Left'],
+    cr: ['FadeRight', 'Right'], bl: ['FadeBL', 'Bottom Left'], bc: ['FadeBot', 'Bottom'], br: ['FadeBR', 'Bottom Right'],
   };
 
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
@@ -349,6 +355,11 @@
 
     const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black ${100 - rightFade}%, transparent 100%)`;
     const vMask = `linear-gradient(to bottom, transparent 0%, black ${topFade}%, black ${100 - botFade}%, transparent 100%)`;
+    // A corner fade is a rounded fade from that corner, reaching its % of the picture's width and height.
+    const corners = [['TL', '0% 0%'], ['TR', '100% 0%'], ['BL', '0% 100%'], ['BR', '100% 100%']]
+      .filter(([k]) => n('Fade' + k) > 0)
+      .map(([k, at]) => `radial-gradient(${n('Fade' + k)}% ${n('Fade' + k)}% at ${at}, transparent 0%, black 100%)`);
+    const masks = [hMask, vMask, ...corners].join(', ');
 
     // The image is sized to the picture itself, so the fades follow the picture, not the box: Fill covers the box and
     // gets cropped by it, Fit fits inside it, Original keeps the picture's own size. 100cqw and 100cqh are the box's
@@ -374,9 +385,9 @@
       .mes[is_user="${isUserStr}"] .avatar img { 
         position: absolute !important; ${imgBoxCss}
         display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
-        -webkit-mask-image: ${hMask}, ${vMask} !important;
+        -webkit-mask-image: ${masks} !important;
         -webkit-mask-composite: source-in !important;
-        mask-image: ${hMask}, ${vMask} !important; 
+        mask-image: ${masks} !important; 
         mask-composite: intersect !important;
         object-fit: fill !important; 
       }
@@ -904,6 +915,7 @@
       .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
       .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
       .cb_posgrid label:hover { background: rgba(255,255,255,.08); }
+      .cb_fadegrid label.cb_fon { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 35%, transparent); }
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
       .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
@@ -1529,6 +1541,8 @@
       <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val">${rangeNum(s, prefix + key)}</span>${NUM_RANGE[prefix + key][3]}</span></div>
       <input type="range" id="m_${prefix}_${id}" ${rangeAttrs(prefix + key)} value="${rangeNum(s, prefix + key)}">`;
     const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${style === only ? 'flex' : 'none'};">${inner}</div>`;
+    // The fade grid starts on the first fade that's on, or Bottom.
+    const fadeCur = Object.keys(FADE_PARTS).find((v) => rangeNum(s, prefix + FADE_PARTS[v][0]) > 0) || 'bc';
 
     return `
       <div class="ntr_colwrap">
@@ -1545,11 +1559,10 @@
         ${slider('pad', 'Pad', 'Text Padding:')}
 
         ${grp('backdrop', `<div class="cb_sub">Fades</div>`
-          + slider('tf', 'FadeTop', 'Top Fade:')
-          + slider('bf', 'FadeBot', 'Bottom Fade:')
-          + slider('lf', 'FadeLeft', 'Left Fade:')
-          + slider('rf', 'FadeRight', 'Right Fade:')
-          + '<div class="cb_hint" style="margin: 0;">A share of the picture, so the fades keep their look at any Image Scale.</div>')}
+          + fadeGrid(prefix, s, fadeCur)
+          + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
+          <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">`
+          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the picture, so they keep their look at any Image Scale.</div>')}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
@@ -2051,6 +2064,23 @@
       overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); updateAvatarStyle(); });
+      // One slider for the fade picked on the fade grid.
+      const fadeSl = col.querySelector(`#m_${prefix}_fade`);
+      let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`)?.value || 'bc';
+      onPills(col, `${prefix}fade`, (v) => {
+        fadeAt = v;
+        const val = rangeNum(s, prefix + FADE_PARTS[v][0]);
+        fadeSl.value = val;
+        col.querySelector(`#m_${prefix}_fadeval`).textContent = val;
+        col.querySelector(`#m_${prefix}_fadelab`).textContent = `${FADE_PARTS[v][1]} Fade:`;
+      });
+      fadeSl.oninput = function() {
+        s[prefix + FADE_PARTS[fadeAt][0]] = Number(this.value);
+        col.querySelector(`#m_${prefix}_fadeval`).textContent = this.value;
+        col.querySelector(`input[name="cbr_${prefix}fade"][value="${fadeAt}"]`).closest('label').classList.toggle('cb_fon', Number(this.value) > 0);
+        updateAvatarStyle();
+      };
+      fadeSl.onchange = save;
 
       overlay.querySelector(`#m_${prefix}_reset`).onclick = async function() {
         if (!(await askYes(this, `Reset all ${label} avatar settings to defaults? (Style stays as it is.)`, 'Reset'))) return;
@@ -2064,8 +2094,6 @@
       
       const sliders = [
         { id: 'sc', key: 'Scale' }, { id: 'pad', key: 'Pad' },
-        { id: 'tf', key: 'FadeTop' }, { id: 'bf', key: 'FadeBot' },
-        { id: 'lf', key: 'FadeLeft' }, { id: 'rf', key: 'FadeRight' },
         { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
         { id: 'bl', key: 'Blur' }
       ];
@@ -2131,6 +2159,14 @@
   const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
   function posGrid(name, cur) {
     return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
+  }
+  // The avatar fade grid: the Position grid's cells, each a fade, with the middle left empty. Lit cells have a fade on.
+  function fadeGrid(prefix, s, cur) {
+    return `<div class="cb_posgrid cb_fadegrid">${POS_GRID.map(([v]) => {
+      if (!FADE_PARTS[v]) return '<span></span>';
+      const [key, name] = FADE_PARTS[v];
+      return `<label title="${name} Fade" class="${rangeNum(s, prefix + key) > 0 ? 'cb_fon' : ''}"><input type="radio" name="cbr_${prefix}fade" value="${v}" ${v === cur ? 'checked' : ''}></label>`;
+    }).join('')}</div>`;
   }
   function onPills(root, name, fn) {
     root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
@@ -3483,6 +3519,7 @@
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
       [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],
+      [p + 'FadeTL']: [0, 100, 1, '%'], [p + 'FadeTR']: [0, 100, 1, '%'], [p + 'FadeBL']: [0, 100, 1, '%'], [p + 'FadeBR']: [0, 100, 1, '%'],
     });
   }
   // A number setting kept to its range, or its default if it isn't a number.

@@ -23,14 +23,14 @@
     aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
-    aiFadeTop: 0, aiFadeBot: 40, aiFadeLeft: 0, aiFadeRight: 50, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
+    aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
     
     // User Settings
     usStyle: 'backdrop', usPopX: 0, usPopY: 0,
     usSide: 'tr', usFit: 'contain', usShape: 'none', usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
-    usFadeTop: 0, usFadeBot: 40, usFadeLeft: 50, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0,
+    usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0,
 
     // Foreground Settings
     fgEnabled: false,

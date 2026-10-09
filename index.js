@@ -309,10 +309,11 @@
     `;
 
     if (style === 'popout') {
-      const vA = v === 't' ? 'top: 0; bottom: auto;' : v === 'b' ? 'top: auto; bottom: 0;' : 'top: 50%; bottom: auto;';
-      const hA = h === 'l' ? 'left: 0; right: auto;' : h === 'r' ? 'left: auto; right: 0;' : 'left: 50%; right: auto;';
-      const tx = h === 'c' ? '-50%' : '0px';
-      const ty = v === 'c' ? '-50%' : '0px';
+      // Position is on the chat panel, not the screen: Top Left is the chat's top-left corner (see layoutPop).
+      const vA = `top: calc(var(--cb-ct, 0px) + var(--cb-ch, 100vh) * ${v === 't' ? 0 : v === 'b' ? 1 : 0.5}); bottom: auto;`;
+      const hA = `left: calc(var(--cb-cl, 0px) + var(--cb-cw, 100vw) * ${h === 'l' ? 0 : h === 'r' ? 1 : 0.5}); right: auto;`;
+      const tx = h === 'c' ? '-50%' : h === 'r' ? '-100%' : '0px';
+      const ty = v === 'c' ? '-50%' : v === 'b' ? '-100%' : '0px';
       return `
         .mes[is_user="${isUserStr}"] .avatar { display: none !important; }
         #cb_pop_${prefix} {
@@ -383,6 +384,9 @@
     layer.id = 'cb_pop_layer';
     layer.innerHTML = '<img id="cb_pop_ai" alt="" draggable="false"><img id="cb_pop_us" alt="" draggable="false">';
     document.body.appendChild(layer);
+    const chat = document.getElementById('chat');
+    if (chat && window.ResizeObserver) new ResizeObserver(() => layoutPop()).observe(chat);
+    layoutPop();
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       el.onerror = () => {
@@ -401,6 +405,17 @@
       };
     }
     return layer;
+  }
+
+  // Pop-outs are placed on the chat panel, so the layer keeps the panel's place on screen.
+  function layoutPop() {
+    const layer = document.getElementById('cb_pop_layer');
+    const chat = document.getElementById('chat');
+    if (!layer || !chat) return;
+    const r = chat.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    for (const [k, v] of [['cl', r.left], ['ct', r.top], ['cw', r.width], ['ch', r.height]]) layer.style.setProperty(`--cb-${k}`, Math.round(v) + 'px');
+    drawPlace();
   }
 
   function layoutFg() {
@@ -733,6 +748,7 @@
   function syncPopouts() {
     const s = settings();
     const layer = ensurePopLayer();
+    layoutPop();
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
@@ -1517,7 +1533,7 @@
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
-          <div class="cb_hint" style="margin: 0;">Hides the menu so you can drag the picture on screen. Press Done to come back.</div>
+          <div class="cb_hint" style="margin: 0;">Hides the menu so you can drag the picture on screen. Press Done to come back. Position is on the chat panel: Top Left is the chat's top-left corner.</div>
           <div id="m_${prefix}_pstat" style="font-size: 0.8em; opacity: 0.75;">${escapeHTML(popMsg[prefix] || '')}</div>`
           + slider('ox', 'PopX', 'Move Horizontal:')
           + slider('oy', 'PopY', 'Move Vertical:'))}
@@ -4207,6 +4223,7 @@
     window.addEventListener('resize', () => {
       syncWallpaper();
       layoutFg();
+      layoutPop();
       const ov = document.getElementById('cb_modal_overlay');
       if (!ov) return;
       panelLayout(ov);

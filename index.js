@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.15.1';
+  const VERSION = '2.15.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -23,12 +23,14 @@
     aiSide: 'tl', aiFit: 'cover', aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
+    aiFadeTop: 0, aiFadeBot: 40, aiFadeLeft: 0, aiFadeRight: 50,
     
     // User Settings
     usStyle: 'backdrop', usPopX: 0, usPopY: 0,
     usSide: 'tr', usFit: 'cover', usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
+    usFadeTop: 0, usFadeBot: 40, usFadeLeft: 50, usFadeRight: 0,
 
     // Foreground Settings
     fgEnabled: false,
@@ -160,6 +162,20 @@
     const msgs = (fn) => { for (const p of ['Ai', 'Us']) fn(p); };
     // NTR Avatars had its own see-through, 15px rounded messages.
     const ntrAv = (p) => o.avatarEnabled !== false && o[p.toLowerCase() + 'Enabled'] !== false;
+    // Avatar fades are a % of the picture, so they keep their share of it at any Image Scale and message height. Pixel
+    // fades become a % of the picture at Scale 100 (300px wide), taken as a portrait 1.5 times as tall as wide. A smaller
+    // Scale made pixel fades swallow the picture, so its own Scale would carry that over.
+    // The first side fades were already a % of the width.
+    for (const p of ['ai', 'us']) {
+      const w = 300;
+      const pct = (v, size) => Math.min(100, Math.max(0, Math.round((Number(v) || 0) / size * 100)));
+      if (p + 'TopFade' in o) put(p + 'FadeTop', pct(o[p + 'TopFade'], w * 1.5));
+      if (p + 'BotFade' in o) put(p + 'FadeBot', pct(o[p + 'BotFade'], w * 1.5));
+      for (const side of ['Left', 'Right']) {
+        if (p + side + 'FadePx' in o) put(p + 'Fade' + side, pct(o[p + side + 'FadePx'], w));
+        else if (p + side + 'Fade' in o) put(p + 'Fade' + side, pct(o[p + side + 'Fade'], 100));
+      }
+    }
     // Make Chat Panel Transparent is the Chat Panel's Background set to Transparent.
     if ('chatTransparent' in o) {
       put('ovPanelBgOn', !!o.chatTransparent);
@@ -286,10 +302,10 @@
     const popX = n('PopX');
     const popY = n('PopY');
     
-    const topFade = n('TopFade');
-    const botFade = n('BotFade');
-    const leftFade = n('LeftFadePx');
-    const rightFade = n('RightFadePx');
+    const topFade = n('FadeTop');
+    const botFade = n('FadeBot');
+    const leftFade = n('FadeLeft');
+    const rightFade = n('FadeRight');
     const blurAmount = n('Blur');
     
     const width = Math.floor(scale * 3); 
@@ -335,8 +351,8 @@
     const objH = h === 'l' ? 'left' : (h === 'c' ? 'center' : 'right');
     const objPos = `${objH} ${objV}`;
 
-    const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}px, black calc(100% - ${rightFade}px), transparent 100%)`;
-    const vMask = `linear-gradient(to bottom, transparent 0, black ${topFade}px, black calc(100% - ${botFade}px), transparent 100%)`;
+    const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black ${100 - rightFade}%, transparent 100%)`;
+    const vMask = `linear-gradient(to bottom, transparent 0%, black ${topFade}%, black ${100 - botFade}%, transparent 100%)`;
 
     let imgFitCss = 'object-fit: cover !important;';
     let imgBoxCss = 'inset: 0 !important; width: 100% !important; height: 100% !important;';
@@ -1526,10 +1542,11 @@
         ${slider('pad', 'Pad', 'Text Padding:')}
 
         ${grp('backdrop', `<div class="cb_sub">Fades</div>`
-          + slider('tf', 'TopFade', 'Top Fade:')
-          + slider('bf', 'BotFade', 'Bottom Fade:')
-          + slider('lf', 'LeftFadePx', 'Left Fade:')
-          + slider('rf', 'RightFadePx', 'Right Fade:'))}
+          + slider('tf', 'FadeTop', 'Top Fade:')
+          + slider('bf', 'FadeBot', 'Bottom Fade:')
+          + slider('lf', 'FadeLeft', 'Left Fade:')
+          + slider('rf', 'FadeRight', 'Right Fade:')
+          + '<div class="cb_hint" style="margin: 0;">A share of the picture, so the fades keep their look at any Image Scale.</div>')}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
@@ -2044,8 +2061,8 @@
       
       const sliders = [
         { id: 'sc', key: 'Scale' }, { id: 'pad', key: 'Pad' },
-        { id: 'tf', key: 'TopFade' }, { id: 'bf', key: 'BotFade' },
-        { id: 'lf', key: 'LeftFadePx' }, { id: 'rf', key: 'RightFadePx' },
+        { id: 'tf', key: 'FadeTop' }, { id: 'bf', key: 'FadeBot' },
+        { id: 'lf', key: 'FadeLeft' }, { id: 'rf', key: 'FadeRight' },
         { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
         { id: 'bl', key: 'Blur' }
       ];
@@ -3462,6 +3479,7 @@
       [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'Blur']: [0, 20, 1, 'px'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
+      [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],
     });
   }
   // A number setting kept to its range, or its default if it isn't a number.

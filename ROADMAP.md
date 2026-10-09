@@ -57,9 +57,6 @@ With Shape set to None, Backdrop's Image Scale only sets the avatar box's width;
 
 - [ ] Make Image Scale resize the whole picture for Shape None too. The fades already follow the picture (a share of it, not pixels).
 
-### NTR Avatars: more styles
-- [ ] An avatar that shows only once on screen and stays put while scrolling.
-
 ### Regex
 Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
 

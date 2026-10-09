@@ -25,3 +25,7 @@ SillyTavern extension.
 
 ## Writing
 - Menu text, hints and PR descriptions: plain language, no em dashes.
+
+## Audience
+- I'm the only person using NTR. Judge every change by what works for me, and write replies, plans, PRs, commits and code comments for me alone: no hypothetical users, their setups or moving their saved data.
+- Keeping settings keys and cleaning card data (see Code) stay as general practice. Follow them quietly, as code rules, not as talking points. Card data still comes from strangers' cards, so it stays untrusted.

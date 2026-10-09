@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.15.0';
+  const VERSION = '2.15.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -309,10 +309,11 @@
     `;
 
     if (style === 'popout') {
-      const vA = v === 't' ? 'top: 0; bottom: auto;' : v === 'b' ? 'top: auto; bottom: 0;' : 'top: 50%; bottom: auto;';
-      const hA = h === 'l' ? 'left: 0; right: auto;' : h === 'r' ? 'left: auto; right: 0;' : 'left: 50%; right: auto;';
-      const tx = h === 'c' ? '-50%' : '0px';
-      const ty = v === 'c' ? '-50%' : '0px';
+      // Position is on the chat panel, not the screen: Top Left is the chat's top-left corner (see layoutPop).
+      const vA = `top: calc(var(--cb-ct, 0px) + var(--cb-ch, 100vh) * ${v === 't' ? 0 : v === 'b' ? 1 : 0.5}); bottom: auto;`;
+      const hA = `left: calc(var(--cb-cl, 0px) + var(--cb-cw, 100vw) * ${h === 'l' ? 0 : h === 'r' ? 1 : 0.5}); right: auto;`;
+      const tx = h === 'c' ? '-50%' : h === 'r' ? '-100%' : '0px';
+      const ty = v === 'c' ? '-50%' : v === 'b' ? '-100%' : '0px';
       return `
         .mes[is_user="${isUserStr}"] .avatar { display: none !important; }
         #cb_pop_${prefix} {
@@ -383,6 +384,9 @@
     layer.id = 'cb_pop_layer';
     layer.innerHTML = '<img id="cb_pop_ai" alt="" draggable="false"><img id="cb_pop_us" alt="" draggable="false">';
     document.body.appendChild(layer);
+    const chat = document.getElementById('chat');
+    if (chat && window.ResizeObserver) new ResizeObserver(() => layoutPop()).observe(chat);
+    layoutPop();
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       el.onerror = () => {
@@ -401,6 +405,17 @@
       };
     }
     return layer;
+  }
+
+  // Pop-outs are placed on the chat panel, so the layer keeps the panel's place on screen.
+  function layoutPop() {
+    const layer = document.getElementById('cb_pop_layer');
+    const chat = document.getElementById('chat');
+    if (!layer || !chat) return;
+    const r = chat.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    for (const [k, v] of [['cl', r.left], ['ct', r.top], ['cw', r.width], ['ch', r.height]]) layer.style.setProperty(`--cb-${k}`, Math.round(v) + 'px');
+    drawPlace();
   }
 
   function layoutFg() {
@@ -733,6 +748,7 @@
   function syncPopouts() {
     const s = settings();
     const layer = ensurePopLayer();
+    layoutPop();
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
@@ -813,10 +829,12 @@
       #cb_banner .cb_wall { position: absolute; background-size: cover; background-position: center; background-repeat: no-repeat; pointer-events: none; z-index: 0; }
       #cb_banner .cb_img, #cb_banner .cb_yt { position: relative; z-index: 1; }
       #cb_banner .cb_xfade { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; transition: opacity .8s ease; }
-      #cb_pop_layer { position: fixed; inset: 0; z-index: 2500; pointer-events: none; overflow: hidden; }
+      /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) can leave a
+         fixed box with no height, which hid pop-outs and foreground images. */
+      #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
+      #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
       #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
-      /* A set size, not inset: 0: SillyTavern's phone layout can leave a fixed box with no height. */
-      #cb_place_layer { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 9990; display: none; pointer-events: none; }
+      #cb_place_layer { position: fixed; z-index: 9990; display: none; pointer-events: none; }
       #cb_place_layer .cb_place_grid { position: absolute; inset: 0; display: none; background-image: linear-gradient(to right, rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.14) 1px, transparent 1px); }
       .cb_place_box { position: absolute; display: none; box-sizing: border-box; outline: 2px dashed rgba(255,255,255,.6); outline-offset: -2px; background: rgba(255,255,255,.04); pointer-events: auto; cursor: pointer; touch-action: none; }
       .cb_place_box > span { position: absolute; left: 4px; top: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; white-space: nowrap; display: none; }
@@ -837,8 +855,8 @@
       .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
       .cb_sub { font-size: 0.75em; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--SmartThemeBorderColor, #444); }
       
-      #cb_fg_layer { position: fixed; inset: 0; z-index: 2400; pointer-events: none; opacity: var(--cb-fg-op, 1); }
-      #cb_fg_front { position: fixed; inset: 0; z-index: 2420; pointer-events: none; opacity: var(--cb-fg-op, 1); }
+      #cb_fg_layer { position: fixed; z-index: 2400; pointer-events: none; opacity: var(--cb-fg-op, 1); }
+      #cb_fg_front { position: fixed; z-index: 2420; pointer-events: none; opacity: var(--cb-fg-op, 1); }
       .cb_fg_img { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; pointer-events: none; }
       #cb_fg_left { left: 0; object-position: left bottom; }
       #cb_fg_right { right: 0; object-position: right bottom; }
@@ -1515,7 +1533,7 @@
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
-          <div class="cb_hint" style="margin: 0;">Hides the menu so you can drag the picture on screen. Press Done to come back.</div>
+          <div class="cb_hint" style="margin: 0;">Hides the menu so you can drag the picture on screen. Press Done to come back. Position is on the chat panel: Top Left is the chat's top-left corner.</div>
           <div id="m_${prefix}_pstat" style="font-size: 0.8em; opacity: 0.75;">${escapeHTML(popMsg[prefix] || '')}</div>`
           + slider('ox', 'PopX', 'Move Horizontal:')
           + slider('oy', 'PopY', 'Move Vertical:'))}
@@ -4205,6 +4223,7 @@
     window.addEventListener('resize', () => {
       syncWallpaper();
       layoutFg();
+      layoutPop();
       const ov = document.getElementById('cb_modal_overlay');
       if (!ov) return;
       panelLayout(ov);

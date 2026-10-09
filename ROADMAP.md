@@ -58,7 +58,6 @@ With Shape set to None, Backdrop's Image Scale only sets the avatar box's width;
 - [ ] Make Image Scale resize the whole picture for Shape None too. The fades already follow the picture (a share of it, not pixels).
 
 ### NTR Avatars: more styles
-- [ ] A third style next to Backdrop and Pop Out, where the avatar sits in line with the message.
 - [ ] An avatar that shows only once on screen and stays put while scrolling.
 
 ### Regex

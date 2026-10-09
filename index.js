@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.16.0';
+  const VERSION = '2.17.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -19,14 +19,14 @@
     avatarEnabled: true,
     
     // AI Settings
-    aiStyle: 'backdrop', aiPopX: 0, aiPopY: 0,
+    aiStyle: 'inline', aiPopX: 0, aiPopY: 0,
     aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
     
     // User Settings
-    usStyle: 'backdrop', usPopX: 0, usPopY: 0,
+    usStyle: 'inline', usPopX: 0, usPopY: 0,
     usSide: 'tl', usFit: 'contain', usShape: 'none', usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
@@ -310,7 +310,7 @@
   function getAvatarCss(prefix, isUserStr, s) {
     const v = s[`${prefix}Side`][0]; 
     const h = s[`${prefix}Side`][1]; 
-    const style = s[`${prefix}Style`] === 'popout' ? 'popout' : 'backdrop';
+    const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
     const fit = s[`${prefix}Fit`];
     const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
     const n = (key) => rangeNum(s, prefix + key);
@@ -390,11 +390,50 @@
     // width and height, and --cb-ar is the picture's shape (see setAvatarRatio). Position places it in the box.
     const ar = 'var(--cb-ar, 0.6667)';
     const imgW = fit === 'contain' ? `min(100cqw, 100cqh * ${ar})` : fit === 'original' ? 'auto' : `max(100cqw, 100cqh * ${ar})`;
-    const imgBoxCss = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'r' ? 'left: auto !important; right: 0 !important;' : 'left: 50% !important; right: auto !important;')
-      + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
-      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'}) !important;`
+    // In Line's Position places the avatar beside the text, so its picture sits centered in its own box.
+    const [ih, iv] = style === 'inline' ? ['c', 'c'] : [h, v];
+    const imgBoxCss = (ih === 'l' ? 'left: 0 !important; right: auto !important;' : ih === 'r' ? 'left: auto !important; right: 0 !important;' : 'left: 50% !important; right: auto !important;')
+      + (iv === 't' ? ' top: 0 !important; bottom: auto !important;' : iv === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
+      + ` transform: translate(${ih === 'c' ? '-50%' : '0'}, ${iv === 'c' ? '-50%' : '0'}) !important;`
       + ` width: ${imgW} !important; height: auto !important; max-width: none !important; max-height: none !important;`
       + (fit === 'original' ? '' : ` aspect-ratio: ${ar} !important;`);
+    const imgCss = `
+      #chat .mes[is_user="${isUserStr}"] .avatar img {
+        position: absolute !important; ${imgBoxCss}
+        display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
+        -webkit-mask-image: ${masks} !important;
+        -webkit-mask-composite: source-in !important;
+        mask-image: ${masks} !important;
+        mask-composite: intersect !important;
+        object-fit: fill !important;
+      }`;
+
+    if (style === 'inline') {
+      // In Line: the avatar stays in SillyTavern's avatar spot, in the message's flow, so the text never goes under it.
+      // The left or right of the grid puts it on that side of the text and its row lines it up with the text's top,
+      // middle or bottom. The middle column puts it above the text, or below it on the bottom row.
+      const where = h === 'c' ? (v === 'b' ? 'below' : 'above') : h === 'r' ? 'right' : 'left';
+      const stacked = where === 'above' || where === 'below';
+      const boxShape = framed ? `aspect-ratio: 1 / ${aspect} !important; border-radius: ${frameR} !important;` : `aspect-ratio: ${ar} !important; border-radius: 0 !important;`;
+      return `
+      ${stacked ? `#chat .mes[is_user="${isUserStr}"] { flex-wrap: wrap !important; }
+      #chat .mes[is_user="${isUserStr}"] .mes_block { flex: 0 0 100% !important; }` : ''}
+      #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
+        order: ${where === 'right' || where === 'below' ? 1 : 0} !important;
+        ${stacked ? 'flex: 0 0 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important;'
+          : `align-self: ${v === 't' ? 'flex-start' : v === 'b' ? 'flex-end' : 'center'} !important;`}
+      }
+      #chat .mes[is_user="${isUserStr}"] .avatar {
+        position: relative !important; flex: none !important;
+        width: ${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
+        overflow: hidden !important; container-type: size !important;
+        margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
+        ${filterRule}
+      }
+      ${imgCss}
+      ${framed ? '' : shapeCss}
+    `;
+    }
 
     return `
       .mes[is_user="${isUserStr}"] .avatar { 
@@ -405,16 +444,8 @@
         display: block !important; background: transparent !important; border: none !important;
         ${filterRule} 
       }
+      ${imgCss}
       ${shapeCss}
-      .mes[is_user="${isUserStr}"] .avatar img { 
-        position: absolute !important; ${imgBoxCss}
-        display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
-        -webkit-mask-image: ${masks} !important;
-        -webkit-mask-composite: source-in !important;
-        mask-image: ${masks} !important; 
-        mask-composite: intersect !important;
-        object-fit: fill !important; 
-      }
       ${shared}
     `;
   }
@@ -424,6 +455,7 @@
     if (!img.naturalWidth || !img.naturalHeight) return;
     img.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
     img.parentElement?.style.setProperty('--cb-nw', img.naturalWidth + 'px');
+    img.parentElement?.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
   }
 
   // NTR's Backdrop shows the full-size picture, not SillyTavern's small thumbnail. It's loaded first and only swapped
@@ -993,6 +1025,8 @@
       for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
         if (!ntrAvatars(s, prefix)) continue;
         const m = `.mes[is_user="${flag}"]`;
+        // In Line keeps SillyTavern's own message layout.
+        if (s[prefix + 'Style'] === 'inline') { cssString += getAvatarCss(prefix, flag, s); continue; }
         cssString += `
         ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; }
         ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
@@ -1590,12 +1624,13 @@
   }
 
   function getColHtml(prefix, title, s) {
-    const style = s[`${prefix}Style`] === 'popout' ? 'popout' : 'backdrop';
+    const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
 
     const slider = (id, key, label) => `
       <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val">${rangeNum(s, prefix + key)}</span>${NUM_RANGE[prefix + key][3]}</span></div>
       <input type="range" id="m_${prefix}_${id}" ${rangeAttrs(prefix + key)} value="${rangeNum(s, prefix + key)}">`;
-    const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${style === only ? 'flex' : 'none'};">${inner}</div>`;
+    // A group shows for the styles it lists (data-only, space-separated).
+    const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${only.split(' ').includes(style) ? 'flex' : 'none'};">${inner}</div>`;
     // The fade grid starts on the first fade that's on, or Bottom.
     const fadeCur = Object.keys(FADE_PARTS).find((v) => rangeNum(s, prefix + FADE_PARTS[v][0]) > 0) || 'bc';
 
@@ -1608,15 +1643,15 @@
           <div class="cb_hint" style="margin: 4px 0 0;">Crops the avatar to this shape, sized by Image Scale. With ${title} Avatar off, it shapes SillyTavern's own chat avatar. None keeps the whole picture.</div></div>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
-        <div><strong>Style:</strong>${pills(`${prefix}style`, [['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
+        <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
-        ${grp('backdrop', `<div><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>`)}
+        ${grp('inline backdrop', `<div><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>`)}
 
-        <div id="m_${prefix}_scwrap" class="${style === 'backdrop' && s[`${prefix}Fit`] === 'original' ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Image Scale:')}</div>
-        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${style === 'backdrop' && s[`${prefix}Fit`] === 'original' ? '' : ' display: none;'}">Original shows the picture at its own size, so Image Scale is off.</div>
-        ${slider('pad', 'Pad', 'Text Padding:')}
+        <div id="m_${prefix}_scwrap" class="${style !== 'popout' && s[`${prefix}Fit`] === 'original' ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Image Scale:')}</div>
+        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${style !== 'popout' && s[`${prefix}Fit`] === 'original' ? '' : ' display: none;'}">Original shows the picture at its own size, so Image Scale is off.</div>
+        <div id="m_${prefix}_padwrap" class="${style === 'inline' ? 'cb_dim' : ''}">${slider('pad', 'Pad', 'Text Padding:')}</div>
 
-        ${grp('backdrop', `<div class="cb_sub">Fades</div>`
+        ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
           + fadeGrid(prefix, s, fadeCur)
           + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
           <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">`
@@ -2108,16 +2143,18 @@
       const col = overlay.querySelector(`#m_${prefix}_col`);
       const label = prefix === 'ai' ? 'AI' : 'User';
 
-      // Image Scale is off for Backdrop's Original, which keeps the picture's own size.
+      // Image Scale is off for Original, which keeps the picture's own size. Text Padding is off for In Line, which
+      // never puts the avatar under the text.
       const syncScale = () => {
         const off = s[`${prefix}Style`] !== 'popout' && s[`${prefix}Fit`] === 'original';
         col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', off);
         col.querySelector(`#m_${prefix}_orighint`).style.display = off ? '' : 'none';
+        col.querySelector(`#m_${prefix}_padwrap`).classList.toggle('cb_dim', s[`${prefix}Style`] === 'inline');
       };
       onPills(col, `${prefix}style`, (v) => {
         s[`${prefix}Style`] = v;
         save();
-        col.querySelectorAll('.cb_grp').forEach((g) => { g.style.display = g.dataset.only === v ? 'flex' : 'none'; });
+        col.querySelectorAll('.cb_grp').forEach((g) => { g.style.display = g.dataset.only.split(' ').includes(v) ? 'flex' : 'none'; });
         syncScale();
         updateAvatarStyle();
       });
@@ -2148,9 +2185,9 @@
       fadeSl.onchange = save;
 
       overlay.querySelector(`#m_${prefix}_reset`).onclick = async function() {
-        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults? (Style stays as it is.)`, 'Reset'))) return;
+        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style included?`, 'Reset'))) return;
         for (const k of Object.keys(DEFAULTS)) {
-          if (k.startsWith(prefix) && k !== `${prefix}Style` && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
+          if (k.startsWith(prefix) && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
         }
         save();
         updateAvatarStyle();
@@ -2392,7 +2429,7 @@
         padding: boxed && !ntrAvatars(s, p.toLowerCase()) ? '10px' : '',
       });
       // NTR Avatars' backdrop picture follows the message's corners.
-      if (r && ntrAvatars(s, p.toLowerCase())) css += cssRule(`${sel} .avatar`, { 'border-radius': r });
+      if (r && ntrAvatars(s, p.toLowerCase()) && s[p.toLowerCase() + 'Style'] !== 'inline') css += cssRule(`${sel} .avatar`, { 'border-radius': r });
     }
 
     // Send box.
@@ -2559,7 +2596,7 @@
     if (p !== 'Panel') PICK_KEYS[`ov${p}Shape`] = OV_SHAPES;
   }
   for (const p of ['ai', 'us']) {
-    Object.assign(PICK_KEYS, { [p + 'Style']: ['backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v) });
+    Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v) });
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {

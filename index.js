@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.14.2';
+  const VERSION = '2.15.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -39,6 +39,9 @@
     fgLeftScale: 100,
     fgCenterScale: 100,
     fgRightScale: 100,
+
+    // Edit Placement (dragging pop-outs and foreground images): editor choices, not part of themes
+    placeSnap: false, placeGrid: 20,
 
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
@@ -140,7 +143,6 @@
   const isOn = () => settings().masterEnabled !== false;
   let banner = null;
   const popMsg = { ai: '', us: '' }; 
-  const popDrag = { ai: false, us: false }; 
 
   const escapeHTML = (str) => {
     return String(str).replace(/[&<>'"]/g, match => ({
@@ -379,14 +381,8 @@
     if (layer) return layer;
     layer = document.createElement('div');
     layer.id = 'cb_pop_layer';
-    layer.innerHTML = '<img id="cb_pop_ai" alt="" draggable="false"><img id="cb_pop_us" alt="" draggable="false">'
-      + '<div id="cb_drag_pill"><span>Drag mode on</span><button type="button" id="cb_drag_done">Done</button></div>';
+    layer.innerHTML = '<img id="cb_pop_ai" alt="" draggable="false"><img id="cb_pop_us" alt="" draggable="false">';
     document.body.appendChild(layer);
-    layer.querySelector('#cb_drag_done').onclick = () => {
-      popDrag.ai = false; popDrag.us = false;
-      document.querySelectorAll('#m_ai_drag, #m_us_drag').forEach((c) => { c.checked = false; });
-      syncPopouts();
-    };
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       el.onerror = () => {
@@ -401,9 +397,9 @@
       el.onload = () => {
         const fell = el.dataset.want !== el.dataset.thumb && el.getAttribute('src') === el.dataset.thumb;
         setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} image${fell ? ' (thumbnail fallback)' : ''}`);
+        drawPlace();
       };
     }
-    bindPopDragGlobal();
     return layer;
   }
 
@@ -418,6 +414,14 @@
     if (L) L.style.width = Math.max(0, r.left) + 'px';
     if (R) R.style.width = Math.max(0, window.innerWidth - r.right) + 'px';
     if (C) { C.style.left = r.left + 'px'; C.style.width = r.width + 'px'; }
+    drawPlace();
+  }
+
+  // Foreground images keep their side; Move Horizontal and Vertical (or dragging them) shift them from there.
+  function fgTransform(el, pos, F) {
+    const sc = cardNum(F[pos + 'Scale'], 'fgScale', 100) / 100;
+    el.style.transformOrigin = pos === 'Left' ? 'left bottom' : pos === 'Right' ? 'right bottom' : 'center bottom';
+    el.style.transform = `translate(${cardNum(F[pos + 'X'], 'fgX', 0)}px, ${cardNum(F[pos + 'Y'], 'fgY', 0)}px) scale(${sc})`;
   }
 
   function ensureFgLayer() {
@@ -455,9 +459,7 @@
       const target = F[pos + 'Layer'] === 'front' ? front : layer;
       if (el.parentNode !== target) target.appendChild(el);
       const src = media(F[pos]);
-      const sc = cardNum(F[pos + 'Scale'], 'fgScale', 100) / 100;
-      el.style.transformOrigin = pos === 'Left' ? 'left bottom' : pos === 'Right' ? 'right bottom' : 'center bottom';
-      el.style.transform = `scale(${sc})`;
+      fgTransform(el, pos, F);
       if (src) {
         if (el.getAttribute('src') !== src) el.src = src;
         el.style.display = 'block';
@@ -498,78 +500,239 @@
     }
   }
 
-  let popSession = null;      
-  let popTouchGuard = false;  
-  let popDragBound = false;
+  // ===== Edit Placement =====
+  // Pop-out avatars and foreground images can be dragged on screen. Edit Placement hides the menu and outlines what can
+  // move; only the picked item drags. The bar at the bottom has Snap to Grid, Undo, Reset and Done.
+  const PLACE = [
+    { id: 'us', label: 'User Pop Out' }, { id: 'ai', label: 'AI Pop Out' },
+    ...['Left', 'Center', 'Right'].map((pos) => ({ id: 'fg' + pos, pos, label: `${pos} Foreground` })),
+  ];
+  const place = { on: false, sel: null, drag: null, undo: [] };
+  let placeTouchGuard = false;
 
-  function onPopTouchMove(e) {
-    if (popSession && e.cancelable) e.preventDefault();
+  function syncFgSliders(pos) {
+    const F = fgData();
+    for (const ax of ['X', 'Y']) {
+      const v = cardNum(F[pos + ax], 'fg' + ax, 0);
+      const el = document.getElementById(`m_f_${ax}_${pos}`);
+      const lab = document.getElementById(`m_f_${ax}_${pos}val`);
+      if (el) el.value = v;
+      if (lab) lab.textContent = v;
+    }
   }
 
-  function setPopTouchGuard(on) {
-    if (on === popTouchGuard) return;
-    popTouchGuard = on;
-    window[on ? 'addEventListener' : 'removeEventListener']('touchmove', onPopTouchMove, { passive: false, capture: true });
+  const placeEl = (it) => document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_pop_${it.id}`);
+
+  // The part of a foreground image you can see: its box fills the whole side, with the picture at the bottom.
+  function fgRect(el) {
+    const r = el.getBoundingClientRect();
+    const nw = el.naturalWidth, nh = el.naturalHeight, w = el.offsetWidth, h = el.offsetHeight;
+    if (!nw || !nh || !w || !h) return null;
+    const k = Math.min(w / nw, h / nh);
+    const sx = r.width / w, sy = r.height / h;
+    const dw = nw * k * sx, dh = nh * k * sy;
+    const fx = el.id === 'cb_fg_left' ? 0 : el.id === 'cb_fg_right' ? 1 : 0.5;
+    const left = r.left + (r.width - dw) * fx, top = r.bottom - dh;
+    return { left, top, right: left + dw, bottom: top + dh, width: dw, height: dh };
   }
 
-  function bindPopDragGlobal() {
-    if (popDragBound) return;
-    popDragBound = true;
+  function placeRect(it) {
+    const el = placeEl(it);
+    if (!el || el.style.display === 'none' || !el.getAttribute('src')) return null;
+    if (it.pos && el.parentNode?.style.display === 'none') return null;
+    const r = it.pos ? fgRect(el) : el.getBoundingClientRect();
+    return r && r.width > 0 && r.height > 0 ? r : null;
+  }
 
-    window.addEventListener('pointerdown', (e) => {
+  function placeGet(it) {
+    if (!it.pos) { const s = settings(); return { x: rangeNum(s, it.id + 'PopX'), y: rangeNum(s, it.id + 'PopY') }; }
+    const F = fgData();
+    return { x: cardNum(F[it.pos + 'X'], 'fgX', 0), y: cardNum(F[it.pos + 'Y'], 'fgY', 0) };
+  }
+
+  function placeSet(it, x, y) {
+    if (!it.pos) {
+      const s = settings();
+      s[it.id + 'PopX'] = Math.round(x);
+      s[it.id + 'PopY'] = Math.round(y);
+      // Kept to the saved limit, which goes wider than the sliders.
+      for (const k of ['PopX', 'PopY']) s[it.id + k] = rangeNum(s, it.id + k);
+      updateAvatarStyle();
+      syncPopSliders(it.id);
+    } else {
+      const F = fgData();
+      F[it.pos + 'X'] = cardNum(Math.round(x), 'fgX', 0);
+      F[it.pos + 'Y'] = cardNum(Math.round(y), 'fgY', 0);
+      const el = placeEl(it);
+      if (el) fgTransform(el, it.pos, F);
+      syncFgSliders(it.pos);
+    }
+    drawPlace();
+  }
+
+  function onPlaceTouchMove(e) {
+    if (place.drag && e.cancelable) e.preventDefault();
+  }
+
+  function setPlaceTouchGuard(on) {
+    if (on === placeTouchGuard) return;
+    placeTouchGuard = on;
+    window[on ? 'addEventListener' : 'removeEventListener']('touchmove', onPlaceTouchMove, { passive: false, capture: true });
+  }
+
+  function ensurePlaceLayer() {
+    let layer = document.getElementById('cb_place_layer');
+    if (layer) return layer;
+    const s = settings();
+    layer = document.createElement('div');
+    layer.id = 'cb_place_layer';
+    layer.innerHTML = '<div class="cb_place_grid"></div>'
+      + PLACE.map((it) => `<div class="cb_place_box" data-id="${it.id}"><span>${it.label}</span></div>`).join('')
+      + `<div id="cb_place_pill">
+          <span class="cb_place_name"></span>
+          <label class="cb_place_snap" title="Hold Alt while dragging to move freely for one move"><input type="checkbox" id="cb_place_snap"><span>Snap to Grid</span></label>
+          <span class="cb_place_gridset"><input type="range" id="cb_place_grid" ${rangeAttrs('placeGrid')} value="${rangeNum(s, 'placeGrid')}" title="Grid spacing"><span><span id="cb_place_gridval">${rangeNum(s, 'placeGrid')}</span>${NUM_RANGE.placeGrid[3]}</span></span>
+          <button type="button" id="cb_place_undo" title="Undo the last move"><i class="fa-solid fa-rotate-left"></i> Undo</button>
+          <button type="button" id="cb_place_reset" title="Put the picked item back where it starts">Reset</button>
+          <button type="button" id="cb_place_done" class="cb_place_main">Done</button>
+        </div>`;
+    document.body.appendChild(layer);
+
+    const q = (sel) => layer.querySelector(sel);
+    q('#cb_place_snap').onchange = function() { settings().placeSnap = this.checked; save(); drawPlace(); };
+    q('#cb_place_grid').oninput = function() {
+      settings().placeGrid = Number(this.value);
+      q('#cb_place_gridval').textContent = this.value;
+      drawPlace();
+    };
+    q('#cb_place_grid').onchange = save;
+    q('#cb_place_undo').onclick = () => {
+      const last = place.undo.pop();
+      const it = last && PLACE.find((p) => p.id === last.id);
+      if (!it) return drawPlace();
+      place.sel = it.id;
+      placeSet(it, last.x, last.y);
+      save();
+    };
+    q('#cb_place_reset').onclick = () => {
+      const it = PLACE.find((p) => p.id === place.sel);
+      if (!it) return;
+      const { x, y } = placeGet(it);
+      if (!x && !y) return;
+      pushUndo(it.id, x, y);
+      placeSet(it, 0, 0);
+      save();
+    };
+    q('#cb_place_done').onclick = endPlacement;
+
+    // Tapping a box picks it; only the picked one drags. The picked box sits on top, so it wins where boxes overlap.
+    layer.addEventListener('pointerdown', (e) => {
       if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      popSession = null;
-      if (!popDrag.ai && !popDrag.us) return;
-      if (e.target instanceof Element && e.target.closest('#cb_drag_pill')) return;
-      for (const prefix of ['us', 'ai']) {
-        const el = document.getElementById(`cb_pop_${prefix}`);
-        if (!popDrag[prefix] || !el || el.style.display === 'none') continue;
-        const r = el.getBoundingClientRect();
-        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue;
-        const s = settings();
-        popSession = {
-          prefix, id: e.pointerId, sx: e.clientX, sy: e.clientY,
-          ox: rangeNum(s, `${prefix}PopX`), oy: rangeNum(s, `${prefix}PopY`),
-        };
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-    }, true);
+      const box = e.target instanceof Element ? e.target.closest('.cb_place_box') : null;
+      if (!box) return;
+      e.preventDefault();
+      const it = PLACE.find((p) => p.id === box.dataset.id);
+      if (place.sel !== it.id) { place.sel = it.id; drawPlace(); return; }
+      const { x, y } = placeGet(it);
+      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: x, oy: y, r0: placeRect(it) };
+      box.classList.add('cb_dragging');
+    });
 
     window.addEventListener('pointermove', (e) => {
-      if (!popSession || e.pointerId !== popSession.id) return;
+      const d = place.drag;
+      if (!d || e.pointerId !== d.id) return;
+      let dx = e.clientX - d.sx, dy = e.clientY - d.sy;
       const s = settings();
-      const { prefix } = popSession;
-      s[`${prefix}PopX`] = Math.round(popSession.ox + e.clientX - popSession.sx);
-      s[`${prefix}PopY`] = Math.round(popSession.oy + e.clientY - popSession.sy);
-      // Kept to the saved limit, which goes wider than the sliders.
-      for (const k of ['PopX', 'PopY']) s[prefix + k] = rangeNum(s, prefix + k);
-      updateAvatarStyle();
-      syncPopSliders(prefix);
+      if (s.placeSnap && !e.altKey && d.r0) {
+        // The picture's nearest edge lands on a grid line, whichever corner or center it's tied to.
+        const g = rangeNum(s, 'placeGrid');
+        const snap = (a, b) => {
+          const sa = Math.round(a / g) * g - a, sb = Math.round(b / g) * g - b;
+          return Math.abs(sa) <= Math.abs(sb) ? sa : sb;
+        };
+        dx += snap(d.r0.left + dx, d.r0.right + dx);
+        dy += snap(d.r0.top + dy, d.r0.bottom + dy);
+      }
+      placeSet(d.it, d.ox + dx, d.oy + dy);
     }, true);
 
     const end = (e) => {
-      if (!popSession || e.pointerId !== popSession.id) return;
-      popSession = null;
-      save();
-      const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
-      window.addEventListener('click', swallow, true);
-      setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+      const d = place.drag;
+      if (!d || e.pointerId !== d.id) return;
+      place.drag = null;
+      layer.querySelector('.cb_dragging')?.classList.remove('cb_dragging');
+      const { x, y } = placeGet(d.it);
+      if (x !== d.ox || y !== d.oy) { pushUndo(d.it.id, d.ox, d.oy); save(); }
+      drawPlace();
     };
     window.addEventListener('pointerup', end, true);
     window.addEventListener('pointercancel', end, true);
+    window.addEventListener('keydown', (e) => { if (place.on && e.key === 'Escape') endPlacement(); });
+    return layer;
+  }
+
+  function pushUndo(id, x, y) {
+    place.undo.push({ id, x, y });
+    if (place.undo.length > 20) place.undo.shift();
+  }
+
+  function drawPlace() {
+    if (!place.on) return;
+    const layer = document.getElementById('cb_place_layer');
+    if (!layer) return;
+    const s = settings();
+    for (const it of PLACE) {
+      const box = layer.querySelector(`.cb_place_box[data-id="${it.id}"]`);
+      const r = placeRect(it);
+      box.style.display = r ? 'block' : 'none';
+      if (!r) continue;
+      Object.assign(box.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+      box.classList.toggle('cb_sel', it.id === place.sel);
+    }
+    const sel = PLACE.find((it) => it.id === place.sel && placeRect(it));
+    layer.querySelector('.cb_place_name').textContent = sel ? sel.label : 'Tap a picture to pick it';
+    layer.querySelector('#cb_place_snap').checked = !!s.placeSnap;
+    layer.querySelector('.cb_place_gridset').style.display = s.placeSnap ? '' : 'none';
+    const grid = layer.querySelector('.cb_place_grid');
+    grid.style.display = s.placeSnap ? 'block' : 'none';
+    grid.style.backgroundSize = `${rangeNum(s, 'placeGrid')}px ${rangeNum(s, 'placeGrid')}px`;
+    layer.querySelector('#cb_place_undo').disabled = !place.undo.length;
+    layer.querySelector('#cb_place_reset').disabled = !sel;
+  }
+
+  // Opened from the menu, which hides until Done. `first` picks which kind of item starts picked ('pop' or 'fg').
+  function startPlacement(first) {
+    if (!isOn()) return;
+    const shown = PLACE.filter((it) => placeRect(it));
+    if (!shown.length) {
+      toastr.info('Nothing to move yet. Set an avatar to Pop Out, or add a foreground image, first.', 'Edit Placement');
+      return;
+    }
+    place.on = true;
+    place.undo = [];
+    place.sel = (shown.find((it) => (first === 'fg') === !!it.pos) || shown[0]).id;
+    const ov = document.getElementById('cb_modal_overlay');
+    if (ov) ov.style.display = 'none';
+    ensurePlaceLayer().style.display = 'block';
+    setPlaceTouchGuard(true);
+    drawPlace();
+  }
+
+  function endPlacement() {
+    if (!place.on) return;
+    place.on = false;
+    place.drag = null;
+    place.undo = [];
+    const layer = document.getElementById('cb_place_layer');
+    if (layer) layer.style.display = 'none';
+    setPlaceTouchGuard(false);
+    const ov = document.getElementById('cb_modal_overlay');
+    if (ov) ov.style.display = '';
   }
 
   function syncPopouts() {
     const s = settings();
     const layer = ensurePopLayer();
-    const ov = document.getElementById('cb_modal_overlay');
-    const oz = ov ? parseInt(getComputedStyle(ov).zIndex, 10) : NaN;
-    layer.style.zIndex = (popDrag.ai || popDrag.us) && oz >= 4000 ? String(oz + 1) : '';
-    setPopTouchGuard(popDrag.ai || popDrag.us);
-    const pill = layer.querySelector('#cb_drag_pill');
-    if (pill) pill.style.display = (popDrag.ai || popDrag.us) ? 'flex' : 'none';
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
@@ -592,10 +755,8 @@
         el.src = full;
       }
       el.style.display = 'block';
-      el.style.pointerEvents = popDrag[prefix] ? 'auto' : 'none';
-      el.style.cursor = popDrag[prefix] ? 'grab' : '';
-      el.style.outline = popDrag[prefix] ? '2px dashed rgba(255,255,255,0.7)' : 'none';
     }
+    drawPlace();
   }
 
   function syncWallpaper() {
@@ -654,8 +815,23 @@
       #cb_banner .cb_xfade { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; transition: opacity .8s ease; }
       #cb_pop_layer { position: fixed; inset: 0; z-index: 2500; pointer-events: none; overflow: hidden; }
       #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
-      #cb_drag_pill { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: none; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px; background: rgba(0,0,0,0.85); color: #fff; font-size: 13px; line-height: 1.2; white-space: nowrap; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-      #cb_drag_pill button { border: none; border-radius: 999px; padding: 5px 14px; font-weight: bold; cursor: pointer; background: var(--SmartThemeQuoteColor, #6cf); color: #000; }
+      /* A set size, not inset: 0: SillyTavern's phone layout can leave a fixed box with no height. */
+      #cb_place_layer { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 9990; display: none; pointer-events: none; }
+      #cb_place_layer .cb_place_grid { position: absolute; inset: 0; display: none; background-image: linear-gradient(to right, rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.14) 1px, transparent 1px); }
+      .cb_place_box { position: absolute; display: none; box-sizing: border-box; outline: 2px dashed rgba(255,255,255,.6); outline-offset: -2px; background: rgba(255,255,255,.04); pointer-events: auto; cursor: pointer; touch-action: none; }
+      .cb_place_box > span { position: absolute; left: 4px; top: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; white-space: nowrap; display: none; }
+      .cb_place_box.cb_sel { z-index: 1; cursor: grab; outline: 2px solid var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
+      .cb_place_box.cb_sel > span { display: block; }
+      .cb_place_box.cb_dragging { cursor: grabbing; }
+      #cb_place_pill { position: absolute; z-index: 2; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 10px; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 8px 8px 8px 14px; border-radius: 22px; background: rgba(0,0,0,0.85); color: #fff; font-size: 13px; line-height: 1.2; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+      #cb_place_pill .cb_place_name { font-weight: bold; white-space: nowrap; }
+      #cb_place_pill label { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+      #cb_place_pill input[type="checkbox"] { margin: 0; accent-color: var(--SmartThemeQuoteColor, #6cf); }
+      #cb_place_pill .cb_place_gridset { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+      #cb_place_pill input[type="range"] { width: 90px; margin: 0; }
+      #cb_place_pill button { border: none; border-radius: 999px; padding: 5px 12px; cursor: pointer; background: rgba(255,255,255,.15); color: #fff; white-space: nowrap; }
+      #cb_place_pill button:disabled { opacity: .4; cursor: default; }
+      #cb_place_pill button.cb_place_main { font-weight: bold; background: var(--SmartThemeQuoteColor, #6cf); color: #000; }
       .cb_col { display: flex; flex-direction: column; gap: 8px; }
       .cb_grp { flex-direction: column; gap: 8px; }
       .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
@@ -1338,7 +1514,8 @@
           + slider('rf', 'RightFadePx', 'Right Fade:'))}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
-          <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_drag" ${popDrag[prefix] ? 'checked' : ''}><span>Drag it on screen</span></label>
+          <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
+          <div class="cb_hint" style="margin: 0;">Hides the menu so you can drag the picture on screen. Press Done to come back.</div>
           <div id="m_${prefix}_pstat" style="font-size: 0.8em; opacity: 0.75;">${escapeHTML(popMsg[prefix] || '')}</div>`
           + slider('ox', 'PopX', 'Move Horizontal:')
           + slider('oy', 'PopY', 'Move Vertical:'))}
@@ -1517,7 +1694,9 @@
             ${card('', `
             <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${rangeNum(s, 'fgOpacity')}</span>${NUM_RANGE.fgOpacity[3]}</span></div>
             <input type="range" id="m_f_o" ${rangeAttrs('fgOpacity')} value="${rangeNum(s, 'fgOpacity')}">
-            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>`)}
+            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>
+            <button type="button" id="m_f_place" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
+            <div class="cb_hint" style="margin-bottom: 0;">Hides the menu so you can drag the images on screen. Each one stays tied to its side. Press Done to come back.</div>`)}
 
             <div class="ntr_glab">Images ${TAG}</div>
             ${chatOpen ? '' : '<div class="cb_hint" style="margin-bottom: 8px;">Open a character chat first. Foreground images are saved per character.</div>'}
@@ -1536,6 +1715,9 @@
                   </div>
                   <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cardNum(F[pos + 'Scale'], 'fgScale', 100)}</span>${NUM_RANGE.fgScale[3]}</span></div>
                   <input type="range" class="m_f_scale" data-pos="${pos}" ${rangeAttrs('fgScale')} value="${cardNum(F[pos + 'Scale'], 'fgScale', 100)}" style="width:100%;">
+                  ${[['X', 'Left/Right'], ['Y', 'Up/Down']].map(([ax, name]) => `
+                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>${name}:</label><span><span id="m_f_${ax}_${pos}val">${cardNum(F[pos + ax], 'fg' + ax, 0)}</span>${NUM_RANGE['fg' + ax][3]}</span></div>
+                  <input type="range" id="m_f_${ax}_${pos}" class="m_f_move" data-pos="${pos}" data-ax="${ax}" ${rangeAttrs('fg' + ax)} value="${cardNum(F[pos + ax], 'fg' + ax, 0)}" style="width:100%;">`).join('')}
                   <div style="width:100%; margin-top:6px; text-align:left;"><small>In Visual Novel Mode, sit:</small>${pills('fgl' + pos, [['behind', 'Behind sprites'], ['front', 'In front']], F[pos + 'Layer'])}</div>
                 </div>
               `).join('')}
@@ -1561,7 +1743,7 @@
 
     setupPanel(overlay, prevScroll);
 
-    const close = () => { popDrag.ai = false; popDrag.us = false; overlay.remove(); syncPopouts(); rotRestart(); };
+    const close = () => { overlay.remove(); syncPopouts(); rotRestart(); };
     overlay.querySelector('.cb_close_btn').onclick = close;
     
     if (!key) {
@@ -1666,6 +1848,17 @@
       document.documentElement.style.setProperty('--cb-fg-op', this.value / 100); 
     };
     fo.onchange = save;
+
+    overlay.querySelector('#m_f_place').onclick = () => startPlacement('fg');
+    overlay.querySelectorAll('.m_f_move').forEach((sl) => {
+      sl.oninput = function() {
+        const { pos, ax } = this.dataset;
+        F[pos + ax] = Number(this.value);
+        overlay.querySelector(`#m_f_${ax}_${pos}val`).textContent = this.value;
+        ensureFgLayer();
+      };
+      sl.onchange = save;
+    });
 
     overlay.querySelectorAll('.m_f_scale').forEach(sl => {
       sl.oninput = function() {
@@ -1817,7 +2010,7 @@
         s[`${prefix}Enabled`] = this.checked; save(); updateAvatarStyle();
         col.querySelector(`#m_${prefix}_body`).classList.toggle('cb_dim', !this.checked);
       };
-      overlay.querySelector(`#m_${prefix}_drag`).onchange = function() { popDrag[prefix] = this.checked; syncPopouts(); };
+      overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); updateAvatarStyle(); });
 
@@ -2925,6 +3118,8 @@
     for (const p of FG_POS) {
       f[p] = cUrl(f[p]);
       f[p + 'Scale'] = cardNum(f[p + 'Scale'], 'fgScale', 100);
+      f[p + 'X'] = Math.round(cardNum(f[p + 'X'], 'fgX', 0));
+      f[p + 'Y'] = Math.round(cardNum(f[p + 'Y'], 'fgY', 0));
       f[p + 'Layer'] = cPick(f[p + 'Layer'], ['behind', 'front']);
     }
   }
@@ -2998,7 +3193,8 @@
   }
 
   const FG_POS = ['Left', 'Center', 'Right'];
-  const FG_DEF = () => ({ Left: '', Center: '', Right: '', LeftScale: 100, CenterScale: 100, RightScale: 100, LeftLayer: 'behind', CenterLayer: 'behind', RightLayer: 'behind' });
+  const FG_DEF = () => ({ Left: '', Center: '', Right: '', LeftScale: 100, CenterScale: 100, RightScale: 100, LeftLayer: 'behind', CenterLayer: 'behind', RightLayer: 'behind',
+    LeftX: 0, LeftY: 0, CenterX: 0, CenterY: 0, RightX: 0, RightY: 0 });
 
   // Before 2.1 foreground images and VN portraits were shared by every chat. They move into the
   // first single-character chat opened after updating (a copy is kept in legacyBackup, just in case).
@@ -3223,11 +3419,11 @@
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorDownImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
-  // with the sliders). Pop-out offsets go wider because dragging the picture can take them past the slider.
+  // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
-  // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out offsets).
+  // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
-    bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'],
+    bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'],
@@ -3235,7 +3431,7 @@
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
     // Saved in card data (and the shared Global banner), not as settings keys (see cardNum).
-    fgScale: [10, 300, 5, '%'], bannerPos: [0, 100, 1, '%'], bannerVideoPos: [0, 100, 1, '%'], bannerOffset: [0, 300, 5, 'px'],
+    fgScale: [10, 300, 5, '%'], fgX: [-10000, 10000, 5, 'px', -1500, 1500], fgY: [-10000, 10000, 5, 'px', -1500, 1500], bannerPos: [0, 100, 1, '%'], bannerVideoPos: [0, 100, 1, '%'], bannerOffset: [0, 300, 5, 'px'],
   };
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
   for (const p of ['Panel', ...OV_PARTS]) {
@@ -3909,7 +4105,7 @@
   async function setMaster(on) {
     const s = settings();
     s.masterEnabled = on;
-    if (!on) { popDrag.ai = false; popDrag.us = false; }
+    if (!on) endPlacement();
     save();
     renderAll();
     syncPopouts();
@@ -4016,6 +4212,7 @@
       if (g) g.textContent = bannerGuideText();
     });
     eventSource.on(event_types.CHAT_CHANGED, () => {
+      endPlacement();
       renderAll();
       window.NTR.vn?.queue(false);
       if (document.getElementById('cb_modal_overlay')) openCombinedModal();

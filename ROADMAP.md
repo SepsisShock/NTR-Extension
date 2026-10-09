@@ -12,14 +12,10 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Dragging and placement
-Pop-out avatars can already be dragged ("Drag it on screen" in Screen Placement). Extend that to portraits and other parts of the screen that support it.
+Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done). Still open:
 
-- [ ] Free dragging, plus Snap to Grid with adjustable grid spacing.
-- [ ] An Edit Placement mode that turns dragging on; only the selected item can be dragged.
-- [ ] A clear Done button to leave Edit Placement.
-- [ ] Block page scrolling only while the selected item is being dragged.
-- [ ] Undo Last Move, and Reset to the default placement.
-- [ ] Consider replacing the pop-out avatar Move Horizontal and Move Vertical sliders with dragging.
+- [ ] Add more parts of the screen, like the chat panel, send box and header banner.
+- [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
 
 ### Saving
 - [ ] Keep autosave: sliders save when released, dragged items when dropped.

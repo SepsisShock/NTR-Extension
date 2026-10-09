@@ -347,44 +347,46 @@
     else if (h === 'c') wrapperPos = 'left: 50% !important; transform: translateX(-50%) !important;';
     else if (h === 'r') wrapperPos = 'left: auto !important; right: 0 !important;';
 
-    const objV = v === 't' ? 'top' : (v === 'c' ? 'center' : 'bottom');
-    const objH = h === 'l' ? 'left' : (h === 'c' ? 'center' : 'right');
-    const objPos = `${objH} ${objV}`;
-
     const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black ${100 - rightFade}%, transparent 100%)`;
     const vMask = `linear-gradient(to bottom, transparent 0%, black ${topFade}%, black ${100 - botFade}%, transparent 100%)`;
 
-    let imgFitCss = 'object-fit: cover !important;';
-    let imgBoxCss = 'inset: 0 !important; width: 100% !important; height: 100% !important;';
-    if (fit === 'contain') {
-      imgFitCss = 'object-fit: contain !important;';
-      const vAnchor = v === 't' ? 'top: 0 !important; bottom: auto !important;'
-                    : v === 'b' ? 'top: auto !important; bottom: 0 !important;'
-                    : 'top: 50% !important; bottom: auto !important; transform: translateY(-50%) !important;';
-      imgBoxCss = `left: 0 !important; right: 0 !important; ${vAnchor} width: 100% !important; height: auto !important; max-height: 100% !important;`;
-    } else if (fit === 'original') imgFitCss = 'object-fit: none !important;';
+    // The image is sized to the picture itself, so the fades follow the picture, not the box: Fill covers the box and
+    // gets cropped by it, Fit fits inside it, Original keeps the picture's own size. 100cqw and 100cqh are the box's
+    // width and height, and --cb-ar is the picture's shape (see setAvatarRatio). Position places it in the box.
+    const ar = 'var(--cb-ar, 0.6667)';
+    const imgW = fit === 'contain' ? `min(100cqw, 100cqh * ${ar})` : fit === 'original' ? 'auto' : `max(100cqw, 100cqh * ${ar})`;
+    const imgBoxCss = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'r' ? 'left: auto !important; right: 0 !important;' : 'left: 50% !important; right: auto !important;')
+      + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
+      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'}) !important;`
+      + ` width: ${imgW} !important; height: auto !important; max-width: none !important; max-height: none !important;`
+      + (fit === 'original' ? '' : ` aspect-ratio: ${ar} !important;`);
 
     return `
       .mes[is_user="${isUserStr}"] .avatar { 
         position: absolute !important; top: 0 !important; bottom: 0 !important; height: 100% !important;
         width: ${width}px !important; max-width: 80% !important; 
         margin: 0 !important; padding: 0 !important; z-index: 0 !important; pointer-events: none !important; 
-        overflow: hidden !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; 
+        overflow: hidden !important; container-type: size !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; 
         display: block !important; background: transparent !important; border: none !important;
         ${wrapperPos}
         ${filterRule} 
       }
       .mes[is_user="${isUserStr}"] .avatar img { 
         position: absolute !important; ${imgBoxCss}
-        display: block !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important;
+        display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
         -webkit-mask-image: ${hMask}, ${vMask} !important;
         -webkit-mask-composite: source-in !important;
         mask-image: ${hMask}, ${vMask} !important; 
         mask-composite: intersect !important;
-        ${imgFitCss} object-position: ${objPos} !important; 
+        object-fit: fill !important; 
       }
       ${shared}
     `;
+  }
+
+  // A chat avatar picture's shape, so the image can be sized to the picture (see getAvatarCss).
+  function setAvatarRatio(img) {
+    if (img.naturalWidth && img.naturalHeight) img.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
   }
 
   function setPopStatus(prefix, msg) {
@@ -940,6 +942,7 @@
     }
 
     styleEl.textContent = cssString;
+    document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); });
     syncGoogleFonts();
     syncCustomCss();
     watchReasoningLabels();
@@ -4236,6 +4239,7 @@
     registerSlashCommand();
     document.addEventListener('pointerover', onCursorOver, true);
     document.addEventListener('pointerdown', onCursorDown, true);
+    document.addEventListener('load', (e) => { if (e.target instanceof HTMLImageElement && e.target.matches('#chat .mes .avatar img')) setAvatarRatio(e.target); }, true);
     for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, onCursorUp, true);
     window.addEventListener('blur', onCursorUp);
     window.addEventListener('resize', () => {

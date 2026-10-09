@@ -143,9 +143,6 @@
   const isOn = () => settings().masterEnabled !== false;
   let banner = null;
   const popMsg = { ai: '', us: '' }; 
-  // Where a pop-out starts: the bottom corner on its own side, a little in from the screen edges. Pop Out and Backdrop
-  // share Position and the offsets, so Backdrop keeps the DEFAULTS ones (see popStart).
-  const POP_START = { ai: { Side: 'bl', PopX: 20, PopY: -20 }, us: { Side: 'br', PopX: -20, PopY: -20 } };
 
   const escapeHTML = (str) => {
     return String(str).replace(/[&<>'"]/g, match => ({
@@ -493,24 +490,6 @@
     return last ? last.getAttribute('src') : null;
   }
 
-  // The Position grid in the menu, after something other than the grid changed it.
-  function syncPopPos(prefix) {
-    const v = settings()[`${prefix}Side`];
-    document.querySelectorAll(`input[name="cbr_${prefix}pos"]`).forEach((r) => { r.checked = r.value === v; });
-  }
-
-  // Picking Pop Out moves an avatar from the plain default place to the pop-out starting place, and picking Backdrop
-  // moves it back, so an avatar nobody has placed yet always starts somewhere sensible. A placed avatar stays put.
-  function popStart(prefix, style) {
-    const s = settings();
-    const back = { Side: DEFAULTS[prefix + 'Side'], PopX: DEFAULTS[prefix + 'PopX'], PopY: DEFAULTS[prefix + 'PopY'] };
-    const [from, to] = style === 'popout' ? [back, POP_START[prefix]] : [POP_START[prefix], back];
-    if (!Object.keys(from).every((k) => s[prefix + k] === from[k])) return;
-    for (const k of Object.keys(to)) s[prefix + k] = to[k];
-    syncPopPos(prefix);
-    syncPopSliders(prefix);
-  }
-
   function syncPopSliders(prefix) {
     const s = settings();
     for (const [id, key] of [['ox', 'PopX'], ['oy', 'PopY']]) {
@@ -566,18 +545,14 @@
   }
 
   function placeGet(it) {
-    if (!it.pos) { const s = settings(); return { x: rangeNum(s, it.id + 'PopX'), y: rangeNum(s, it.id + 'PopY'), side: s[it.id + 'Side'] }; }
+    if (!it.pos) { const s = settings(); return { x: rangeNum(s, it.id + 'PopX'), y: rangeNum(s, it.id + 'PopY') }; }
     const F = fgData();
     return { x: cardNum(F[it.pos + 'X'], 'fgX', 0), y: cardNum(F[it.pos + 'Y'], 'fgY', 0) };
   }
 
-  // Where Reset puts an item: a pop-out's starting place, or a foreground image's own side.
-  const placeStart = (it) => (it.pos ? { x: 0, y: 0 } : { x: POP_START[it.id].PopX, y: POP_START[it.id].PopY, side: POP_START[it.id].Side });
-
-  function placeSet(it, x, y, side) {
+  function placeSet(it, x, y) {
     if (!it.pos) {
       const s = settings();
-      if (side) { s[it.id + 'Side'] = side; syncPopPos(it.id); }
       s[it.id + 'PopX'] = Math.round(x);
       s[it.id + 'PopY'] = Math.round(y);
       // Kept to the saved limit, which goes wider than the sliders.
@@ -636,16 +611,16 @@
       const it = last && PLACE.find((p) => p.id === last.id);
       if (!it) return drawPlace();
       place.sel = it.id;
-      placeSet(it, last.x, last.y, last.side);
+      placeSet(it, last.x, last.y);
       save();
     };
     q('#cb_place_reset').onclick = () => {
       const it = PLACE.find((p) => p.id === place.sel);
       if (!it) return;
-      const now = placeGet(it), to = placeStart(it);
-      if (now.x === to.x && now.y === to.y && now.side === to.side) return;
-      pushUndo(it.id, now);
-      placeSet(it, to.x, to.y, to.side);
+      const { x, y } = placeGet(it);
+      if (!x && !y) return;
+      pushUndo(it.id, x, y);
+      placeSet(it, 0, 0);
       save();
     };
     q('#cb_place_done').onclick = endPlacement;
@@ -658,8 +633,8 @@
       e.preventDefault();
       const it = PLACE.find((p) => p.id === box.dataset.id);
       if (place.sel !== it.id) { place.sel = it.id; drawPlace(); return; }
-      const { x, y, side } = placeGet(it);
-      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: x, oy: y, side, r0: placeRect(it) };
+      const { x, y } = placeGet(it);
+      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: x, oy: y, r0: placeRect(it) };
       box.classList.add('cb_dragging');
     });
 
@@ -687,7 +662,7 @@
       place.drag = null;
       layer.querySelector('.cb_dragging')?.classList.remove('cb_dragging');
       const { x, y } = placeGet(d.it);
-      if (x !== d.ox || y !== d.oy) { pushUndo(d.it.id, { x: d.ox, y: d.oy, side: d.side }); save(); }
+      if (x !== d.ox || y !== d.oy) { pushUndo(d.it.id, d.ox, d.oy); save(); }
       drawPlace();
     };
     window.addEventListener('pointerup', end, true);
@@ -696,8 +671,8 @@
     return layer;
   }
 
-  function pushUndo(id, { x, y, side }) {
-    place.undo.push({ id, x, y, side });
+  function pushUndo(id, x, y) {
+    place.undo.push({ id, x, y });
     if (place.undo.length > 20) place.undo.shift();
   }
 
@@ -2029,7 +2004,6 @@
 
       onPills(col, `${prefix}style`, (v) => {
         s[`${prefix}Style`] = v;
-        popStart(prefix, v);
         save();
         col.querySelectorAll('.cb_grp').forEach((g) => { g.style.display = g.dataset.only === v ? 'flex' : 'none'; });
         updateAvatarStyle();
@@ -2047,7 +2021,6 @@
         for (const k of Object.keys(DEFAULTS)) {
           if (k.startsWith(prefix) && k !== `${prefix}Style` && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
         }
-        popStart(prefix, s[`${prefix}Style`]);
         save();
         updateAvatarStyle();
         openCombinedModal();

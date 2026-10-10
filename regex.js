@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.27.0';
+  const REGEX_VERSION = '2.28.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -210,7 +210,10 @@ try {
     #cb_modal_overlay .rx_count { font-weight: 400; opacity: .55; font-size: .9em; }
     #cb_modal_overlay .ntr_page .rx_fbody { display: none; margin-top: 0; padding: 2px 12px 8px; border-top: 0; border-radius: 0 0 10px 10px; }
     #cb_modal_overlay .rx_open .rx_fbody { display: block; }
-    #cb_modal_overlay .ntr_page .rx_loose { margin-top: 10px; padding: 2px 12px 8px; }
+    #cb_modal_overlay .rx_ublock { margin-top: 10px; }
+    #cb_modal_overlay .ntr_page .rx_uhead { display: flex; align-items: center; gap: 8px; margin-top: 0; padding: 8px 10px; border-radius: 10px 10px 0 0; }
+    #cb_modal_overlay .ntr_page .rx_loose { margin-top: 0; padding: 2px 12px 8px; border-top: 0; border-radius: 0 0 10px 10px; }
+    #cb_modal_overlay .rx_pop .rx_here { opacity: .5; cursor: default; }
     #cb_modal_overlay .rx_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
     #cb_modal_overlay .rx_row:last-child { border-bottom: 0; }
     #cb_modal_overlay .rx_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -251,6 +254,7 @@ try {
       ${query ? '' : '<i class="fa-solid fa-grip-lines rx_grip" title="Drag to reorder or move to a folder"></i>'}
       <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
       ${sw('rx_rsw', on, 'Turn on or off')}
+      <span class="rx_menu">${btn('mvmenu', 'fa-folder-open', 'Move to folder')}</span>
       ${btn('edit', 'fa-pen', 'Edit')}
       ${btn('del', 'fa-trash', 'Delete', ' danger_button')}
     </div>`;
@@ -277,9 +281,11 @@ try {
       </div>`;
     }).join('');
     const loose = v.loose.filter(hit);
-    const looseHtml = !query || loose.length
-      ? `<div class="ntr_card rx_loose">${loose.map(rowHtml).join('') || `<div class="rx_empty">${v.groups.length ? 'Drag a regex here to take it out of its folder.' : 'No regexes here yet.'}</div>`}</div>`
-      : '';
+    // Regexes in no folder: always last, since SillyTavern adds new regexes at the end of its list.
+    const looseHtml = !query || loose.length ? `<div class="rx_ublock">
+        <div class="ntr_fold rx_uhead"><span class="rx_fname">Unassigned <span class="rx_count">${v.loose.length}</span></span></div>
+        <div class="ntr_card rx_loose">${loose.map(rowHtml).join('') || `<div class="rx_empty">${v.groups.length ? 'Drag or move a regex here to take it out of its folder.' : 'No regexes here yet.'}</div>`}</div>
+      </div>` : '';
     const allowTitle = sec.k === 'preset' ? 'Let this preset\'s regexes run' : 'Let this character\'s regexes run';
     return `<div class="rx_sec${ok ? '' : ' rx_secoff'}" data-sec="${sec.k}">
       <div class="ntr_parthead rx_shead">
@@ -310,7 +316,7 @@ try {
       return pageHtml('regex', '', { note: `<div class="cb_hint ntr_pnote">${why}</div>` });
     }
     return pageHtml('regex', `
-      <div class="cb_hint">Your SillyTavern regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Edit opens SillyTavern's own editor.</div>
+      <div class="cb_hint">Your SillyTavern regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Order matters, since each regex works on what the ones above it left. Drag here to change it: SillyTavern's own order changes to match, so you never need its panel for that. Edit opens SillyTavern's own editor.</div>
       <div class="rx_top">
         <input type="search" class="text_pole rx_search" placeholder="Search regexes" aria-label="Search regexes" value="${esc(query)}">
         <button class="menu_button rx_btn" data-act="import" title="Import SillyTavern regex files" aria-label="Import SillyTavern regex files"><i class="fa-solid fa-file-import"></i></button>
@@ -328,6 +334,42 @@ try {
   }
 
   function closePops() { page?.querySelectorAll('.rx_pop').forEach((p) => p.remove()); }
+
+  // Move to folder: the section's folders, Unassigned, and New folder to make one and move the regex into it.
+  function moveMenu(anchor, sec, id) {
+    const had = anchor.parentElement.querySelector('.rx_pop');
+    closePops();
+    if (had) return;
+    const cur = folders(sec).find((f) => f.ids.includes(id)) || null;
+    const item = (fid, icon, label, here) => `<button data-act="mvto" data-fid="${esc(fid)}"${here ? ' class="rx_here" disabled' : ''}><i class="fa-solid ${icon} fa-fw"></i>${esc(label)}</button>`;
+    const pop = document.createElement('div');
+    pop.className = 'rx_pop';
+    pop.innerHTML = folders(sec).map((f) => item(f.id, 'fa-folder', f.name, f === cur)).join('')
+      + item('', 'fa-inbox', 'Unassigned', !cur)
+      + '<button data-act="mvnew"><i class="fa-solid fa-folder-plus fa-fw"></i>New folder…</button>';
+    anchor.parentElement.appendChild(pop);
+  }
+
+  // Puts a regex in a folder (or Unassigned) at the end of it, and SillyTavern's run order follows.
+  function moveRegex(sec, id, fid) {
+    const fl = folders(sec, true);
+    for (const f of fl) {
+      if (!f.ids.includes(id)) continue;
+      f.ids = f.ids.filter((x) => x !== id);
+      if (f.was) f.was = f.was.filter((x) => x !== id);
+    }
+    const to = fid ? fl.find((f) => f.id === fid) || null : null;
+    if (to) to.ids.push(id);
+    save();
+    const v = view(sec);
+    const ids = [
+      ...v.groups.flatMap(({ f, items }) => [...items.map((x) => x.id).filter((x) => x !== id), ...(f === to ? [id] : [])]),
+      ...v.loose.map((x) => x.id).filter((x) => x !== id),
+      ...(to ? [] : [id]),
+    ];
+    if (ids.join('\n') !== scripts(sec).map((x) => x.id).join('\n')) reorder(sec, ids);
+    else refresh();
+  }
 
   function folderMenu(anchor, sec, f) {
     const had = anchor.parentElement.querySelector('.rx_pop');
@@ -387,6 +429,19 @@ try {
       case 'edit': stClick(stRow(sec, id)?.querySelector('.edit_existing_regex')); break;
       case 'del': stClick(stRow(sec, id)?.querySelector('.delete_regex')); break;
       case 'fmenu': folderMenu(b, sec, f); break;
+      case 'mvmenu': moveMenu(b, sec, id); break;
+      case 'mvto': closePops(); moveRegex(sec, id, b.dataset.fid || null); break;
+      case 'mvnew': {
+        const row = b.closest('.rx_row');
+        closePops();
+        const name = await askText(row, { label: 'Folder name', ok: 'Add', check: nameCheck(sec, null) });
+        if (!name) return;
+        const nf = { id: newId('rxf'), name, ids: [], was: null };
+        folders(sec, true).push(nf);
+        settings().uiOpen[openKey(nf)] = true;
+        moveRegex(sec, id, nf.id);
+        break;
+      }
       case 'frename': {
         closePops();
         const name = await askText(fEl.querySelector('.rx_fhead'), { label: 'Folder name', value: f.name, ok: 'Rename', check: nameCheck(sec, f) });
@@ -478,9 +533,9 @@ try {
     }
     const row = el.closest('.rx_row');
     if (row && row !== drag.item) { row.parentElement.insertBefore(drag.item, after(row) ? row.nextSibling : row); return; }
-    const head = el.closest('.rx_fhead');
+    const head = el.closest('.rx_fhead, .rx_uhead');
     if (head) {
-      const fb = head.parentElement.querySelector('.rx_fbody');
+      const fb = head.parentElement.querySelector('.rx_fbody, .rx_loose');
       if (!fb.contains(drag.item)) fb.appendChild(drag.item);
       head.classList.add('rx_drop');
       return;

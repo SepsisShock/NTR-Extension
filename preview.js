@@ -4,7 +4,7 @@
 // save anything or ask an AI service for anything (see blockSaves in index.js); Edit Layout on top of it changes the Phone
 // layout, saved by this page.
 (() => {
-  const PREVIEW_VERSION = '2.25.0';
+  const PREVIEW_VERSION = '2.25.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] preview.js loaded without the core (index.js).'); return; }
   const { ctx, settings } = A;

@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Maps module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const MAP_VERSION = '2.25.0';
+  const MAP_VERSION = '2.25.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -425,7 +425,8 @@
     if (file) file.onchange = async () => {
       if (!file.files.length || !pending) return;
       try {
-        setMapImage(pending, await uploadImage(file.files[0], 'vnmap', { max: 3072 }));
+        const id = pending, url = await A.uploadHere(() => uploadImage(file.files[0], 'vnmap', { max: 3072 }));
+        if (url) setMapImage(id, url);
       } catch (e) {
         console.error('[NTR map upload]', e);
         toastr.error(e.message || 'Map upload failed', 'Maps');

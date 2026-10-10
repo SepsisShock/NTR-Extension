@@ -80,9 +80,17 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Text alignment for chat messages: left, right, center or justified.
 
 ### Regex
-Some functions of SillyTavern's Regex extension, but not regex used to output HTML or CSS. Visual Novel Mode reads the saved message text, so SillyTavern regex that only changes the display has no effect on the VN dialogue box.
+A Regexes page for organizing regex in one place, with folders. Includes find and replace, HTML output, and SillyTavern regex import. Built on SillyTavern's own Regex extension, so SillyTavern runs every regex; NTR adds the organizing and the easier editor.
 
-- Open questions: which functions to include (find and replace, trim out, AI or user messages, depth, per character or global, on/off per script); whether it affects only the VN dialogue box or also the normal chat; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
+- [ ] Saved in themes, not per character.
+- [ ] Folders are optional and one level only. With no folders the page is a plain list. Folders open and close, can be renamed, deleted (their regexes stay, outside any folder) and dragged into order.
+- [ ] Regexes run from top to bottom in the list; drag to reorder or to move one into a folder. The editor also has a Folder choice, for phones.
+- [ ] Search by name across all folders.
+- [ ] Import at the top of the page, and Import here in each folder's menu. Several files at once.
+- [ ] Export in SillyTavern's regex file format, so it imports into SillyTavern's Regex panel as is.
+- [ ] Easy match modes (Exact text, Between tags, Whole line) that write the regex for you, including Preserve capitalization (like `/\b([Nn])ative\b/g` with `$1atural`) and First number of matches. Custom regex and imported regex are saved exactly as typed.
+- [ ] The page uses NTR's own menu look.
+- Open questions: a folder on/off switch; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
 
 ## Visual Novel Mode (Low Priority)
 

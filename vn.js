@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.25.0';
+  const VN_VERSION = '2.25.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -1054,7 +1054,8 @@
     nFile.onchange = async () => {
       if (!nFile.files.length || !pending) return;
       try {
-        setSpkImage(pending, await uploadImage(nFile.files[0], 'vnpfp', { max: pending.full ? 2048 : 768 }));
+        const p = pending, url = await A.uploadHere(() => uploadImage(nFile.files[0], 'vnpfp', { max: p.full ? 2048 : 768 }));
+        if (url) setSpkImage(p, url);
       } catch (e) {
         console.error('[NTR vn portrait upload]', e);
         toastr.error(e.message || 'Portrait upload failed', 'Visual Novel');
@@ -1168,7 +1169,8 @@
       file.onchange = async () => {
         if (!file.files.length || !pending) return;
         try {
-          setImage(pending, await uploadImage(file.files[0], L.prefix, { max: 2560 }));
+          const id = pending, url = await A.uploadHere(() => uploadImage(file.files[0], L.prefix, { max: 2560 }));
+          if (url) setImage(id, url);
         } catch (e) {
           console.error(`[NTR vn ${L.name} upload]`, e);
           toastr.error(e.message || L.fail, 'Visual Novel');

@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.25.0';
+  const OP_VERSION = '2.25.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -679,7 +679,7 @@
       vfile.value = '';
       if (!f) return;
       try {
-        const path = await uploadVideo(f, 'vnop', 'Opening video', up);
+        const path = await A.uploadHere(() => uploadVideo(f, 'vnop', 'Opening video', up));
         if (!path) return;
         const old = op().file;
         setOp('file', path);
@@ -727,7 +727,8 @@
       lfile.value = '';
       if (!f) return;
       try {
-        const path = await uploadImage(f, 'vnlogo', { max: 1600 });
+        const path = await A.uploadHere(() => uploadImage(f, 'vnlogo', { max: 1600 }));
+        if (!path) return;
         const old = op().logoUrl;
         setOp('logoUrl', path);
         A.deleteFileIfUnused(old);

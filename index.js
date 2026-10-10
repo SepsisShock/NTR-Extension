@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.25.0';
+  const VERSION = '2.25.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -1558,7 +1558,8 @@
   function updateBanner() {
     const key = currentKey();
     if (!banner) return;
-    if (key !== rot.key) { rot.key = key; rot.idx = null; stopRotation(); }
+    const newChar = key !== rot.key;
+    if (newChar) { rot.key = key; rot.idx = null; stopRotation(); }
     const fade = rot.fade;
     rot.fade = false;
     const r = key ? peek(key) : null;
@@ -1640,7 +1641,8 @@
       vid.style.objectPosition = `50% ${cardNum(src.videoPos, 'bannerVideoPos', 50)}%`;
       banner.querySelector('.cb_snd').style.display = '';
       if (vid.getAttribute('src') !== u) { vid.src = u; playBannerVid(vid); }
-      else if (vid.paused) playBannerVid(vid);
+      // Same video, other character: their sound setting may differ.
+      else if (vid.paused || newChar) playBannerVid(vid);
     }
     syncWallpaper();
   }
@@ -1866,15 +1868,30 @@
   const askVideoUrl = (label = 'Video', anchor = null) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
     'That link did not load as a video. Use a direct link to an mp4 or webm file.');
 
+  // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
+  // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
+  // global settings.
+  async function uploadHere(upload, perChat = true) {
+    const st = store();
+    const path = await upload();
+    if (!path || !perChat || store() === st) return path;
+    deleteFileIfUnused(path);
+    toastr.warning('The chat changed before the upload finished, so it was not saved. Upload it again.', 'Upload');
+    return '';
+  }
+
   async function addFiles(files) {
     const key = currentKey();
     const r = bannerSrc(key ? peek(key) : null);
     let added = 0;
     for (const f of files) {
       try {
-        r.images.push({ url: await uploadImage(f, 'banner', { maxWidth: 1600 }), pos: 45 });
+        const url = await uploadHere(() => uploadImage(f, 'banner', { maxWidth: 1600 }), r !== settings().bannerGlobal);
+        if (!url) return;
+        r.images.push({ url, pos: 45 });
         r.idx = r.images.length - 1;
         added++;
+        save();
       } catch (e) {
         console.error('[NTR banner upload]', e);
         toastr.error(e.message || 'Failed to upload', 'Banner Error');
@@ -2243,7 +2260,7 @@
       vfile.value = '';
       if (!f) return;
       try {
-        const path = await uploadVideo(f, 'banner', 'Banner', vup);
+        const path = await uploadHere(() => uploadVideo(f, 'banner', 'Banner', vup), src !== settings().bannerGlobal);
         if (!path) return;
         toastr.success('Banner video uploaded.', 'Banner');
         setVideo(path);
@@ -2347,7 +2364,8 @@
       fgFile.value = ''; // so the same file can be picked again after a failed upload
       const pos = pendingFgPos;
       try {
-        const url = await uploadImage(f, `fg_${pos.toLowerCase()}`);
+        const url = await uploadHere(() => uploadImage(f, `fg_${pos.toLowerCase()}`));
+        if (!url) return;
         const old = F[pos];
         F[pos] = url;
         deleteFileIfUnused(old);
@@ -3059,7 +3077,7 @@
     let css = '';
     if (track) css += `\n      ::-webkit-scrollbar-track { background-color: ${track}; }\n      ::-webkit-scrollbar-corner { background-color: ${track}; }`;
     if (color) css += `\n      ::-webkit-scrollbar-thumb:vertical, ::-webkit-scrollbar-thumb:horizontal { background-color: ${color}; }`;
-    if (color || track) css += `\n      @supports not selector(::-webkit-scrollbar) { * { scrollbar-color: ${color || 'auto'} ${track || 'transparent'}; } }`;
+    if (color || track) css += `\n      @supports not selector(::-webkit-scrollbar) { * { scrollbar-color: ${color || 'var(--grey7070a)'} ${track || 'transparent'}; } }`;
     return css ? css + '\n' : '';
   }
 
@@ -4116,8 +4134,15 @@
       const unset = c.constants?.unset;
       const withData = c.characters.filter((ch) => ch?.data?.extensions?.ntr);
       for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
-      if (typeof c.writeExtensionFieldBulk === 'function' && unset) await c.writeExtensionFieldBulk(null, 'ntr', unset);
-      else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});
+      if (typeof c.writeExtensionFieldBulk === 'function' && unset) {
+        // A failed save doesn't throw, it only leaves the card out of `updated`.
+        const done = new Set((await c.writeExtensionFieldBulk(null, 'ntr', unset))?.updated || []);
+        const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
+        if (missed) {
+          wiping = false;
+          throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so nothing was removed. Check the SillyTavern console.`);
+        }
+      } else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});
       for (const k of CHAR_SETTINGS) {
         collectFileRefs(s[k], gone);
         if (k in DEFAULTS) s[k] = structuredClone(DEFAULTS[k]); else delete s[k];
@@ -4663,6 +4688,10 @@
           await removeData({ look, chars });
         } catch (e) {
           console.error('[NTR remove data]', e);
+          toastr.error(e.message || 'Removing failed.', 'Remove NTR data');
+          go.disabled = false;
+          go.innerHTML = '<i class="fa-solid fa-trash"></i> Remove';
+          return;
         }
         toastr.success('NTR data removed. Reloading...', 'Remove NTR data');
         // SillyTavern saves its settings about a second after a change.
@@ -4970,7 +4999,7 @@
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, refreshFg: () => ensureFgLayer(),
+    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, uploadHere, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),

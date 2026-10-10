@@ -205,7 +205,7 @@ try {
     <tr><td><code>g</code></td><td>Changes every place it's found</td><td>Only the first one changes</td><td><code>/cat/g</code> changes both cats in "cat and cat"</td></tr>
     <tr><td><code>i</code></td><td>Ignores capitalization</td><td>Capitals must match exactly</td><td><code>/cat/i</code> finds cat, Cat and CAT</td></tr>
     <tr><td><code>m</code></td><td>Treats each line on its own. Needed when a recipe uses <code>^</code> (start of a line) or <code>$</code> (end of a line)</td><td><code>^</code> and <code>$</code> only work at the very start and end of the message</td><td><code>/^Note:/gm</code> finds "Note:" at the start of any line</td></tr>
-    <tr><td><code>s</code></td><td>Lets a search continue onto the next line. Rarely needed: the recipes here work without it</td><td>The search stops at the end of each line</td><td>Finds a tag that opens on one line and closes on another</td></tr></table></div>
+    <tr><td><code>s</code></td><td>Lets <code>.</code> (any one character) continue onto the next line. Rarely needed: the recipes here use <code>[\s\S]</code>, which crosses lines without it</td><td><code>.</code> stops at the end of each line</td><td>Finds a tag that opens on one line and closes on another</td></tr></table></div>
     <p>Common combinations:</p>
     <ul><li><code>/word/g</code>: every one, exact capitalization. This is the usual one.</li><li><code>/word/gi</code>: every one, any capitalization.</li><li><code>/word/</code>: only the first one, exact capitalization.</li><li><code>/^text/gm</code>: every line that starts with "text".</li></ul>
     <h4 class="rxg_sub">Typing symbols</h4>
@@ -225,7 +225,7 @@ try {
     <p>The other symbols in the list work the same way: <code>\+</code> <code>\{</code> <code>\}</code> <code>\|</code> <code>\^</code>. A real <code>\</code> needs two: <code>\\</code>.</p>
     <h4><span class="rxg_f">Replace With</span></h4>
     <img src="${pic('replace-with')}" alt="Replace With box">
-    <ul><li>Type it exactly as you want it to appear. Symbols don't need a <code>\</code> here; only <code>$</code> followed by a number and <code>{{ }}</code> macros are special.</li><li><code>$1</code> puts back whatever the first ( ) in <span class="rxg_f">Find Regex</span> found, <code>$2</code> the second, and so on. A number with no ( ) to go with it puts back nothing.</li>
+    <ul><li>Type it exactly as you want it to appear. Symbols don't need a <code>\</code> here; only <code>$</code> followed by a number and <code>{{ }}</code> macros are special.</li><li><code>$1</code> puts back whatever the first ( ) in <span class="rxg_f">Find Regex</span> found, <code>$2</code> the second, and so on. Only use numbers that have a ( ) to go with them: a number with no ( ) puts in odd text, like a number or the whole message.</li>
     <li><code>{{match}}</code> puts back everything that was found.</li>
     <li>Macros like <code>{{char}}</code> and <code>{{user}}</code> are always filled in.</li>
     <li><code>$</code> followed by a number always means a ( ) part, so you can't write a price like "$5" here. (In <span class="rxg_f">Find Regex</span>, <code>\$5</code> works.)</li></ul>

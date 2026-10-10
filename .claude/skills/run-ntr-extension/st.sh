@@ -43,16 +43,18 @@ stop() {
   echo "SillyTavern stopped"
 }
 
-# The extension's files: manifest.json plus every top-level .js and .css.
+# The extension's files: manifest.json, every top-level .js, .css and .svg, and the assets folder.
 install_ext() {
   local ref="${1:-}"
   rm -rf "$EXT_DIR" && mkdir -p "$EXT_DIR"
   if [ -z "$ref" ]; then
     cp "$REPO"/manifest.json "$REPO"/*.js "$REPO"/*.css "$EXT_DIR"/
     for f in "$REPO"/*.svg; do if [ -e "$f" ]; then cp "$f" "$EXT_DIR"/; fi; done
+    if [ -d "$REPO/assets" ]; then cp -r "$REPO/assets" "$EXT_DIR"/; fi
     echo "installed the extension from the working tree"
   else
-    git -C "$REPO" ls-tree --name-only "$ref" | grep -E '^(manifest\.json|[^/]+\.(js|css|svg))$' | while read -r f; do
+    git -C "$REPO" ls-tree -r --name-only "$ref" | grep -E '^(manifest\.json|[^/]+\.(js|css|svg)|assets/.+)$' | while read -r f; do
+      mkdir -p "$EXT_DIR/$(dirname "$f")"
       git -C "$REPO" show "$ref:$f" > "$EXT_DIR/$f"
     done
     echo "installed the extension from $ref ($(git -C "$REPO" rev-parse --short "$ref"))"

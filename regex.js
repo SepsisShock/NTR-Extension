@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.28.0';
+  const REGEX_VERSION = '2.29.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -189,6 +189,95 @@ try {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
+  // ===== Regex Basics: a guide in SillyTavern's popup =====
+  // Built when opened, so its pictures only load then. String.raw keeps the regex backslashes as written.
+  const pic = (name) => new URL(`./assets/regex-help/${name}.png`, import.meta.url).href;
+  const guideHtml = () => String.raw`<div class="ntr_rxguide">
+    <h3>Regex Basics</h3>
+    <p>Regexes aren't AI and they don't "think"; they're find-and-replace rules. But they can still change what the AI receives if you tick <span class="rxg_f">Alter Outgoing Prompt</span>.</p>
+    <p>Paste a recipe into <span class="rxg_f">Find Regex</span> and <span class="rxg_f">Replace With</span>, then tick what it should affect.</p>
+    <h4>What goes in <span class="rxg_f">Find Regex</span></h4>
+    <img src="${pic('find-regex')}" alt="Find Regex box">
+    <p>Type what you're looking for between two slashes, like <code>/native/</code>. Letters after the last slash change how it searches, like the <code>g</code> in <code>/native/g</code> (explained below).</p>
+    <h4 class="rxg_sub">The letters at the end</h4>
+    <p>Use none, one, or several together, in any order: <code>/native/gi</code> is the same as <code>/native/ig</code>.</p>
+    <div class="rxg_tw"><table><tr><th>Letter</th><th>What it does</th><th>Without it</th><th>Example</th></tr>
+    <tr><td><code>g</code></td><td>Changes every place it's found</td><td>Only the first one changes</td><td><code>/cat/g</code> changes both cats in "cat and cat"</td></tr>
+    <tr><td><code>i</code></td><td>Ignores capitalization</td><td>Capitals must match exactly</td><td><code>/cat/i</code> finds cat, Cat and CAT</td></tr>
+    <tr><td><code>m</code></td><td>Treats each line on its own. Needed when a recipe uses <code>^</code> (start of a line) or <code>$</code> (end of a line)</td><td><code>^</code> and <code>$</code> only work at the very start and end of the message</td><td><code>/^Note:/gm</code> finds "Note:" at the start of any line</td></tr>
+    <tr><td><code>s</code></td><td>Lets <code>.</code> (any one character) continue onto the next line. Rarely needed: the recipes here use <code>[\s\S]</code>, which crosses lines without it</td><td><code>.</code> stops at the end of each line</td><td>Finds a tag that opens on one line and closes on another</td></tr></table></div>
+    <p>Common combinations:</p>
+    <ul><li><code>/word/g</code>: every one, exact capitalization. This is the usual one.</li><li><code>/word/gi</code>: every one, any capitalization.</li><li><code>/word/</code>: only the first one, exact capitalization.</li><li><code>/^text/gm</code>: every line that starts with "text".</li></ul>
+    <h4 class="rxg_sub">Typing symbols</h4>
+    <p>Letters, numbers and spaces can be typed as they are. Some symbols have special meanings, so typing them as they are quietly finds something else, or nothing:</p>
+    <p><code>. * + ? ( ) [ ] { } | ^ $ \ /</code></p>
+    <p>To search for one of them as plain text, put <code>\</code> in front of it.</p>
+    <div class="rxg_tw"><table><tr><th>You want to find</th><th>Type</th><th>Why</th></tr>
+    <tr><td><code>&lt;word&gt;</code></td><td><code>&lt;word&gt;</code></td><td><code>&lt;</code> and <code>&gt;</code> are safe as they are</td></tr>
+    <tr><td><code>&lt;/word&gt;</code></td><td><code>&lt;\/word&gt;</code></td><td><code>/</code> would end the regex early</td></tr>
+    <tr><td><code>Dr. Who</code></td><td><code>Dr\. Who</code></td><td><code>.</code> alone means "any one character"</td></tr>
+    <tr><td><code>Really?</code></td><td><code>Really\?</code></td><td><code>?</code> alone makes the letter before it optional</td></tr>
+    <tr><td><code>*smiles*</code></td><td><code>\*smiles\*</code></td><td><code>*</code> alone means "any amount of the thing before it, even none"</td></tr>
+    <tr><td><code>(OOC)</code></td><td><code>\(OOC\)</code></td><td><code>( )</code> alone mark a part to reuse in <span class="rxg_f">Replace With</span></td></tr>
+    <tr><td><code>[Status]</code></td><td><code>\[Status\]</code></td><td><code>[ ]</code> alone mean "any one of these letters"</td></tr>
+    <tr><td><code>$5</code></td><td><code>\$5</code></td><td><code>$</code> alone means "end of the text"</td></tr>
+    </table></div>
+    <p>The other symbols in the list work the same way: <code>\+</code> <code>\{</code> <code>\}</code> <code>\|</code> <code>\^</code>. A real <code>\</code> needs two: <code>\\</code>.</p>
+    <h4><span class="rxg_f">Replace With</span></h4>
+    <img src="${pic('replace-with')}" alt="Replace With box">
+    <ul><li>Type it exactly as you want it to appear. Symbols don't need a <code>\</code> here; only <code>$</code> followed by a number and <code>{{ }}</code> macros are special.</li><li><code>$1</code> puts back whatever the first ( ) in <span class="rxg_f">Find Regex</span> found, <code>$2</code> the second, and so on. Only use numbers that have a ( ) to go with them: a number with no ( ) puts in odd text, like a number or the whole message.</li>
+    <li><code>{{match}}</code> puts back everything that was found.</li>
+    <li>Macros like <code>{{char}}</code> and <code>{{user}}</code> are always filled in.</li>
+    <li><code>$</code> followed by a number always means a ( ) part, so you can't write a price like "$5" here. (In <span class="rxg_f">Find Regex</span>, <code>\$5</code> works.)</li></ul>
+    <h4>Recipes</h4>
+    <p>Each recipe has two parts: put the first in <span class="rxg_f">Find Regex</span> and the second in <span class="rxg_f">Replace With</span>.</p>
+    <div class="rxg_tw"><table><tr><th>To do this</th><th><span class="rxg_f">Find Regex</span></th><th><span class="rxg_f">Replace With</span></th></tr>
+    <tr><td>Replace a word</td><td><code>/native/g</code></td><td><code>natural</code></td></tr>
+    <tr><td>Replace it whatever its capitalization</td><td><code>/native/gi</code></td><td><code>natural</code></td></tr>
+    <tr><td>Whole word only (not "nativeness")</td><td><code>/\bnative\b/g</code></td><td><code>natural</code></td></tr>
+    <tr><td>Keep capitalization (native → natural, Native → Natural)</td><td><code>/\b([Nn])ative\b/g</code></td><td><code>$1atural</code></td></tr>
+    <tr><td>Remove everything between two tags, tags included</td><td><code>/&lt;thinking&gt;[\s\S]*?&lt;\/thinking&gt;/g</code></td><td>(leave empty)</td></tr>
+    <tr><td>Same, for tags with extra details inside, like <code>&lt;status mood="happy"&gt;</code></td><td><code>/&lt;status\b[^&gt;]*&gt;[\s\S]*?&lt;\/status&gt;/g</code></td><td>(leave empty)</td></tr>
+    <tr><td>Keep the text inside, drop the tags</td><td><code>/&lt;b&gt;([\s\S]*?)&lt;\/b&gt;/g</code></td><td><code>$1</code></td></tr>
+    <tr><td>Remove every line that contains some text</td><td><code>/^.*Word count:.*$\n?/gm</code></td><td>(leave empty)</td></tr>
+    <tr><td>Wrap a name in bold</td><td><code>/\bJohn\b/g</code></td><td><code>**{{match}}**</code></td></tr></table></div>
+    <ul><li><code>[\s\S]*?</code> means any text, even across lines, stopping at the first closing tag it reaches.</li>
+    <li><b>Keep capitalization:</b> only works when both words start with the same letter. ALL CAPS "NATIVE" isn't changed; for that, add a second regex: <code>/\bNATIVE\b/g</code> → <code>NATURAL</code>.</li>
+    <li><b>Whole word only:</b> <code>\b</code> can get confused by letters like é.</li></ul>
+    <h4>What it changes</h4>
+    <img src="${pic('ephemerality')}" alt="Other Options, Macros in Find Regex and Ephemerality">
+    <p>The two <span class="rxg_f">Ephemerality</span> boxes decide what gets changed:</p>
+    <div class="rxg_tw"><table><tr><th><span class="rxg_f">Alter Chat Display</span></th><th><span class="rxg_f">Alter Outgoing Prompt</span></th><th>Result</th></tr>
+    <tr><td>off</td><td>off</td><td>Changes the saved message for good. Only new messages as they arrive, plus edited ones if <span class="rxg_f">Run On Edit</span> is ticked. Old messages stay as they are.</td></tr>
+    <tr><td>on</td><td>off</td><td>Changes what you see. The saved message and what the AI gets stay the same.</td></tr>
+    <tr><td>off</td><td>on</td><td>Changes what the AI gets. What you see and the saved message stay the same.</td></tr>
+    <tr><td>on</td><td>on</td><td>Changes what you see and what the AI gets. The saved message stays the same.</td></tr></table></div>
+    <div class="rxg_warn"><div class="rxg_wt"><i class="fa-solid fa-triangle-exclamation"></i> Visual regexes: tick only <span class="rxg_f">Alter Chat Display</span></div>
+    <p>For regexes that add looks (HTML, images, colors), untick <span class="rxg_f">Alter Outgoing Prompt</span>. Otherwise the AI gets all that code too: it wastes tokens and may affect its prose or other features. Don't leave both unticked either; that saves the code into the message itself.</p></div>
+    <h4>Affects and depth</h4>
+    <img src="${pic('affects-depth')}" alt="Affects and Min/Max Depth">
+    <ul><li><span class="rxg_f">Affects</span>: which kinds of text it runs on (<span class="rxg_f">AI Output</span>, <span class="rxg_f">User Input</span>, <span class="rxg_f">Slash Commands</span>, <span class="rxg_f">World Info</span>, <span class="rxg_f">Reasoning</span>).</li>
+    <li><span class="rxg_f">Min Depth</span>: skip [number] recent messages, then apply to older messages.</li>
+    <li><span class="rxg_f">Max Depth</span>: apply to the newest message and up to [number] messages before it.</li>
+    <li>Leave a depth box empty (Unlimited) for no limit.</li>
+    </ul>
+    <div class="rxg_warn"><div class="rxg_wt"><i class="fa-solid fa-triangle-exclamation"></i> <span class="rxg_f">Min Depth</span> / <span class="rxg_f">Max Depth</span> Might Affect Prompt Caching</div>
+    <p>Some APIs reuse the start of your prompt, so parts that repeat cost less. A prompt regex with <span class="rxg_f">Min Depth</span> or <span class="rxg_f">Max Depth</span> changes an older message each turn, so everything from that message on is sent at full price.</p>
+    <ul><li>Small numbers cost little.</li><li>For Claude, keep the number below your <code>cachingAtDepth</code>, or the cache misses every turn.</li><li>With both depth boxes empty, it's usually fine (changing macros like <code>{{random}}</code> aren't).</li></ul></div>
+    <h4>Other settings</h4>
+    <img src="${pic('trim-out')}" alt="Trim Out box">
+    <ul><li><span class="rxg_f">Trim Out</span>: words to delete from the found text before <code>$1</code> or <code>{{match}}</code> puts it back. The rest of the message isn't touched. Usually left empty.</li>
+    <li><span class="rxg_f">Macros in Find Regex</span>:<ul>
+    <li><span class="rxg_f">Don't substitute</span>: looks for the actual letters <code>{{char}}</code>.</li>
+    <li><span class="rxg_f">Substitute (raw)</span>: looks for the character's name instead.</li>
+    <li><span class="rxg_f">Substitute (escaped)</span>: same, but works even when the name has symbols, like the dot in "Dr. Who".</li></ul></li></ul>
+  </div>`;
+  function openGuide() {
+    const c = ctx();
+    if (typeof c.callGenericPopup !== 'function' || !c.POPUP_TYPE) return;
+    c.callGenericPopup(guideHtml(), c.POPUP_TYPE.TEXT, '', { wide: true, large: true, allowVerticalScrolling: true, leftAlign: true, okButton: 'Close' });
+  }
+
   // ===== The page =====
   const CSS = `
     #cb_modal_overlay .rx_top { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
@@ -242,6 +331,25 @@ try {
     #cb_modal_overlay .rx_pop button { display: flex; gap: 8px; align-items: center; width: 100%; margin: 0; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
     #cb_modal_overlay .rx_pop button:hover { background: rgba(255,255,255,.08); }
     #cb_modal_overlay .rx_pop .rx_danger { color: var(--warning, #e57373); }
+    #cb_modal_overlay .rx_guide { display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; border: 0; background: none;
+      color: var(--SmartThemeQuoteColor, #6cf); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .ntr_rxguide h3 { margin: 0 0 10px; text-align: center; }
+    .ntr_rxguide h4 { margin: 20px 0 6px; }
+    .ntr_rxguide h4.rxg_sub { margin-top: 14px; font-size: .95em; }
+    .ntr_rxguide p, .ntr_rxguide li { margin: 6px 0; }
+    .ntr_rxguide ul { margin: 6px 0; padding-left: 20px; }
+    .ntr_rxguide code { padding: 1px 4px; border-radius: 4px; background: rgba(0,0,0,.35); font-size: .88em; white-space: nowrap; }
+    .ntr_rxguide .rxg_f { display: inline-block; padding: 0 6px; border: 1px solid var(--SmartThemeQuoteColor, #6cf); border-radius: 999px;
+      color: var(--SmartThemeQuoteColor, #6cf); font-size: .88em; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+    .ntr_rxguide .rxg_tw { margin: 8px 0; overflow-x: auto; }
+    .ntr_rxguide table { width: 100%; border-collapse: collapse; font-size: .9em; }
+    .ntr_rxguide th, .ntr_rxguide td { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,.12); text-align: left; vertical-align: top; }
+    .ntr_rxguide th { font-weight: 600; opacity: .75; }
+    .ntr_rxguide td code { white-space: normal; overflow-wrap: anywhere; }
+    .ntr_rxguide img { display: block; max-width: 100%; margin: 8px 0; border-radius: 8px; }
+    .ntr_rxguide .rxg_warn { margin: 12px 0; padding: 10px 12px; border: 1px solid rgba(232,185,74,.55); border-left: 4px solid #e8b94a; border-radius: 8px; background: rgba(232,185,74,.12); }
+    .ntr_rxguide .rxg_wt { margin-bottom: 4px; color: #f0c75e; font-weight: 700; }
+    .ntr_rxguide .rxg_warn p { margin: 4px 0; }
   `;
 
   let query = '';
@@ -316,7 +424,8 @@ try {
       return pageHtml('regex', '', { note: `<div class="cb_hint ntr_pnote">${why}</div>` });
     }
     return pageHtml('regex', `
-      <div class="cb_hint">Your SillyTavern regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Order matters, since each regex works on what the ones above it left. Drag here to change it: SillyTavern's own order changes to match, so you never need its panel for that. Edit opens SillyTavern's own editor.</div>
+      <div class="cb_hint">SillyTavern's regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Order can matter, since each regex works on what the ones above it left.<br>Drag here to change the order; SillyTavern's own order changes to match. Edit opens SillyTavern's own editor.</div>
+      <button class="rx_guide" data-act="guide"><i class="fa-solid fa-book-open"></i>New to regexes? Learn the basics</button>
       <div class="rx_top">
         <input type="search" class="text_pole rx_search" placeholder="Search regexes" aria-label="Search regexes" value="${esc(query)}">
         <button class="menu_button rx_btn" data-act="import" title="Import SillyTavern regex files" aria-label="Import SillyTavern regex files"><i class="fa-solid fa-file-import"></i></button>
@@ -412,6 +521,7 @@ try {
     const act = b.dataset.act;
     if (act !== 'fmenu') pending = null;
     switch (act) {
+      case 'guide': openGuide(); break;
       case 'import': stClick(document.getElementById('import_regex')); break;
       case 'new': stClick(document.getElementById(sec.add)); break;
       case 'newf': {

@@ -78,12 +78,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 - [ ] Text alignment for chat messages: left, right, center or justified.
 
-### Regex: follow-ups
-The Regexes page has shipped: SillyTavern's Global, Preset and Character regexes in folders, with on/off for each regex and each folder, dragging, search, import and export. Themes remember which folders are on. SillyTavern keeps and runs every regex. Still open:
-
-- [ ] NTR's own editor, in place of SillyTavern's: easy match modes (Exact text, Between tags, Whole line) that write the regex for you, including Preserve capitalization (like `/\b([Nn])ative\b/g` with `$1atural`) and First few matches (saved as that many copies, each replacing the next match, so messages with fewer matches still work); a preview of the regex as SillyTavern gets it; warnings for mistakes like `$2` with only one captured part. Custom regex and imported regex are saved exactly as typed.
-- Open question: whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
-
 ## Visual Novel Mode (Low Priority)
 
 Will be worked on when the main part is done, unless there are bugs or issues to take care of.

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.17.2';
+  const VERSION = '2.18.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -20,14 +20,14 @@
     
     // AI Settings
     aiStyle: 'inline', aiPopX: 0, aiPopY: 0,
-    aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiScale: 100, aiPad: 140, 
+    aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
     
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
-    usSide: 'tl', usFit: 'contain', usShape: 'none', usScale: 100, usPad: 140, 
+    usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0,
@@ -158,9 +158,9 @@
     cr: ['FadeRight', 'Right'], bl: ['FadeBL', 'Bottom Left'], bc: ['FadeBot', 'Bottom'], br: ['FadeBR', 'Bottom Right'],
   };
 
-  // Avatar shapes, like SillyTavern's own: [height for a width of 1, corner as a share of the width]. Round is a circle.
-  const SHAPES = { round: [1, 0.5], rectangle: [1.5, 1 / 6], square: [1, 0.04], rounded: [1, 0.2] };
-  const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']];
+  // Avatar shapes, like SillyTavern's own: their height for a width of 1. Round is a circle; the others take Corners.
+  const SHAPES = { round: 1, rectangle: 1.5, square: 1 };
+  const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square']];
 
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
   const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
@@ -178,6 +178,8 @@
       for (const p of ['Ai', 'Us']) if (!ntrAv(p)) put(p.toLowerCase() + 'Shape', o.ovAvatar);
       o.ovAvatarOn = false;
     }
+    // Rounded was a Shape of its own: a square with corners a fifth of its width.
+    for (const p of ['ai', 'us']) if (o[p + 'Shape'] === 'rounded') { o[p + 'Shape'] = 'square'; put(p + 'Corner', 20); }
     // Avatar fades are a % of the picture, so they keep their share of it at any Image Scale and message height. Pixel
     // fades become a % of the picture at Scale 100 (300px wide), taken as a portrait 1.5 times as tall as wide. A smaller
     // Scale made pixel fades swallow the picture, so its own Scale would carry that over.
@@ -327,10 +329,10 @@
     const blurAmount = n('Blur');
     
     const width = Math.floor(scale * 3); 
-    // A shape is a frame Image Scale sizes: its width, and its height from the shape. Round is a circle.
-    const [aspect, corner] = shape ? SHAPES[shape] : [1, 0];
+    // A shape is a frame Image Scale sizes: its width, and its height from the shape. Corners are a % of the width.
+    const aspect = shape ? SHAPES[shape] : 1;
     const frameH = Math.round(width * aspect);
-    const frameR = shape === 'round' ? '50%' : `${Math.round(width * corner)}px`;
+    const frameR = shape === 'round' ? '50%' : `${Math.round(width * n('Corner') / 100)}px`;
 
     let padCss = '';
     if (h === 'l') padCss = `padding-left: ${pad}px !important;`;
@@ -482,9 +484,9 @@
   }
 
   // SillyTavern's own chat avatars in a side's Shape, where NTR Avatars is off for that side.
-  function stShapeCss(flag, shape) {
+  function stShapeCss(flag, shape, corner) {
     const [w, h] = shape === 'rectangle' ? ['calc(var(--avatar-base-width) * 1.2)', 'calc(var(--avatar-base-height) * 1.8)'] : ['var(--avatar-base-width)', 'var(--avatar-base-height)'];
-    const r = { round: 'var(--avatar-base-border-radius-round)', rectangle: 'calc(var(--avatar-base-border-radius) * 5)', square: 'var(--avatar-base-border-radius)', rounded: 'var(--avatar-base-border-radius-rounded)' }[shape];
+    const r = shape === 'round' ? 'var(--avatar-base-border-radius-round)' : `calc(${w} * ${corner / 100})`;
     return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; }\n`;
   }
 
@@ -1044,7 +1046,7 @@
     }
     if (isOn()) {
       for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) cssString += stShapeCss(flag, s[prefix + 'Shape']);
+        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) cssString += stShapeCss(flag, s[prefix + 'Shape'], rangeNum(s, prefix + 'Corner'));
       }
     }
 
@@ -1632,6 +1634,7 @@
   function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
     const shaped = !!SHAPES[s[`${prefix}Shape`]];
+    const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
     const scaleOff = style !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
 
     const slider = (id, key, label) => `
@@ -1649,6 +1652,9 @@
         <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>${title} Avatar</span></label>
         <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}
           <div class="cb_hint" style="margin: 4px 0 0;">Crops the avatar to this shape, sized by Image Scale. With ${title} Avatar off, it shapes SillyTavern's own chat avatar. None keeps the whole picture.</div></div>
+        <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
+        <div id="m_${prefix}_crhint" class="cb_hint" style="margin: 0;${cornersOn ? '' : ' display: none;'}">0% is sharp. Corners are a share of the width, so they keep their look at any Image Scale.</div>
+        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Corners are for Rectangle and Square. A circle is already fully round.</div>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
@@ -2152,10 +2158,14 @@
       const col = overlay.querySelector(`#m_${prefix}_col`);
       const label = prefix === 'ai' ? 'AI' : 'User';
 
-      // Image Fit is off with a Shape, which the picture always fills. Image Scale is off for Original, which keeps the
+      // Corners are for Rectangle and Square. Image Fit is off with a Shape, which the picture always fills. Image Scale is off for Original, which keeps the
       // picture's own size. Text Padding is off for In Line, which never puts the avatar under the text.
       const syncScale = () => {
         const shaped = !!SHAPES[s[`${prefix}Shape`]];
+        const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
+        col.querySelector(`#m_${prefix}_crwrap`).classList.toggle('cb_dim', !cornersOn);
+        col.querySelector(`#m_${prefix}_crhint`).style.display = cornersOn ? '' : 'none';
+        col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
         col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
         col.querySelector(`#m_${prefix}_fithint`).style.display = shaped ? '' : 'none';
         const off = s[`${prefix}Style`] !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
@@ -2207,7 +2217,7 @@
       };
       
       const sliders = [
-        { id: 'sc', key: 'Scale' }, { id: 'pad', key: 'Pad' },
+        { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'pad', key: 'Pad' },
         { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
         { id: 'bl', key: 'Blur' }
       ];
@@ -3618,7 +3628,7 @@
   }
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
-      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
+      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
       [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'Blur']: [0, 20, 1, 'px'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)

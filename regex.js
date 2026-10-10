@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.27.0';
+  const REGEX_VERSION = '2.27.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -310,7 +310,7 @@ try {
       return pageHtml('regex', '', { note: `<div class="cb_hint ntr_pnote">${why}</div>` });
     }
     return pageHtml('regex', `
-      <div class="cb_hint">Your SillyTavern regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Edit opens SillyTavern's own editor.</div>
+      <div class="cb_hint">Your SillyTavern regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Order matters, since each regex works on what the ones above it left. Drag here to change it: SillyTavern's own order changes to match, so you never need its panel for that. Edit opens SillyTavern's own editor.</div>
       <div class="rx_top">
         <input type="search" class="text_pole rx_search" placeholder="Search regexes" aria-label="Search regexes" value="${esc(query)}">
         <button class="menu_button rx_btn" data-act="import" title="Import SillyTavern regex files" aria-label="Import SillyTavern regex files"><i class="fa-solid fa-file-import"></i></button>

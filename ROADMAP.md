@@ -57,7 +57,7 @@ One panel that stays on screen with the current state, instead of a tracker bloc
 ### Menu order
 Rearrange the NTR menu pages:
 
-- [ ] Themes, Layout, Avatars, Text, UI Display, Overlays, Reasoning, Regexes, then a divider line, then VN.
+- [ ] Themes, Layout, Avatars, Text, UI Display, Overlays, Reasoning, then a divider line, then Regexes and VN. The line splits the pages that make up your look from the rest.
 - Overlays now holds Header Banner and Foreground Images. Background images may go there later too, not only for Visual Novel Mode.
 - [ ] Regexes is the page for Regex (below) once it's built.
 - [ ] Page ids stay the same, so the saved last open page keeps working.
@@ -82,13 +82,14 @@ Find out how to make these movable and designable, and which details SillyTavern
 ### Regex
 A Regexes page for organizing regex in one place, with folders. Includes find and replace, HTML output, and SillyTavern regex import. Built on SillyTavern's own Regex extension, so SillyTavern runs every regex; NTR adds the organizing and the easier editor.
 
-- [ ] Saved in themes, not per character.
+- [ ] Every regex lives in the one list, whatever theme is on; not saved per character.
+- [ ] A folder can be attached to a theme (Attach to theme in the folder's menu; the folder shows the theme's name). Applying that theme turns the folder's regexes on, applying a different theme turns them off, and None (default look) leaves them as they are. Folders not attached to a theme are never touched by themes. A theme's export includes its attached folders' regexes.
 - [ ] Folders are optional and one level only. With no folders the page is a plain list. Folders open and close, can be renamed, deleted (their regexes stay, outside any folder) and dragged into order.
 - [ ] Regexes run from top to bottom in the list; drag to reorder or to move one into a folder. The editor also has a Folder choice, for phones.
 - [ ] Search by name across all folders.
 - [ ] Import at the top of the page, and Import here in each folder's menu. Several files at once.
 - [ ] Export in SillyTavern's regex file format, so it imports into SillyTavern's Regex panel as is.
-- [ ] Easy match modes (Exact text, Between tags, Whole line) that write the regex for you, including Preserve capitalization (like `/\b([Nn])ative\b/g` with `$1atural`) and First number of matches. Custom regex and imported regex are saved exactly as typed.
+- [ ] Easy match modes (Exact text, Between tags, Whole line) that write the regex for you, including Preserve capitalization (like `/\b([Nn])ative\b/g` with `$1atural`) and First few matches (saved as that many copies, each replacing the next match, so messages with fewer matches still work). Custom regex and imported regex are saved exactly as typed.
 - [ ] The page uses NTR's own menu look.
 - Open questions: a folder on/off switch; whether it runs before NTR reads the tags (so it can fix or rename tags) or after (so it only changes the text shown).
 

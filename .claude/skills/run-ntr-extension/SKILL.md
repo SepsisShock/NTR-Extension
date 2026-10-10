@@ -42,7 +42,7 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | command | what it does |
 |---|---|
 | `select [avatar]` | opens that character's chat (default `default_Seraphina.png`) |
-| `menu [page] [part...]` | opens the NTR menu, goes to a page by its icon (`themes`, `banner`, `pfp`, `reasoning`, `text`, `display`, `fg`, `vn`) and opens folded parts by `data-sec` (`rb_css`, `vn_guide`, `vn_tags`, `vn_prompt`): `menu vn vn_tags`. Other parts (`vn_spk`, `vn_loc`, `vn_map`, ...) are always open, and naming one only checks it's there. On 2.7 and older, where every section folds, it expands them instead |
+| `menu [page] [part...]` | opens the NTR menu, goes to a page by its icon (`themes`, `layout`, `pfp`, `reasoning`, `text`, `display`, `fg`, `vn`; `banner` on 2.24 and older) and opens folded parts by `data-sec` (`fg_banner`, `rb_css`, `vn_guide`, `vn_tags`, `vn_prompt`): `menu vn vn_tags`. Other parts (`vn_spk`, `vn_loc`, `vn_map`, ...) are always open, and naming one only checks it's there. On 2.7 and older, where every section folds, it expands them instead |
 | `close` | closes the menu |
 | `vn on` / `vn off` | Visual Novel Mode, through its toolbar button |
 | `power on` / `power off` | the extension's own power button |

@@ -2,7 +2,7 @@
 # banner images and @IMG@ with the folder of test images. The banner and foreground images go through the menu;
 # the other settings are set directly, then the page reloads to check they were saved.
 select default_Seraphina.png
-menu banner
+menu
 click #cb_modal_overlay #m_b_enable
 click #cb_modal_overlay #m_b_up
 upload #cb_modal_overlay #m_b_file | @BANNERS@

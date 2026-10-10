@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.23.0';
+  const VERSION = '2.24.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -119,7 +119,7 @@
     ovSendPosOn: false, ovSendPos: 'separate', ovSendGap: 8,
     ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
     ovScrollCssOn: false, ovScrollCss: '',
-    ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorSize: 32,
+    ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorTextImg: '', ovCursorSize: 32,
 
     // Menu state
     uiOpen: {},
@@ -3077,20 +3077,24 @@
     cursorKinds = {};
     if (!s.ovEnabled || !s.ovCursorOn) return '';
     const size = rangeNum(s, 'ovCursorSize');
-    // The picture's top-left corner is the spot that clicks.
-    const one = (src, fallback) => {
+    // The picture's top-left corner is the spot that clicks, except Text, which clicks in the middle like an I-beam.
+    const one = (src, fallback, mid) => {
       const u = cUrl(src);
       const c = u && cursorImg(u, size);
-      return c ? `url("${c.url}"), ${fallback}` : '';
+      if (!c) return '';
+      return `url("${c.url}")${mid ? ` ${Math.floor(c.w / 2)} ${Math.floor(c.h / 2)}` : ''}, ${fallback}`;
     };
     const normal = one(s.ovCursorImg, 'auto');
     const ptr = one(s.ovCursorPtrImg, 'pointer');
     const down = one(s.ovCursorDownImg, 'auto');
-    cursorKinds = { normal: !!normal, ptr: !!ptr, down: !!down };
+    const text = one(s.ovCursorTextImg, 'text', true);
+    cursorKinds = { normal: !!normal, ptr: !!ptr, down: !!down, text: !!text };
     let css = '';
     // Everything takes the Normal cursor from the page, except what has its own: SillyTavern's hand, resize edges and so on.
-    // Typing boxes keep the text cursor.
-    if (normal) css += `\n      html, body { cursor: ${normal}; }\n      :where(${TEXT_CURSOR_SEL}) { cursor: text; }\n      [data-ntr-cur="normal"] { cursor: ${normal} !important; }`;
+    // Typing boxes take the Text cursor, or the system one without it.
+    if (normal) css += `\n      html, body { cursor: ${normal}; }\n      [data-ntr-cur="normal"] { cursor: ${normal} !important; }`;
+    if (normal || text) css += `\n      :where(${TEXT_CURSOR_SEL}) { cursor: ${text || 'text'}; }`;
+    if (text) css += `\n      [data-ntr-cur="text"] { cursor: ${text} !important; }`;
     if (ptr) css += `\n      [data-ntr-cur="ptr"] { cursor: ${ptr} !important; }`;
     // While the mouse button is down, everything but typing boxes takes the Click cursor.
     if (down) css += `\n      html.ntr_cur_down, html.ntr_cur_down *:not(${TEXT_CURSOR_SEL}) { cursor: ${down} !important; }`;
@@ -3101,14 +3105,14 @@
   }
   const onCursorUp = () => document.documentElement.classList.remove('ntr_cur_down');
   // SillyTavern gives the hand to many kinds of things, too many to list. So the thing under the mouse is checked as the
-  // mouse moves onto it: if its own cursor is the hand (or the plain arrow), it's marked to get the custom one instead.
+  // mouse moves onto it: if its own cursor is the hand (or the plain arrow or the text cursor), it's marked to get the custom one instead.
   let cursorEl = null;
   function onCursorOver(e) {
     if (cursorEl) { cursorEl.removeAttribute('data-ntr-cur'); cursorEl = null; }
     const t = e.target;
-    if (!(t instanceof Element) || (!cursorKinds.normal && !cursorKinds.ptr)) return;
+    if (!(t instanceof Element) || (!cursorKinds.normal && !cursorKinds.ptr && !cursorKinds.text)) return;
     const c = getComputedStyle(t).cursor;
-    const kind = c === 'pointer' && cursorKinds.ptr ? 'ptr' : c === 'default' && cursorKinds.normal ? 'normal' : '';
+    const kind = c === 'pointer' && cursorKinds.ptr ? 'ptr' : c === 'default' && cursorKinds.normal ? 'normal' : c === 'text' && cursorKinds.text ? 'text' : '';
     if (kind) { t.setAttribute('data-ntr-cur', kind); cursorEl = t; }
   }
 
@@ -3717,11 +3721,12 @@
           </div>
           ${subHead('ov_cursor', 'Cursor')}
           <div class="cb_collapse_content">
-            <div class="cb_hint">Your own pictures for the mouse cursor. Typing boxes keep the normal text cursor. Phones and tablets have no cursor.</div>
+            <div class="cb_hint">Your own pictures for the mouse cursor. Phones and tablets have no cursor.</div>
             ${row('ovCursorOn', 'Custom Cursor', cursorSlot('ovCursorImg', 'Normal', 'Everywhere else.', 'fa-arrow-pointer')
               + cursorSlot('ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer')
+              + cursorSlot('ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system text cursor.', 'fa-i-cursor')
               + cursorSlot('ovCursorDownImg', 'Click', 'While the mouse button is held down. Empty keeps the cursor you had.', 'fa-computer-mouse')
-              + '<div class="cb_hint">The top-left corner of each picture is the spot that clicks.</div>'
+              + '<div class="cb_hint">The top-left corner of each picture is the spot that clicks. For Text, it\'s the middle.</div>'
               + '<div class="cb_hint">Size</div>' + sl('ovCursorSize')
               + '<div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don\'t allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>'
               + '<input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>')}
@@ -3759,7 +3764,7 @@
     const curFile = overlay.querySelector('#m_cur_file');
     let curPending = null;
     const renderCursor = () => {
-      for (const k of ['ovCursorImg', 'ovCursorPtrImg', 'ovCursorDownImg']) {
+      for (const k of ['ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg']) {
         const box = overlay.querySelector(`#m_cur_prev_${k}`);
         box.innerHTML = s[k] ? `<img src="${escapeHTML(s[k])}" alt="">` : `<i class="fa-solid ${box.dataset.icon}"></i>`;
         overlay.querySelector(`.m_cur_clr[data-k="${k}"]`).disabled = !s[k];
@@ -4175,7 +4180,7 @@
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorDownImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.

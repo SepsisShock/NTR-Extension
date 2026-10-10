@@ -63,7 +63,6 @@ Rearrange the NTR menu pages:
 - [ ] Page ids stay the same, so the saved last open page keeps working.
 
 ### Custom Cursor: follow-ups
-- [ ] A Text cursor picture for typing boxes (the "I" shape), next to Normal, Pointer and Click. Typing boxes now always show the system one.
 - [ ] Keep Size (CSS can't resize a cursor picture, so NTR redraws it at that size).
 - [ ] An Advanced box with Custom CSS for anything the settings don't cover.
 

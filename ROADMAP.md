@@ -19,13 +19,6 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Comes before Reader Mode and the Tracker panel below, since both need parts of the screen to be adjustable.
 
-### Layout: phones
-Layout has shipped for screens wider than 1000px. Phones and other screens 1000px wide or less keep SillyTavern's own layout for now.
-
-- [ ] Phone Preview: a button on the Layout page that opens a phone-sized window with SillyTavern and NTR running inside. Look-only, and the copy inside can't save anything. In its own file, `preview.js`, which only loads when the button is pressed.
-- [ ] A Phone layout for screens 1000px wide or less, with the same choices as the desktop one, arranged in Edit Layout on top of the Phone Preview. Saved separately, and both go into themes.
-- [ ] A Turn Sideways button in the preview.
-
 ### Reader Mode
 Read the chat a page at a time instead of scrolling up and down. Makes it easier to keep things like trackers in one place on screen.
 

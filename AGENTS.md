@@ -38,7 +38,7 @@ The "Code" section of `CLAUDE.md` says what correct code looks like here. Read i
 
 - Card data comes from other people. Every new field read from a card must be cleaned in `cleanStore`.
 - Saved settings keys must not be renamed or removed, so users' configurations keep working.
-- `vn.js`, `map.js`, and `opening.js` reuse helpers from `index.js` through `window.NTR` instead of copying them.
+- `vn.js`, `map.js`, `opening.js`, and `preview.js` reuse helpers from `index.js` through `window.NTR` instead of copying them.
 - Number ranges live in `NUM_RANGE`, not typed directly into the menu or other code.
 - Check for new code that repeats existing helpers or logic, and old code the change leaves unused. Mark these findings as Verify, not Bug. Some duplication or retained code is intentional, including support for old saved settings or older SillyTavern versions. Respect exceptions explained in the pull request description or a code comment.
 

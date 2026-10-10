@@ -1,8 +1,25 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.22.0';
+  const VERSION = '2.23.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
+  // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
+  // reach an AI service, so the main page's settings, chats and cards always win, and it stays quiet and out of reach.
+  const PREVIEW = (() => { try { return window.frameElement?.id === 'ntr_phone_frame'; } catch (e) { return false; } })();
+  if (PREVIEW) {
+    blockSaves(window);
+    document.addEventListener('play', (e) => { if (e.target instanceof HTMLMediaElement) e.target.muted = true; }, true);
+    document.addEventListener('focusin', (e) => e.target.blur?.(), true);
+    // No key reaches this copy, not even SillyTavern's own shortcuts. Escape still closes the preview.
+    for (const type of ['keydown', 'keypress', 'keyup']) {
+      window.addEventListener(type, (e) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const top = window.parent.NTR;
+        if (type === 'keydown' && e.key === 'Escape' && !top?.api?.placing()) top?.preview?.close();
+      }, true);
+    }
+  }
   const DEFAULTS = { 
     bannerOn: false,
     bannerMode: 'image', 
@@ -45,12 +62,15 @@
     // Edit Placement (dragging pop-outs and foreground images): editor choices, not part of themes
     placeSnap: false, placeGrid: 20,
 
-    // Layout: the chat panel, menu bar and send bar on screens wider than 1000px. Places and sizes are a % of the screen.
-    // A part that hasn't been moved stays where SillyTavern puts it.
+    // Layout: the chat panel, menu bar and send bar. Desktop for screens wider than 1000px, Phone (layPh) for 1000px or
+    // less. Places and sizes are a % of the screen. A part that hasn't been moved stays where SillyTavern puts it.
     layEnabled: false,
     layBarEdge: 'top', layBarMoved: false, layBarPos: 25, layBarLen: 50,
     layChatMoved: false, layChatX: 25, layChatY: 4, layChatW: 50, layChatH: 92,
     laySend: 'attached', laySendX: 25, laySendB: 0, laySendW: 50,
+    layPhBarEdge: 'top', layPhBarMoved: false, layPhBarPos: 0, layPhBarLen: 100,
+    layPhChatMoved: false, layPhChatX: 0, layPhChatY: 5, layPhChatW: 100, layPhChatH: 90,
+    layPhSend: 'attached', layPhSendX: 0, layPhSendB: 0, layPhSendW: 100,
 
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
@@ -145,6 +165,7 @@
 
   const ctx = () => SillyTavern.getContext();
   const save = () => {
+    if (PREVIEW) return;
     ctx().saveSettingsDebounced();
     const k = currentKey();
     if (k) scheduleCardFlush(k);
@@ -158,6 +179,38 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     }[match]));
   };
+
+  // Requests that only read from SillyTavern's server, by the last part of their address. Most are sent as POST, like
+  // the ones that save, delete, upload or ask an AI service for a reply.
+  const READ_API = /^(get|all|read|find|list|folders|workflows|status|models|text-models|props|encode|decode|count|version|info|ping|discover)$/i;
+  // Anything else sent to the server: saving, deleting, generating and the like.
+  function isWrite(w, url, method) {
+    if (String(method || 'GET').toUpperCase() === 'GET') return false;
+    let path;
+    try { path = new w.URL(String(url), w.location.href).pathname; } catch (e) { return true; }
+    return path.startsWith('/api/') && !READ_API.test(path.split('/').filter(Boolean).pop() || '');
+  }
+  // Stops a window from sending them. Phone Preview's frame gets this from the main page as soon as it starts loading, and
+  // again from its own copy of NTR. Blocked requests answer as if they worked, so nothing shows an error.
+  function blockSaves(w) {
+    if (w.__ntrNoSave) return;
+    w.__ntrNoSave = true;
+    const fetch0 = w.fetch;
+    w.fetch = function (input, init) {
+      const url = typeof input === 'string' || input instanceof w.URL ? input : input?.url;
+      const method = init?.method || input?.method || 'GET';
+      if (isWrite(w, url, method)) return w.Promise.resolve(new w.Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      return fetch0.call(w, input, init);
+    };
+    const xhr = w.XMLHttpRequest.prototype, open0 = xhr.open, send0 = xhr.send;
+    xhr.open = function (method, url) { this.ntrWrite = isWrite(w, url, method); return open0.apply(this, arguments); };
+    xhr.send = function () { if (!this.ntrWrite) return send0.apply(this, arguments); };
+    const nav = w.navigator;
+    if (nav.sendBeacon) {
+      const beacon0 = nav.sendBeacon.bind(nav);
+      nav.sendBeacon = (url, data) => (isWrite(w, url, 'POST') ? true : beacon0(url, data));
+    }
+  }
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
   const FADE_PARTS = {
@@ -661,26 +714,42 @@
   // screen. Edit Placement hides the menu and outlines what can move; only the picked item drags, and a picked Layout
   // part also resizes from the handles on its edges. Tapping the picked item picks the one under it. The bar at the
   // bottom has Snap to Grid, Undo, Reset and Done.
-  // Layout parts come first, so the pictures' outlines sit on top of theirs.
+  // Layout parts come first, so the pictures' outlines sit on top of theirs. Inside Phone Preview only Layout parts move.
   const PLACE = [
     { id: 'layChat', lay: 'chat', label: 'Chat Panel' }, { id: 'layBar', lay: 'bar', label: 'Menu Bar' }, { id: 'laySend', lay: 'send', label: 'Send Bar' },
     { id: 'us', label: 'User Pop Out' }, { id: 'ai', label: 'AI Pop Out' },
     ...['Left', 'Center', 'Right'].map((pos) => ({ id: 'fg' + pos, pos, label: `${pos} Foreground` })),
   ];
-  // Each Layout part's element, its settings, and SillyTavern's own place for it (what Reset puts back).
+  // Each Layout part's element, its settings, and SillyTavern's own place for it (what Reset puts back). The setting
+  // names are without their layout's start (see lk and layNames).
   const LAY_PART = {
-    chat: { el: 'sheld', keys: ['layChatMoved', 'layChatX', 'layChatY', 'layChatW', 'layChatH'], start: { layChatMoved: false } },
-    bar: { el: 'top-settings-holder', keys: ['layBarEdge', 'layBarMoved', 'layBarPos', 'layBarLen'], start: { layBarEdge: 'top', layBarMoved: false } },
-    send: { el: 'form_sheld', keys: ['laySend', 'laySendX', 'laySendB', 'laySendW'], start: { laySend: 'attached' } },
+    chat: { el: 'sheld', keys: ['ChatMoved', 'ChatX', 'ChatY', 'ChatW', 'ChatH'], start: { ChatMoved: false } },
+    bar: { el: 'top-settings-holder', keys: ['BarEdge', 'BarMoved', 'BarPos', 'BarLen'], start: { BarEdge: 'top', BarMoved: false } },
+    send: { el: 'form_sheld', keys: ['Send', 'SendX', 'SendB', 'SendW'], start: { Send: 'attached' } },
   };
   const GRIPS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
   // The handles a picked part resizes from: the chat panel from every edge and corner, the send bar from its sides, the
   // menu bar from its two ends.
   function grips(it) {
     if (it.lay === 'chat') return GRIPS;
-    if (it.lay === 'bar' && barUpright(settings().layBarEdge)) return ['n', 's'];
+    if (it.lay === 'bar' && barUpright(settings()[lk(scrPhone(), 'BarEdge')])) return ['n', 's'];
     return it.lay ? ['e', 'w'] : [];
   }
+
+  // The screen Edit Placement works on: this page, or the phone inside Phone Preview. preview.js hands that one over as
+  // { win, frame, apply, done }: the phone's window, its frame on this page (scaled down to fit), what shows changed
+  // settings inside it, and what happens on Done. The phone always uses the Phone layout.
+  let onScreen = null;
+  const scrWin = () => onScreen?.win || window;
+  const scrPhone = () => (onScreen ? true : phoneNow());
+  // Where the screen sits on this page, and how much it's scaled.
+  function scrBox() {
+    if (!onScreen) return { x: 0, y: 0, k: 1 };
+    const r = onScreen.frame.getBoundingClientRect();
+    return { x: r.left, y: r.top, k: r.width / (onScreen.frame.offsetWidth || r.width || 1) };
+  }
+  // Layout settings by their full names, for the layout being edited.
+  const layNames = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [lk(scrPhone(), k), x]));
   const placeKind = (it) => (it.lay ? 'lay' : it.pos ? 'fg' : 'pop');
   const place = { on: false, sel: null, drag: null, undo: [] };
   let placeTouchGuard = false;
@@ -696,7 +765,7 @@
     }
   }
 
-  const placeEl = (it) => document.getElementById(it.lay ? LAY_PART[it.lay].el : it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_pop_${it.id}`);
+  const placeEl = (it) => (it.lay ? scrWin().document.getElementById(LAY_PART[it.lay].el) : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_pop_${it.id}`));
 
   // The part of a foreground image you can see: its box fills the whole side, with the picture at the bottom.
   function fgRect(el) {
@@ -711,15 +780,27 @@
     return { left, top, right: left + dw, bottom: top + dh, width: dw, height: dh };
   }
 
-  // Layout parts show while Layout is in use; the send bar only while it's Free, since Attached it follows the chat panel.
-  function placeRect(it) {
+  // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar only while it's
+  // Free, since Attached it follows the chat panel.
+  function layRect(it) {
+    const s = settings();
     const el = placeEl(it);
+    if (!el || !layOn(s) || (it.lay === 'send' && s[lk(scrPhone(), 'Send')] !== 'free')) return null;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? r : null;
+  }
+
+  // An item's outline on this page.
+  function placeRect(it) {
     if (it.lay) {
-      if (!el || !layActive() || (it.lay === 'send' && settings().laySend !== 'free')) return null;
-    } else {
-      if (!el || el.style.display === 'none' || !el.getAttribute('src')) return null;
-      if (it.pos && el.parentNode?.style.display === 'none') return null;
+      const r = layRect(it);
+      if (!r) return null;
+      const { x, y, k } = scrBox();
+      return { left: x + r.left * k, top: y + r.top * k, right: x + r.right * k, bottom: y + r.bottom * k, width: r.width * k, height: r.height * k };
     }
+    const el = placeEl(it);
+    if (onScreen || !el || el.style.display === 'none' || !el.getAttribute('src')) return null;
+    if (it.pos && el.parentNode?.style.display === 'none') return null;
     const r = it.pos ? fgRect(el) : el.getBoundingClientRect();
     return r && r.width > 0 && r.height > 0 ? r : null;
   }
@@ -727,20 +808,21 @@
   // Where an item is, in the form placeSet takes: an offset for a picture, the part's settings for a Layout part.
   function placeGet(it) {
     const s = settings();
-    if (it.lay) return Object.fromEntries(LAY_PART[it.lay].keys.map((k) => [k, s[k]]));
+    if (it.lay) return Object.fromEntries(LAY_PART[it.lay].keys.map((k) => [lk(scrPhone(), k), s[lk(scrPhone(), k)]]));
     if (!it.pos) return { x: rangeNum(s, it.id + 'PopX'), y: rangeNum(s, it.id + 'PopY') };
     const F = fgData();
     return { x: cardNum(F[it.pos + 'X'], 'fgX', 0), y: cardNum(F[it.pos + 'Y'], 'fgY', 0) };
   }
   const placeAtStart = (it) => {
     const v = placeGet(it);
-    return it.lay ? Object.entries(LAY_PART[it.lay].start).every(([k, x]) => v[k] === x) : !v.x && !v.y;
+    return it.lay ? Object.entries(layNames(LAY_PART[it.lay].start)).every(([k, x]) => v[k] === x) : !v.x && !v.y;
   };
 
   function placeSet(it, v) {
     if (it.lay) {
       Object.assign(settings(), v);
       applyLayout();
+      onScreen?.apply(v);
     } else if (!it.pos) {
       const s = settings();
       s[it.id + 'PopX'] = Math.round(v.x);
@@ -762,11 +844,11 @@
 
   // Dragging a Layout part. The chat panel and send bar move anywhere and resize from their handles. The menu bar slides
   // along its edge, changes length from its ends, and goes to another edge when dragged close to it. Kept on screen and
-  // saved as a % of it.
-  function dragLayout(d, e, dx, dy) {
+  // saved as a % of it. Everything here is in the screen's own pixels: dx, dy and the pointer (px, py) too.
+  function dragLayout(d, dx, dy, px, py, free) {
     const s = settings();
-    const W = window.innerWidth, H = window.innerHeight;
-    const g = s.placeSnap && !e.altKey ? rangeNum(s, 'placeGrid') : 0;
+    const W = scrWin().innerWidth, H = scrWin().innerHeight;
+    const g = s.placeSnap && !free ? rangeNum(s, 'placeGrid') : 0;
     const snap = (v) => (g ? Math.round(v / g) * g : v);
     // A span from a to b moved by t, kept within 0 to max, with whichever end is nearer a grid line landing on it.
     const shift = (a, b, t, max) => {
@@ -781,9 +863,10 @@
     const r = d.r0;
 
     if (d.it.lay === 'bar') {
-      const up0 = barUpright(d.start.layBarEdge);
-      const min = (d.min ??= barIcons() * barCell());
-      let edge = d.start.layBarEdge, a, b;
+      const up0 = barUpright(d.edge0);
+      const doc = scrWin().document;
+      const min = (d.min ??= barIcons(doc) * barCell(doc));
+      let edge = d.edge0, a, b;
       if (d.grip) {
         [a, b] = up0 ? [r.top, r.bottom] : [r.left, r.right];
         const t = up0 ? dy : dx;
@@ -791,19 +874,19 @@
         else b = clamp(snap(b + t), a + min, up0 ? H : W);
       } else {
         // The edge nearest the pointer, once it's clearly nearer than the bar's own.
-        const dist = { top: e.clientY, bottom: H - e.clientY, left: e.clientX, right: W - e.clientX };
+        const dist = { top: py, bottom: H - py, left: px, right: W - px };
         const near = LAY_EDGES.reduce((m, k) => (dist[k] < dist[m] ? k : m), d.edge);
         if (near !== d.edge && dist[near] + 40 < dist[d.edge]) { d.edge = near; d.switched = true; }
         edge = d.edge;
         const up = barUpright(edge), size = up ? H : W;
         const len = clamp(up0 ? r.height : r.width, Math.min(min, size), size);
-        const at = up ? e.clientY : e.clientX;
+        const at = up ? py : px;
         // Held where it was grabbed; on another edge, by its middle.
-        const grab = d.switched ? len / 2 : up0 ? d.sy - r.top : d.sx - r.left;
+        const grab = d.switched ? len / 2 : up0 ? d.py0 - r.top : d.px0 - r.left;
         [a, b] = shift(at - grab, at - grab + len, 0, size);
       }
       const size = barUpright(edge) ? H : W;
-      return placeSet(d.it, { layBarEdge: edge, layBarMoved: true, layBarPos: pct(a, size), layBarLen: pct(b - a, size) });
+      return placeSet(d.it, layNames({ BarEdge: edge, BarMoved: true, BarPos: pct(a, size), BarLen: pct(b - a, size) }));
     }
 
     let [L, R, T, B] = [r.left, r.right, r.top, r.bottom];
@@ -811,14 +894,15 @@
       [L, R] = shift(L, R, dx, W);
       [T, B] = shift(T, B, dy, H);
     } else {
-      const minW = W * NUM_RANGE[d.it.lay === 'chat' ? 'layChatW' : 'laySendW'][0] / 100, minH = H * NUM_RANGE.layChatH[0] / 100;
+      const min = (name) => NUM_RANGE[lk(scrPhone(), name)][0] / 100;
+      const minW = W * min(d.it.lay === 'chat' ? 'ChatW' : 'SendW'), minH = H * min('ChatH');
       if (d.grip.includes('w')) L = clamp(snap(L + dx), 0, R - minW);
       if (d.grip.includes('e')) R = clamp(snap(R + dx), L + minW, W);
       if (d.grip.includes('n')) T = clamp(snap(T + dy), 0, B - minH);
       if (d.grip.includes('s')) B = clamp(snap(B + dy), T + minH, H);
     }
-    if (d.it.lay === 'chat') placeSet(d.it, { layChatMoved: true, layChatX: pct(L, W), layChatY: pct(T, H), layChatW: pct(R - L, W), layChatH: pct(B - T, H) });
-    else placeSet(d.it, { laySendX: pct(L, W), laySendB: pct(H - B, H), laySendW: pct(R - L, W) });
+    if (d.it.lay === 'chat') placeSet(d.it, layNames({ ChatMoved: true, ChatX: pct(L, W), ChatY: pct(T, H), ChatW: pct(R - L, W), ChatH: pct(B - T, H) }));
+    else placeSet(d.it, layNames({ SendX: pct(L, W), SendB: pct(H - B, H), SendW: pct(R - L, W) }));
   }
 
   function onPlaceTouchMove(e) {
@@ -869,7 +953,7 @@
       const it = PLACE.find((p) => p.id === place.sel);
       if (!it || placeAtStart(it)) return;
       pushUndo(it.id, placeGet(it));
-      placeSet(it, it.lay ? LAY_PART[it.lay].start : { x: 0, y: 0 });
+      placeSet(it, it.lay ? layNames(LAY_PART[it.lay].start) : { x: 0, y: 0 });
       save();
     };
     q('#cb_place_done').onclick = endPlacement;
@@ -884,7 +968,12 @@
       if (place.sel !== it.id) { place.sel = it.id; drawPlace(); return; }
       const start = placeGet(it);
       const grip = e.target.closest('.cb_place_grip')?.dataset.g || '';
-      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, r0: placeRect(it), grip, moved: false, edge: start.layBarEdge };
+      const sb = scrBox();
+      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false, box: sb };
+      // A Layout part drags in its screen's own pixels.
+      if (it.lay) Object.assign(place.drag, { r0: layRect(it), px0: (e.clientX - sb.x) / sb.k, py0: (e.clientY - sb.y) / sb.k, edge0: settings()[lk(scrPhone(), 'BarEdge')] });
+      else place.drag.r0 = placeRect(it);
+      place.drag.edge = place.drag.edge0;
       box.classList.add('cb_dragging');
     });
 
@@ -895,7 +984,10 @@
       // A tap that wobbles a little isn't a drag.
       if (!d.moved && Math.hypot(dx, dy) < 4) return;
       d.moved = true;
-      if (d.it.lay) return d.r0 && dragLayout(d, e, dx, dy);
+      if (d.it.lay) {
+        const { x, y, k } = d.box;
+        return d.r0 && dragLayout(d, dx / k, dy / k, (e.clientX - x) / k, (e.clientY - y) / k, e.altKey);
+      }
       const s = settings();
       if (s.placeSnap && !e.altKey && d.r0) {
         // The picture's nearest edge lands on a grid line, whichever corner or center it's tied to.
@@ -960,9 +1052,13 @@
     layer.querySelector('.cb_place_name').textContent = sel ? sel.label : 'Tap an outline to pick it';
     layer.querySelector('#cb_place_snap').checked = !!s.placeSnap;
     layer.querySelector('.cb_place_gridset').style.display = s.placeSnap ? '' : 'none';
+    // The grid covers the screen being edited, in that screen's pixels.
     const grid = layer.querySelector('.cb_place_grid');
+    const fr = onScreen?.frame.getBoundingClientRect();
+    const gs = rangeNum(s, 'placeGrid') * scrBox().k;
     grid.style.display = s.placeSnap ? 'block' : 'none';
-    grid.style.backgroundSize = `${rangeNum(s, 'placeGrid')}px ${rangeNum(s, 'placeGrid')}px`;
+    grid.style.backgroundSize = `${gs}px ${gs}px`;
+    Object.assign(grid.style, fr ? { inset: 'auto', left: fr.left + 'px', top: fr.top + 'px', width: fr.width + 'px', height: fr.height + 'px' } : { inset: '', left: '', top: '', width: '', height: '' });
     layer.querySelector('#cb_place_undo').disabled = !place.undo.length;
     layer.querySelector('#cb_place_reset').disabled = !sel || placeAtStart(sel);
     // The bar sits at the bottom of the screen, or at the top or in the middle while it would cover a small item there,
@@ -982,21 +1078,25 @@
   }
 
   // Opened from the menu, which hides until Done. `first` picks which kind of item starts picked ('lay', 'pop' or 'fg').
-  function startPlacement(first) {
-    if (!isOn()) return;
+  // `scr` is the phone inside Phone Preview (see onScreen); without it, this page.
+  function startPlacement(first, scr = null) {
+    if (!isOn() || place.on) return;
+    onScreen = scr;
     const shown = PLACE.filter((it) => placeRect(it));
     if (!shown.length) {
-      toastr.info('Nothing to move yet. Set an avatar to Pop Out, or add a foreground image, first.', 'Edit Placement');
-      return;
+      onScreen = null;
+      toastr.info(scr ? 'Turn Layout on first.' : 'Nothing to move yet. Set an avatar to Pop Out, or add a foreground image, first.', 'Edit Placement');
+      return false;
     }
     place.on = true;
     place.undo = [];
     place.sel = (shown.find((it) => placeKind(it) === first) || shown[0]).id;
     const ov = document.getElementById('cb_modal_overlay');
-    if (ov) ov.style.display = 'none';
+    if (ov && !scr) ov.style.display = 'none';
     ensurePlaceLayer().style.display = 'block';
     setPlaceTouchGuard(true);
     drawPlace();
+    return true;
   }
 
   function endPlacement() {
@@ -1008,7 +1108,11 @@
     if (layer) layer.style.display = 'none';
     setPlaceTouchGuard(false);
     const ov = document.getElementById('cb_modal_overlay');
-    if (ov) { ov.style.display = ''; syncLayoutPage(ov); }
+    syncLayoutPage(ov);
+    const scr = onScreen;
+    onScreen = null;
+    if (scr) return scr.done?.();
+    if (ov) ov.style.display = '';
   }
 
   function syncPopouts() {
@@ -2531,112 +2635,149 @@
   }
 
   // ===== Layout =====
-  // On screens wider than 1000px the chat panel, SillyTavern's menu bar and the send bar can be moved (the Layout page and
-  // Edit Layout). At 1000px or less SillyTavern switches to its phone look, so its own layout stays there.
+  // The chat panel, SillyTavern's menu bar and the send bar can be moved (the Layout page and Edit Layout). There are two
+  // layouts: Desktop for screens wider than 1000px, and Phone for 1000px or less, where SillyTavern switches to its phone
+  // look. Each has its own settings: the Phone one's names start with layPh (see lk).
   const LAY_EDGES = ['top', 'bottom', 'left', 'right'];
   const LAY_WIDE = window.matchMedia('(width > 1000px)');
   LAY_WIDE.addEventListener('change', () => syncLayoutPage(document.getElementById('cb_modal_overlay')));
+  // A layout setting's name: lk(false, 'ChatX') is layChatX, lk(true, 'ChatX') is layPhChatX.
+  const lk = (phone, name) => (phone ? 'layPh' : 'lay') + name;
+  // The layout this page uses now.
+  const phoneNow = () => !LAY_WIDE.matches;
   const layOn = (s) => isOn() && s.layEnabled;
-  const layActive = (s = settings()) => layOn(s) && LAY_WIDE.matches;
-  const sendFree = (s = settings()) => layActive(s) && s.laySend === 'free';
+  const sendFree = (s = settings()) => layOn(s) && s[lk(phoneNow(), 'Send')] === 'free';
   const barUpright = (edge) => edge === 'left' || edge === 'right';
   // The menu bar's icons. The bar is never shorter than one icon's room (SillyTavern's bar thickness) for each of them,
   // unless the screen edge is shorter than that: then the icons squeeze to fit.
-  const barIcons = () => Math.max(1, [...document.querySelectorAll('#top-settings-holder > .drawer')].filter((d) => getComputedStyle(d).display !== 'none').length);
-  function barCell() {
-    const probe = document.createElement('div');
+  const barIcons = (doc = document) => Math.max(1, [...doc.querySelectorAll('#top-settings-holder > .drawer')].filter((d) => doc.defaultView.getComputedStyle(d).display !== 'none').length);
+  function barCell(doc = document) {
+    const probe = doc.createElement('div');
     probe.style.cssText = 'position: fixed; visibility: hidden; height: var(--topBarBlockSize);';
-    document.body.appendChild(probe);
+    doc.body.appendChild(probe);
     const h = probe.getBoundingClientRect().height;
     probe.remove();
     return h || 35;
   }
 
   function layoutCss(s) {
-    if (!layOn(s)) return '';
+    return layOn(s) ? layoutBlock(s, false) + layoutBlock(s, true) : '';
+  }
+
+  // One layout's CSS, for the screens it's used on.
+  function layoutBlock(s, phone) {
+    const v = (name) => s[lk(phone, name)];
+    const n = (name) => rangeNum(s, lk(phone, name));
     const T = 'var(--topBarBlockSize)'; // SillyTavern's menu bar thickness, and the room each icon gets along it
-    const edge = LAY_EDGES.includes(s.layBarEdge) ? s.layBarEdge : 'top';
+    const edge = LAY_EDGES.includes(v('BarEdge')) ? v('BarEdge') : 'top';
     const up = barUpright(edge);
-    const n = (k) => rangeNum(s, k);
     // Standing on its side, the bar is as thick as its icons are wide.
     const root = { '--ntr-bt': up ? `max(${T}, var(--topBarIconSize) * 1.25 + 6px)` : T };
     const bt = 'var(--ntr-bt)';
     let css = '';
 
-    // Chat panel. Unmoved, it sits where SillyTavern puts it, leaving room for the menu bar on its edge. A moved one sets
+    // Chat panel. Unmoved, it sits where SillyTavern puts it, leaving room for the menu bar on its edge: on a computer in
+    // the middle at SillyTavern's chat width, on a phone across the whole screen. A moved one on a computer sets
     // SillyTavern's chat width, so the settings panels keep its width.
-    if (s.layChatMoved) {
-      const w = n('layChatW'), h = n('layChatH');
-      Object.assign(root, { '--sheldWidth': `${w}vw`, '--ntr-cw': `${w}vw`, '--ntr-cx': `min(${n('layChatX')}vw, ${100 - w}vw)`, '--ntr-cy': `min(${n('layChatY')}dvh, ${100 - h}dvh)`, '--ntr-ch': `${h}dvh` });
+    if (v('ChatMoved')) {
+      const w = n('ChatW'), h = n('ChatH');
+      if (!phone) root['--sheldWidth'] = `${w}vw`;
+      Object.assign(root, { '--ntr-cw': `${w}vw`, '--ntr-cx': `min(${n('ChatX')}vw, ${100 - w}vw)`, '--ntr-cy': `min(${n('ChatY')}dvh, ${100 - h}dvh)`, '--ntr-ch': `${h}dvh` });
     } else {
       const above = edge === 'top' ? bt : '0px', below = edge === 'bottom' ? bt : '0px';
-      const cw = up ? `min(var(--sheldWidth), 100vw - ${bt})` : 'var(--sheldWidth)';
-      const [lo, hi] = edge === 'left' ? [bt, '100vw'] : edge === 'right' ? ['0px', `100vw - ${bt}`] : [];
-      Object.assign(root, {
-        '--ntr-cw': cw, '--ntr-cx': up ? `clamp(${lo}, (100vw - ${cw}) / 2, ${hi} - ${cw})` : 'calc((100vw - var(--sheldWidth)) / 2)',
-        '--ntr-cy': above, '--ntr-ch': `calc(100dvh - ${above} - ${below} - 1px)`,
-      });
+      let cw, cx;
+      if (phone) {
+        cw = up ? `calc(100vw - ${bt})` : '100vw';
+        cx = edge === 'left' ? bt : '0px';
+      } else {
+        cw = up ? `min(var(--sheldWidth), 100vw - ${bt})` : 'var(--sheldWidth)';
+        const [lo, hi] = edge === 'left' ? [bt, '100vw'] : edge === 'right' ? ['0px', `100vw - ${bt}`] : [];
+        cx = up ? `clamp(${lo}, (100vw - ${cw}) / 2, ${hi} - ${cw})` : 'calc((100vw - var(--sheldWidth)) / 2)';
+      }
+      Object.assign(root, { '--ntr-cw': cw, '--ntr-cx': cx, '--ntr-cy': above, '--ntr-ch': `calc(100dvh - ${above} - ${below} - 1px)` });
     }
     // Layout places the chat panel, so SillyTavern's Movable UI Panels grip and resize corner on it go.
     css += cssRule('body #sheld', { left: 'var(--ntr-cx)', top: 'var(--ntr-cy)', width: 'var(--ntr-cw)', height: 'var(--ntr-ch)', 'max-height': 'var(--ntr-ch)', right: 'auto', bottom: 'auto', margin: '0', resize: 'none' });
     css += cssRule('body #sheld > #sheldheader', { display: 'none' });
     css += cssRule('body #chat', { 'max-height': 'none' });
+    // Fixed parts are placed in the page's root, which SillyTavern's phone look leaves with no height. Anything held by
+    // the bottom of the screen (a bar or Free send bar there, settings panels above it) would end up above the screen.
+    if (phone) css += cssRule('html', { 'min-height': '100dvh' });
 
     // Menu bar: the icons and the strip behind them. It stays SillyTavern's own while it sits unmoved on the top edge
     // over an unmoved chat panel. Unmoved anywhere else, it lines up with the chat panel.
-    if (edge !== 'top' || s.layBarMoved || s.layChatMoved) {
+    if (edge !== 'top' || v('BarMoved') || v('ChatMoved')) {
       const min = `calc(${barIcons()} * ${T})`;
       if (!up) {
-        const w = `min(100vw, max(${min}, ${s.layBarMoved ? `${n('layBarLen')}vw` : 'var(--ntr-cw)'}))`;
+        const w = `min(100vw, max(${min}, ${v('BarMoved') ? `${n('BarLen')}vw` : 'var(--ntr-cw)'}))`;
         Object.assign(root, {
-          '--ntr-bx': s.layBarMoved ? `clamp(0px, ${n('layBarPos')}vw, 100vw - ${w})` : 'var(--ntr-cx)',
+          '--ntr-bx': v('BarMoved') ? `clamp(0px, ${n('BarPos')}vw, 100vw - ${w})` : 'var(--ntr-cx)',
           '--ntr-by': edge === 'top' ? '0px' : `calc(100dvh - ${bt})`, '--ntr-bw': w, '--ntr-bh': bt,
         });
       } else {
-        const h = `min(100dvh, ${s.layBarMoved ? `max(${min}, ${n('layBarLen')}dvh)` : `${min} * 1.25`})`;
+        const h = `min(100dvh, ${v('BarMoved') ? `max(${min}, ${n('BarLen')}dvh)` : `${min} * 1.25`})`;
         Object.assign(root, {
           '--ntr-bx': edge === 'left' ? '0px' : `calc(100vw - ${bt})`, '--ntr-bw': bt, '--ntr-bh': h,
-          '--ntr-by': s.layBarMoved ? `clamp(0px, ${n('layBarPos')}dvh, 100dvh - ${h})` : `clamp(0px, var(--ntr-cy) + (var(--ntr-ch) - ${h}) / 2, 100dvh - ${h})`,
+          '--ntr-by': v('BarMoved') ? `clamp(0px, ${n('BarPos')}dvh, 100dvh - ${h})` : `clamp(0px, var(--ntr-cy) + (var(--ntr-ch) - ${h}) / 2, 100dvh - ${h})`,
         });
       }
       css += cssRule('body #top-settings-holder, body #top-bar', { position: 'fixed', left: 'var(--ntr-bx)', top: 'var(--ntr-by)', width: 'var(--ntr-bw)', height: 'var(--ntr-bh)', right: 'auto', bottom: 'auto', margin: '0' });
       if (up) css += cssRule('body #top-settings-holder', { 'flex-direction': 'column' }) + cssRule('body #top-settings-holder > .drawer', { flex: '1 1 0', 'min-height': '0' });
-
-      // Settings panels open out of the bar, toward the middle of the screen. World Info stays where Movable UI Panels
-      // puts it.
-      const pw = 'max(450px, var(--sheldWidth))'; // SillyTavern's own panel width
-      const along = `clamp(0px, var(--ntr-bx) + (var(--ntr-bw) - ${pw}) / 2, 100vw - ${pw})`;
-      const panel = {
-        top: { left: along, top: bt, 'max-height': `calc(100dvh - ${bt} - var(--bottomFormBlockSize))` },
-        bottom: { left: along, top: 'auto', bottom: bt, 'max-height': `calc(100dvh - ${bt})` },
-        left: { left: bt, top: '0px', 'max-height': '100dvh' },
-        right: { left: `calc(100vw - ${bt} - ${pw})`, top: '0px', 'max-height': '100dvh' },
-      }[edge];
-      const drawers = '#top-settings-holder > .drawer > .drawer-content:not(.fillLeft):not(.fillRight)';
-      css += cssRule(`body:not(.movingUI) ${drawers}, body.movingUI ${drawers}:not(#WorldInfo)`, { position: 'fixed', margin: '0', right: 'auto', bottom: 'auto', ...panel });
-      // Beside a bar on the left or right they take the whole height of the screen, like SillyTavern's side panels.
-      if (up) {
-        css += cssRule(`body:not(.movingUI) ${drawers}.openDrawer, body.movingUI ${drawers}.openDrawer:not(#WorldInfo)`, { height: '100dvh' });
-        // The side panel on the bar's side moves over so the bar doesn't cover it.
-        const sideW = `calc((100vw - var(--sheldWidth) - 2px) / 2 - ${bt})`;
-        css += cssRule('body:not(.movingUI) #top-settings-holder .fillLeft, body:not(.movingUI) #top-settings-holder .fillRight', { 'max-height': '100dvh' });
-        css += cssRule(`body:not(.movingUI) #top-settings-holder .${edge === 'left' ? 'fillLeft' : 'fillRight'}`,
-          edge === 'left' ? { left: bt, width: sideW } : { left: 'auto', right: bt, width: sideW });
-      }
+      css += phone ? phonePanelCss(edge, bt) : deskPanelCss(edge, bt, up);
     }
 
     // Send bar. Free, it has its own place; its bottom edge stays put, so it grows upward as you type more lines.
-    if (s.laySend === 'free') {
-      const w = n('laySendW');
+    if (v('Send') === 'free') {
+      const w = n('SendW');
       css += cssRule('body #form_sheld', {
-        position: 'fixed', left: `min(${n('laySendX')}vw, ${100 - w}vw)`, width: `${w}vw`, margin: '0',
-        top: 'auto', bottom: `min(${n('laySendB')}dvh, 100dvh - var(--bottomFormBlockSize))`,
+        position: 'fixed', left: `min(${n('SendX')}vw, ${100 - w}vw)`, width: `${w}vw`, margin: '0',
+        top: 'auto', bottom: `min(${n('SendB')}dvh, 100dvh - var(--bottomFormBlockSize))`,
       });
       css += cssRule('body #chat', { 'padding-bottom': 'var(--ntr-send-room, 0px)' });
       // It stands apart from the chat panel, like a Separate send box, but without the gap.
       if (s.ovEnabled) css += joinCss(s, true, 'body ');
     }
-    return `\n      @media (width > 1000px) {${cssRule('html:root', root)}${css}\n      }\n`;
+    return `\n      @media (width ${phone ? '<=' : '>'} 1000px) {${cssRule('html:root', root)}${css}\n      }\n`;
+  }
+
+  // Settings panels on a computer open out of the bar, toward the middle of the screen, at SillyTavern's panel width.
+  // World Info stays where Movable UI Panels puts it.
+  function deskPanelCss(edge, bt, up) {
+    const pw = 'max(450px, var(--sheldWidth))'; // SillyTavern's own panel width
+    const along = `clamp(0px, var(--ntr-bx) + (var(--ntr-bw) - ${pw}) / 2, 100vw - ${pw})`;
+    const panel = {
+      top: { left: along, top: bt, 'max-height': `calc(100dvh - ${bt} - var(--bottomFormBlockSize))` },
+      bottom: { left: along, top: 'auto', bottom: bt, 'max-height': `calc(100dvh - ${bt})` },
+      left: { left: bt, top: '0px', 'max-height': '100dvh' },
+      right: { left: `calc(100vw - ${bt} - ${pw})`, top: '0px', 'max-height': '100dvh' },
+    }[edge];
+    const drawers = '#top-settings-holder > .drawer > .drawer-content:not(.fillLeft):not(.fillRight)';
+    let css = cssRule(`body:not(.movingUI) ${drawers}, body.movingUI ${drawers}:not(#WorldInfo)`, { position: 'fixed', margin: '0', right: 'auto', bottom: 'auto', ...panel });
+    // Beside a bar on the left or right they take the whole height of the screen, like SillyTavern's side panels.
+    if (up) {
+      css += cssRule(`body:not(.movingUI) ${drawers}.openDrawer, body.movingUI ${drawers}.openDrawer:not(#WorldInfo)`, { height: '100dvh' });
+      // The side panel on the bar's side moves over so the bar doesn't cover it.
+      const sideW = `calc((100vw - var(--sheldWidth) - 2px) / 2 - ${bt})`;
+      css += cssRule('body:not(.movingUI) #top-settings-holder .fillLeft, body:not(.movingUI) #top-settings-holder .fillRight', { 'max-height': '100dvh' });
+      css += cssRule(`body:not(.movingUI) #top-settings-holder .${edge === 'left' ? 'fillLeft' : 'fillRight'}`,
+        edge === 'left' ? { left: bt, width: sideW } : { left: 'auto', right: bt, width: sideW });
+    }
+    return css;
+  }
+
+  // Settings panels on a phone open out of the bar too, and fill the rest of the screen. The two side panels (AI Response
+  // Configuration, Character Management) do the same, as they already fill the screen in SillyTavern's phone look.
+  function phonePanelCss(edge, bt) {
+    const rest = `calc(100vw - ${bt})`;
+    const panel = {
+      top: { left: '0px', width: '100vw', top: bt, 'max-height': `calc(100dvh - ${bt})` },
+      bottom: { left: '0px', width: '100vw', top: 'auto', bottom: bt, 'max-height': `calc(100dvh - ${bt})` },
+      left: { left: bt, width: rest, top: '0px', 'max-height': '100dvh' },
+      right: { left: '0px', width: rest, top: '0px', 'max-height': '100dvh' },
+    }[edge];
+    const drawers = '#top-settings-holder > .drawer > .drawer-content';
+    return cssRule(`body ${drawers}`, { position: 'fixed', margin: '0', right: 'auto', bottom: 'auto', 'min-width': '0', 'max-width': 'none', ...panel })
+      + cssRule(`body ${drawers}.openDrawer`, { height: panel['max-height'] });
   }
 
   let layCssNow = null;
@@ -2680,63 +2821,85 @@
     if (chat.style.getPropertyValue('--ntr-send-room') !== v) chat.style.setProperty('--ntr-send-room', v);
   }
 
-  // The Layout page.
+  // The Layout page. Its Menu Bar, Send Bar and Back to SillyTavern's Layout change the layout picked under Layout,
+  // which starts on the one this screen uses. Edit Layout always changes the one this screen uses.
+  let layTab = null;
+  const tabPhone = () => (layTab ? layTab === 'phone' : phoneNow());
+
   function layoutSectionHtml(s) {
+    const ph = tabPhone();
+    const btn = (id, icon, label) => `<button type="button" id="${id}" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid ${icon}"></i> ${label}</button>`;
     return pageHtml('layout', `
-        <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar and the send bar. Turning Layout on changes nothing until you move something. Screens 1000px wide or less, like phones, keep SillyTavern's own layout.</div>
+        <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar and the send bar. There are two layouts: Desktop for screens wider than 1000px, and Phone for screens 1000px wide or less, like phones. Turning Layout on changes nothing until you move something.</div>
         ${card('', `
-          <button type="button" id="m_l_edit" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Layout</button>
-          <div class="cb_hint" style="margin-bottom: 0;">Hides the menu so you can drag the parts on screen. Drag the handles on the picked part to resize it. Tap the picked part to pick the one under it. Press Done to come back.</div>`)}
+          <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}${btn('m_l_preview', 'fa-mobile-screen-button', 'Phone Preview')}</div>
+          <div class="cb_hint">Edit Layout hides the menu so you can drag the parts on screen. It changes the layout this screen uses: <b id="m_l_now"></b>. Drag the handles on the picked part to resize it. Tap the picked part to pick the one under it. Press Done to come back.</div>
+          <div class="cb_hint" style="margin-bottom: 0;">Phone Preview shows SillyTavern in a phone-sized window, with its own Edit Layout for the Phone layout. Nothing inside it can be clicked or saved.</div>`)}
+        ${card('Layout', `
+          ${pills('ltab', [['desk', 'Desktop'], ['phone', 'Phone']], ph ? 'phone' : 'desk')}
+          <div class="cb_hint" style="margin-bottom: 0;">Menu Bar, Send Bar and Back to SillyTavern's Layout below change this one.</div>`)}
         ${card('Menu Bar', `
-          ${pills('lbaredge', [['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']], s.layBarEdge)}
-          <div class="cb_hint" style="margin-bottom: 0;">The edge of the screen it sits on. Left and Right stand it on its side. Picking an edge here puts the bar back in its starting spot on that edge. In Edit Layout, slide it along its edge, drag its ends to change its length, or drag it to another edge. Settings panels open out of the bar.</div>`)}
+          ${pills('lbaredge', [['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']], s[lk(ph, 'BarEdge')])}
+          <div class="cb_hint" style="margin-bottom: 0;">The edge of the screen it sits on. Left and Right stand it on its side. Picking an edge here puts the bar back in its starting spot on that edge. In Edit Layout, slide it along its edge, drag its ends to change its length, or drag it to another edge. Settings panels open out of the bar; on a phone they fill the rest of the screen.</div>`)}
         ${card('Send Bar', `
-          ${pills('lsend', [['attached', 'Attached'], ['free', 'Free']], s.laySend)}
+          ${pills('lsend', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Send')])}
           <div class="cb_hint" style="margin-bottom: 0;">Attached sits under the chat panel, like SillyTavern, and UI Display's Send Box Position still applies. Free goes anywhere on the screen and grows upward as you type more lines.</div>`)}
         ${card('', `
-          <button type="button" id="m_l_reset" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-rotate-left"></i> Back to SillyTavern's Layout</button>
-          <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar and send bar back where SillyTavern has them.</div>`)}
+          ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
+          <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar and send bar back where SillyTavern has them, in the layout picked above.</div>`)}
     `, { sw: ['m_l_enable', s.layEnabled] });
   }
 
   function bindLayout(overlay, s) {
     const changed = () => { save(); updateAvatarStyle(); syncLayoutPage(overlay); };
     overlay.querySelector('#m_l_enable').onchange = function() { s.layEnabled = this.checked; changed(); };
-    overlay.querySelector('#m_l_edit').onclick = () => {
-      if (!LAY_WIDE.matches) return toastr.info('Layout works on screens wider than 1000px. This one keeps SillyTavern\'s own layout.', 'Layout');
-      startPlacement('lay');
+    overlay.querySelector('#m_l_edit').onclick = () => startPlacement('lay');
+    overlay.querySelector('#m_l_preview').onclick = async () => {
+      const pv = await loadModule('preview', true);
+      if (pv) pv.open();
     };
-    onPills(overlay, 'lbaredge', (v) => { s.layBarEdge = v; s.layBarMoved = false; changed(); });
+    onPills(overlay, 'ltab', (v) => { layTab = v; syncLayoutPage(overlay); });
+    onPills(overlay, 'lbaredge', (v) => {
+      const ph = tabPhone();
+      Object.assign(s, { [lk(ph, 'BarEdge')]: v, [lk(ph, 'BarMoved')]: false });
+      changed();
+    });
     onPills(overlay, 'lsend', (v) => {
-      // Free starts where the send bar is now, so it doesn't jump.
+      const ph = tabPhone();
+      // Free starts where the send bar is now, so it doesn't jump. For the other screen's layout it starts where it was
+      // last, or across the bottom.
       const form = document.getElementById('form_sheld');
-      if (v === 'free' && layActive(s) && form) {
+      if (v === 'free' && s[lk(ph, 'Send')] !== 'free' && ph === phoneNow() && layOn(s) && form) {
         const r = form.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight;
         const pct = (x, size) => Math.round(x / size * 10000) / 100;
-        Object.assign(s, { laySendX: pct(r.left, W), laySendB: pct(Math.max(0, H - r.bottom), H), laySendW: pct(r.width, W) });
+        Object.assign(s, { [lk(ph, 'SendX')]: pct(r.left, W), [lk(ph, 'SendB')]: pct(Math.max(0, H - r.bottom), H), [lk(ph, 'SendW')]: pct(r.width, W) });
       }
-      s.laySend = v;
+      s[lk(ph, 'Send')] = v;
       changed();
     });
     overlay.querySelector('#m_l_reset').onclick = async function() {
-      if (!(await askYes(this, 'Put the chat panel, menu bar and send bar back where SillyTavern has them?', 'Reset'))) return;
-      for (const part of Object.values(LAY_PART)) Object.assign(s, part.start);
+      const ph = tabPhone();
+      if (!(await askYes(this, `Put the chat panel, menu bar and send bar back where SillyTavern has them, in the ${ph ? 'Phone' : 'Desktop'} layout?`, 'Reset'))) return;
+      for (const part of Object.values(LAY_PART)) for (const [k, x] of Object.entries(part.start)) s[lk(ph, k)] = x;
       changed();
     };
     syncLayoutPage(overlay);
   }
 
-  // The Layout page's picks after Edit Layout changed them, and the UI Display settings Layout takes over: Chat Width
-  // once the chat panel has been moved, Send Box Position while the send bar is Free. Screens 1000px wide or less keep
-  // SillyTavern's layout, so there they stay yours, and the menu follows the window across that width.
+  // The Layout page's picks after Edit Layout or the Desktop/Phone pick changed them, and the UI Display settings the
+  // layout this screen uses takes over: Chat Width once its chat panel has been moved, Send Box Position while its send
+  // bar is Free. The menu follows the window across 1000px.
   function syncLayoutPage(overlay) {
     if (!overlay) return;
     const s = settings();
-    for (const [name, k] of [['lbaredge', 'layBarEdge'], ['lsend', 'laySend']]) {
-      const r = overlay.querySelector(`input[name="cbr_${name}"][value="${s[k]}"]`);
+    const ph = tabPhone(), now = phoneNow();
+    for (const [name, val] of [['ltab', ph ? 'phone' : 'desk'], ['lbaredge', s[lk(ph, 'BarEdge')]], ['lsend', s[lk(ph, 'Send')]]]) {
+      const r = overlay.querySelector(`input[name="cbr_${name}"][value="${val}"]`);
       if (r) r.checked = true;
     }
-    const over = { width: layActive(s) && s.layChatMoved, send: layActive(s) && s.laySend === 'free' };
+    const nowEl = overlay.querySelector('#m_l_now');
+    if (nowEl) nowEl.textContent = now ? 'Phone' : 'Desktop';
+    const over = { width: layOn(s) && s[lk(now, 'ChatMoved')], send: layOn(s) && s[lk(now, 'Send')] === 'free' };
     overlay.querySelectorAll('.m_l_over').forEach((el) => el.classList.toggle('cb_dim', !!over[el.dataset.lay]));
     overlay.querySelectorAll('.m_l_note').forEach((el) => { el.hidden = !over[el.dataset.lay]; });
   }
@@ -3010,7 +3173,7 @@
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
     bannerBackdrop: ['wallpaper', 'panel'], ovAvatar: Object.keys(AV_CLS), ovShape: OV_SHAPES, ovNames: ['show', 'hide'], ovSendPos: ['joined', 'separate'],
-    layBarEdge: LAY_EDGES, laySend: ['attached', 'free'],
+    layBarEdge: LAY_EDGES, laySend: ['attached', 'free'], layPhBarEdge: LAY_EDGES, layPhSend: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
   });
@@ -3852,6 +4015,7 @@
   }
 
   function scheduleCardFlush(key) {
+    if (PREVIEW) return;
     clearTimeout(cardTimers.get(key));
     cardTimers.set(key, setTimeout(() => { cardTimers.delete(key); flushCard(key); }, 700));
   }
@@ -4021,8 +4185,6 @@
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'],
-    layBarPos: [0, 100, 0.01, '%'], layBarLen: [5, 100, 0.01, '%'], layChatX: [0, 100, 0.01, '%'], layChatY: [0, 100, 0.01, '%'], layChatW: [10, 100, 0.01, '%'], layChatH: [10, 100, 0.01, '%'],
-    laySendX: [0, 100, 0.01, '%'], laySendB: [0, 100, 0.01, '%'], laySendW: [10, 100, 0.01, '%'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
@@ -4030,6 +4192,12 @@
     fgScale: [10, 300, 5, '%'], fgX: [-10000, 10000, 5, 'px', -1500, 1500], fgY: [-10000, 10000, 5, 'px', -1500, 1500], bannerPos: [0, 100, 1, '%'], bannerVideoPos: [0, 100, 1, '%'], bannerOffset: [0, 300, 5, 'px'],
   };
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
+  for (const phone of [false, true]) {
+    const r = (name, min) => { NUM_RANGE[lk(phone, name)] = [min, 100, 0.01, '%']; };
+    for (const name of ['BarPos', 'ChatX', 'ChatY', 'SendX', 'SendB']) r(name, 0);
+    r('BarLen', 5);
+    for (const name of ['ChatW', 'ChatH', 'SendW']) r(name, 10);
+  }
   for (const p of ['Panel', ...OV_PARTS]) {
     Object.assign(NUM_RANGE, { [`ov${p}BgOpacity`]: [0, 100, 1, '%'], [`ov${p}BorderWidth`]: [1, 6, 1, 'px'], [`ov${p}BorderOpacity`]: [0, 100, 1, '%'] });
     if (p !== 'Panel') NUM_RANGE[`ov${p}Round`] = NUM_RANGE.ovRound;
@@ -4601,7 +4769,7 @@
 
   // ===== Visual Novel module loader + its toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview' };
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -4783,6 +4951,9 @@
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),
+    // For preview.js
+    PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
+    startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),
     loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();

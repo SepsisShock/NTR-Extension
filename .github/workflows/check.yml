@@ -1,5 +1,5 @@
 # Runs on every PR and every push to main.
-# Checks that each .js file loads, that the version matches in all 5 places,
+# Checks that each .js file loads, that the version matches in all 6 places,
 # and (on PRs) that the version was bumped when a .js or .css file changed.
 name: Check
 
@@ -29,18 +29,18 @@ jobs:
           done
           exit $failed
 
-      - name: Version matches in all 5 places
+      - name: Version matches in all 6 places
         run: |
           node -e '
             const fs = require("fs");
             const found = { "manifest.json": JSON.parse(fs.readFileSync("manifest.json", "utf8")).version };
-            for (const [file, name] of [["index.js", "VERSION"], ["vn.js", "VN_VERSION"], ["map.js", "MAP_VERSION"], ["opening.js", "OP_VERSION"]]) {
+            for (const [file, name] of [["index.js", "VERSION"], ["vn.js", "VN_VERSION"], ["map.js", "MAP_VERSION"], ["opening.js", "OP_VERSION"], ["preview.js", "PREVIEW_VERSION"]]) {
               const m = fs.readFileSync(file, "utf8").match(new RegExp(`const ${name} = .([0-9.]+).;`));
               found[file] = m ? m[1] : "(not found)";
             }
             for (const [file, v] of Object.entries(found)) console.log(`${file}: ${v}`);
             if (new Set(Object.values(found)).size !== 1) {
-              console.log("::error::The version is not the same in all 5 places. Bump it in manifest.json, index.js, vn.js, map.js and opening.js.");
+              console.log("::error::The version is not the same in all 6 places. Bump it in manifest.json, index.js, vn.js, map.js, opening.js and preview.js.");
               process.exit(1);
             }
           '

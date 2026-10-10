@@ -99,6 +99,17 @@ Keep the open-world feel, and let a card optionally have endings.
 
 Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
 
+### In Line avatar: spacing and look
+In Line looks too bulky next to the text.
+
+- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
+
+### Avatar fades: clear all
+- [ ] A button in the avatar Fades section that sets all eight fades to 0 at once.
+
+### Typing in slider values
+- [ ] Everywhere in the menu a slider shows a value in % or px, let the value be typed in as well as dragged. Typed values stay within the slider's range.
+
 ### Mobile compatibility testing
 Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
 

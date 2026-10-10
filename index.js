@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.17.0';
+  const VERSION = '2.17.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -415,7 +415,9 @@
       const where = h === 'c' ? (v === 'b' ? 'below' : 'above') : h === 'r' ? 'right' : 'left';
       const stacked = where === 'above' || where === 'below';
       const boxShape = framed ? `aspect-ratio: 1 / ${aspect} !important; border-radius: ${frameR} !important;` : `aspect-ratio: ${ar} !important; border-radius: 0 !important;`;
+      // The row's direction is set here too: themes often flip User messages, which would swap left and right.
       return `
+      #chat .mes[is_user="${isUserStr}"] { flex-direction: row !important; }
       ${stacked ? `#chat .mes[is_user="${isUserStr}"] { flex-wrap: wrap !important; }
       #chat .mes[is_user="${isUserStr}"] .mes_block { flex: 0 0 100% !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {

@@ -156,11 +156,12 @@ Interface Shape (UI Display, Whole Interface) rounds or squares the chat panel. 
 - [ ] Check that rounded corners don't cut off anything inside them, like drawer edges, menu items or popup buttons.
 - [ ] Messages, the send box and avatars keep their own Shape; the VN box and Reasoning keep theirs too. Scrollbars keep what their Custom CSS sets.
 
-### Scrollbar vertical color
-A Scrollbar Color that changes from top to bottom (a vertical gradient) instead of one flat color.
+### Scrollbar side-to-side color
+A Scrollbar Color that changes from one side of the scrollbar to the other (a horizontal gradient) instead of one flat color.
 
-- [ ] A second color for the bottom of the scrollbar, with Scrollbar Color as the top.
-- [ ] Firefox can show only one flat color, so it keeps the top color.
+- [ ] A second color for the right side of the scrollbar, with Scrollbar Color as the left.
+- [ ] Sideways scrollbars (like in wide code blocks) turn it to run top to bottom, so it still goes across the bar.
+- [ ] Firefox can show only one flat color, so it keeps the first color.
 
 ### Replace the once-a-second check with events
 `injectExtensionMenuButton` in `index.js` runs a check every second to put back its buttons and the wand menu entry and to keep Visual Novel Mode running. In a sandbox test it was most of NTR's idle cost: about 0.8% CPU with everything on, which no user would notice. Users would see no difference, so this is tidying, not a fix.

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.25.1';
+  const VERSION = '2.26.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -123,6 +123,9 @@
 
     // Menu state
     uiOpen: {},
+    // Regexes page (regex.js): Global folders, and Preset folders by preset. Character folders live in the card.
+    regexFolders: [],
+    regexPresetFolders: {},
     uiPage: 'fg',
     uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
     wandEntry: false,
@@ -2180,6 +2183,7 @@
         ${textSectionHtml(s)}
         ${displaySectionHtml(s)}
 
+        ${regexSectionHtml(s)}
         ${vnSectionHtml(s)}
         </div>
         </div>
@@ -2450,6 +2454,7 @@
     bindWand(overlay, s);
     bindData(overlay);
     bindVNSection(overlay, s);
+    window.NTR.regex?.bind(overlay, s);
     bindDisplay(overlay, s);
     bindTextFormatting(overlay, s);
 
@@ -2549,9 +2554,11 @@
     ['text', 'fa-text-height', 'Text', 'Text Formatting'],
     ['display', 'fa-display', 'Display', 'UI Display'],
     ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
+    ['regex', 'fa-code', 'Regexes', 'Regexes'],
     ['vn', 'fa-clapperboard', 'VN', 'Visual Novel Mode'],
   ];
-  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) =>
+  // A line above Regexes sets the pages that make up your look apart from the rest.
+  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (id === 'regex' ? '<div class="ntr_navsep" role="separator"></div>' : '') +
     `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
     + '<div class="ntr_navfill"></div>';
   // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
@@ -3952,10 +3959,19 @@
     }
   }
 
+  // Regex folders (regex.js): only names and the ids of the card's own regexes.
+  function cleanRegex(r) {
+    const ids = (a) => (Array.isArray(a) ? a : []).filter((x) => typeof x === 'string' && x && x.length <= 64).slice(0, 1000);
+    r.folders = (Array.isArray(r.folders) ? r.folders : []).filter(isObj).slice(0, 100).map((f) => ({
+      id: cStr(f.id, 40) || newId('rxf'), name: cStr(f.name, 60) || 'Folder', ids: ids(f.ids), was: ids(f.was),
+    }));
+    for (const k of Object.keys(r)) if (k !== 'folders') delete r[k];
+  }
+
   function cleanStore(st) {
     if (!isObj(st) || cleaned.has(st)) return st;
     cleaned.add(st);
-    for (const [k, fn] of [['banner', cleanBanner], ['fg', cleanFg], ['vn', cleanVn]]) {
+    for (const [k, fn] of [['banner', cleanBanner], ['fg', cleanFg], ['vn', cleanVn], ['regex', cleanRegex]]) {
       if (!(k in st)) continue;
       if (isObj(st[k])) fn(st[k]); else delete st[k];
     }
@@ -3986,7 +4002,7 @@
     const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl && !b.video && b.scope !== 'char');
     const vn = d.vn || {};
     return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.customSpk || []).length && !(vn.hiddenSpk || []).length && !(vn.locations || []).length
-      && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt);
+      && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt) && !(d.regex?.folders || []).length;
   }
 
   const FG_POS = ['Left', 'Center', 'Right'];
@@ -4821,7 +4837,7 @@
 
   // ===== Visual Novel module loader + its toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes' };
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -4848,6 +4864,22 @@
     return modPromise[name];
   }
   const loadVN = () => loadModule('vn', true);
+
+  // The Regexes page comes from regex.js, loaded the first time the menu opens.
+  let regexWaiting = false;
+  function regexSectionHtml(s) {
+    const rx = window.NTR.regex;
+    if (rx) return rx.sectionHtml(s);
+    if (!modError.regex && !regexWaiting) {
+      regexWaiting = true;
+      loadModule('regex').then(() => {
+        regexWaiting = false;
+        if (document.getElementById('cb_modal_overlay')) openCombinedModal();
+      });
+    }
+    const msg = modError.regex ? 'Regexes failed to load: ' + escapeHTML(modError.regex) : 'Loading your regexes.';
+    return pageHtml('regex', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
+  }
 
   function vnSectionHtml(s) {
     const vn = window.NTR.vn;

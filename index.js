@@ -919,8 +919,10 @@
         if (JSON.stringify(placeGet(d.it)) !== JSON.stringify(d.start)) { pushUndo(d.it.id, d.start); save(); }
       } else if (e.type === 'pointerup') {
         // A tap on the picked item picks the next one under it, so a picture over the chat panel can still be picked.
-        const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.classList.contains('cb_place_box') && el.dataset.id !== d.it.id);
-        if (under) place.sel = under.dataset.id;
+        // They go round in drawing order, top first, which picking doesn't change, so every outline there gets a turn.
+        const under = new Set(document.elementsFromPoint(e.clientX, e.clientY).filter((el) => el.classList.contains('cb_place_box')).map((el) => el.dataset.id));
+        const ids = PLACE.map((p) => p.id).reverse().filter((id) => under.has(id));
+        if (ids.length > 1) place.sel = ids[(ids.indexOf(d.it.id) + 1) % ids.length];
       }
       drawPlace();
     };
@@ -2533,11 +2535,13 @@
   // Edit Layout). At 1000px or less SillyTavern switches to its phone look, so its own layout stays there.
   const LAY_EDGES = ['top', 'bottom', 'left', 'right'];
   const LAY_WIDE = window.matchMedia('(width > 1000px)');
+  LAY_WIDE.addEventListener('change', () => syncLayoutPage(document.getElementById('cb_modal_overlay')));
   const layOn = (s) => isOn() && s.layEnabled;
   const layActive = (s = settings()) => layOn(s) && LAY_WIDE.matches;
   const sendFree = (s = settings()) => layActive(s) && s.laySend === 'free';
   const barUpright = (edge) => edge === 'left' || edge === 'right';
-  // The menu bar's icons. The bar is never shorter than one icon's room (SillyTavern's bar thickness) for each of them.
+  // The menu bar's icons. The bar is never shorter than one icon's room (SillyTavern's bar thickness) for each of them,
+  // unless the screen edge is shorter than that: then the icons squeeze to fit.
   const barIcons = () => Math.max(1, [...document.querySelectorAll('#top-settings-holder > .drawer')].filter((d) => getComputedStyle(d).display !== 'none').length);
   function barCell() {
     const probe = document.createElement('div');
@@ -2583,13 +2587,13 @@
     if (edge !== 'top' || s.layBarMoved || s.layChatMoved) {
       const min = `calc(${barIcons()} * ${T})`;
       if (!up) {
-        const w = s.layBarMoved ? `max(${min}, ${n('layBarLen')}vw)` : `max(${min}, var(--ntr-cw))`;
+        const w = `min(100vw, max(${min}, ${s.layBarMoved ? `${n('layBarLen')}vw` : 'var(--ntr-cw)'}))`;
         Object.assign(root, {
           '--ntr-bx': s.layBarMoved ? `clamp(0px, ${n('layBarPos')}vw, 100vw - ${w})` : 'var(--ntr-cx)',
           '--ntr-by': edge === 'top' ? '0px' : `calc(100dvh - ${bt})`, '--ntr-bw': w, '--ntr-bh': bt,
         });
       } else {
-        const h = s.layBarMoved ? `max(${min}, ${n('layBarLen')}dvh)` : `min(100dvh, ${min} * 1.25)`;
+        const h = `min(100dvh, ${s.layBarMoved ? `max(${min}, ${n('layBarLen')}dvh)` : `${min} * 1.25`})`;
         Object.assign(root, {
           '--ntr-bx': edge === 'left' ? '0px' : `calc(100vw - ${bt})`, '--ntr-bw': bt, '--ntr-bh': h,
           '--ntr-by': s.layBarMoved ? `clamp(0px, ${n('layBarPos')}dvh, 100dvh - ${h})` : `clamp(0px, var(--ntr-cy) + (var(--ntr-ch) - ${h}) / 2, 100dvh - ${h})`,
@@ -2723,7 +2727,8 @@
   }
 
   // The Layout page's picks after Edit Layout changed them, and the UI Display settings Layout takes over: Chat Width
-  // once the chat panel has been moved, Send Box Position while the send bar is Free.
+  // once the chat panel has been moved, Send Box Position while the send bar is Free. Screens 1000px wide or less keep
+  // SillyTavern's layout, so there they stay yours, and the menu follows the window across that width.
   function syncLayoutPage(overlay) {
     if (!overlay) return;
     const s = settings();
@@ -2731,7 +2736,7 @@
       const r = overlay.querySelector(`input[name="cbr_${name}"][value="${s[k]}"]`);
       if (r) r.checked = true;
     }
-    const over = { width: layOn(s) && s.layChatMoved, send: layOn(s) && s.laySend === 'free' };
+    const over = { width: layActive(s) && s.layChatMoved, send: layActive(s) && s.laySend === 'free' };
     overlay.querySelectorAll('.m_l_over').forEach((el) => el.classList.toggle('cb_dim', !!over[el.dataset.lay]));
     overlay.querySelectorAll('.m_l_note').forEach((el) => { el.hidden = !over[el.dataset.lay]; });
   }

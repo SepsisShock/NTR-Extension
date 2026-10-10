@@ -1,4 +1,4 @@
-> **Warning:** Currently in beta and not functional. Use at own risk.
+> **Warning:** Currently in beta. Use at own risk.
 
 <div align="center">
 
@@ -7,31 +7,24 @@
 # NITWIT TAVERN REDESIGN
 
 `Vibe Slopped SillyTavern Extension`
+Come back later, won't finish this part until the extension is ready for release.
 
 </div>
 
 ---
 
+`Install Instructions` link here
+
 ### `[ 01 ]` OVERVIEW
 
-NTR is a SillyTavern extension that changes how chats look. It adds a header banner above the chat, helps you style avatars, text, and the UI. Settings save automatically.
+Latest ST Branch Used: (TBD)
 
-#### `[ 02 ]` [banner example]
+NTR changes how chats look without touching your own ST settings, except where noted below. Settings save automatically.
 
-#### `[ 03 ]` [avatar example]
+### `[ 02 ]` [Ui layout examples]
 
-#### `[ 04 ]` [Ui examples]
+### `[ 03 ]` [avatar example]
 
----
+### `[ 04 ]` []
 
-### `[ 05 ]` VISUAL NOVEL MODE
-
-Visual Novel Mode is optional. It shows messages in a dialogue box with character portraits and sprites, and reads tags in messages to change locations, show choices, play effects and weather, and show CG scenes. It also has maps and opening videos.
-
----
-
-### `[ 06 ]` INSTALL INSTRUCTIONS
-
-TBD
-
----
+### `[ 05 ]` [Regexes examples]

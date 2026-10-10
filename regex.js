@@ -557,8 +557,17 @@ try {
     return out;
   }
   // Switches the folders a theme knows to how it saved them, turning on first, then off, so the chat reloads at most twice.
-  async function applyStates(map) {
-    if (!ready() || !map) return;
+  // One theme at a time: a theme picked while another is still switching waits for it, and the older one skips any step
+  // it hasn't started, so the last theme picked always wins.
+  let applying = Promise.resolve();
+  let applyGen = 0;
+  function applyStates(map) {
+    const gen = ++applyGen;
+    applying = applying.then(() => switchFolders(map, gen)).catch((e) => console.error('[NTR] Theme regex folders failed', e));
+    return applying;
+  }
+  async function switchFolders(map, gen) {
+    if (!ready() || !map || gen !== applyGen) return;
     const on = [], off = [];
     for (const sec of SECS.filter(shown)) {
       for (const { f, items } of view(sec).groups) {
@@ -570,6 +579,7 @@ try {
     }
     save();
     await bulk(on, true);
+    if (gen !== applyGen) return;
     await bulk(off, false);
   }
 

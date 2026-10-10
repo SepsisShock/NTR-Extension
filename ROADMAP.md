@@ -48,21 +48,7 @@ One panel that stays on screen with the current state, instead of a tracker bloc
 - zTracker is an example of the saving part: it keeps tracker data on a message, shows a tracker block inside that message, and can send saved snapshots in later prompts. NTR's difference is showing the current state in a panel that stays on screen.
 - Still being worked out.
 
-### Saving
-- [ ] Keep autosave: sliders save when released, dragged items when dropped.
-- [ ] Show SillyTavern's green confirmation popup after a successful save.
-- [ ] Find out why saving fails when the connection drops.
-- [ ] Consider keeping unsaved changes on the device and retrying when SillyTavern reconnects.
-
-### Menu order
-Rearrange the NTR menu pages:
-
-- [ ] Themes, Layout, Avatars, Text, UI Display, Overlays, Reasoning, then a divider line, then Regexes and VN. The line splits the pages that make up your look from the rest.
-- Overlays now holds Header Banner and Foreground Images. Background images may go there later too, not only for Visual Novel Mode.
-- [ ] Page ids stay the same, so the saved last open page keeps working.
-
 ### Custom Cursor: follow-ups
-- [ ] Keep Size (CSS can't resize a cursor picture, so NTR redraws it at that size).
 - [ ] An Advanced box with Custom CSS for anything the settings don't cover.
 
 ### Send box

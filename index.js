@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.18.0';
+  const VERSION = '2.19.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -159,8 +159,19 @@
   };
 
   // Avatar shapes, like SillyTavern's own: their height for a width of 1. Round is a circle; the others take Corners.
-  const SHAPES = { round: 1, rectangle: 1.5, square: 1 };
-  const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square']];
+  const SHAPES = { round: 1, rectangle: 1.5, square: 1, heart: 1, star: 1 };
+  const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['heart', 'Heart'], ['star', 'Star']];
+  // Heart and Star are outlines that cut the picture (a mask), drawn in a 100 x 100 box stretched over the frame. The
+  // star's points are thick, so it keeps more of the picture.
+  const svgMask = (d) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${d}"/></svg>`)}")`;
+  const STAR = Array.from({ length: 10 }, (_, i) => {
+    const a = (i * 36 - 90) * Math.PI / 180, r = i % 2 ? 24 : 50;
+    return `${(50 + r * Math.cos(a)).toFixed(1)} ${(54.8 + r * Math.sin(a)).toFixed(1)}`;
+  });
+  const OUTLINES = {
+    heart: svgMask('M50 96C22 76 0 56 0 30C0 13 13 2 28 2C38 2 46 8 50 17C54 8 62 2 72 2C87 2 100 13 100 30C100 56 78 76 50 96Z'),
+    star: svgMask(`M${STAR.join('L')}Z`),
+  };
 
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
   const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
@@ -332,7 +343,7 @@
     // A shape is a frame Image Scale sizes: its width, and its height from the shape. Corners are a % of the width.
     const aspect = shape ? SHAPES[shape] : 1;
     const frameH = Math.round(width * aspect);
-    const frameR = shape === 'round' ? '50%' : `${Math.round(width * n('Corner') / 100)}px`;
+    const frameR = shape === 'round' ? '50%' : OUTLINES[shape] ? '0' : `${Math.round(width * n('Corner') / 100)}px`;
 
     let padCss = '';
     if (h === 'l') padCss = `padding-left: ${pad}px !important;`;
@@ -360,6 +371,7 @@
           ${vA} ${hA}
           width: ${width}px; height: ${shape ? frameH + 'px' : 'auto'};
           ${shape ? `object-fit: cover; object-position: 50% 0; border-radius: ${frameR};` : ''}
+          ${OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;` : ''}
           transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px));
           ${blurAmount > 0 ? `filter: blur(${blurAmount}px);` : ''}
         }
@@ -387,10 +399,11 @@
     const corners = [['TL', '0% 0%'], ['TR', '100% 0%'], ['BL', '0% 100%'], ['BR', '100% 100%']]
       .filter(([k]) => n('Fade' + k) > 0)
       .map(([k, at]) => `radial-gradient(${n('Fade' + k)}% ${n('Fade' + k)}% at ${at}, transparent 0%, black 100%)`);
-    const masks = [hMask, vMask, ...corners].join(', ');
+    const masks = [...(OUTLINES[shape] ? [OUTLINES[shape]] : []), hMask, vMask, ...corners].join(', ');
     // The fades go on the picture, or on a shape's frame, which is all of the picture that shows.
     const maskCss = `-webkit-mask-image: ${masks} !important; -webkit-mask-composite: source-in !important;`
-      + ` mask-image: ${masks} !important; mask-composite: intersect !important;`;
+      + ` mask-image: ${masks} !important; mask-composite: intersect !important;`
+      + ' -webkit-mask-size: 100% 100% !important; mask-size: 100% 100% !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important;';
 
     // The image is sized to the picture itself, so the fades follow the picture, not the box: Fill covers the box and
     // gets cropped by it, Fit fits inside it, Original keeps the picture's own size. 100cqw and 100cqh are the box's
@@ -486,8 +499,10 @@
   // SillyTavern's own chat avatars in a side's Shape, where NTR Avatars is off for that side.
   function stShapeCss(flag, shape, corner) {
     const [w, h] = shape === 'rectangle' ? ['calc(var(--avatar-base-width) * 1.2)', 'calc(var(--avatar-base-height) * 1.8)'] : ['var(--avatar-base-width)', 'var(--avatar-base-height)'];
-    const r = shape === 'round' ? 'var(--avatar-base-border-radius-round)' : `calc(${w} * ${corner / 100})`;
-    return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; }\n`;
+    const outline = OUTLINES[shape];
+    const r = shape === 'round' ? 'var(--avatar-base-border-radius-round)' : outline ? '0' : `calc(${w} * ${corner / 100})`;
+    return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; }\n`
+      + (outline ? `      #chat .mes[is_user="${flag}"] .avatar img { border: none !important; box-shadow: none !important; -webkit-mask: ${outline} center / 100% 100% no-repeat !important; mask: ${outline} center / 100% 100% no-repeat !important; }\n` : '');
   }
 
   function setPopStatus(prefix, msg) {
@@ -1654,7 +1669,7 @@
           <div class="cb_hint" style="margin: 4px 0 0;">Crops the avatar to this shape, sized by Image Scale. With ${title} Avatar off, it shapes SillyTavern's own chat avatar. None keeps the whole picture.</div></div>
         <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
         <div id="m_${prefix}_crhint" class="cb_hint" style="margin: 0;${cornersOn ? '' : ' display: none;'}">0% is sharp. Corners are a share of the width, so they keep their look at any Image Scale.</div>
-        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Corners are for Rectangle and Square. A circle is already fully round.</div>
+        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Corners are for Rectangle and Square. The other shapes keep their own outline.</div>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>

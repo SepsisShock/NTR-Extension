@@ -189,10 +189,10 @@ The shared Global banner could show in group chats too, which have no banner now
 
 - Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
 
-### More Avatar Shapes
-More shapes in Avatar Management, beyond SillyTavern's four (Round, Rectangle, Square, Rounded).
+### Avatar Shapes in Visual Novel Mode
+Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Rectangle and Square.
 
-- Open question: whether the extra shapes also apply to NTR Avatars, the avatar backdrop and the VN portrait box, or only the normal chat avatars.
+- Open question: whether the shapes also go on the VN portrait box.
 
 ### Graphic borders around profiles
 Decorative image frames around profile pictures, beyond the current plain border and shape choices.

@@ -169,6 +169,7 @@ A Scrollbar Color that changes from one side of the scrollbar to the other (a ho
 - [ ] Run the same steps on SillyTavern's events (app ready, chat changed, settings updated) instead of on a timer.
 - [ ] Keep a fallback for anything that has no event, like SillyTavern rebuilding its Extensions panel, using a watcher on just that part instead of the whole page.
 - [ ] Check the buttons, the wand entry and Visual Novel Mode still come back after a chat switch, a reload and a theme change.
+- Worth it? The gain is small, mostly a little phone battery. The risk is bigger: SillyTavern doesn't send an event for every change, so a missed one leaves a button missing or Visual Novel Mode off until a reload, and event names can change between SillyTavern versions. The timer can't miss anything. Only do this if a speed test on a phone shows NTR's idle cost matters.
 
 ### Compatibility with other extensions
 If NTR ever needs fixes for other extensions (like a top bar or side panel another extension adds), detect them in JavaScript and set a class on the page, like `body.ntr-has-topbar`, then use that class in CSS. A `body:has(...)` rule in CSS makes the browser check the whole page on every change, even for people who don't have that extension: in a sandbox test, rules like that made up about half of another theme's extra work while a reply streamed in. NTR's own two `:has()` rules only look inside small menu parts, so nothing needs changing now.

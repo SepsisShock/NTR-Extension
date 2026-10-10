@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.26.0';
+  const VERSION = '2.27.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -4447,7 +4447,7 @@
     const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
     return pageHtml('themes', `
         ${card('', `
-          <div class="cb_hint">A theme holds your look: Layout, banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, and the Visual Novel box, tags and default art. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
+          <div class="cb_hint">A theme holds your look: Layout, banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, the Visual Novel box, tags and default art, and which regex folders are on. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
           <div class="ntr_tbar">
             ${b('m_t_new', 'fa-plus', 'Save current look as a new theme')}
@@ -4498,10 +4498,14 @@
       oldRefs.forEach((p) => deleteFileIfUnused(p));
       openCombinedModal();
     };
+    // Which regex folders are on (regex.js) is kept with a theme, outside its look settings, and never exported.
+    const regexStates = async () => (await loadModule('regex'))?.states?.() || null;
     const saveNew = async () => {
       const name = await askName(`Theme ${s.themes.length + 1}`);
       if (!name) return;
       const t = { id: newId('th'), name, data: lookSnapshot() };
+      const rs = await regexStates();
+      if (rs) t.regex = rs;
       s.themes.push(t);
       s.themeActive = t.id;
       save();
@@ -4518,6 +4522,7 @@
       s.themeActive = t.id;
       applyLook(t.data);
       openCombinedModal();
+      if (t.regex) (await loadModule('regex'))?.applyStates?.(t.regex);
     };
 
     overlay.querySelector('#m_t_new').onclick = saveNew;
@@ -4529,6 +4534,8 @@
       if (!(await askYes(tbar, `Save your current look over "${t.name}"?`, 'Save'))) return;
       const oldRefs = collectFileRefs(t.data);
       t.data = lookSnapshot();
+      const rs = await regexStates();
+      if (rs) t.regex = rs;
       save();
       oldRefs.forEach((p) => deleteFileIfUnused(p));
       openCombinedModal();

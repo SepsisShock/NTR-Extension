@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.17.1';
+  const VERSION = '2.17.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -160,7 +160,7 @@
 
   // Avatar shapes, like SillyTavern's own: [height for a width of 1, corner as a share of the width]. Round is a circle.
   const SHAPES = { round: [1, 0.5], rectangle: [1.5, 1 / 6], square: [1, 0.04], rounded: [1, 0.2] };
-  const SHAPE_OPTS = [['none', 'None'], ['round', 'Round'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']];
+  const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['rounded', 'Rounded']];
 
   // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
   const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
@@ -311,8 +311,9 @@
     const v = s[`${prefix}Side`][0]; 
     const h = s[`${prefix}Side`][1]; 
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
-    const fit = s[`${prefix}Fit`];
     const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
+    // A shape crops the picture: it fills the shape like SillyTavern's own avatars, so Image Fit is for None only.
+    const fit = shape ? 'cover' : s[`${prefix}Fit`];
     const n = (key) => rangeNum(s, prefix + key);
     const scale = n('Scale');
     const pad = n('Pad');
@@ -356,7 +357,7 @@
         #cb_pop_${prefix} {
           ${vA} ${hA}
           width: ${width}px; height: ${shape ? frameH + 'px' : 'auto'};
-          ${shape ? `object-fit: cover; border-radius: ${frameR};` : ''}
+          ${shape ? `object-fit: cover; object-position: 50% 0; border-radius: ${frameR};` : ''}
           transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px));
           ${blurAmount > 0 ? `filter: blur(${blurAmount}px);` : ''}
         }
@@ -364,18 +365,19 @@
       `;
     }
 
-    // Without a shape the box runs the message's full height. With one it's a frame placed by Position, no taller than
-    // the message. Original keeps the picture's own size, so a shape only gives it that shape's corners.
-    const framed = shape && fit !== 'original';
+    // Without a shape the box runs the message's full height, and only its corners on the message's edge follow the
+    // message's corners (inherited through .mesAvatarWrapper). With one it's a frame placed by Position, no taller than
+    // the message.
+    const framed = !!shape;
     const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
       + (!framed ? ' top: 0 !important; bottom: 0 !important; height: 100% !important;'
         : (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
           + ` height: min(100%, ${frameH}px) !important; aspect-ratio: 1 / ${aspect} !important;`)
       + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${framed && v === 'c' ? '-50%' : '0'}) !important;`;
     const boxW = framed ? 'auto' : fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
-    const shapeCss = !shape ? ''
-      : framed ? `#chat .mes[is_user="${isUserStr}"] .avatar { border-radius: ${frameR} !important; }`
-      : `#chat .mes[is_user="${isUserStr}"] .avatar img { border-radius: ${shape === 'round' ? '50%' : `calc(100cqw * ${corner})`} !important; }`;
+    const edgeR = (side) => (framed ? frameR : side === h ? 'inherit' : '0');
+    const boxR = `border-top-left-radius: ${edgeR('l')} !important; border-bottom-left-radius: ${edgeR('l')} !important;`
+      + ` border-top-right-radius: ${edgeR('r')} !important; border-bottom-right-radius: ${edgeR('r')} !important;`;
 
     const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black ${100 - rightFade}%, transparent 100%)`;
     const vMask = `linear-gradient(to bottom, transparent 0%, black ${topFade}%, black ${100 - botFade}%, transparent 100%)`;
@@ -384,14 +386,18 @@
       .filter(([k]) => n('Fade' + k) > 0)
       .map(([k, at]) => `radial-gradient(${n('Fade' + k)}% ${n('Fade' + k)}% at ${at}, transparent 0%, black 100%)`);
     const masks = [hMask, vMask, ...corners].join(', ');
+    // The fades go on the picture, or on a shape's frame, which is all of the picture that shows.
+    const maskCss = `-webkit-mask-image: ${masks} !important; -webkit-mask-composite: source-in !important;`
+      + ` mask-image: ${masks} !important; mask-composite: intersect !important;`;
 
     // The image is sized to the picture itself, so the fades follow the picture, not the box: Fill covers the box and
     // gets cropped by it, Fit fits inside it, Original keeps the picture's own size. 100cqw and 100cqh are the box's
     // width and height, and --cb-ar is the picture's shape (see setAvatarRatio). Position places it in the box.
     const ar = 'var(--cb-ar, 0.6667)';
     const imgW = fit === 'contain' ? `min(100cqw, 100cqh * ${ar})` : fit === 'original' ? 'auto' : `max(100cqw, 100cqh * ${ar})`;
-    // In Line's Position places the avatar beside the text, so its picture sits centered in its own box.
-    const [ih, iv] = style === 'inline' ? ['c', 'c'] : [h, v];
+    // In Line's Position places the avatar beside the text, so its picture sits centered in its own box. A shape's
+    // Position places its frame, and the picture fills it from the top, where a portrait's face usually is.
+    const [ih, iv] = framed ? ['c', 't'] : style === 'inline' ? ['c', 'c'] : [h, v];
     const imgBoxCss = (ih === 'l' ? 'left: 0 !important; right: auto !important;' : ih === 'r' ? 'left: auto !important; right: 0 !important;' : 'left: 50% !important; right: auto !important;')
       + (iv === 't' ? ' top: 0 !important; bottom: auto !important;' : iv === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
       + ` transform: translate(${ih === 'c' ? '-50%' : '0'}, ${iv === 'c' ? '-50%' : '0'}) !important;`
@@ -401,10 +407,7 @@
       #chat .mes[is_user="${isUserStr}"] .avatar img {
         position: absolute !important; ${imgBoxCss}
         display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
-        -webkit-mask-image: ${masks} !important;
-        -webkit-mask-composite: source-in !important;
-        mask-image: ${masks} !important;
-        mask-composite: intersect !important;
+        ${framed ? '' : maskCss}
         object-fit: fill !important;
       }`;
 
@@ -430,24 +433,25 @@
         width: ${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
+        ${framed ? maskCss : ''}
         ${filterRule}
       }
       ${imgCss}
-      ${framed ? '' : shapeCss}
     `;
     }
 
     return `
+      .mes[is_user="${isUserStr}"] .mesAvatarWrapper { border-radius: inherit !important; }
       .mes[is_user="${isUserStr}"] .avatar { 
         position: absolute !important; ${boxPos}
         width: ${boxW} !important; max-width: 80% !important; 
         margin: 0 !important; padding: 0 !important; z-index: 0 !important; pointer-events: none !important; 
-        overflow: hidden !important; container-type: size !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; 
+        overflow: hidden !important; container-type: size !important; ${boxR}
         display: block !important; background: transparent !important; border: none !important;
+        ${framed ? maskCss : ''}
         ${filterRule} 
       }
       ${imgCss}
-      ${shapeCss}
       ${shared}
     `;
   }
@@ -1627,6 +1631,8 @@
 
   function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
+    const shaped = !!SHAPES[s[`${prefix}Shape`]];
+    const scaleOff = style !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
 
     const slider = (id, key, label) => `
       <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val">${rangeNum(s, prefix + key)}</span>${NUM_RANGE[prefix + key][3]}</span></div>
@@ -1647,17 +1653,18 @@
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
-        ${grp('inline backdrop', `<div><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>`)}
+        ${grp('inline backdrop', `<div id="m_${prefix}_fitwrap" class="${shaped ? 'cb_dim' : ''}"><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>
+          <div id="m_${prefix}_fithint" class="cb_hint" style="margin: 0;${shaped ? '' : ' display: none;'}">The picture always fills a Shape, so Image Fit is only for None.</div>`)}
 
-        <div id="m_${prefix}_scwrap" class="${style !== 'popout' && s[`${prefix}Fit`] === 'original' ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Image Scale:')}</div>
-        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${style !== 'popout' && s[`${prefix}Fit`] === 'original' ? '' : ' display: none;'}">Original shows the picture at its own size, so Image Scale is off.</div>
+        <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Image Scale:')}</div>
+        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${scaleOff ? '' : ' display: none;'}">Original shows the picture at its own size, so Image Scale is off.</div>
         <div id="m_${prefix}_padwrap" class="${style === 'inline' ? 'cb_dim' : ''}">${slider('pad', 'Pad', 'Text Padding:')}</div>
 
         ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
           + fadeGrid(prefix, s, fadeCur)
           + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
           <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">`
-          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the picture, so they keep their look at any Image Scale.</div>')}
+          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the picture, or of the Shape, so they keep their look at any Image Scale.</div>')}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
@@ -2145,10 +2152,13 @@
       const col = overlay.querySelector(`#m_${prefix}_col`);
       const label = prefix === 'ai' ? 'AI' : 'User';
 
-      // Image Scale is off for Original, which keeps the picture's own size. Text Padding is off for In Line, which
-      // never puts the avatar under the text.
+      // Image Fit is off with a Shape, which the picture always fills. Image Scale is off for Original, which keeps the
+      // picture's own size. Text Padding is off for In Line, which never puts the avatar under the text.
       const syncScale = () => {
-        const off = s[`${prefix}Style`] !== 'popout' && s[`${prefix}Fit`] === 'original';
+        const shaped = !!SHAPES[s[`${prefix}Shape`]];
+        col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
+        col.querySelector(`#m_${prefix}_fithint`).style.display = shaped ? '' : 'none';
+        const off = s[`${prefix}Style`] !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
         col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', off);
         col.querySelector(`#m_${prefix}_orighint`).style.display = off ? '' : 'none';
         col.querySelector(`#m_${prefix}_padwrap`).classList.toggle('cb_dim', s[`${prefix}Style`] === 'inline');
@@ -2160,7 +2170,7 @@
         syncScale();
         updateAvatarStyle();
       });
-      onPills(col, `${prefix}shape`, (v) => { s[`${prefix}Shape`] = v; save(); updateAvatarStyle(); });
+      onPills(col, `${prefix}shape`, (v) => { s[`${prefix}Shape`] = v; save(); syncScale(); updateAvatarStyle(); });
       overlay.querySelector(`#m_${prefix}_on`).onchange = function() {
         s[`${prefix}Enabled`] = this.checked; save(); updateAvatarStyle();
         col.querySelector(`#m_${prefix}_body`).classList.toggle('cb_dim', !this.checked);
@@ -2430,8 +2440,6 @@
         border: on(`ov${p}Border`) ? border(p) : '',
         padding: boxed && !ntrAvatars(s, p.toLowerCase()) ? '10px' : '',
       });
-      // NTR Avatars' backdrop picture follows the message's corners.
-      if (r && ntrAvatars(s, p.toLowerCase()) && s[p.toLowerCase() + 'Style'] !== 'inline') css += cssRule(`${sel} .avatar`, { 'border-radius': r });
     }
 
     // Send box.

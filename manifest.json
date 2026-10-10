@@ -7,6 +7,6 @@
   "css": "style.css",
   "hooks": { "clean": "onClean" },
   "author": "SepsisShock",
-  "version": "2.17.1",
+  "version": "2.17.2",
   "description": "Header banners, avatar styling (In Line, Backdrop or Pop Out, with shapes, fades and fit), reasoning block styling (button, box, background patterns, typewriter status text), text styling, foreground images, Edit Placement (drag pop-out avatars and foreground images on screen, with Snap to Grid and Undo), UI display settings (shape, color, opacity and border for the chat panel, messages and send box, hidden names and pictures, scrollbar colors and custom CSS, custom cursor for normal, pointer and click), themes, and an optional Visual Novel Mode with choices, effects, CG scenes, maps and opening videos. Open the menu from the Extensions page, the wand menu (optional) or /ntr."
 }

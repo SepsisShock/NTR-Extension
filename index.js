@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.20.0';
+  const VERSION = '2.21.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -20,14 +20,14 @@
     
     // AI Settings
     aiStyle: 'inline', aiPopX: 0, aiPopY: 0,
-    aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiScale: 100, aiPad: 140, 
+    aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiFocus: 0, aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
     
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
-    usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usScale: 100, usPad: 140, 
+    usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usFocus: 0, usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0,
@@ -370,7 +370,7 @@
         #cb_pop_${prefix} {
           ${vA} ${hA}
           width: ${width}px; height: ${shape ? frameH + 'px' : 'auto'};
-          ${shape ? `object-fit: cover; object-position: 50% 0; border-radius: ${frameR};` : ''}
+          ${shape ? `object-fit: cover; object-position: 50% ${n('Focus')}%; border-radius: ${frameR};` : ''}
           ${OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;` : ''}
           transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px));
           ${blurAmount > 0 ? `filter: blur(${blurAmount}px);` : ''}
@@ -408,14 +408,15 @@
       + ' -webkit-mask-size: 100% 100% !important; mask-size: 100% 100% !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important;';
 
     // The image is sized to the picture itself: Fill covers the box and gets cropped by it, Fit fits inside it, Original
-    // keeps the picture's own size. 100cqw and 100cqh are the box's width and height. Position places it in the box.
+    // keeps the picture's own size. 100cqw and 100cqh are the box's width and height.
     const imgW = fit === 'contain' ? `min(100cqw, 100cqh * ${ar})` : fit === 'original' ? 'auto' : `max(100cqw, 100cqh * ${ar})`;
-    // In Line's Position places the avatar beside the text, so its picture sits centered in its own box. A shape's
-    // Position places its frame, and the picture fills it from the top, where a portrait's face usually is.
-    const [ih, iv] = framed ? ['c', 't'] : style === 'inline' ? ['c', 'c'] : [h, v];
+    // Crop Focus picks which part of a picture taller than its box stays: 0% the top, 100% the bottom. Sideways, In Line
+    // and shapes keep the picture centered and None follows Position.
+    const ih = framed || style === 'inline' ? 'c' : h;
+    const focus = n('Focus');
     const imgBoxCss = (ih === 'l' ? 'left: 0 !important; right: auto !important;' : ih === 'r' ? 'left: auto !important; right: 0 !important;' : 'left: 50% !important; right: auto !important;')
-      + (iv === 't' ? ' top: 0 !important; bottom: auto !important;' : iv === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
-      + ` transform: translate(${ih === 'c' ? '-50%' : '0'}, ${iv === 'c' ? '-50%' : '0'}) !important;`
+      + ` top: ${focus}% !important; bottom: auto !important;`
+      + ` transform: translate(${ih === 'c' ? '-50%' : '0'}, -${focus}%) !important;`
       + ` width: ${imgW} !important; height: auto !important; max-width: none !important; max-height: none !important;`
       + (fit === 'original' ? '' : ` aspect-ratio: ${ar} !important;`);
     const imgCss = `
@@ -496,11 +497,11 @@
   }
 
   // SillyTavern's own chat avatars in a side's Shape, where NTR Avatars is off for that side.
-  function stShapeCss(flag, shape, corner) {
+  function stShapeCss(flag, shape, corner, focus) {
     const [w, h] = shape === 'rectangle' ? ['calc(var(--avatar-base-width) * 1.2)', 'calc(var(--avatar-base-height) * 1.8)'] : ['var(--avatar-base-width)', 'var(--avatar-base-height)'];
     const outline = OUTLINES[shape];
     const r = shape === 'round' ? 'var(--avatar-base-border-radius-round)' : outline ? '0' : `calc(${w} * ${corner / 100})`;
-    return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; }\n`
+    return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; object-position: 50% ${focus}% !important; }\n`
       + (outline ? `      #chat .mes[is_user="${flag}"] .avatar img { border: none !important; box-shadow: none !important; -webkit-mask: ${outline} center / 100% 100% no-repeat !important; mask: ${outline} center / 100% 100% no-repeat !important; }\n` : '');
   }
 
@@ -1060,7 +1061,7 @@
     }
     if (isOn()) {
       for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) cssString += stShapeCss(flag, s[prefix + 'Shape'], rangeNum(s, prefix + 'Corner'));
+        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) cssString += stShapeCss(flag, s[prefix + 'Shape'], rangeNum(s, prefix + 'Corner'), rangeNum(s, prefix + 'Focus'));
       }
     }
 
@@ -1645,6 +1646,14 @@
     deleteFileIfUnused(im.url);
   }
 
+  // Whether a side's picture can get cut off, so Crop Focus has something to do: any Shape, or None on Backdrop with
+  // Fill or Original, where a short message cuts it.
+  function cropCuts(s, prefix) {
+    if (SHAPES[s[`${prefix}Shape`]]) return true;
+    const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
+    return ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
+  }
+
   function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
     const shaped = !!SHAPES[s[`${prefix}Shape`]];
@@ -1669,6 +1678,8 @@
         <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
         <div id="m_${prefix}_crhint" class="cb_hint" style="margin: 0;${cornersOn ? '' : ' display: none;'}">0% is sharp. Corners are a share of the width, so they keep their look at any Image Scale.</div>
         <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Corners are for Rectangle and Square. The other shapes keep their own outline.</div>
+        <div id="m_${prefix}_fowrap" class="${cropCuts(s, prefix) ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Crop Focus:')}</div>
+        <div class="cb_hint" style="margin: 0;">Which part stays when the picture gets cut off: 0% keeps the top, 100% the bottom. Nothing gets cut with Shape None and Fit, or None on In Line or Pop Out.</div>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
@@ -2178,6 +2189,7 @@
       const syncScale = () => {
         const shaped = !!SHAPES[s[`${prefix}Shape`]];
         const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
+        col.querySelector(`#m_${prefix}_fowrap`).classList.toggle('cb_dim', !cropCuts(s, prefix));
         col.querySelector(`#m_${prefix}_crwrap`).classList.toggle('cb_dim', !cornersOn);
         col.querySelector(`#m_${prefix}_crhint`).style.display = cornersOn ? '' : 'none';
         col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
@@ -2198,7 +2210,7 @@
       });
       onPills(col, `${prefix}shape`, (v) => { s[`${prefix}Shape`] = v; save(); syncScale(); updateAvatarStyle(); });
       overlay.querySelector(`#m_${prefix}_on`).onchange = function() {
-        s[`${prefix}Enabled`] = this.checked; save(); updateAvatarStyle();
+        s[`${prefix}Enabled`] = this.checked; save(); syncScale(); updateAvatarStyle();
         col.querySelector(`#m_${prefix}_body`).classList.toggle('cb_dim', !this.checked);
       };
       overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
@@ -2233,7 +2245,7 @@
       };
       
       const sliders = [
-        { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'pad', key: 'Pad' },
+        { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'pad', key: 'Pad' },
         { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
         { id: 'bl', key: 'Blur' }
       ];
@@ -3644,7 +3656,7 @@
   }
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
-      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
+      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
       [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'Blur']: [0, 20, 1, 'px'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)

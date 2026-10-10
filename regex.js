@@ -43,7 +43,7 @@ try {
   }
   const secTitle = (sec) => (sec.k === 'preset' ? `Preset: ${presetName() || 'none'}` : sec.k === 'scoped' ? `Character: ${character()?.name || ''}` : 'Global');
 
-  // A folder: { id, name, ids: regex ids, was: the ids that were on when the folder was switched off }.
+  // A folder: { id, name, ids: regex ids, was: the ids that were on when the folder was switched off here, or null }.
   function folders(sec, make = false) {
     const s = settings();
     if (sec.k === 'global') return s.regexFolders;
@@ -71,8 +71,8 @@ try {
     for (const f of fl) {
       const ids = f.ids.filter((id) => have.has(id) && !seen.has(id));
       ids.forEach((id) => seen.add(id));
-      const was = (f.was || []).filter((id) => ids.includes(id));
-      if (ids.length !== f.ids.length || was.length !== (f.was || []).length) { f.ids = ids; f.was = was; dirty = true; }
+      const was = f.was ? f.was.filter((id) => ids.includes(id)) : null;
+      if (ids.length !== f.ids.length || (was && was.length !== f.was.length)) { f.ids = ids; f.was = was; dirty = true; }
     }
     if (dirty) save();
     const where = new Map();
@@ -104,6 +104,12 @@ try {
     const list = stList(sec);
     if (!list) return;
     const rows = [...list.children];
+    // SillyTavern saves the order from its rows, so a regex it hasn't drawn yet (an import still saving) would be lost.
+    if (rows.length !== scripts(sec).length) {
+      toastr.warning('SillyTavern is still saving regexes. Try again in a moment.', 'Regexes');
+      refresh();
+      return;
+    }
     const byId = new Map(rows.map((r) => [r.id, r]));
     for (const id of ids) { const r = byId.get(id); if (r) list.appendChild(r); }
     for (const r of rows) if (!ids.includes(r.id)) list.appendChild(r);
@@ -118,22 +124,28 @@ try {
     }
   }
 
-  // A regex made or imported for a folder joins it once SillyTavern shows it. Gives up after 10 minutes.
+  // A regex made or imported for a folder joins it as SillyTavern shows it. An import can bring several, saved one by one,
+  // and is done when SillyTavern empties its file picker; only then does the order follow. Gives up after 10 minutes.
   let pending = null;
-  function expect(sec, f) {
-    pending = { sec: sec.k, fid: f.id, before: new Set(scripts(sec).map((x) => x.id)), until: Date.now() + 600000 };
+  function expect(sec, f, kind) {
+    pending = { sec: sec.k, fid: f.id, kind, got: false, before: new Set(scripts(sec).map((x) => x.id)), until: Date.now() + 600000 };
   }
   function claimNew() {
     if (!pending) return;
     if (Date.now() > pending.until) { pending = null; return; }
     const sec = secOf(pending.sec);
-    const fresh = scripts(sec).map((x) => x.id).filter((id) => !pending.before.has(id));
-    if (!fresh.length) return;
     const f = folders(sec).find((x) => x.id === pending.fid);
+    if (!f) { pending = null; return; }
+    const fresh = scripts(sec).map((x) => x.id).filter((id) => !pending.before.has(id));
+    if (fresh.length) {
+      fresh.forEach((id) => pending.before.add(id));
+      f.ids.push(...fresh);
+      pending.got = true;
+      save();
+    }
+    const importing = pending.kind === 'import' && !!document.getElementById('import_regex_file')?.value;
+    if (!pending.got || importing) return;
     pending = null;
-    if (!f) return;
-    f.ids.push(...fresh);
-    save();
     const v = view(sec);
     if (!v.same) reorder(sec, v.order);
   }
@@ -336,7 +348,7 @@ try {
       case 'newf': {
         const name = await askText(b, { label: 'Folder name', ok: 'Add', check: nameCheck(sec, null) });
         if (!name) return;
-        const nf = { id: newId('rxf'), name, ids: [], was: [] };
+        const nf = { id: newId('rxf'), name, ids: [], was: null };
         folders(sec, true).push(nf);
         settings().uiOpen[openKey(nf)] = true;
         save();
@@ -357,10 +369,10 @@ try {
         refresh();
         break;
       }
-      case 'fnew': closePops(); expect(sec, f); stClick(document.getElementById(sec.add)); break;
+      case 'fnew': closePops(); expect(sec, f, 'new'); stClick(document.getElementById(sec.add)); break;
       case 'fimport':
         closePops();
-        expect(sec, f);
+        expect(sec, f, 'import');
         toastr.info(`When SillyTavern asks where to import, pick ${sec.name}.`, 'Regexes');
         stClick(document.getElementById('import_regex'));
         break;
@@ -397,10 +409,16 @@ try {
       if (!f) return;
       const list = scripts(sec).filter((x) => f.ids.includes(x.id));
       if (t.checked) {
-        // Back on: the ones that were on before it was switched off, or all of them.
-        const was = (f.was || []).filter((id) => f.ids.includes(id));
-        setMany(sec, was.length ? was : f.ids, true);
-        f.was = [];
+        // Back on: the ones that were on when it was switched off here. A folder never switched off here turns all on.
+        if (Array.isArray(f.was)) {
+          const was = f.was.filter((id) => f.ids.includes(id));
+          if (was.length) setMany(sec, was, true);
+          else {
+            toastr.info('The regexes that were on when this folder was switched off are gone, so nothing turned on.', 'Regexes');
+            refresh();
+          }
+        } else setMany(sec, f.ids, true);
+        f.was = null;
       } else {
         f.was = list.filter((x) => !x.disabled).map((x) => x.id);
         setMany(sec, f.ids, false);
@@ -470,7 +488,7 @@ try {
     for (const f of fl) {
       const fb = [...d.secEl.querySelectorAll('.rx_folder')].find((el) => el.dataset.fid === f.id)?.querySelector('.rx_fbody');
       if (fb) f.ids = [...fb.querySelectorAll('.rx_row')].map((r) => r.dataset.id);
-      f.was = (f.was || []).filter((id) => f.ids.includes(id));
+      if (f.was) f.was = f.was.filter((id) => f.ids.includes(id));
       ids.push(...f.ids);
     }
     ids.push(...[...d.secEl.querySelectorAll('.rx_loose .rx_row')].map((r) => r.dataset.id));

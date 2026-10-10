@@ -3963,7 +3963,7 @@
   function cleanRegex(r) {
     const ids = (a) => (Array.isArray(a) ? a : []).filter((x) => typeof x === 'string' && x && x.length <= 64).slice(0, 1000);
     r.folders = (Array.isArray(r.folders) ? r.folders : []).filter(isObj).slice(0, 100).map((f) => ({
-      id: cStr(f.id, 40) || newId('rxf'), name: cStr(f.name, 60) || 'Folder', ids: ids(f.ids), was: ids(f.was),
+      id: cStr(f.id, 40) || newId('rxf'), name: cStr(f.name, 60) || 'Folder', ids: ids(f.ids), was: Array.isArray(f.was) ? ids(f.was) : null,
     }));
     for (const k of Object.keys(r)) if (k !== 'folders') delete r[k];
   }
@@ -5104,6 +5104,17 @@
       });
     }
     if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); });
+    // A renamed preset keeps its regex folders (Regexes page, regex.js), which are saved by preset name.
+    if (event_types.PRESET_RENAMED) {
+      eventSource.on(event_types.PRESET_RENAMED, ({ apiId, oldName, newName } = {}) => {
+        const all = settings().regexPresetFolders;
+        const from = `${apiId}|${oldName}`, to = `${apiId}|${newName}`;
+        if (from === to || !Array.isArray(all[from])) return;
+        all[to] = [...(Array.isArray(all[to]) ? all[to] : []), ...all[from]];
+        delete all[from];
+        save();
+      });
+    }
 
     const chat = document.getElementById('chat');
     if (chat) {

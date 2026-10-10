@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.19.0';
+  const VERSION = '2.20.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -379,19 +379,21 @@
       `;
     }
 
-    // Without a shape the box runs the message's full height, and only its corners on the message's edge follow the
-    // message's corners (inherited through .mesAvatarWrapper). With one it's a frame placed by Position, no taller than
-    // the message.
+    // --cb-ar is the picture's shape and --cb-nw its own width (see setAvatarRatio).
+    const ar = 'var(--cb-ar, 0.6667)';
     const framed = !!shape;
+    // Backdrop's box is a frame placed by Position, no taller than the message, which clips it to its own corners. A
+    // shape's frame is the shape. None's is the picture's own shape, Image Scale wide (Original: the picture's own
+    // width). In a short message Fit shrinks it to show the whole picture; Fill and Original keep their width and get
+    // cut off.
+    const noneW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
+    const boxH = framed ? `${frameH}px` : `calc(${noneW} / ${ar})`;
+    const boxAR = framed ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
     const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
-      + (!framed ? ' top: 0 !important; bottom: 0 !important; height: 100% !important;'
-        : (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
-          + ` height: min(100%, ${frameH}px) !important; aspect-ratio: 1 / ${aspect} !important;`)
-      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${framed && v === 'c' ? '-50%' : '0'}) !important;`;
-    const boxW = framed ? 'auto' : fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
-    const edgeR = (side) => (framed ? frameR : side === h ? 'inherit' : '0');
-    const boxR = `border-top-left-radius: ${edgeR('l')} !important; border-bottom-left-radius: ${edgeR('l')} !important;`
-      + ` border-top-right-radius: ${edgeR('r')} !important; border-bottom-right-radius: ${edgeR('r')} !important;`;
+      + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
+      + ` height: min(100%, ${boxH}) !important;${boxAR ? ` aspect-ratio: ${boxAR} !important;` : ''}`
+      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'}) !important;`;
+    const boxW = boxAR ? 'auto' : noneW;
 
     const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black ${100 - rightFade}%, transparent 100%)`;
     const vMask = `linear-gradient(to bottom, transparent 0%, black ${topFade}%, black ${100 - botFade}%, transparent 100%)`;
@@ -400,15 +402,13 @@
       .filter(([k]) => n('Fade' + k) > 0)
       .map(([k, at]) => `radial-gradient(${n('Fade' + k)}% ${n('Fade' + k)}% at ${at}, transparent 0%, black 100%)`);
     const masks = [...(OUTLINES[shape] ? [OUTLINES[shape]] : []), hMask, vMask, ...corners].join(', ');
-    // The fades go on the picture, or on a shape's frame, which is all of the picture that shows.
+    // The fades go on the avatar's box, which is what shows of the picture.
     const maskCss = `-webkit-mask-image: ${masks} !important; -webkit-mask-composite: source-in !important;`
       + ` mask-image: ${masks} !important; mask-composite: intersect !important;`
       + ' -webkit-mask-size: 100% 100% !important; mask-size: 100% 100% !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important;';
 
-    // The image is sized to the picture itself, so the fades follow the picture, not the box: Fill covers the box and
-    // gets cropped by it, Fit fits inside it, Original keeps the picture's own size. 100cqw and 100cqh are the box's
-    // width and height, and --cb-ar is the picture's shape (see setAvatarRatio). Position places it in the box.
-    const ar = 'var(--cb-ar, 0.6667)';
+    // The image is sized to the picture itself: Fill covers the box and gets cropped by it, Fit fits inside it, Original
+    // keeps the picture's own size. 100cqw and 100cqh are the box's width and height. Position places it in the box.
     const imgW = fit === 'contain' ? `min(100cqw, 100cqh * ${ar})` : fit === 'original' ? 'auto' : `max(100cqw, 100cqh * ${ar})`;
     // In Line's Position places the avatar beside the text, so its picture sits centered in its own box. A shape's
     // Position places its frame, and the picture fills it from the top, where a portrait's face usually is.
@@ -422,7 +422,7 @@
       #chat .mes[is_user="${isUserStr}"] .avatar img {
         position: absolute !important; ${imgBoxCss}
         display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
-        ${framed ? '' : maskCss}
+        -webkit-mask-image: none !important; mask-image: none !important;
         object-fit: fill !important;
       }`;
 
@@ -448,7 +448,7 @@
         width: ${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
-        ${framed ? maskCss : ''}
+        ${maskCss}
         ${filterRule}
       }
       ${imgCss}
@@ -456,14 +456,13 @@
     }
 
     return `
-      .mes[is_user="${isUserStr}"] .mesAvatarWrapper { border-radius: inherit !important; }
       .mes[is_user="${isUserStr}"] .avatar { 
         position: absolute !important; ${boxPos}
         width: ${boxW} !important; max-width: 80% !important; 
         margin: 0 !important; padding: 0 !important; z-index: 0 !important; pointer-events: none !important; 
-        overflow: hidden !important; container-type: size !important; ${boxR}
+        overflow: hidden !important; container-type: size !important; border-radius: ${framed ? frameR : '0'} !important;
         display: block !important; background: transparent !important; border: none !important;
-        ${framed ? maskCss : ''}
+        ${maskCss}
         ${filterRule} 
       }
       ${imgCss}
@@ -1051,7 +1050,7 @@
         // In Line keeps SillyTavern's own message layout.
         if (s[prefix + 'Style'] === 'inline') { cssString += getAvatarCss(prefix, flag, s); continue; }
         cssString += `
-        ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; }
+        ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; overflow: clip !important; }
         ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
         ${m} .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
 
@@ -1676,6 +1675,7 @@
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
         ${grp('inline backdrop', `<div id="m_${prefix}_fitwrap" class="${shaped ? 'cb_dim' : ''}"><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>
           <div id="m_${prefix}_fithint" class="cb_hint" style="margin: 0;${shaped ? '' : ' display: none;'}">The picture always fills a Shape, so Image Fit is only for None.</div>`)}
+        ${grp('backdrop', `<div id="m_${prefix}_fitnone" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">In a message shorter than the picture, Fit shrinks it to show all of it. Fill keeps its Image Scale size and Original its own size, and the message cuts off the rest.</div>`)}
 
         <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Image Scale:')}</div>
         <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${scaleOff ? '' : ' display: none;'}">Original shows the picture at its own size, so Image Scale is off.</div>
@@ -1685,7 +1685,7 @@
           + fadeGrid(prefix, s, fadeCur)
           + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
           <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">`
-          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the picture, or of the Shape, so they keep their look at any Image Scale.</div>')}
+          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the avatar as it shows, so they keep their look at any Image Scale.</div>')}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
@@ -2183,6 +2183,7 @@
         col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
         col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
         col.querySelector(`#m_${prefix}_fithint`).style.display = shaped ? '' : 'none';
+        col.querySelector(`#m_${prefix}_fitnone`).style.display = shaped ? 'none' : '';
         const off = s[`${prefix}Style`] !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
         col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', off);
         col.querySelector(`#m_${prefix}_orighint`).style.display = off ? '' : 'none';

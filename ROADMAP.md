@@ -16,6 +16,37 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 
 - [ ] Add more parts of the screen, like the chat panel, send box and header banner.
 - [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
+- [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
+- Comes before Reader Mode and the Tracker panel below, since both need parts of the screen to be adjustable.
+
+### Reader Mode
+Read the chat a page at a time instead of scrolling up and down. Makes it easier to keep things like trackers in one place on screen.
+
+- [ ] One or two messages per page. The opening message gets its own page.
+- [ ] Click left and right to turn pages. It has to be clear this isn't swiping (left and right are only for regens now).
+- [ ] Leave room for SillyTavern's branch buttons: Create branch and Create checkpoint in the message's "..." menu, and the checkpoint flag by the name.
+- [ ] Styles:
+  - Plain: no frills. A long message scrolls up and down; it never spills onto another page.
+  - Book, static: a book picture behind the text, like a foreground image, so the text, stats and so on line up with the pages.
+  - Book, animated: pages flip along with the message text.
+  - Maybe an adjusted Visual Novel Mode.
+- Other messages are only hidden on screen, like Visual Novel Mode does. This isn't SillyTavern's `/hide`, which also takes messages out of the prompt.
+- SillyTavern only draws the last 100 messages by default, so turning back past them has to load older ones ("Show more messages").
+- SillyTavern's Left and Right arrow keys already swipe, so page turns need other keys.
+- Open questions: show SillyTavern's own messages (keeps swipes, branch buttons and formatting) or draw its own like Visual Novel Mode; which messages share a page (your message and the reply after it, or a reply and your answer to it); in the book, your message on the left page and the reply on the right, or the reply across both; a reply too long for the book scrolls inside the page or goes on to the next pages; where the message's name, "..." menu and checkpoint flag go in the book; one book picture for everything (saved in themes) or one per character.
+
+### Tracker panel
+One panel that stays on screen with the current state, instead of a tracker block repeated in every message. Works with a lorebook-based cast; group chat isn't needed.
+
+- [ ] Tracks location, time, weather, inventory, injuries, relationships, objectives, and other character or world values that can be set up.
+- [ ] Shows the current state in a panel that can be moved and hidden, next to the normal chat or Visual Novel Mode. Character portraits, recent changes and active objectives make it easier to read.
+- [ ] Values can be checked and fixed by hand. Relationship scores need set rules; plain facts like an item changing hands are easier to keep track of.
+- [ ] Saves a snapshot on the message it describes. The panel shows the snapshot that applies; earlier ones keep the history.
+- [ ] A snapshot belongs to the message and swipe it describes, so changing a reply doesn't leave the wrong state showing.
+- [ ] Optionally sends the chosen parts of the state to the model with the prompt. Can also be display only.
+- Without NTR, the saved snapshots stay in the chat file but nothing shows them or sends them. A plain-text snapshot in the message itself would still be readable.
+- zTracker is an example of the saving part: it keeps tracker data on a message, shows a tracker block inside that message, and can send saved snapshots in later prompts. NTR's difference is showing the current state in a panel that stays on screen.
+- Still being worked out.
 
 ### Saving
 - [ ] Keep autosave: sliders save when released, dragged items when dropped.

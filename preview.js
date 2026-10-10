@@ -1,7 +1,8 @@
 // Nitwit Tavern Redesign: Phone Preview module.
 // Loaded on demand by index.js, from the Layout page. If this file breaks, the rest of the extension keeps working.
-// Shows SillyTavern with NTR in a phone-sized frame. The copy inside can't be clicked and can't save anything (see
-// blockSaves in index.js); Edit Layout on top of it changes the Phone layout, saved by this page.
+// Shows SillyTavern with NTR in a phone-sized frame. The copy inside can't be clicked, typed into or focused, and can't
+// save anything or ask an AI service for anything (see blockSaves in index.js); Edit Layout on top of it changes the Phone
+// layout, saved by this page.
 (() => {
   const PREVIEW_VERSION = '2.23.0';
   const A = window.NTR && window.NTR.api;
@@ -47,7 +48,7 @@
         <button type="button" data-a="close">Close</button>
       </div>
       <div class="ntr_pv_phone">
-        <iframe id="ntr_phone_frame" title="Phone Preview"></iframe>
+        <iframe id="ntr_phone_frame" title="Phone Preview" inert tabindex="-1"></iframe>
         <div class="ntr_pv_shield"></div>
         <div class="ntr_pv_wait">Loading SillyTavern...</div>
       </div>`;
@@ -94,35 +95,50 @@
     tick();
   }
 
+  // Waits until test() is true, up to a time limit, while the preview stays open on this frame.
+  async function until(frame, test, ms) {
+    const t0 = Date.now();
+    while (pv?.frame === frame && Date.now() - t0 < ms) {
+      try { if (test()) return true; } catch (e) { /* still loading */ }
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    return false;
+  }
+
   // Once the frame's SillyTavern and NTR are up: the same NTR settings and the same chat as this page.
   async function whenReady(frame) {
     const wait = pv.el.querySelector('.ntr_pv_wait');
-    const t0 = Date.now();
-    let w = null;
-    while (pv?.frame === frame) {
-      try {
-        w = frame.contentWindow;
-        if (w?.NTR?.api && w.document.getElementById('cb_node_toggle') && w.SillyTavern?.getContext().characters?.length) break;
-      } catch (e) { /* still loading */ }
-      if (Date.now() - t0 > 60000) { wait.textContent = 'SillyTavern didn\'t load in the preview.'; return; }
-      await new Promise((r) => setTimeout(r, 150));
-    }
+    const c = ctx();
+    const w = () => frame.contentWindow;
+    const fc = () => w().SillyTavern.getContext();
+    // Groups load after characters, so a group chat waits for its group too.
+    const up = await until(frame, () => w().NTR?.api && w().document.getElementById('cb_node_toggle') && fc().characters?.length
+      && (!c.groupId || fc().groups?.some((g) => g.id === c.groupId)), 60000);
     if (pv?.frame !== frame) return;
+    if (!up) { wait.textContent = 'SillyTavern didn\'t load in the preview.'; return; }
     try {
-      const fc = w.SillyTavern.getContext();
-      fc.extensionSettings.chatvisuals = w.JSON.parse(JSON.stringify(settings()));
-      const c = ctx();
+      fc().extensionSettings.chatvisuals = w().JSON.parse(JSON.stringify(settings()));
       if (c.groupId) {
-        await fc.openGroupChat(c.groupId, c.getCurrentChatId());
+        // A group opens the way SillyTavern's own list opens it, then the chat this page has open.
+        const pick = w().document.createElement('div');
+        pick.className = 'group_select';
+        pick.dataset.grid = c.groupId;
+        pick.hidden = true;
+        w().document.body.appendChild(pick);
+        pick.click();
+        pick.remove();
+        await until(frame, () => fc().groupId === c.groupId, 10000);
+        const id = c.getCurrentChatId();
+        if (id && fc().groupId === c.groupId && fc().getCurrentChatId() !== id) await fc().openGroupChat(c.groupId, id);
       } else if (c.characterId !== undefined && c.characters[c.characterId]) {
-        const i = fc.characters.findIndex((x) => x.avatar === c.characters[c.characterId].avatar);
+        const i = fc().characters.findIndex((x) => x.avatar === c.characters[c.characterId].avatar);
         if (i >= 0) {
-          await fc.selectCharacterById(i, { switchMenu: false });
+          await fc().selectCharacterById(i, { switchMenu: false });
           const id = c.getCurrentChatId();
-          if (id && fc.getCurrentChatId() !== id) await fc.openCharacterChat(id);
+          if (id && fc().getCurrentChatId() !== id) await fc().openCharacterChat(id);
         }
       }
-      w.NTR.api.refreshVisuals();
+      w().NTR.api.refreshVisuals();
     } catch (e) {
       console.error('[NTR] Phone Preview couldn\'t open the chat', e);
     }

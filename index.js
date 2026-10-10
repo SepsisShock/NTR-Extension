@@ -3,12 +3,22 @@
   const VERSION = '2.23.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
-  // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved, so
-  // the main page's settings, chats and cards always win, and it stays quiet.
+  // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
+  // reach an AI service, so the main page's settings, chats and cards always win, and it stays quiet and out of reach.
   const PREVIEW = (() => { try { return window.frameElement?.id === 'ntr_phone_frame'; } catch (e) { return false; } })();
   if (PREVIEW) {
     blockSaves(window);
     document.addEventListener('play', (e) => { if (e.target instanceof HTMLMediaElement) e.target.muted = true; }, true);
+    document.addEventListener('focusin', (e) => e.target.blur?.(), true);
+    // No key reaches this copy, not even SillyTavern's own shortcuts. Escape still closes the preview.
+    for (const type of ['keydown', 'keypress', 'keyup']) {
+      window.addEventListener(type, (e) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const top = window.parent.NTR;
+        if (type === 'keydown' && e.key === 'Escape' && !top?.api?.placing()) top?.preview?.close();
+      }, true);
+    }
   }
   const DEFAULTS = { 
     bannerOn: false,
@@ -170,14 +180,15 @@
     }[match]));
   };
 
-  // Requests that change something on SillyTavern's server: saving, deleting, uploading and the like, by the last part of
-  // their address. Reading goes through, though most of it is sent as POST too.
-  const WRITE_API = /^(save|delete|upload|upload-zip|write|edit|edit-avatar|edit-attribute|merge-attributes|create|update|rename|import|importURL|importUUID|duplicate|purge|purge-all|insert|move|backup|restore|restore-snapshot|make-snapshot|load-snapshot|recreate|set-thumbnails|assign|unassign|install|enable|disable|switch|promote|demote|cleanup|finalize|logout|change-password|change-name|change-avatar|reset-settings)$/i;
+  // Requests that only read from SillyTavern's server, by the last part of their address. Most are sent as POST, like
+  // the ones that save, delete, upload or ask an AI service for a reply.
+  const READ_API = /^(get|all|read|find|list|folders|workflows|status|models|text-models|props|encode|decode|count|version|info|ping|discover)$/i;
+  // Anything else sent to the server: saving, deleting, generating and the like.
   function isWrite(w, url, method) {
     if (String(method || 'GET').toUpperCase() === 'GET') return false;
     let path;
-    try { path = new w.URL(String(url), w.location.href).pathname; } catch (e) { return false; }
-    return path.startsWith('/api/') && WRITE_API.test(path.split('/').filter(Boolean).pop() || '');
+    try { path = new w.URL(String(url), w.location.href).pathname; } catch (e) { return true; }
+    return path.startsWith('/api/') && !READ_API.test(path.split('/').filter(Boolean).pop() || '');
   }
   // Stops a window from sending them. Phone Preview's frame gets this from the main page as soon as it starts loading, and
   // again from its own copy of NTR. Blocked requests answer as if they worked, so nothing shows an error.
@@ -1096,11 +1107,12 @@
     const layer = document.getElementById('cb_place_layer');
     if (layer) layer.style.display = 'none';
     setPlaceTouchGuard(false);
+    const ov = document.getElementById('cb_modal_overlay');
+    syncLayoutPage(ov);
     const scr = onScreen;
     onScreen = null;
     if (scr) return scr.done?.();
-    const ov = document.getElementById('cb_modal_overlay');
-    if (ov) { ov.style.display = ''; syncLayoutPage(ov); }
+    if (ov) ov.style.display = '';
   }
 
   function syncPopouts() {

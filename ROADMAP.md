@@ -12,12 +12,19 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Dragging and placement
-Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done). Still open:
+Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar and send bar. Still open:
 
-- [ ] Add more parts of the screen, like the chat panel, send box and header banner.
+- [ ] Add more parts of the screen, like the header banner.
 - [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Comes before Reader Mode and the Tracker panel below, since both need parts of the screen to be adjustable.
+
+### Layout: phones
+Layout has shipped for screens wider than 1000px. Phones and other screens 1000px wide or less keep SillyTavern's own layout for now.
+
+- [ ] Phone Preview: a button on the Layout page that opens a phone-sized window with SillyTavern and NTR running inside. Look-only, and the copy inside can't save anything. In its own file, `preview.js`, which only loads when the button is pressed.
+- [ ] A Phone layout for screens 1000px wide or less, with the same choices as the desktop one, arranged in Edit Layout on top of the Phone Preview. Saved separately, and both go into themes.
+- [ ] A Turn Sideways button in the preview.
 
 ### Reader Mode
 Read the chat a page at a time instead of scrolling up and down. Makes it easier to keep things like trackers in one place on screen.
@@ -57,7 +64,7 @@ One panel that stays on screen with the current state, instead of a tracker bloc
 ### Menu order
 Rearrange the NTR menu pages:
 
-- [ ] Themes, Avatars, Text, UI Display, Scenery, Reasoning, Regexes, then a divider line, then VN.
+- [ ] Themes, Layout, Avatars, Text, UI Display, Scenery, Reasoning, Regexes, then a divider line, then VN.
 - [ ] Scenery joins Header Banner and Foreground Images (Overlays) into one page. Background images may go there later too, not only for Visual Novel Mode.
 - [ ] Regexes is the page for Regex (below) once it's built.
 - [ ] Page ids stay the same, so the saved last open page keeps working.
@@ -71,9 +78,6 @@ Rearrange the NTR menu pages:
 - [ ] Show the Visual Novel Mode button (chat bubbles icon) only while VN Mode is on, so it works as a quick way out. VN Mode is switched on from the VN page.
 - [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
 - [ ] Maybe let the send box stretch across the whole screen, keeping its contents in the center.
-
-### SillyTavern's top bar
-- [ ] Let the top menu bar be moved to another place on the screen.
 
 ### Message details
 Find out how to make these movable and designable, and which details SillyTavern makes available.

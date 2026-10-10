@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.21.0';
+  const VN_VERSION = '2.22.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -1294,8 +1294,26 @@
       ov.style.left = (r.left + (r.width - w) / 2) + 'px';
       ov.style.width = w + 'px';
     }
-    ov.style.bottom = ((form ? window.innerHeight - form.getBoundingClientRect().top : 82) + s.nodeBoxLift) + 'px';
+    ov.style.bottom = (boxFloor(chat, form) + s.nodeBoxLift) + 'px';
     placeCG();
+  }
+
+  // How far above the bottom of the screen the dialogue box sits: just above the send bar. A Free send bar (Layout) can
+  // be anywhere, so the box sits at the bottom of the chat panel, or above the send bar where it covers that bottom.
+  function boxFloor(chat, form) {
+    if (!A.sendFree?.() || !chat) return form ? window.innerHeight - form.getBoundingClientRect().top : 82;
+    const c = chat.getBoundingClientRect();
+    let edge = c.bottom;
+    const f = form && form.getBoundingClientRect();
+    if (f && f.height && f.left < c.right && f.right > c.left && f.top < c.bottom && f.top > c.top + c.height / 2) edge = f.top;
+    return Math.max(0, window.innerHeight - edge);
+  }
+
+  // The chat panel or send bar moved (Layout): the dialogue box and sprites follow.
+  function relayout() {
+    if (!(A.isOn() && settings().nodeEnabled)) return;
+    placeNode();
+    updateStage();
   }
 
   function nodeApplyLook() {
@@ -1344,7 +1362,7 @@
     port.querySelector('img').onerror = () => port.classList.add('cb_noimg');
     // While Visual Novel Mode is off the box is hidden, so there's nothing to move.
     const vnOn = () => A.isOn() && settings().nodeEnabled;
-    window.addEventListener('resize', () => { if (vnOn()) { placeNode(); updateStage(); } });
+    window.addEventListener('resize', relayout);
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(() => { if (vnOn()) placeNode(); });
       for (const id of ['chat', 'form_sheld']) { const el = document.getElementById(id); if (el) ro.observe(el); }
@@ -1532,7 +1550,9 @@
     const L = document.getElementById('ntr_cg');
     if (!L) return;
     const form = document.getElementById('form_sheld');
-    L.style.bottom = (form ? Math.max(0, window.innerHeight - form.getBoundingClientRect().top) : 0) + 'px';
+    // It stops above the send bar. A Free send bar (Layout) in the top half of the screen is covered instead.
+    const top = form ? form.getBoundingClientRect().top : window.innerHeight;
+    L.style.bottom = (A.sendFree?.() && top < window.innerHeight / 2 ? 0 : Math.max(0, window.innerHeight - top)) + 'px';
   }
 
   let cgCur = '', cgT = null;
@@ -2014,6 +2034,7 @@
     refresh,
     teardown,
     ensure,
+    relayout,
     queue: nodeQueue,
     swiped: nodeSwiped,
     endWait: nodeEndWait,

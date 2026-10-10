@@ -12,12 +12,12 @@ SillyTavern extension.
 ## Docs and version
 - When a feature ships, remove it from `ROADMAP.md` and update the `manifest.json` description.
 - For `README.md` and `CLAUDE.md`, show the proposed wording first; commit it only after approval.
-- Bump the version in every PR that changes `.js` or `.css`, in all 6 places: `manifest.json`, `index.js`, `vn.js`, `map.js`, `opening.js`, `preview.js`. Last number for fixes, middle for new features, first only with approval. No bump for docs-only changes.
+- Bump the version in every PR that changes `.js` or `.css`, in all 7 places: `manifest.json`, `index.js`, `vn.js`, `map.js`, `opening.js`, `preview.js`, `regex.js`. Last number for fixes, middle for new features, first only with approval. No bump for docs-only changes.
 
 ## Code
 - Match existing style and file structure.
 - Preserve existing settings keys so users' saved configs keep working.
-- `index.js` is the core; `vn.js`, `map.js`, `opening.js` and `preview.js` use its helpers through `window.NTR`. Reuse them; don't copy them.
+- `index.js` is the core; `vn.js`, `map.js`, `opening.js`, `preview.js` and `regex.js` use its helpers through `window.NTR`. Reuse them; don't copy them.
 - All uploads go through `uploadImage` or `uploadVideo`.
 - Number settings in `index.js`: put the range in `NUM_RANGE` as `[min, max, step, unit]`, adding `sliderMin, sliderMax` only when the slider is narrower than the saved limit. Read settings with `rangeNum` and numbers from card data with `cardNum`. Build sliders with `rangeSlider`, or `rangeAttrs` for sliders written out by hand. Don't write the numbers into the menu, `cleanStore` or the code that applies them. `vn.js` and `opening.js` keep their own slider numbers until `NUM_RANGE` is shared through `window.NTR` (see `ROADMAP.md`).
 - Global settings live in `extensionSettings.chatvisuals`; per-character data lives in the card under `extensions.ntr`.

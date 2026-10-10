@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.26.0';
+  const REGEX_VERSION = '2.27.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -99,6 +99,33 @@ try {
     for (const id of todo) $(stRow(sec, id)).find('.regex_bulk_checkbox').prop('checked', true);
     stClick(document.getElementById(on ? 'bulk_enable_regex' : 'bulk_disable_regex'));
   }
+  // Runs SillyTavern's Bulk Edit on regexes from any section and waits until its panel has redrawn.
+  function bulk(ids, on) {
+    return new Promise((res) => {
+      const rows = ids.map((id) => SECS.map((sec) => stRow(sec, id)).find(Boolean)).filter(Boolean);
+      const box = document.getElementById('regex_container');
+      if (!rows.length || !box) { res(); return; }
+      let t = 0;
+      let over = false;
+      const done = () => { if (over) return; over = true; obs.disconnect(); clearTimeout(t); clearTimeout(cap); res(); };
+      const obs = new MutationObserver(() => { clearTimeout(t); t = setTimeout(done, 400); });
+      const cap = setTimeout(done, 8000);
+      obs.observe(box, { childList: true, subtree: true });
+      $('#regex_container .regex_bulk_checkbox').prop('checked', false);
+      for (const r of rows) $(r).find('.regex_bulk_checkbox').prop('checked', true);
+      stClick(document.getElementById(on ? 'bulk_enable_regex' : 'bulk_disable_regex'));
+    });
+  }
+
+  // The regexes a folder switch changes. Off remembers which were on. Back on turns those on again: all of them for a
+  // folder never switched off here, none if the remembered ones have left the folder.
+  function folderFlip(f, items, on) {
+    if (!on) { f.was = items.filter((x) => !x.disabled).map((x) => x.id); return f.was; }
+    const ids = Array.isArray(f.was) ? f.was.filter((id) => f.ids.includes(id)) : f.ids;
+    f.was = null;
+    return ids;
+  }
+
   // Puts SillyTavern's rows in this order and saves through its own drag-to-reorder, which also reloads the chat.
   async function reorder(sec, ids) {
     const list = stList(sec);
@@ -407,23 +434,13 @@ try {
     else if (t.classList.contains('rx_fsw')) {
       const f = folders(sec).find((x) => x.id === t.closest('.rx_folder').dataset.fid);
       if (!f) return;
-      const list = scripts(sec).filter((x) => f.ids.includes(x.id));
-      if (t.checked) {
-        // Back on: the ones that were on when it was switched off here. A folder never switched off here turns all on.
-        if (Array.isArray(f.was)) {
-          const was = f.was.filter((id) => f.ids.includes(id));
-          if (was.length) setMany(sec, was, true);
-          else {
-            toastr.info('The regexes that were on when this folder was switched off are gone, so nothing turned on.', 'Regexes');
-            refresh();
-          }
-        } else setMany(sec, f.ids, true);
-        f.was = null;
-      } else {
-        f.was = list.filter((x) => !x.disabled).map((x) => x.id);
-        setMany(sec, f.ids, false);
-      }
+      const ids = folderFlip(f, scripts(sec).filter((x) => f.ids.includes(x.id)), t.checked);
       save();
+      if (ids.length) setMany(sec, ids, t.checked);
+      else {
+        toastr.info('The regexes that were on when this folder was switched off are gone, so nothing turned on.', 'Regexes');
+        refresh();
+      }
     }
   }
 
@@ -529,5 +546,32 @@ try {
     });
   }
 
-  window.NTR.regex = { version: REGEX_VERSION, sectionHtml, bind };
+  // ===== Themes (index.js): which folders are on =====
+  // Every folder with regexes SillyTavern can show right now: Global, the current preset's and the open character's.
+  function states() {
+    if (!ready()) return null;
+    const out = {};
+    for (const sec of SECS.filter(shown)) {
+      for (const { f, items } of view(sec).groups) if (items.length) out[f.id] = items.some((x) => !x.disabled);
+    }
+    return out;
+  }
+  // Switches the folders a theme knows to how it saved them, turning on first, then off, so the chat reloads at most twice.
+  async function applyStates(map) {
+    if (!ready() || !map) return;
+    const on = [], off = [];
+    for (const sec of SECS.filter(shown)) {
+      for (const { f, items } of view(sec).groups) {
+        if (typeof map[f.id] !== 'boolean' || !items.length || map[f.id] === items.some((x) => !x.disabled)) continue;
+        const want = map[f.id];
+        const ids = folderFlip(f, items, want);
+        (want ? on : off).push(...items.filter((x) => ids.includes(x.id) && !x.disabled !== want).map((x) => x.id));
+      }
+    }
+    save();
+    await bulk(on, true);
+    await bulk(off, false);
+  }
+
+  window.NTR.regex = { version: REGEX_VERSION, sectionHtml, bind, states, applyStates };
 })();

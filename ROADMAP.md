@@ -57,8 +57,8 @@ One panel that stays on screen with the current state, instead of a tracker bloc
 ### Menu order
 Rearrange the NTR menu pages:
 
-- [ ] Themes, Layout, Avatars, Text, UI Display, Scenery, Reasoning, Regexes, then a divider line, then VN.
-- [ ] Scenery joins Header Banner and Foreground Images (Overlays) into one page. Background images may go there later too, not only for Visual Novel Mode.
+- [ ] Themes, Layout, Avatars, Text, UI Display, Overlays, Reasoning, Regexes, then a divider line, then VN.
+- Overlays now holds Header Banner and Foreground Images. Background images may go there later too, not only for Visual Novel Mode.
 - [ ] Regexes is the page for Regex (below) once it's built.
 - [ ] Page ids stay the same, so the saved last open page keeps working.
 

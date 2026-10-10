@@ -220,6 +220,16 @@
 .ntr_page.ntr_off .ntr_ptitle { opacity: 0.45; filter: grayscale(1); }
 .ntr_page.ntr_off .ntr_pbody { opacity: 0.38; filter: grayscale(1); pointer-events: none; transition: opacity 0.15s; }
 
+/* A part of a page with its own title and switch (Header Banner and Foreground Images on Overlays). */
+.ntr_part + .ntr_part { margin-top: 22px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ntr_parthead { display: flex; align-items: center; gap: 10px; padding: 14px 2px 0; }
+.ntr_parthead.cb_collapse_toggle { justify-content: flex-start; }
+.ntr_parthead .cb_chevron { font-size: 0.8em; opacity: 0.55; width: 1em; }
+.ntr_parthead:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; border-radius: 6px; }
+.ntr_parttitle { flex: 1; margin: 0; padding: 0; border: 0; color: inherit; font-size: 1.15em; font-weight: 700; }
+.ntr_part.ntr_off .ntr_parttitle { opacity: 0.45; }
+.ntr_part.ntr_off .ntr_partbody { opacity: 0.38; filter: grayscale(1); pointer-events: none; transition: opacity 0.15s; }
+
 .ntr_glab {
   margin: 18px 4px 6px;
   font-size: 0.72em;

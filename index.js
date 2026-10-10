@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.24.0';
+  const VERSION = '2.25.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -123,7 +123,7 @@
 
     // Menu state
     uiOpen: {},
-    uiPage: 'banner',
+    uiPage: 'fg',
     uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
     wandEntry: false,
 
@@ -1499,8 +1499,8 @@
   // rot.idx is the image on screen while rotating. It's never saved, so the card isn't rewritten every few
   // seconds and each chat opens on the picked image (r.idx), which only the arrows and the menu change.
   const rot = { key: null, idx: null, timer: null, sec: 0, fade: false };
-  // Waits while the Header Banner page is open, so the Crop slider works on the picked image.
-  const rotPaused = () => !!document.getElementById('cb_modal_overlay') && settings().uiPage === 'banner';
+  // Waits while the Overlays page is open, so the Crop slider works on the picked image.
+  const rotPaused = () => !!document.getElementById('cb_modal_overlay') && settings().uiPage === 'fg';
   function shownIdx(key, r) {
     const n = r.images.length;
     return rot.key === key && rot.idx != null && rot.idx < n ? rot.idx : Math.min(r.idx, n - 1);
@@ -1979,7 +1979,7 @@
     const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
     document.getElementById('cb_modal_overlay')?.remove();
     const s = settings();
-    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'banner';
+    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
     const F = fgData();
     const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
@@ -2020,7 +2020,8 @@
         ${themesSectionHtml(s)}
         ${layoutSectionHtml(s)}
 
-        ${pageHtml('banner', `
+        ${pageHtml('fg', `
+          ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
             ${card('Source', `
             <div><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char', BANNER_NOTE.char]], ownKind ? 'char' : 'global')}</div>
               <div style="margin-top: 10px;">
@@ -2113,20 +2114,9 @@
 
             <div style="margin-top: 10px;"><strong>Transparent areas show:${btag}</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
             ${ownKind ? '' : '<div class="cb_hint">Height, gap and transparent areas change every character set to Global.</div>'}`)}
-        `, { sw: ['m_b_enable', s.bannerOn], legend: true })}
+          `)}
 
-        ${pageHtml('pfp', `
-            <div class="ntr_cols">
-              ${getColHtml('ai', 'AI', s)}
-              ${getColHtml('us', 'User', s)}
-            </div>
-        `, { sw: ['m_a_enable', s.avatarEnabled] })}
-
-        ${reasoningSectionHtml(s)}
-        ${textSectionHtml(s)}
-        ${displaySectionHtml(s)}
-
-        ${pageHtml('fg', `
+          ${pagePart('Foreground Images', ['m_f_enable', s.fgEnabled], '', `
             ${card('', `
             <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${rangeNum(s, 'fgOpacity')}</span>${NUM_RANGE.fgOpacity[3]}</span></div>
             <input type="range" id="m_f_o" ${rangeAttrs('fgOpacity')} value="${rangeNum(s, 'fgOpacity')}">
@@ -2159,7 +2149,19 @@
               `).join('')}
             </div>
             <input type="file" id="m_f_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-        `, { sw: ['m_f_enable', s.fgEnabled], legend: true })}
+          `)}
+        `, { legend: true })}
+
+        ${pageHtml('pfp', `
+            <div class="ntr_cols">
+              ${getColHtml('ai', 'AI', s)}
+              ${getColHtml('us', 'User', s)}
+            </div>
+        `, { sw: ['m_a_enable', s.avatarEnabled] })}
+
+        ${reasoningSectionHtml(s)}
+        ${textSectionHtml(s)}
+        ${displaySectionHtml(s)}
 
         ${vnSectionHtml(s)}
         </div>
@@ -2171,10 +2173,10 @@
     document.body.appendChild(overlay);
 
     bindCollapses(overlay, s);
-    // Rotation waits while the Header Banner page is open, showing the picked image, and starts a fresh count
+    // Rotation waits while the Overlays page is open, showing the picked image, and starts a fresh count
     // when another page is picked or the menu closes.
-    if (s.uiPage === 'banner' && rot.idx != null) { rot.idx = null; updateBanner(); }
-    const rotRestart = () => { if (s.uiPage === 'banner') rot.idx = null; stopRotation(); updateBanner(); };
+    if (s.uiPage === 'fg' && rot.idx != null) { rot.idx = null; updateBanner(); }
+    const rotRestart = () => { if (s.uiPage === 'fg') rot.idx = null; stopRotation(); updateBanner(); };
     bindPages(overlay, s, rotRestart);
 
     setupPanel(overlay, prevScroll);
@@ -2524,12 +2526,11 @@
   const PAGES = [
     ['themes', 'fa-bookmark', 'Themes', 'Themes'],
     ['layout', 'fa-table-cells-large', 'Layout', 'Layout'],
-    ['banner', 'fa-images', 'Banner', 'Header Banner'],
     ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
     ['reasoning', 'fa-comment-dots', 'Reasoning', 'Reasoning Block Design'],
     ['text', 'fa-text-height', 'Text', 'Text Formatting'],
     ['display', 'fa-display', 'Display', 'UI Display'],
-    ['fg', 'fa-shapes', 'Overlays', 'Foreground Images'],
+    ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
     ['vn', 'fa-clapperboard', 'VN', 'Visual Novel Mode'],
   ];
   const navHtml = (cur) => PAGES.map(([id, icon, short, full]) =>
@@ -2550,6 +2551,19 @@
         ${note}
         <div class="ntr_pbody">${body}</div>
       </section>`;
+  }
+  // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
+  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title.
+  function pagePart(title, sw, fold, body) {
+    return `
+      <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
+        <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
+          ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
+          <h4 class="ntr_parttitle">${title}</h4>
+          <input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">
+        </div>
+        <div class="ntr_partbody">${body}</div>
+      </div>`;
   }
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
@@ -2590,13 +2604,14 @@
         icon.classList.toggle('fa-chevron-right', !open);
       };
       apply(!!s.uiOpen[sec]);
-      h.addEventListener('click', () => {
+      h.addEventListener('click', (e) => {
+        if (e.target.closest('input')) return;
         const open = content.style.display === 'none';
         s.uiOpen[sec] = open;
         save();
         apply(open);
       });
-      h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); h.click(); } });
+      h.addEventListener('keydown', (e) => { if (e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click(); } });
     });
   }
 
@@ -2623,13 +2638,16 @@
     overlay.querySelectorAll('.ntr_page').forEach((p) => { p.hidden = p.dataset.page !== page; });
     overlay.querySelectorAll('.ntr_navi').forEach((b) => b.classList.toggle('on', b.dataset.page === page));
   }
-  // A switched-off section greys out: its icon in the column, its title, and its settings.
+  // A switched-off section greys out: its icon in the column, its title, and its settings. A page made of parts greys
+  // out each part on its own, and its icon only when every part is off.
   function syncPageOff(overlay) {
     if (!overlay) return;
+    overlay.querySelectorAll('.ntr_part').forEach((p) => p.classList.toggle('ntr_off', !p.querySelector('.ntr_pswitch').checked));
     overlay.querySelectorAll('.ntr_page').forEach((p) => {
-      const sw = p.querySelector('.ntr_pswitch');
-      const off = !!sw && !sw.checked;
-      p.classList.toggle('ntr_off', off);
+      const sw = p.querySelector('.ntr_phead .ntr_pswitch');
+      const parts = [...p.querySelectorAll('.ntr_part .ntr_pswitch')];
+      p.classList.toggle('ntr_off', !!sw && !sw.checked);
+      const off = sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked);
       overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
     });
   }

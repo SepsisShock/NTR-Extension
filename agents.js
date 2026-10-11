@@ -95,14 +95,32 @@
     return o;
   }
 
-  async function call(a, test, signal) {
+  // Stop and the time limit end a run right away, even while it waits for your reply or for an answer.
+  const abortable = (p, signal) => new Promise((res, rej) => {
+    if (signal.aborted) { rej(new Error('Stopped')); return; }
+    const stop = () => rej(new Error('Stopped'));
+    signal.addEventListener('abort', stop, { once: true });
+    p.then(res, rej).finally(() => signal.removeEventListener('abort', stop));
+  });
+  // After waiting for your reply, the page (or the agent, for a run after a reply) may have been switched off meanwhile.
+  const stillAllowed = (a, auto) => { if (!pageOn()) throw new Error('Skipped: the Agents page is off'); if (auto && !a.on) throw new Error('Skipped: this agent is off'); };
+
+  async function call(a, test, auto, signal) {
     const c = ctx();
     const messages = prompt(a, test);
     const max = test ? 20 : a.maxTokens;
     if (a.kind === 'chat') {
-      await chatIdle();
-      if (signal.aborted) throw new Error('Stopped');
-      return String(await c.generateRaw({ prompt: messages[1].content, systemPrompt: messages[0].content, responseLength: max }) ?? '');
+      await abortable(chatIdle(), signal);
+      stillAllowed(a, auto);
+      // SillyTavern's own request can't take our Stop, but its "generation stopped" event cancels it. That event would
+      // also stop a reply being written, so it's only sent while no reply is.
+      const cancel = () => { if (!chatBusy) c.eventSource.emit(c.event_types.GENERATION_STOPPED); };
+      signal.addEventListener('abort', cancel, { once: true });
+      try {
+        return String(await abortable(c.generateRaw({ prompt: messages[1].content, systemPrompt: messages[0].content, responseLength: max }), signal) ?? '');
+      } finally {
+        signal.removeEventListener('abort', cancel);
+      }
     }
     if (a.kind === 'cc') {
       if (!a.ccModel.trim()) throw new Error('Type a model name first.');
@@ -115,8 +133,7 @@
       return String(r?.content ?? '');
     }
     if (!a.tcUrl.trim()) throw new Error('Type the server link first.');
-    if (sharesChatServer(a)) await chatIdle();
-    if (signal.aborted) throw new Error('Stopped');
+    if (sharesChatServer(a)) { await abortable(chatIdle(), signal); stillAllowed(a, auto); }
     const r = await c.TextCompletionService.processRequest({
       stream: false, prompt: messages, max_tokens: max, api_type: a.tcType, api_server: a.tcUrl.trim(),
       model: TC_MODEL.has(a.tcType) && a.tcModel.trim() ? a.tcModel.trim() : undefined, ...samplers(a, true),
@@ -135,10 +152,13 @@
     runs.set(a.id, l.slice(0, 10));
     renderActivity();
   }
-  function enqueue(id, test = false) {
+  // auto: a run after a reply, which also needs the agent's own switch on.
+  function enqueue(id, test = false, auto = false) {
     chain = chain.then(async () => {
       const a = byId(id);
-      if (!a || (!test && !a.job.trim())) { if (a) log(a, { at: Date.now(), ms: 0, ok: false, test, text: 'Write its instructions first.' }); return; }
+      if (!a) return;
+      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : auto && !a.on ? '' : !test && !a.job.trim() ? 'Write its instructions first.' : null;
+      if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return; }
       const ctrl = new AbortController();
       let timedOut = false;
       const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, TIMEOUT_MS);
@@ -146,7 +166,7 @@
       renderActivity();
       const t0 = performance.now();
       try {
-        const text = (await call(a, test, ctrl.signal)).trim();
+        const text = (await call(a, test, auto, ctrl.signal)).trim();
         if (ctrl.signal.aborted) throw new Error(timedOut ? 'Timed out' : 'Stopped');
         if (!test) answers.set(id, text);
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: true, test, text: text || '(empty answer)' });
@@ -389,7 +409,8 @@
 
   function bind(overlay, s) {
     root = overlay.querySelector('#m_ag_root');
-    overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); };
+    // Switching the page off also stops a run in progress; runs still waiting are skipped.
+    overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); if (!this.checked) current?.ctrl.abort(); };
     render();
   }
 
@@ -400,7 +421,7 @@
     // Your chat's reply: agents set to After Every Reply run, one after another, once it's in.
     replied: (type) => {
       if (!pageOn() || ['first_message', 'impersonate'].includes(type)) return;
-      for (const a of list()) if (a.on && a.runs === 'reply' && a.job.trim()) enqueue(a.id);
+      for (const a of list()) if (a.on && a.runs === 'reply' && a.job.trim()) enqueue(a.id, false, true);
     },
     genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; },
     genEnded: () => { chatBusy = false; const w = waiters; waiters = []; w.forEach((r) => r()); },

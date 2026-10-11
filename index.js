@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.35.0';
+  const VERSION = '2.35.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -4461,10 +4461,16 @@
     const i = charIndexByAvatar(key);
     const ch = i >= 0 ? c.characters[i] : null;
     if (!ch || !ch.data) return null;
-    if (!ch.data.extensions || typeof ch.data.extensions !== 'object') ch.data.extensions = {};
+    if (!isObj(ch.data.extensions)) ch.data.extensions = {};
     let d = cleanStore(ch.data.extensions.ntr);
-    if (!cardSnap.has(key)) cardSnap.set(key, d && typeof d === 'object' ? JSON.stringify(d) : '');
-    if (!d || typeof d !== 'object') { d = { v: 1 }; ch.data.extensions.ntr = d; }
+    if (!cardSnap.has(key)) cardSnap.set(key, isObj(d) ? JSON.stringify(d) : '');
+    if (!isObj(d)) {
+      // NTR data that isn't an object (a broken card): SillyTavern merges saves into what the card holds, which would
+      // drop the next save, so that's cleared first.
+      if (d !== undefined && c.constants?.unset && !PREVIEW) c.writeExtensionField(i, 'ntr', c.constants.unset).catch((e) => console.error('[NTR card]', e));
+      d = { v: 1 };
+      ch.data.extensions.ntr = d;
+    }
     return d;
   }
 
@@ -4598,7 +4604,7 @@
   }
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
-  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
   // Resolves to true if the file was deleted. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok).catch(() => false);
@@ -4609,12 +4615,22 @@
   // that stays still uses them. Cards that aren't loaded yet (lazy loading) are loaded first when `chars` is set;
   // without it, their files can't be checked, so no file is deleted.
   const CHAR_SETTINGS = ['chars', 'charData', 'groupData', 'legacyBackup'];
-  async function removeData({ look = false, chars = false } = {}) {
-    const c = ctx();
-    const s = settings();
+  async function removeData(opts) {
     wiping = true;
     for (const tm of cardTimers.values()) clearTimeout(tm);
     cardTimers.clear();
+    try {
+      await removeNow(opts);
+    } catch (e) {
+      // Nothing was removed, so saving goes back on, and any card edit that was waiting to save gets saved.
+      wiping = false;
+      for (const key of cardSnap.keys()) scheduleCardFlush(key);
+      throw e;
+    }
+  }
+  async function removeNow({ look = false, chars = false } = {}) {
+    const c = ctx();
+    const s = settings();
     const gone = new Set();
     if (chars) {
       for (let i = 0; i < c.characters.length; i++) {
@@ -4628,7 +4644,6 @@
         const done = new Set((await c.writeExtensionFieldBulk(null, 'ntr', unset))?.updated || []);
         const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
         if (missed) {
-          wiping = false;
           throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so nothing was removed. Check the SillyTavern console.`);
         }
       } else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});

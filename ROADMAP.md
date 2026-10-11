@@ -40,6 +40,11 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Doesn't block Reader Mode or the Agentic Tracker Panel: Layout and Pinned Blocks already make the parts they need adjustable.
 
+### Overlays module
+- [ ] Move header banners and foreground images into `overlays.js`.
+- [ ] Load the module only when an overlay is enabled or the Overlays page is opened.
+- [ ] Reuse shared upload, storage and layout helpers from `index.js`, and keep existing settings keys and saved data formats.
+
 ### Custom Cursor: follow-ups
 - [ ] An Advanced box with Custom CSS for anything the settings don't cover.
 
@@ -56,66 +61,20 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 - [ ] Text alignment for chat messages: left, right, center or justified.
 
-## Visual Novel Mode (Low Priority)
-
-Will be worked on when the main part is done, unless there are bugs or issues to take care of.
-
-### Flags and endings
-Keep the open-world feel, and let a card optionally have endings.
-
-- [ ] `[[Flag:Name]]` tag: the model marks that something happened (e.g. Trust, Betrayal).
-- [ ] `[[Ending:Name]]` tag: shows an ending title card.
-- [ ] Work out current flags and reached endings by scanning the chat, like locations already work, so swipes, edits and branches stay correct.
-- [ ] Add the current flags to the prompt text the extension already sends, so the model doesn't have to remember them.
-- [ ] Endings gallery in the VN menu with seen/unseen state, saved under a new settings key (existing keys untouched).
-- [ ] Hide the new tags in the normal chat view, like the other scene tags.
-- [ ] Cards with no flag or ending tags behave exactly as they do now.
-
-### Ideas
-
-- Chapters and save points. In Visual Novel Mode, each message is a chapter.
-  - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
-  - Title card when a chapter starts.
-  - Chapter list to jump to any chapter.
-  - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
-  - Open question: what SillyTavern makes available to extensions for creating a branch.
-- NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
-  - For the author and for everyone else, so it needs to be friendly for first-time card makers.
-  - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
-  - Uses the `[[Chapter:Name]]` tag from Chapters and save points, where a chapter is one message. A chapter can say what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
-  - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
-  - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel menu (speakers, emotions, locations, CGs, maps).
-  - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
-- Ending credits. Would follow the ending title card from Flags and endings.
-  - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
-
 ## Misc (Low Priority)
 
 Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
 
-### In Line avatar: spacing and look
-In Line looks too bulky next to the text.
-
-- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
+### Pinned Blocks: reset and background
+- [ ] Fix Reset for a Pinned Block after it has been moved around in Reader Mode: it does not fully reset.
+- [ ] Fix the Pinned Block background in Reader Mode: it is not transparent and appears to inherit the chat panel's color. Check where the background comes from.
+- [ ] Check whether either problem occurs in normal chat and Visual Novel Mode; those modes are unverified.
 
 ### Avatar fades: clear all
 - [ ] A button in the avatar Fades section that sets all eight fades to 0 at once.
 
 ### Typing in slider values
 - [ ] Everywhere in the menu a slider shows a value in % or px, let the value be typed in as well as dragged. Typed values stay within the slider's range.
-
-### Mobile compatibility testing
-Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
-
-- [ ] Android (Chrome).
-- [ ] iOS (Safari).
-- [ ] NTR menu as a full-screen sheet.
-- [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
-- [ ] Maps: pins and popups near the screen edge.
-- [ ] Opening video and banner video: autoplay, sound button, YouTube.
-- [ ] Dragging popup characters by touch.
-- [ ] Screen height changes when the address bar shows or hides.
-- [ ] Notch and home bar areas on iPhone.
 
 ### Visual Novel Mode and opening video sliders read `NUM_RANGE`
 Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The ones in `vn.js` and `opening.js` still have their own numbers. Users would see no difference, so this waits until those files are worked on anyway.
@@ -170,13 +129,6 @@ A Scrollbar Color that changes from one side of the scrollbar to the other (a ho
 - [ ] Check the buttons, the wand entry and Visual Novel Mode still come back after a chat switch, a reload and a theme change.
 - Worth it? The gain is small, mostly a little phone battery. The risk is bigger: SillyTavern doesn't send an event for every change, so a missed one leaves a button missing or Visual Novel Mode off until a reload, and event names can change between SillyTavern versions. The timer can't miss anything. Only do this if a speed test on a phone shows NTR's idle cost matters.
 
-### Compatibility with other extensions
-If NTR ever needs fixes for other extensions (like a top bar or side panel another extension adds), detect them in JavaScript and set a class on the page, like `body.ntr-has-topbar`, then use that class in CSS. A `body:has(...)` rule in CSS makes the browser check the whole page on every change, even for people who don't have that extension: in a sandbox test, rules like that made up about half of another theme's extra work while a reply streamed in. NTR's own two `:has()` rules only look inside small menu parts, so nothing needs changing now.
-
-- [ ] Detect the other extension at load and when the Extensions panel changes, and add or remove the class.
-- [ ] Keep the fixes in CSS under that class, so they only apply when the extension is there.
-- [ ] Check the speed with `st.sh bench`, with and without the other extension installed.
-
 ### Banners in group chats
 The shared Global banner could show in group chats too, which have no banner now.
 
@@ -202,11 +154,60 @@ A set of ready-made location backgrounds included with the extension, to pick fr
 
 - Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
 
-### Emotions: follow-ups
-Faces on chat avatars and the stage behind the chat have shipped (Avatars, under Emotions). Still open:
+## Visual Novel Mode (Low Priority)
 
-- [ ] Agent as the emotion source: an agent reads each reply and picks the emotion, instead of the Emotion tag. The choice is in the menu, greyed out.
-- Maybe: a face and a full body on the same side at once, with Backdrop as its own layer behind the message instead of the avatar itself.
+Will be worked on when the main part is done, unless there are bugs or issues to take care of.
+
+### Flags and endings
+Keep the open-world feel, and let a card optionally have endings.
+
+- [ ] `[[Flag:Name]]` tag: the model marks that something happened (e.g. Trust, Betrayal).
+- [ ] `[[Ending:Name]]` tag: shows an ending title card.
+- [ ] Work out current flags and reached endings by scanning the chat, like locations already work, so swipes, edits and branches stay correct.
+- [ ] Add the current flags to the prompt text the extension already sends, so the model doesn't have to remember them.
+- [ ] Endings gallery in the VN menu with seen/unseen state, saved under a new settings key (existing keys untouched).
+- [ ] Hide the new tags in the normal chat view, like the other scene tags.
+- [ ] Cards with no flag or ending tags behave exactly as they do now.
+
+### Ideas
+
+- Chapters and save points. In Visual Novel Mode, each message is a chapter.
+  - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
+  - Title card when a chapter starts.
+  - Chapter list to jump to any chapter.
+  - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
+  - Open question: what SillyTavern makes available to extensions for creating a branch.
+- NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
+  - For the author and for everyone else, so it needs to be friendly for first-time card makers.
+  - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
+  - Uses the `[[Chapter:Name]]` tag from Chapters and save points, where a chapter is one message. A chapter can say what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
+  - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
+  - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel menu (speakers, emotions, locations, CGs, maps).
+  - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
+- Ending credits. Would follow the ending title card from Flags and endings.
+  - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
+
+## Release Preparation (Low Priority)
+
+Start this work only when the repository owner, SepsisShock, says release is approaching.
+
+### Mobile compatibility testing
+Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
+
+- [ ] Android (Chrome).
+- [ ] iOS (Safari).
+- [ ] NTR menu as a full-screen sheet.
+- [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
+- [ ] Maps: pins and popups near the screen edge.
+- [ ] Opening video and banner video: autoplay, sound button, YouTube.
+- [ ] Dragging popup characters by touch.
+- [ ] Screen height changes when the address bar shows or hides.
+- [ ] Notch and home bar areas on iPhone.
+
+### In Line avatar: spacing and look
+In Line looks too bulky next to the text.
+
+- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
 
 ### SillyTavern's top bar icons
 - [ ] Change the icons in SillyTavern's top menu bar.

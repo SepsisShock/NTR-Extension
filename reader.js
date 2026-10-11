@@ -5,7 +5,7 @@
 // Two styles: Plain (a page scrolls when it's long) and Book (an open book across the screen, the text flowing over both
 // pages and on to the next two pages).
 (() => {
-  const READER_VERSION = '2.34.0';
+  const READER_VERSION = '2.35.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;

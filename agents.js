@@ -6,7 +6,7 @@
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
 // For now an agent's answer shows in its activity. Showing it on screen (the Agentic Tracker Panel) comes next.
 (() => {
-  const AGENTS_VERSION = '2.38.0';
+  const AGENTS_VERSION = '2.38.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -30,13 +30,12 @@
     ['minP', 'Min P', 'agMinP', 'min_p', 'min_p'], ['freq', 'Frequency Penalty', 'agFreq', 'frequency_penalty', 'frequency_penalty'],
     ['pres', 'Presence Penalty', 'agPres', 'presence_penalty', 'presence_penalty'], ['rep', 'Repetition Penalty', 'agRep', 'repetition_penalty', 'rep_pen']];
   const EFFORT = [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Med'], ['high', 'High']];
-  const SHAPES = { round: '50%', rounded: '8px', square: '0' };
   // A run that takes longer than this is stopped.
   const TIMEOUT_MS = 120000;
 
   // A new agent: off, run on the button, Same as Chat. Temperature starts low: agents keep records, they don't write prose.
   const fresh = (name) => ({
-    id: newId('ag'), name, on: false, pic: '', picShape: 'round', job: '', runs: 'button', kind: 'chat',
+    id: newId('ag'), name, on: false, pic: '', job: '', runs: 'button', kind: 'chat',
     ccSource: 'openrouter', ccModel: '', ccUrl: '', ccKey: '', ccPost: '',
     tcType: 'koboldcpp', tcUrl: 'http://127.0.0.1:5001', tcModel: '', tcInstruct: '',
     tempOn: true, temp: 0.3, topPOn: false, topP: 1, topKOn: false, topK: 0, minPOn: false, minP: 0,
@@ -50,7 +49,7 @@
   function clean(a) {
     const d = fresh('Agent');
     const o = { ...d, id: typeof a?.id === 'string' && /^[\w-]{1,40}$/.test(a.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent', on: a?.on === true,
-      pic: str(a?.pic, 2048), picShape: SHAPES[a?.picShape] ? a.picShape : 'round', job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
+      pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
       kind: ['chat', 'cc', 'tc'].includes(a?.kind) ? a.kind : 'chat',
       ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: str(a?.ccModel, 200), ccUrl: str(a?.ccUrl, 500), ccKey: str(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
       tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
@@ -197,9 +196,9 @@
   const lab = (l, i) => `<div class="cb_hint" style="margin:6px 0 0;">${l}</div>${i}`;
   const card = (l, i) => `${l ? `<div class="ntr_glab">${l}</div>` : ''}<div class="ntr_card">${i}</div>`;
   const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;"${title ? ` title="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label ? ' ' + label : ''}</button>`;
+  // An agent's picture is always a circle.
   const picHtml = (a, size) => {
-    const r = SHAPES[a.picShape] || '50%';
-    return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:${r};flex:none;">`
+    return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
       : `<i class="fa-solid fa-fw fa-robot" style="width:${size}px;text-align:center;opacity:.7;flex:none;"></i>`;
   };
   const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${(CC.find(([v]) => v === a.ccSource) || [, ''])[1]}${a.ccModel ? ' · ' + a.ccModel : ''}`
@@ -259,7 +258,6 @@
           ${btn('m_ag_up', 'fa-upload', '', 'Upload')}${btn('m_ag_url', 'fa-link', '', 'Use a link')}${btn('m_ag_clr', 'fa-rotate-left', '', 'Back to the robot')}
         </div>
         <input type="file" id="m_ag_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-        ${pills('agshape', [['round', 'Round'], ['rounded', 'Rounded'], ['square', 'Square']], a.picShape)}
         ${lab('Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" placeholder="What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list." style="width:100%;">${esc(a.job)}</textarea>`)}
         ${lab('Runs', pills('agruns', [['reply', 'After Every Reply'], ['button', 'On the Button Only']], a.runs))}
         <div class="cb_hint" style="margin-bottom:0;">For now its answer shows under Activity below. Showing it on screen comes with the Agentic Tracker Panel.</div>`)}
@@ -384,7 +382,6 @@
       try { setPic(await uploadImage(file.files[0], 'agent', { max: 128 })); } catch (e) { console.error('[NTR agent picture]', e); toastr.error(e.message || 'Upload failed', 'Agent picture'); }
       file.value = '';
     };
-    onPills(root, 'agshape', (v) => { a.picShape = v; changed(true); });
     onPills(root, 'agruns', (v) => { a.runs = v; changed(true); });
     onPills(root, 'agkind', (v) => { a.kind = v; changed(true); });
     onPills(root, 'ageff', (v) => { a.eff = v; changed(false); });

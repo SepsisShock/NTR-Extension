@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.30.0';
+  const REGEX_VERSION = '2.30.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -331,7 +331,11 @@ try {
     #cb_modal_overlay .rx_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_dim .rx_name { opacity: .45; text-decoration: line-through; }
     #cb_modal_overlay .rx_grip { flex: none; padding: 4px 2px; cursor: grab; opacity: .4; touch-action: none; }
-    #cb_modal_overlay .rx_dragging { opacity: .5; }
+    #cb_modal_overlay .rx_dragging { border-radius: 8px; outline: 2px dashed var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px;
+      background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 15%, transparent); }
+    #cb_modal_overlay .rx_dragging > * { visibility: hidden; }
+    #cb_modal_overlay .rx_ghost { position: fixed; z-index: 10000; box-sizing: border-box; margin: 0; padding-inline: 8px; border-radius: 8px;
+      background: var(--SmartThemeBlurTintColor, #222); box-shadow: 0 8px 24px rgba(0,0,0,.55); opacity: .9; pointer-events: none; }
     #cb_modal_overlay .rx_drop { outline: 2px dashed var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px; }
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
     #cb_modal_overlay input.rx_sw[type=checkbox] {
@@ -639,16 +643,39 @@ try {
     e.preventDefault();
     closePops();
     const item = grip.classList.contains('rx_fgrip') ? grip.closest('.rx_folder') : grip.closest('.rx_row');
-    drag = { secEl: grip.closest('.rx_sec'), item, folder: grip.classList.contains('rx_fgrip'), moved: false };
-    item.classList.add('rx_dragging');
+    drag = { secEl: grip.closest('.rx_sec'), item, folder: grip.classList.contains('rx_fgrip'), moved: false, ghost: null };
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);
   }
 
+  // A copy of the dragged regex or folder follows the pointer up and down; its own place in the list becomes a
+  // highlighted gap that shows where it will land.
+  function follow(e) {
+    if (!drag.ghost) {
+      const r = drag.item.getBoundingClientRect();
+      const g = drag.item.cloneNode(true);
+      g.classList.add('rx_ghost');
+      g.removeAttribute('data-id');
+      g.removeAttribute('data-fid');
+      g.style.width = `${r.width}px`;
+      g.style.left = '0px';
+      g.style.top = '0px';
+      page.appendChild(g);
+      // A transformed menu moves "fixed" boxes with it, so measure where 0, 0 landed and allow for it.
+      const o = g.getBoundingClientRect();
+      drag.ghost = g;
+      drag.at = { x: r.left - o.left, dy: e.clientY - r.top, oy: o.top };
+      drag.item.classList.add('rx_dragging');
+    }
+    drag.ghost.style.left = `${drag.at.x}px`;
+    drag.ghost.style.top = `${e.clientY - drag.at.dy - drag.at.oy}px`;
+  }
+
   function onMove(e) {
     if (!drag) return;
     drag.moved = true;
+    follow(e);
     const body = page.closest('.ntr_body');
     if (body) {
       const r = body.getBoundingClientRect();
@@ -684,6 +711,7 @@ try {
     document.removeEventListener('pointercancel', onUp);
     const d = drag;
     drag = null;
+    d.ghost?.remove();
     if (!d.moved) { refresh(); return; }
     const sec = secOf(d.secEl.dataset.sec);
     const fl = folders(sec, true);

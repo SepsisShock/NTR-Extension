@@ -5,7 +5,7 @@
 // Two styles: Plain (a page scrolls when it's long) and Book (an open book across the screen, the text flowing over both
 // pages and on to the next two pages).
 (() => {
-  const READER_VERSION = '2.36.0';
+  const READER_VERSION = '2.36.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -23,7 +23,7 @@
     #ntr_rd_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
   `;
 
-  // The built-in books (assets/books) are one photo of an open book in nine cover colors, 3:2. Their page areas are where
+  // The built-in books (assets/books) are one photo of an open book in seven cover colors, 3:2. Their page areas are where
   // the Book settings start (see DEFAULTS).
   const BOOK_RATIO = 1.5;
   // The ink the built-in book starts with; empty or broken colors fall back to it.
@@ -233,6 +233,14 @@
     ${B} #chat .mes .mes_text q :is(i, em) { color: inherit !important; }
     ${B} #chat .mes .mes_text u { color: ${col('rdInk')} !important; }
     ${B} #chat .mes :is(.mes_text, .mes_text *, .name_text) { text-shadow: none !important; -webkit-text-stroke: 0 !important; }
+    /* The reasoning block in the book's ink, on the paper. It doesn't scroll, so a long one runs on to the next page. */
+    ${B} #chat .mes .mes_reasoning { --reasoning-body-color: ${col('rdInkEm')}; --reasoning-em-color: ${col('rdInkEm')}; color: ${col('rdInkEm')} !important;
+      overflow: visible !important; max-height: none !important; background: none !important; box-shadow: none !important; }
+    ${B} #chat .mes .mes_reasoning :is(i, em) { color: ${col('rdInkEm')} !important; }
+    ${B} #chat .mes .mes_reasoning q { color: ${col('rdInkQuote')} !important; }
+    ${B} #chat .mes .mes_reasoning q :is(i, em) { color: inherit !important; }
+    ${B} #chat .mes :is(.mes_reasoning, .mes_reasoning *) { text-shadow: none !important; -webkit-text-stroke: 0 !important; }
+    ${B} #chat .mes .mes_reasoning_header { background: rgba(60, 40, 20, .1) !important; color: ${col('rdInk')} !important; border: 1px solid rgba(60, 40, 20, .25) !important; box-shadow: none !important; }
     ${B} #chat .mes :is(.mes_text, .mes_media_wrapper) img { max-width: 100%; max-height: ${px(g.h - g.pt - g.pb - 8)}; break-inside: avoid; }
     ${B} #chat .mes :is(.swipe_left, .swipeRightBlock, .swipe_right, .swipes-counter) { color: ${col('rdInk')}; }
     ${B} #chat .mes .swipeRightBlock { position: fixed !important; left: ${px(g.x + g.w - g.po - 50)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
@@ -283,6 +291,8 @@
     });
   }
   const onLoad = (e) => { if (e.target instanceof HTMLImageElement) recount(); };
+  // Opening or closing a reasoning block does too.
+  const onToggle = () => recount();
   document.fonts?.addEventListener?.('loadingdone', recount);
 
   // Next and Previous: in the book, the next or previous two pages of the same messages first.
@@ -418,9 +428,11 @@
       obs.observe(chat, { childList: true });
       chat.addEventListener('scroll', keepTop, { passive: true });
       chat.addEventListener('load', onLoad, true);
+      chat.addEventListener('toggle', onToggle, true);
     } else if (!on && obs) {
       chat?.removeEventListener('scroll', keepTop);
       chat?.removeEventListener('load', onLoad, true);
+      chat?.removeEventListener('toggle', onToggle, true);
       obs.disconnect();
       obs = null;
     }
@@ -464,6 +476,8 @@
   function refresh() {
     const on = live();
     watch(on);
+    // The page bar goes in first, so the book is sized with it under it.
+    if (on) syncBar();
     layoutBook();
     if (on) {
       rebuild(!wasLive);

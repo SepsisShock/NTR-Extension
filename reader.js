@@ -5,7 +5,7 @@
 // Two styles: Plain (a page scrolls when it's long) and Book (an open book across the screen, the text flowing over both
 // pages and on to the next two pages).
 (() => {
-  const READER_VERSION = '2.35.2';
+  const READER_VERSION = '2.36.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -23,22 +23,9 @@
     #ntr_rd_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
   `;
 
-  // The built-in book: an open book drawn in code, 3:2. Its page areas are where the Book settings start (see DEFAULTS).
+  // The built-in books (assets/books) are one photo of an open book in nine cover colors, 3:2. Their page areas are where
+  // the Book settings start (see DEFAULTS).
   const BOOK_RATIO = 1.5;
-  const BOOK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1000" preserveAspectRatio="none">
-    <defs>
-      <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b3a24"/><stop offset="1" stop-color="#4a2716"/></linearGradient>
-      <linearGradient id="l" x1="0" x2="1"><stop offset="0" stop-color="#e6d6b2"/><stop offset=".06" stop-color="#f1e6cb"/><stop offset=".8" stop-color="#f4ead2"/><stop offset=".96" stop-color="#ddcaa0"/><stop offset="1" stop-color="#c4ad80"/></linearGradient>
-      <linearGradient id="r" x1="0" x2="1"><stop offset="0" stop-color="#c4ad80"/><stop offset=".04" stop-color="#ddcaa0"/><stop offset=".2" stop-color="#f4ead2"/><stop offset=".94" stop-color="#f1e6cb"/><stop offset="1" stop-color="#e6d6b2"/></linearGradient>
-    </defs>
-    <rect x="0" y="0" width="1500" height="1000" rx="30" fill="url(#c)"/>
-    <rect x="8" y="8" width="1484" height="984" rx="24" fill="none" stroke="#2e170c" stroke-width="4" opacity=".5"/>
-    <rect x="34" y="40" width="716" height="934" fill="#cdb98f"/><rect x="750" y="40" width="716" height="934" fill="#cdb98f"/>
-    <rect x="38" y="34" width="712" height="936" fill="#dccaa2"/><rect x="750" y="34" width="712" height="936" fill="#dccaa2"/>
-    <rect x="42" y="26" width="708" height="940" fill="url(#l)"/><rect x="750" y="26" width="708" height="940" fill="url(#r)"/>
-    <rect x="747" y="26" width="6" height="940" fill="#7a6440" opacity=".45"/>
-  </svg>`;
-  const BOOK_URI = 'data:image/svg+xml,' + encodeURIComponent(BOOK_SVG);
   // The ink the built-in book starts with; empty or broken colors fall back to it.
   const INK = { rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e' };
   const COLOR_OK = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i;
@@ -165,7 +152,7 @@
 
   // ----- Book -----
   // A picture link as it goes into the CSS. Links with characters that could break out of url("") use the built-in book.
-  const cssUrl = (u) => (u && !/["\\\n\r]/.test(u) ? `url("${u}")` : `url("${BOOK_URI}")`);
+  const cssUrl = (u, s) => (u && !/["\\\n\r]/.test(u) ? `url("${u}")` : `url("${A.bookUrl(s.rdBook)}")`);
   // Your own picture keeps its own shape, known once it has loaded.
   const ratios = new Map();
   function ratioOf(u) {
@@ -223,7 +210,7 @@
       height: auto !important; max-height: none !important; right: auto !important; bottom: auto !important; margin: 0 !important; resize: none !important; }
     ${B} #sheld > #sheldheader { display: none !important; }
     ${B} #chat { flex: none !important; height: ${px(g.h)} !important; max-height: none !important; box-sizing: border-box !important; overflow: hidden !important;
-      padding: ${px(g.pt)} ${px(g.po)} ${px(g.pb)} !important; background: ${cssUrl(s.rdBookImg)} center / 100% 100% no-repeat !important;
+      padding: ${px(g.pt)} ${px(g.po)} ${px(g.pb)} !important; background: ${cssUrl(s.rdBookImg, s)} center / 100% 100% no-repeat !important;
       border: none !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
       text-shadow: none !important; scrollbar-width: none; will-change: auto !important; color: ${col('rdInk')};
       --SmartThemeBodyColor: ${col('rdInk')}; --SmartThemeEmColor: ${col('rdInkEm')}; --SmartThemeQuoteColor: ${col('rdInkQuote')}; --SmartThemeUnderlineColor: ${col('rdInk')}; }
@@ -508,8 +495,6 @@
     refresh,
     // A Book setting changed (index.js calls this whenever the menu's look settings do).
     relayout,
-    // For the menu's picture preview.
-    bookUri: BOOK_URI,
     // A chat opens on its last page.
     chatChanged: () => { if (!live()) return; follow = true; rebuild(true); },
     // Sending a message or starting a reply goes to the last page, so you see the reply arrive.

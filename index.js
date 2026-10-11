@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.35.2';
+  const VERSION = '2.36.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -78,7 +78,7 @@
     rdEnabled: false, rdPer: 'pair',
     // Its look, in themes: Plain or Book. An empty picture is the built-in book, and the page areas start as its own:
     // where the text sits on the picture, as a % of its height (Top, Bottom) or width (Outer edge, Spine gap).
-    rdStyle: 'plain', rdBookImg: '', rdBookW: 90, rdBookTop: 7, rdBookBottom: 8, rdBookOuter: 7, rdBookSpine: 8,
+    rdStyle: 'plain', rdBook: 'brown', rdBookImg: '', rdBookW: 90, rdBookTop: 13, rdBookBottom: 15, rdBookOuter: 11, rdBookSpine: 11,
     rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '',
 
     // Agents page (agents.js): your agents (each with its own job, connection, samplers and limits; see clean in agents.js)
@@ -1378,6 +1378,13 @@
       .cb_cur_prev i { opacity: .35; }
       .cb_cur_prev.ntr_rd_pic { width: 72px; height: 48px; }
       .cb_cur_prev.ntr_rd_pic img { max-width: 68px; max-height: 44px; }
+      .ntr_rd_books { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+      .ntr_rd_books label { position: relative; cursor: pointer; }
+      .ntr_rd_books input { position: absolute; opacity: 0; pointer-events: none; }
+      .ntr_rd_books span { display: block; width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); box-sizing: border-box; }
+      .ntr_rd_books label:hover span { border-color: rgba(255,255,255,.6); }
+      .ntr_rd_books input:checked + span { border-color: var(--SmartThemeQuoteColor, #6cf); box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
+      .ntr_rd_books input:focus-visible + span { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
       .cb_cur_name { flex: 1; min-width: 0; }
       .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
@@ -2703,6 +2710,11 @@
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
   }
+  // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
+  const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
+    ['black', 'Black', '#1e1b19'], ['gold', 'Antique Gold', '#5c4219'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9'], ['candy', 'Candy Pink', '#e07aa8']];
+  const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
+  const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
   function pills(name, opts, cur) {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
@@ -3667,7 +3679,7 @@
     layBarEdge: LAY_EDGES, laySend: ['attached', 'free'], layPhBarEdge: LAY_EDGES, layPhSend: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
-    rdStyle: ['plain', 'book'],
+    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v),
   });
   for (const p of ['Panel', ...OV_PARTS]) {
     Object.assign(PICK_KEYS, { [`ov${p}Bg`]: ['clear', 'color'], [`ov${p}Border`]: ['none', 'line'] });
@@ -4678,7 +4690,7 @@
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
-    reader: { label: 'Reader Mode look (Plain or Book, book picture, page areas, ink, font)', keys: ['rdStyle', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont'] },
+    reader: { label: 'Reader Mode look (Plain or Book, book picture, page areas, ink, font)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
@@ -5480,6 +5492,8 @@
             <button class="menu_button" id="m_rd_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
             <button class="menu_button" id="m_rd_clr" title="Back to the built-in book and its page areas"><i class="fa-solid fa-rotate-left"></i></button>
           </div>
+          <div class="ntr_rd_books" role="radiogroup" aria-label="Built-in book color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookKey(s) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
+          <div class="cb_hint">The dots pick the built-in book's cover color. Picking one also sets the page areas to fit it.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
           <div class="cb_hint" style="margin-bottom: 0;">How much of the screen's width the book takes. It keeps the picture's shape, so it gets narrower when the screen is too short.</div>`)}
@@ -5506,9 +5520,9 @@
     // The book picture: the built-in book, an upload or a link. Going back to the built-in book puts its page areas back too.
     const file = overlay.querySelector('#m_rd_file');
     const renderPic = () => {
-      const src = s.rdBookImg ? media(s.rdBookImg) : window.NTR.reader?.bookUri || '';
-      overlay.querySelector('#m_rd_pic').innerHTML = src ? `<img src="${escapeHTML(src)}" alt="">` : '<i class="fa-solid fa-book-open"></i>';
-      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : 'The built-in book';
+      const src = s.rdBookImg ? media(s.rdBookImg) : bookUrl(s.rdBook);
+      overlay.querySelector('#m_rd_pic').innerHTML = `<img src="${escapeHTML(src)}" alt="">`;
+      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === bookKey(s))[1]}`;
       overlay.querySelector('#m_rd_clr').disabled = !s.rdBookImg;
     };
     const setPic = (url) => {
@@ -5526,6 +5540,7 @@
       if (url) setPic(url);
     };
     overlay.querySelector('#m_rd_clr').onclick = () => setPic('');
+    onPills(overlay, 'rdbook', (v) => { s.rdBook = v; setPic(''); });
     file.onchange = async () => {
       if (!file.files.length) return;
       try {
@@ -5687,7 +5702,7 @@
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
     pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, uploadHere, refreshFg: () => ensureFgLayer(),
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },

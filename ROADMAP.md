@@ -25,20 +25,18 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Agents: next steps
-The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), samplers and limits, and run them on a button or after every reply. Their answers only show in each agent's activity for now, and are lost on reload.
+The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), prompt (with a preview), samplers and limits, and run them on a button, after every reply, or from Quick Replies with `/ntr-agent`. Their answers only show in each agent's activity for now, and are lost on reload.
 
 Decided so far:
 - The first agent to build for is a tracker. A director or summarizer can use the same parts later.
 - Agents run after the AI's reply, not before it, so you never wait twice per turn. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.
 - Results show in the panel only. Nothing is added to the chat as messages.
-- Triggers come from Quick Replies (button, after your message, after an AI message, on chat open) through a slash command, instead of NTR building its own trigger settings.
+- Triggers come from Quick Replies (button, after your message, after an AI message, on chat open) through `/ntr-agent`, instead of NTR building its own trigger settings.
 - Left out: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup.
 
 In this order, one PR each:
 
-1. **Slash command.**
-   - [ ] `/ntr-agent` runs an agent by name and waits for its answer, so a Quick Reply script can use the answer or run a second agent after the first.
-2. **Agentic Tracker Panel.** One panel that stays on screen with the current state, filled in by an agent. Tracker blocks your regexes already draw in messages can be shown on screen with Pinned Blocks, in Layout; this panel is for state an agent keeps. Works with a lorebook-based cast; group chat isn't needed. Plan to be approved before code.
+1. **Agentic Tracker Panel.** One panel that stays on screen with the current state, filled in by an agent. Tracker blocks your regexes already draw in messages can be shown on screen with Pinned Blocks, in Layout; this panel is for state an agent keeps. Works with a lorebook-based cast; group chat isn't needed. Plan to be approved before code.
    - [ ] Saves each result on the message and swipe it describes, in the chat file. Swipes, deletes and branches then keep the right state with no extra history to manage; earlier messages' results are the history.
    - [ ] The current state is the newest saved result at or before the last message. Fixes the current problem that an agent's answer isn't tied to a chat.
    - [ ] Tracks location, time, weather, inventory, injuries, relationships, objectives, and other character or world values that can be set up.
@@ -47,13 +45,9 @@ In this order, one PR each:
    - [ ] One example tracker agent, an ordinary agent that can be edited or deleted.
    - Without NTR, the saved results stay in the chat file but nothing shows them or sends them.
    - zTracker is an example of the saving part: it keeps tracker data on a message, shows a tracker block inside that message, and can send saved snapshots in later prompts. NTR's difference is showing the current state in a panel that stays on screen.
-3. **Send to the main AI.** Off unless you turn it on for an agent.
+2. **Send to the main AI.** Off unless you turn it on for an agent.
    - [ ] Puts the agent's current result in your chat's prompt, with depth and role, the way Cast and Visual Novel Mode already add their instructions.
    - [ ] A `{{agent::Name}}` macro, so a result can go anywhere: Author's Note, a lorebook entry, or another agent's instructions. Check SillyTavern's current macro API first.
-4. **Prompt control.**
-   - [ ] Send chat history as separate user and AI messages for Chat Completion, instead of one block of text.
-   - [ ] For Same as Chat, an option to use SillyTavern's full prompt (card, lorebook, Author's Note) instead of only the instructions and latest messages.
-   - [ ] A preview of exactly what an agent sends.
 
 ### Dragging and placement
 Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar and send bar. Still open:

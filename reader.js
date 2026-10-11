@@ -126,7 +126,11 @@
         if (!b) return;
         const k = b.dataset.go;
         if (k === 'next' || k === 'prev') turn(k === 'next' ? 1 : -1, 'top');
-        else go(k === 'first' ? 0 : pages.length - 1, 'top');
+        else if (k === 'first') { if (cur === 0) showSpread(0); else go(0, 'top'); }
+        // In the book, Last goes to the last two pages of the last page.
+        else if (!booked()) go(pages.length - 1, 'top');
+        else if (cur === pages.length - 1) showSpread(Infinity);
+        else go(pages.length - 1, 'bottom');
       });
     }
     if (bar.nextElementSibling !== form) form.before(bar);
@@ -277,6 +281,23 @@
     syncBar();
   }
 
+  // A picture that loads late, or the Book Font arriving, can change how many spreads the page fills.
+  let countQueued = false;
+  function recount() {
+    if (countQueued) return;
+    countQueued = true;
+    requestAnimationFrame(() => {
+      countQueued = false;
+      if (!booked()) return;
+      const n = countSpreads();
+      if (n === spreads) return;
+      spreads = n;
+      if (spread > n - 1) showSpread(n - 1); else syncBar();
+    });
+  }
+  const onLoad = (e) => { if (e.target instanceof HTMLImageElement) recount(); };
+  document.fonts?.addEventListener?.('loadingdone', recount);
+
   // Next and Previous: in the book, the next or previous two pages of the same messages first.
   function turn(d, plainAt) {
     if (booked()) {
@@ -409,8 +430,10 @@
       obs = new MutationObserver(queue);
       obs.observe(chat, { childList: true });
       chat.addEventListener('scroll', keepTop, { passive: true });
+      chat.addEventListener('load', onLoad, true);
     } else if (!on && obs) {
       chat?.removeEventListener('scroll', keepTop);
+      chat?.removeEventListener('load', onLoad, true);
       obs.disconnect();
       obs = null;
     }

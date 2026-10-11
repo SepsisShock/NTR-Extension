@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.30.1';
+  const REGEX_VERSION = '2.30.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -336,7 +336,9 @@ try {
     #cb_modal_overlay .rx_dragging > * { visibility: hidden; }
     #cb_modal_overlay .rx_ghost { position: fixed; z-index: 10000; box-sizing: border-box; margin: 0; padding-inline: 8px; border-radius: 8px;
       background: var(--SmartThemeBlurTintColor, #222); box-shadow: 0 8px 24px rgba(0,0,0,.55); opacity: .9; pointer-events: none; }
-    #cb_modal_overlay .rx_drop { outline: 2px dashed var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px; }
+    #cb_modal_overlay .rx_drop { outline: 2px dashed var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px;
+      background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 15%, transparent); }
+    #cb_modal_overlay .rx_dragging + .rx_empty { display: none; }
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
     #cb_modal_overlay input.rx_sw[type=checkbox] {
       appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0 4px 0 0;
@@ -695,8 +697,10 @@ try {
     if (row && row !== drag.item) { row.parentElement.insertBefore(drag.item, after(row) ? row.nextSibling : row); return; }
     const head = el.closest('.rx_fhead, .rx_uhead');
     if (head) {
+      // Dropped on a header, it goes first in that folder, so the gap shows right under the pointer. A closed folder
+      // hides the gap, so its lit-up header shows where it goes.
       const fb = head.parentElement.querySelector('.rx_fbody, .rx_loose');
-      if (!fb.contains(drag.item)) fb.appendChild(drag.item);
+      if (fb.firstElementChild !== drag.item) fb.insertBefore(drag.item, fb.firstChild);
       head.classList.add('rx_drop');
       return;
     }

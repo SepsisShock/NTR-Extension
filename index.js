@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.39.0';
+  const VERSION = '2.40.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -412,6 +412,7 @@
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
     if (!Array.isArray(s.layPins)) s.layPins = [];
+    if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
     return s;
   }
 
@@ -758,7 +759,7 @@
     ...['Left', 'Center', 'Right'].map((pos) => ({ id: 'fg' + pos, pos, label: `${pos} Foreground` })),
   ];
   // Everything that can move right now: the parts above, then each Pinned Block that has something picked.
-  const placeItems = () => [...PLACE, ...settings().layPins.filter(pinSel).map((p) => ({ id: 'pin_' + p.id, pin: p.id, label: p.name }))];
+  const placeItems = () => [...PLACE, ...settings().layPins.filter(pinHas).map((p) => ({ id: 'pin_' + p.id, pin: p.id, label: p.name }))];
   const pinOf = (it) => settings().layPins.find((p) => p.id === it.pin);
   // Each Layout part's element, its settings, and SillyTavern's own place for it (what Reset puts back). The setting
   // names are without their layout's start (see lk and layNames).
@@ -3099,6 +3100,7 @@
   // newest message that has it, so SillyTavern's own message stays as it is, and can hide it in the messages. Pinned
   // Blocks are part of Layout, so Layout's switch counts. A block is remembered by the tag and classes of what was picked
   // in the chat, never as typed-in CSS, so a theme from someone else can't slip CSS in through it.
+  // A block can show agents' saved results instead (Agent Results; agents.js draws them).
   // Each block has a place on screen for Desktop and one for Phone, as a % of the screen: Floating anywhere, or Docked
   // to the left or right edge at full height. On a phone a docked block slides out from its edge.
   const PIN_START = { desk: { x: 72, y: 12, w: 24, h: 40 }, phone: { x: 5, y: 12, w: 90, h: 35 } };
@@ -3118,6 +3120,8 @@
       return {
         id,
         name: cStr(p.name, 60).trim() || 'Pinned Block',
+        from: cPick(p.from, ['chat', 'agents']),
+        agents: [...new Set((Array.isArray(p.agents) ? p.agents : []).map(cRef).filter(Boolean))].slice(0, 10),
         tag: typeof p.tag === 'string' && PIN_TAG.test(p.tag) ? p.tag : '',
         classes: (Array.isArray(p.classes) ? p.classes : []).filter((c) => typeof c === 'string' && PIN_CLASS.test(c)).slice(0, 5),
         place: cPick(p.place, ['float', 'left', 'right']),
@@ -3132,7 +3136,9 @@
   }
   // What a block looks for in the messages. Empty until something has been picked.
   const pinSel = (p) => (p.tag && p.classes.length ? p.tag + p.classes.map((c) => '.' + CSS.escape(c)).join('') : '');
-  const pinsLive = (s) => layOn(s) && s.layPins.some(pinSel);
+  // Whether a block has something to look for: a picked block, or at least one agent.
+  const pinHas = (p) => (p.from === 'agents' ? p.agents.length > 0 : !!pinSel(p));
+  const pinsLive = (s) => layOn(s) && s.layPins.some(pinHas);
   const pinPhone = (phone) => (phone ? 'phone' : 'desk');
 
   // The newest message with the block: any message, or only the newest reply. Its <style> tags come along, since a
@@ -3225,7 +3231,7 @@
     const vnOn = !!s.nodeEnabled;
     const keep = new Set();
     for (const p of s.layPins) {
-      if (!pinSel(p)) continue;
+      if (!pinHas(p)) continue;
       keep.add(p.id);
       let box = layer.querySelector(`:scope > .ntr_pin[data-pin="${p.id}"]`);
       if (!box) {
@@ -3238,13 +3244,25 @@
       const tab = box.querySelector('.ntr_pin_tab');
       tab.title = `Show or hide ${p.name}`;
       tab.setAttribute('aria-label', tab.title);
-      const src = pinPicking ? null : pinSource(p);
       const body = box.querySelector('.ntr_pin_body');
-      const key = src ? src.el.outerHTML + src.styles.map((x) => x.textContent).join('') : '';
-      if (pinLast.get(p.id) !== key) {
-        pinLast.set(p.id, key);
-        if (src) pinFill(body, src, p);
-        else body.replaceChildren();
+      let src;
+      if (p.from === 'agents') {
+        // In Reader Mode, the results up to the page you're on.
+        src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, window.NTR.reader?.upTo() ?? null);
+        const key = src ? 'ag:' + src.key : '';
+        if (pinLast.get(p.id) !== key) {
+          pinLast.set(p.id, key);
+          if (src) src.fill(body);
+          else body.replaceChildren();
+        }
+      } else {
+        src = pinPicking ? null : pinSource(p);
+        const key = src ? src.el.outerHTML + src.styles.map((x) => x.textContent).join('') : '';
+        if (pinLast.get(p.id) !== key) {
+          pinLast.set(p.id, key);
+          if (src) pinFill(body, src, p);
+          else body.replaceChildren();
+        }
       }
       // While Edit Layout is open, a block with nothing to show yet still gets its box, so it can be placed.
       box.classList.toggle('ntr_pin_empty', !src);
@@ -3258,9 +3276,9 @@
   function pinCss(s) {
     let css = '';
     for (const p of s.layPins) {
+      if (!pinHas(p)) continue;
       const sel = pinSel(p);
-      if (!sel) continue;
-      if (p.hide) css += `\n      #chat .mes_text ${sel} { display: none !important; }`;
+      if (p.from === 'chat' && p.hide) css += `\n      #chat .mes_text ${sel} { display: none !important; }`;
       const box = `#ntr_pin_layer > .ntr_pin[data-pin="${p.id}"]`;
       for (const phone of [false, true]) {
         const r = p[pinPhone(phone)];
@@ -3351,7 +3369,9 @@
     const pick = (p, name, opts, cur) => pills(`pin${name}-${p.id}`, opts, cur);
     return s.layPins.map((p) => {
       const sel = pinSel(p);
-      const what = sel ? `${p.tag}.${p.classes.join('.')}` : 'Nothing picked yet';
+      const names = p.agents.map((id) => (Array.isArray(s.agents) ? s.agents : []).find((a) => a?.id === id)?.name).filter(Boolean);
+      const what = p.from === 'agents' ? (names.length ? `Agents: ${names.join(', ')}` : 'No agents picked yet')
+        : sel ? `${p.tag}.${p.classes.join('.')}` : 'Nothing picked yet';
       const row = `
           <div class="ntr_pinrow" data-pin="${p.id}">
             <i class="fa-solid fa-fw fa-thumbtack"></i>
@@ -3364,21 +3384,27 @@
       return row + `
           <div class="ntr_tpanel ntr_pinedit" data-pin="${p.id}">
             <label>Name <input type="text" class="text_pole m_pin_name" maxlength="60" value="${escapeHTML(p.name)}"></label>
+            <div class="cb_plab">Shows</div>
+            ${pick(p, 'from', [['chat', 'A Block From the Chat'], ['agents', 'Agent Results']], p.from)}
+            ${p.from === 'agents' ? `
+            <div class="cb_plab">Agents</div>
+            ${(Array.isArray(s.agents) ? s.agents : []).map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
+            <div class="cb_hint">Each picked agent's newest result saved in this chat, one under the other. An agent saves results when its Results setting is Saved in the Chat. The Agents page has to be on.</div>` : `
             <div class="cb_plab">Block</div>
             <button type="button" class="menu_button m_pin_pick" style="margin: 0; width: max-content;"><i class="fa-solid fa-hand-pointer"></i> Pick from chat</button>
-            <div class="cb_hint">The menu hides. Click the block in a message, like the Coordinates box. Escape cancels.</div>
+            <div class="cb_hint">The menu hides. Click the block in a message, like the Coordinates box. Escape cancels.</div>`}
             <div class="cb_plab">Place</div>
             ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}
             <div class="cb_hint">Floating goes anywhere. Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
-            <div class="cb_plab">Show</div>
+            ${p.from === 'agents' ? '' : `<div class="cb_plab">Show</div>
             ${pick(p, 'show', [['always', 'Always'], ['newest', 'Newest Reply Only']], p.show)}
-            <div class="cb_hint">Always shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it.</div>
+            <div class="cb_hint">Always shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it.</div>`}
             <div class="cb_plab">Frame</div>
             ${pick(p, 'frame', [['none', 'None'], ['panel', 'Panel']], p.frame)}
-            <div class="cb_hint">None shows only what your regex draws. Panel puts it on SillyTavern's panel look.</div>
+            <div class="cb_hint">${p.from === 'agents' ? 'None shows the results with no background. Panel puts them' : 'None shows only what your regex draws. Panel puts it'} on SillyTavern's panel look.</div>
             <div class="cb_plab">In Visual Novel Mode</div>
             ${pick(p, 'vn', [['show', 'Show'], ['hide', 'Hide']], p.vn)}
-            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" class="m_pin_hide" ${p.hide ? 'checked' : ''}><span>Hide the original in the chat</span></label>
+            ${p.from === 'agents' ? '' : `<label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" class="m_pin_hide" ${p.hide ? 'checked' : ''}><span>Hide the original in the chat</span></label>`}
           </div>`;
     }).join('');
   }
@@ -3408,12 +3434,13 @@
       if (b.classList.contains('m_pin_pick')) { pickPin(p, render); return; }
       if (b.classList.contains('m_pin_move')) {
         if (!layOn(s)) toastr.info('Turn Layout on first.', 'Pinned Blocks');
-        else if (!pinSel(p)) toastr.info('Pick the block in a message first.', 'Pinned Blocks');
+        else if (!pinHas(p)) toastr.info(p.from === 'agents' ? 'Pick an agent first.' : 'Pick the block in a message first.', 'Pinned Blocks');
         else startPlacement('pin_' + p.id);
         return;
       }
       if (b.classList.contains('m_pin_del')) {
-        if (!(await askYes(b, `Delete the Pinned Block "${p.name}"? The block stays in your messages.`, 'Delete', { danger: true }))) return;
+        const stays = p.from === 'agents' ? 'The saved results stay in the chat.' : 'The block stays in your messages.';
+        if (!(await askYes(b, `Delete the Pinned Block "${p.name}"? ${stays}`, 'Delete', { danger: true }))) return;
         s.layPins = s.layPins.filter((x) => x !== p);
         if (pinOpen === p.id) pinOpen = null;
         changed();
@@ -3426,8 +3453,14 @@
       if (!p) return;
       if (t.classList.contains('m_pin_name')) { p.name = t.value.trim().slice(0, 60) || 'Pinned Block'; changed(); render(); return; }
       if (t.classList.contains('m_pin_hide')) { p.hide = t.checked; changed(); return; }
-      const m = /^cbr_pin(place|show|frame|vn)-/.exec(t.name || '');
-      if (m && t.checked) { p[m[1]] = t.value; changed(); }
+      if (t.classList.contains('m_pin_ag')) {
+        p.agents = t.checked ? [...new Set([...p.agents, t.value])].slice(0, 10) : p.agents.filter((id) => id !== t.value);
+        changed();
+        render();
+        return;
+      }
+      const m = /^cbr_pin(place|show|frame|vn|from)-/.exec(t.name || '');
+      if (m && t.checked) { p[m[1]] = t.value; changed(); if (m[1] === 'from') render(); }
     });
   }
 

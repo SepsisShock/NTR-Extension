@@ -120,7 +120,7 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 ### Visual Novel Mode and opening video sliders read `NUM_RANGE`
 Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The ones in `vn.js` and `opening.js` still have their own numbers. Users would see no difference, so this waits until those files are worked on anyway.
 
-- [ ] Share `NUM_RANGE` through `window.NTR` and have these sliders and the code that applies them read it, keeping setting names, defaults and the menu layout the same.
+- [ ] Have these sliders and the code that applies them use the ranges already shared through `window.NTR`, keeping setting names, defaults and the menu layout the same.
 - [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
 
 ### Text effects, second batch
@@ -149,7 +149,7 @@ Font boxes already take any font installed on the device, or a Google Fonts name
 - [ ] Uploading font files (like a downloaded .ttf that isn't installed), saved in SillyTavern's files so they work on any device and need no request to Google.
 
 ### Interface Shape for the rest of SillyTavern
-Interface Shape (UI Display, Whole Interface) rounds or squares the chat panel. Extend it to SillyTavern's own drawers, menus, popups and top bar, so the whole interface matches.
+Interface Shape (UI Decor, Whole Interface) rounds or squares the chat panel. Extend it to SillyTavern's own drawers, menus, popups and top bar, so the whole interface matches.
 
 - [ ] Find which of ST's parts set their own corners, and override them only while Interface Shape is ticked; unticked keeps ST's look.
 - [ ] Check that rounded corners don't cut off anything inside them, like drawer edges, menu items or popup buttons.

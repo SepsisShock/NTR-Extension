@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.36.0';
+  const VERSION = '2.36.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -2716,7 +2716,7 @@
   }
   // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
   const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
-    ['black', 'Black', '#1e1b19'], ['gold', 'Antique Gold', '#5c4219'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9'], ['candy', 'Candy Pink', '#e07aa8']];
+    ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
   const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
   const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
   function pills(name, opts, cur) {
@@ -5512,7 +5512,7 @@
           ${ovLabel('Italics', ovColor(s, 'rdInkEm'))}
           ${ovLabel('Quotes', ovColor(s, 'rdInkQuote'))}
           ${ovRow(s, 'rdBookFontOn', 'Book Font', ovFont(s, 'rdBookFont'))}
-          <div class="cb_hint" style="margin-bottom: 0;">In the book, these take the place of SillyTavern's colors and Text Formatting's colors and text effects, which are made for a dark background. Text Formatting's sizes still apply.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">In the book, these take the place of SillyTavern's colors, Text Formatting's colors and text effects, and the reasoning block's look, which are made for a dark background. The reasoning text uses the Italics color. Text Formatting's sizes still apply.</div>`)}
     `, { sw: ['m_rd_enable', s.rdEnabled], note: err });
   }
 

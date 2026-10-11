@@ -93,6 +93,11 @@ Keep the open-world feel, and let a card optionally have endings.
 
 Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
 
+### Pinned Blocks: reset and background
+- [ ] Fix Reset for a Pinned Block after it has been moved around in Reader Mode: it does not fully reset.
+- [ ] Fix the Pinned Block background in Reader Mode: it is not transparent and appears to inherit the chat panel's color. Check where the background comes from.
+- [ ] Check whether either problem occurs in normal chat and Visual Novel Mode; those modes are unverified.
+
 ### In Line avatar: spacing and look
 In Line looks too bulky next to the text.
 

@@ -11,14 +11,6 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
-### Dragging and placement
-Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar and send bar. Still open:
-
-- [ ] Add more parts of the screen, like the header banner.
-- [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
-- [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
-- Comes before Reader Mode and the Agentic Tracker Panel below, since both need parts of the screen to be adjustable.
-
 ### Reader Mode
 Read the chat a page at a time instead of scrolling up and down. Makes it easier to keep things like trackers in one place on screen.
 
@@ -47,6 +39,14 @@ One panel that stays on screen with the current state, filled in by an agent (th
 - Without NTR, the saved snapshots stay in the chat file but nothing shows them or sends them. A plain-text snapshot in the message itself would still be readable.
 - zTracker is an example of the saving part: it keeps tracker data on a message, shows a tracker block inside that message, and can send saved snapshots in later prompts. NTR's difference is showing the current state in a panel that stays on screen.
 - Still being worked out.
+
+### Dragging and placement
+Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar and send bar. Still open:
+
+- [ ] Add more parts of the screen, like the header banner.
+- [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
+- [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
+- Doesn't block Reader Mode or the Agentic Tracker Panel: Layout and Pinned Blocks already make the parts they need adjustable.
 
 ### Custom Cursor: follow-ups
 - [ ] An Advanced box with Custom CSS for anything the settings don't cover.

@@ -380,11 +380,11 @@
     const emo = s.delimEmo ? reEsc(s.delimEmo) : '';
     const emoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${emo}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
     const dirWords = [s.locWord, s.effectWord, s.weatherWord, s.cgWord, s.enterWord, s.exitWord].filter(Boolean).map(reEsc).join('|');
-    const locRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:(?:(?!${nc})[^\\n]){0,200}?${nc}[ \\t]*`, 'gi');
+    const locRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}?[ \\t]*${nc}[ \\t]*`, 'gi');
     // A reply being written can end partway through a tag: ((Rafe%%Sa, ((Rafe% or [[Location:Fo. That part is hidden too.
     const emoStart = emo ? [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|') : '';
     const openEmoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`) : null;
-    const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:(?:(?!${nc})[^\\n]){0,200}$`, 'i');
+    const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}$`, 'i');
     for (const el of todo) {
       const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let n, last = null;

@@ -4317,6 +4317,8 @@
   const cardSnap = new Map();
   const cardTimers = new Map();
   const legacyMoved = new Set();
+  // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see flushCard.
+  const cardFix = new Set();
   const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null, sharedChecked: true });
 
   function charIndexByAvatar(av) {
@@ -4465,9 +4467,7 @@
     let d = cleanStore(ch.data.extensions.ntr);
     if (!cardSnap.has(key)) cardSnap.set(key, isObj(d) ? JSON.stringify(d) : '');
     if (!isObj(d)) {
-      // NTR data that isn't an object (a broken card): SillyTavern merges saves into what the card holds, which would
-      // drop the next save, so that's cleared first.
-      if (d !== undefined && c.constants?.unset && !PREVIEW) c.writeExtensionField(i, 'ntr', c.constants.unset).catch((e) => console.error('[NTR card]', e));
+      if (d !== undefined) cardFix.add(key);
       d = { v: 1 };
       ch.data.extensions.ntr = d;
     }
@@ -4567,6 +4567,15 @@
     if (json === before) return;
     if (before === '' && !legacyMoved.has(key) && cardIsEmpty(d)) return;
     try {
+      // SillyTavern merges a save into what the card holds, and merging into NTR data that isn't an object drops the
+      // save. So a broken card's old value is cleared first. Clearing also drops it from memory, so it's put straight back.
+      const unset = c.constants?.unset;
+      if (cardFix.has(key) && unset) {
+        const cleared = c.writeExtensionField(i, 'ntr', unset);
+        c.characters[i].data.extensions.ntr = d;
+        await cleared;
+        cardFix.delete(key);
+      }
       await c.writeExtensionField(i, 'ntr', d);
       cardSnap.set(key, json);
       if (legacyMoved.has(key)) {

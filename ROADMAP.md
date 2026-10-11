@@ -202,13 +202,11 @@ A set of ready-made location backgrounds included with the extension, to pick fr
 
 - Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
 
-### Emotions outside Visual Novel Mode
-Move Emotions out of the Visual Novel menu into its own section, so emotion pictures can also show in the normal chat when Visual Novel Mode is off.
+### Emotions: follow-ups
+Faces on chat avatars and the stage behind the chat have shipped (Avatars, under Emotions). Still open:
 
-- The new section holds the emotion list and each speaker's emotion pictures. The Visual Novel menu keeps what only it uses (full portrait, keep the face on stage, sprite size) and points to the new section.
-- The emotion code stays out of `index.js`.
-- Saved settings keep their names (`emotions`, `emoDefault`, `delimEmo`, `nodeHideEmo`) so saved configs keep working.
-- Open questions: where the emotion comes from with Visual Novel Mode off (the same speaker tags with their own switch and shorter instructions, or SillyTavern's Character Expressions extension); which pictures change (chat avatars, avatar backdrop, avatar pop-out); whether each message keeps its own emotion or only the latest one changes; which tag wins when a message has several; whether the tag delimiters move too; whether emotions leave the Visual Novel group in saved themes.
+- [ ] Agent as the emotion source: an agent reads each reply and picks the emotion, instead of the Emotion tag. The choice is in the menu, greyed out.
+- Maybe: a face and a full body on the same side at once, with Backdrop as its own layer behind the message instead of the avatar itself.
 
 ### SillyTavern's top bar icons
 - [ ] Change the icons in SillyTavern's top menu bar.

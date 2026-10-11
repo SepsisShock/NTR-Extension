@@ -6,7 +6,7 @@
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
 // For now an agent's answer shows in its activity. Showing it on screen (the Agentic Tracker Panel) comes next.
 (() => {
-  const AGENTS_VERSION = '2.38.1';
+  const AGENTS_VERSION = '2.38.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -425,9 +425,10 @@
     version: AGENTS_VERSION,
     sectionHtml,
     bind,
-    // Your chat's reply: agents set to After Every Reply run, one after another, once it's in.
+    // Your chat's reply: agents set to After Every Reply run, one after another, once it's in. A Continue only adds to
+    // a reply they already ran on, so it doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
     replied: (type) => {
-      if (!pageOn() || ['first_message', 'impersonate'].includes(type)) return;
+      if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       for (const a of list()) if (a.on && a.runs === 'reply' && a.job.trim()) enqueue(a.id, false, true);
     },
     genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; },

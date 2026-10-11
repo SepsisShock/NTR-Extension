@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.32.0';
+  const VN_VERSION = '2.33.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
@@ -898,7 +898,7 @@
 
     overlay.querySelector('#m_n_enable').onchange = function() {
       s.nodeEnabled = this.checked; save();
-      if (this.checked) s.vnUsed = true;
+      if (this.checked) { s.vnUsed = true; A.readerOff?.(); }
       refresh({ switchedOn: this.checked });
     };
     const chk = (id, key, after) => { const el = overlay.querySelector(id); if (el) el.onchange = function() { s[key] = this.checked; save(); if (after) after(); }; };

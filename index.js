@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.32.0';
+  const VERSION = '2.33.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -73,6 +73,9 @@
     layPhBarEdge: 'top', layPhBarMoved: false, layPhBarPos: 0, layPhBarLen: 100,
     layPhChatMoved: false, layPhChatX: 0, layPhChatY: 5, layPhChatW: 100, layPhChatH: 90,
     layPhSend: 'attached', layPhSendX: 0, layPhSendB: 0, layPhSendW: 100,
+
+    // Reader Mode (reader.js): the chat a page at a time. Per Page is 'pair' (your message and the replies after it) or 'one'.
+    rdEnabled: false, rdPer: 'pair',
 
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
@@ -2269,6 +2272,7 @@
 
         ${regexSectionHtml(s)}
         ${vnSectionHtml(s)}
+        ${readerSectionHtml(s)}
         </div>
         </div>
       </div>
@@ -2538,6 +2542,7 @@
     bindWand(overlay, s);
     bindData(overlay);
     bindVNSection(overlay, s);
+    bindReader(overlay, s);
     window.NTR.regex?.bind(overlay, s);
     bindDisplay(overlay, s);
     bindTextFormatting(overlay, s);
@@ -2639,10 +2644,11 @@
     ['elements', 'fa-shapes', 'Elements', 'Elements'],
     ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
     ['vn', 'fa-clapperboard', 'VN', 'Visual Novel Mode'],
+    ['reader', 'fa-book-open', 'Reader', 'Reader Mode'],
     ['regex', 'fa-code', 'Regexes', 'Regexes'],
     ['agents', 'fa-robot', 'Agents', 'Agents'],
   ];
-  // Lines in the column: your look (Layout to Overlays), then Visual Novel Mode, then the pages that work on the chat itself.
+  // Lines in the column: your look (Layout to Overlays), then Visual Novel and Reader Mode, then the pages that work on the chat itself.
   const NAV_SEP = new Set(['layout', 'vn', 'regex']);
   // Pages that show what's planned and do nothing yet. Their icon stays greyed.
   const SOON = new Set(['agents']);
@@ -2990,7 +2996,7 @@
           ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
           <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar and send bar back where SillyTavern has them, in the layout picked above.</div>`)}
         ${card('Pinned Blocks', `
-          <div class="cb_hint">Shows a block from the chat messages, like Coordinates, in its own box on screen, with your regex's look. Pick the block in a message, then move the box with Edit Layout. The box always shows the newest copy.</div>
+          <div class="cb_hint">Shows a block from the chat messages, like Coordinates, in its own box on screen, with your regex's look. Pick the block in a message, then move the box with Edit Layout. The box always shows the newest copy; in Reader Mode, the newest up to the page you're on.</div>
           <div id="m_pin_list"></div>
           <button type="button" id="m_pin_add" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-plus"></i> Add Pinned Block</button>
           <div class="ntr_soonrow ntr_soondim">
@@ -3101,7 +3107,9 @@
   function pinSource(p) {
     const sel = pinSel(p);
     if (!sel) return null;
-    const all = [...document.querySelectorAll('#chat > .mes')].reverse();
+    // In Reader Mode, the newest one up to the page you're on.
+    const upTo = window.NTR.reader?.upTo();
+    const all = [...document.querySelectorAll('#chat > .mes')].filter((m) => upTo == null || Number(m.getAttribute('mesid')) <= upTo).reverse();
     const reply = all.find((m) => m.getAttribute('is_user') === 'false' && m.getAttribute('is_system') !== 'true');
     for (const m of p.show === 'newest' ? [reply].filter(Boolean) : all) {
       const text = m.querySelector('.mes_text');
@@ -5303,7 +5311,7 @@
 
   // ===== Visual Novel module loader + its toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes', reader: 'Reader Mode' };
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -5370,7 +5378,7 @@
     const cb = overlay.querySelector('#m_n_enable');
     cb.onchange = async () => {
       s.nodeEnabled = cb.checked;
-      if (cb.checked) s.vnUsed = true;
+      if (cb.checked) { s.vnUsed = true; readerOff(); }
       save();
       const m = cb.checked ? await loadVN() : null;
       if (m) m.refresh({ switchedOn: true });
@@ -5392,7 +5400,7 @@
     const s = settings();
     const had = !!window.NTR.vn;
     s.nodeEnabled = !s.nodeEnabled;
-    if (s.nodeEnabled) s.vnUsed = true;
+    if (s.nodeEnabled) { s.vnUsed = true; readerOff(); }
     save();
     const vn = s.nodeEnabled ? await loadVN() : window.NTR.vn;
     if (vn) vn.refresh({ switchedOn: s.nodeEnabled });
@@ -5420,6 +5428,82 @@
     syncVNToggle();
   }
 
+  // ===== Reader Mode (the paging itself lives in reader.js) =====
+  // Visual Novel Mode and Reader Mode both pick which messages show, so only one is on at a time.
+  function readerSectionHtml(s) {
+    const err = modError.reader ? `<div class="cb_hint ntr_pnote">Reader Mode failed to load: ${escapeHTML(modError.reader)}</div>` : '';
+    return pageHtml('reader', `
+        <div class="cb_hint">Read the chat a page at a time instead of scrolling. Messages on other pages are only hidden on screen: they're still sent with the prompt. Turning Reader Mode on turns Visual Novel Mode off.</div>
+        ${card('Per Page', `
+          ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
+          <div class="cb_hint" style="margin-bottom: 0;">Your Message and the Reply starts a page at each of your messages; the opening message gets page 1. One Message gives every message its own page.</div>`)}
+        ${card('Turning Pages', `
+          <div class="cb_hint" style="margin: 0;">Use the page bar under the chat, or Page Up and Page Down. A page taller than the chat scrolls first. Sending a message goes to the last page. The Left and Right arrow keys still swipe, on the last page only. Turning back past the messages SillyTavern has shown loads the older ones.</div>`)}
+    `, { sw: ['m_rd_enable', s.rdEnabled], note: err });
+  }
+
+  function bindReader(overlay, s) {
+    overlay.querySelector('#m_rd_enable').onchange = function() { setReader(this.checked); };
+    onPills(overlay, 'rdper', (v) => { s.rdPer = v; save(); window.NTR.reader?.refresh(); });
+  }
+
+  async function setReader(on) {
+    const s = settings();
+    s.rdEnabled = on;
+    if (on && s.nodeEnabled) {
+      s.nodeEnabled = false;
+      window.NTR.vn?.refresh();
+      syncVNToggle();
+    }
+    save();
+    const rd = on && isOn() ? await loadModule('reader', true) : window.NTR.reader;
+    rd?.refresh();
+    syncReaderToggle();
+    syncModeSwitches();
+  }
+  const toggleReader = () => setReader(!settings().rdEnabled);
+
+  function readerOff() {
+    const s = settings();
+    if (!s.rdEnabled) return;
+    s.rdEnabled = false;
+    window.NTR.reader?.refresh();
+    syncReaderToggle();
+    syncModeSwitches();
+  }
+
+  // The open menu's Visual Novel and Reader switches, after one of them turned the other off.
+  function syncModeSwitches() {
+    const ov = document.getElementById('cb_modal_overlay');
+    if (!ov) return;
+    const s = settings();
+    for (const [id, on] of [['m_n_enable', s.nodeEnabled], ['m_rd_enable', s.rdEnabled]]) {
+      const cb = ov.querySelector('#' + id);
+      if (cb) cb.checked = !!on;
+    }
+    syncPageOff(ov);
+  }
+
+  function syncReaderToggle() {
+    const b = document.getElementById('ntr_rd_toggle');
+    if (!b) return;
+    b.classList.toggle('cb_on', !!settings().rdEnabled);
+    b.style.display = isOn() ? '' : 'none';
+  }
+
+  function injectReaderToggle() {
+    const lsf = document.getElementById('leftSendForm');
+    if (!lsf || document.getElementById('ntr_rd_toggle')) return;
+    const b = document.createElement('div');
+    b.id = 'ntr_rd_toggle';
+    b.className = 'fa-solid fa-book-open interactable';
+    b.title = 'Reader Mode';
+    b.tabIndex = 0;
+    b.onclick = toggleReader;
+    lsf.appendChild(b);
+    syncReaderToggle();
+  }
+
   // ===== Extensions page bar + master power switch =====
   function syncExtBar() {
     const p = document.getElementById('ntr_power');
@@ -5438,9 +5522,12 @@
     syncPopouts();
     syncExtBar();
     syncVNToggle();
+    syncReaderToggle();
     if (on) {
       if (s.nodeEnabled || s.vnUsed) { const vn = await loadVN(); if (vn) vn.refresh(); }
     } else if (window.NTR.vn) window.NTR.vn.teardown();
+    const rd = on && s.rdEnabled ? await loadModule('reader', true) : window.NTR.reader;
+    rd?.refresh();
     if (document.getElementById('cb_modal_overlay')) openCombinedModal();
   }
 
@@ -5498,6 +5585,7 @@
     const tick = () => {
       injectExtBar();
       injectNodeToggle();
+      injectReaderToggle();
       syncWandEntry();
       if (isOn() && window.NTR.vn) window.NTR.vn.ensure();
     };
@@ -5512,6 +5600,8 @@
     openMenu: () => openCombinedModal(),
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),
+    // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
+    refreshPins: () => syncPins(), readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(),
     // For preview.js
     PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
     startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),
@@ -5553,6 +5643,7 @@
       endPlacement();
       renderAll();
       window.NTR.vn?.queue(false);
+      window.NTR.reader?.chatChanged();
       if (document.getElementById('cb_modal_overlay')) openCombinedModal();
     });
 
@@ -5571,7 +5662,12 @@
         else vn?.queue(true);
       });
     }
-    if (event_types.GENERATION_STARTED) eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => window.NTR.vn?.genStarted?.(type, dryRun));
+    if (event_types.GENERATION_STARTED) {
+      eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => {
+        window.NTR.vn?.genStarted?.(type, dryRun);
+        window.NTR.reader?.genStarted(type, dryRun);
+      });
+    }
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
     // The short delay lets a reply that did arrive go first, so it still gets typed.
     if (event_types.GENERATION_ENDED) {
@@ -5606,6 +5702,7 @@
     renderAll();
     const s0 = settings();
     if (isOn() && (s0.nodeEnabled || s0.vnUsed)) loadVN().then((vn) => { if (vn) vn.refresh(); });
+    if (isOn() && s0.rdEnabled) loadModule('reader').then((rd) => rd?.refresh());
   });
 })();
 

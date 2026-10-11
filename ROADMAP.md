@@ -20,7 +20,7 @@ Reader Mode has shipped with two styles, Plain and Book (an open book across the
 - Not done yet: remembering your page in each chat (a chat opens on its last page), and jumping to a typed page number.
 
 ### Agentic Tracker Panel
-One panel that stays on screen with the current state, filled in by an agent (the Agents page). Tracker blocks your regexes already draw in messages can be shown on screen with Pinned Blocks, in Layout; this panel is for state an agent keeps. Works with a lorebook-based cast; group chat isn't needed.
+One panel that stays on screen with the current state, filled in by an agent. The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), samplers and limits, and run them on a button or after every reply. Their answers only show in each agent's activity for now; this panel is what shows them on screen. Tracker blocks your regexes already draw in messages can be shown on screen with Pinned Blocks, in Layout; this panel is for state an agent keeps. Works with a lorebook-based cast; group chat isn't needed.
 
 - [ ] Tracks location, time, weather, inventory, injuries, relationships, objectives, and other character or world values that can be set up.
 - [ ] Shows the current state in a panel that can be moved and hidden, next to the normal chat or Visual Novel Mode. Character portraits, recent changes and active objectives make it easier to read.

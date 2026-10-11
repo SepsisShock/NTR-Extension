@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.29.0';
+  const REGEX_VERSION = '2.30.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -41,7 +41,7 @@ try {
     } catch (e) { /* older SillyTavern: treat as allowed */ }
     return true;
   }
-  const secTitle = (sec) => (sec.k === 'preset' ? `Preset: ${presetName() || 'none'}` : sec.k === 'scoped' ? `Character: ${character()?.name || ''}` : 'Global');
+  const secName = (sec) => (sec.k === 'preset' ? presetName() || 'none' : sec.k === 'scoped' ? character()?.name || '' : '');
 
   // A folder: { id, name, ids: regex ids, was: the ids that were on when the folder was switched off here, or null }.
   function folders(sec, make = false) {
@@ -177,6 +177,26 @@ try {
     if (!v.same) reorder(sec, v.order);
   }
 
+  // SillyTavern's import asks where the regexes go, starting on Global. Picks this section there, so a forgotten click
+  // can't send them to the wrong place; the question stays open to check. Gives up after 10 minutes (a cancelled file
+  // picker can't be told apart from a slow one).
+  let importWatch = null;
+  function importTo(sec) {
+    importWatch?.disconnect();
+    const obs = new MutationObserver(() => {
+      const r = document.getElementById(`regex_import_target_${sec.k}`);
+      if (!r) return;
+      stop();
+      r.checked = true;
+      r.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const stop = () => { obs.disconnect(); if (importWatch === obs) importWatch = null; };
+    importWatch = obs;
+    obs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(stop, 600000);
+    stClick(document.getElementById('import_regex'));
+  }
+
   function download(list, name) {
     if (!list.length) { toastr.info('Nothing to export.', 'Regexes'); return; }
     const blob = new Blob([JSON.stringify(list, null, 4)], { type: 'application/json' });
@@ -287,14 +307,17 @@ try {
     #cb_modal_overlay .rx_sec + .rx_sec { margin-top: 22px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.08); }
     #cb_modal_overlay .rx_shead { gap: 6px; }
     #cb_modal_overlay .rx_shead .ntr_parttitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #cb_modal_overlay .rx_stitle { flex: 1; min-width: 0; }
+    #cb_modal_overlay .rx_stitle .ntr_parttitle { margin: 0; }
+    #cb_modal_overlay .rx_sname { margin-top: -2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85em; opacity: .6; }
     #cb_modal_overlay .rx_secoff .rx_body { opacity: .45; }
     #cb_modal_overlay .rx_order { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     #cb_modal_overlay .rx_order .menu_button { margin: 0; padding: 3px 10px; }
     #cb_modal_overlay .rx_folder { margin-top: 10px; }
     #cb_modal_overlay .ntr_page .rx_fhead { display: flex; align-items: center; gap: 8px; margin-top: 0; padding: 8px 10px; cursor: pointer; user-select: none; }
-    #cb_modal_overlay .rx_fhead .cb_chevron { width: 1em; transition: transform .15s; }
+    #cb_modal_overlay .rx_ficon { flex: none; opacity: .85; }
+    #cb_modal_overlay .rx_uhead .rx_ficon { opacity: .6; }
     #cb_modal_overlay .rx_open .rx_fhead { border-radius: 10px 10px 0 0; }
-    #cb_modal_overlay .rx_open .rx_fhead .cb_chevron { transform: rotate(90deg); }
     #cb_modal_overlay .rx_fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_count { font-weight: 400; opacity: .55; font-size: .9em; }
     #cb_modal_overlay .ntr_page .rx_fbody { display: none; margin-top: 0; padding: 2px 12px 8px; border-top: 0; border-radius: 0 0 10px 10px; }
@@ -362,7 +385,7 @@ try {
       ${query ? '' : '<i class="fa-solid fa-grip-lines rx_grip" title="Drag to reorder or move to a folder"></i>'}
       <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
       ${sw('rx_rsw', on, 'Turn on or off')}
-      <span class="rx_menu">${btn('mvmenu', 'fa-folder-open', 'Move to folder')}</span>
+      <span class="rx_menu">${btn('mvmenu', 'fa-share', 'Move to folder')}</span>
       ${btn('edit', 'fa-pen', 'Edit')}
       ${btn('del', 'fa-trash', 'Delete', ' danger_button')}
     </div>`;
@@ -380,7 +403,7 @@ try {
       return `<div class="rx_folder${open ? ' rx_open' : ''}" data-fid="${esc(f.id)}">
         <div class="ntr_fold rx_fhead" tabindex="0" role="button" aria-expanded="${open}">
           ${query ? '' : '<i class="fa-solid fa-grip-lines rx_grip rx_fgrip" title="Drag to reorder folders"></i>'}
-          <i class="fa-solid fa-chevron-right cb_chevron"></i>
+          <i class="fa-solid fa-fw ${open ? 'fa-folder-open' : 'fa-folder'} rx_ficon"></i>
           <span class="rx_fname">${esc(f.name)} <span class="rx_count">${items.length}</span></span>
           ${sw('rx_fsw', items.some((x) => !x.disabled), 'Turn the whole folder on or off', items.length ? '' : ' disabled')}
           <span class="rx_menu">${btn('fmenu', 'fa-ellipsis', 'Folder options')}</span>
@@ -391,15 +414,17 @@ try {
     const loose = v.loose.filter(hit);
     // Regexes in no folder: always last, since SillyTavern adds new regexes at the end of its list.
     const looseHtml = !query || loose.length ? `<div class="rx_ublock">
-        <div class="ntr_fold rx_uhead"><span class="rx_fname">Unassigned <span class="rx_count">${v.loose.length}</span></span></div>
+        <div class="ntr_fold rx_uhead"><i class="fa-solid fa-fw fa-inbox rx_ficon"></i><span class="rx_fname">Unassigned <span class="rx_count">${v.loose.length}</span></span></div>
         <div class="ntr_card rx_loose">${loose.map(rowHtml).join('') || `<div class="rx_empty">${v.groups.length ? 'Drag or move a regex here to take it out of its folder.' : 'No regexes here yet.'}</div>`}</div>
       </div>` : '';
     const allowTitle = sec.k === 'preset' ? 'Let this preset\'s regexes run' : 'Let this character\'s regexes run';
     return `<div class="rx_sec${ok ? '' : ' rx_secoff'}" data-sec="${sec.k}">
       <div class="ntr_parthead rx_shead">
-        <h4 class="ntr_parttitle" title="${esc(secTitle(sec))}">${esc(secTitle(sec))}</h4>
+        ${sec.k === 'global' ? `<h4 class="ntr_parttitle">${sec.name}</h4>`
+          : `<div class="rx_stitle"><h4 class="ntr_parttitle">${sec.name}</h4><div class="rx_sname" title="${esc(secName(sec))}">${esc(secName(sec))}</div></div>`}
         ${btn('new', 'fa-plus', `New ${sec.name} regex`)}
         ${btn('newf', 'fa-folder-plus', 'New folder')}
+        ${btn('imp', 'fa-file-import', `Import ${sec.name} regexes`)}
         ${btn('exp', 'fa-file-export', `Export all ${sec.name} regexes`)}
         ${sec.allow ? sw('rx_allow', ok, allowTitle) : ''}
       </div>
@@ -428,7 +453,6 @@ try {
       <button class="rx_guide" data-act="guide"><i class="fa-solid fa-book-open"></i>New to regexes? Learn the basics</button>
       <div class="rx_top">
         <input type="search" class="text_pole rx_search" placeholder="Search regexes" aria-label="Search regexes" value="${esc(query)}">
-        <button class="menu_button rx_btn" data-act="import" title="Import SillyTavern regex files" aria-label="Import SillyTavern regex files"><i class="fa-solid fa-file-import"></i></button>
       </div>
       <div class="rx_list">${listHtml()}</div>`);
   }
@@ -522,7 +546,7 @@ try {
     if (act !== 'fmenu') pending = null;
     switch (act) {
       case 'guide': openGuide(); break;
-      case 'import': stClick(document.getElementById('import_regex')); break;
+      case 'imp': importTo(sec); break;
       case 'new': stClick(document.getElementById(sec.add)); break;
       case 'newf': {
         const name = await askText(b, { label: 'Folder name', ok: 'Add', check: nameCheck(sec, null) });
@@ -565,8 +589,7 @@ try {
       case 'fimport':
         closePops();
         expect(sec, f, 'import');
-        toastr.info(`When SillyTavern asks where to import, pick ${sec.name}.`, 'Regexes');
-        stClick(document.getElementById('import_regex'));
+        importTo(sec);
         break;
       case 'fexport': closePops(); download(scripts(sec).filter((x) => f.ids.includes(x.id)), `regexes-${f.name}`); break;
       case 'fdelete': {

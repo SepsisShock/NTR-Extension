@@ -3113,6 +3113,14 @@
 
   // The copy in the box. Ids get the block's own ending, with labels pointing at the new ones, so a label that opens
   // something (the checkbox trick) opens the copy and not the hidden original.
+  // The copied <style> rules point at the copy's ids, like #threads-toggle:checked ~ .list. Only selectors change (the
+  // text before each {), so a color like #add inside a rule stays as it is.
+  function pinStyleIds(text, ids) {
+    if (!ids.size) return text;
+    const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m));
+    return text.replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
+  }
+
   function pinFill(body, src, p) {
     const was = { open: [...body.querySelectorAll('details')].map((d) => d.open), checked: [...body.querySelectorAll('input')].map((i) => i.checked) };
     const copy = src.el.cloneNode(true);
@@ -3123,7 +3131,14 @@
       e.id = ids.get(e.id);
     }
     if (ids.size) for (const l of [copy, ...copy.querySelectorAll('label[for]')]) if (l.htmlFor && ids.has(l.htmlFor)) l.htmlFor = ids.get(l.htmlFor);
-    body.replaceChildren(...src.styles.map((st) => st.cloneNode(true)), copy);
+    // Radio buttons get their own group name too, so the copy's don't join the original's group and uncheck it.
+    for (const r of [copy, ...copy.querySelectorAll('input[name]')]) if (r.tagName === 'INPUT' && r.name) r.name = `${r.name}--ntr-${p.id}`;
+    const styles = src.styles.map((st) => {
+      const c = st.cloneNode(true);
+      c.textContent = pinStyleIds(c.textContent, ids);
+      return c;
+    });
+    body.replaceChildren(...styles, copy);
     // A swipe or a new reply brings a fresh copy; what was opened in the box stays open when the copy matches.
     const det = [...body.querySelectorAll('details')], inp = [...body.querySelectorAll('input')];
     if (det.length === was.open.length) det.forEach((d, i) => { d.open = was.open[i]; });

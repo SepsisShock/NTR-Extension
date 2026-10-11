@@ -5836,9 +5836,12 @@
         window.NTR.vn?.genStarted?.(type, dryRun);
         window.NTR.cast?.genStarted(type, dryRun);
         window.NTR.reader?.genStarted(type, dryRun);
-        window.NTR.agents?.genStarted(type, dryRun);
       });
     }
+    // Agents wait for a reply being written. A send with only slash commands (like /ntr-agent typed in the box) writes
+    // none and never sends "generation ended", so agents only count a reply once SillyTavern has run the commands.
+    const replyGoes = event_types.GENERATION_AFTER_COMMANDS || event_types.GENERATION_STARTED;
+    if (replyGoes) eventSource.on(replyGoes, (type, _opts, dryRun) => window.NTR.agents?.genStarted(type, dryRun));
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
     // The short delay lets a reply that did arrive go first, so it still gets typed.
     if (event_types.GENERATION_ENDED) {

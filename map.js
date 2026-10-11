@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Maps module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const MAP_VERSION = '2.35.0';
+  const MAP_VERSION = '2.35.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -23,14 +23,14 @@
     #ntr_map.ntr_edit .ntr_map_canvas > img { cursor: crosshair; }
     #ntr_map .ntr_map_empty { padding: 40px 30px; opacity: .7; line-height: 1.4; }
     #ntr_map .ntr_map_foot { padding: 6px 12px 10px; font-size: .8em; opacity: .7; }
-    .ntr_pin { position: absolute; transform: translate(-50%, -50%); width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid #fff; background: rgba(20,24,34,.9); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; box-shadow: 0 2px 8px rgba(0,0,0,.6); touch-action: none; }
-    .ntr_pin > span { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.75); font-size: 12px; pointer-events: none; }
-    .ntr_pin.ntr_sub { border-style: dashed; }
-    .ntr_pin.ntr_unseen { opacity: .45; filter: grayscale(.7); }
-    .ntr_pin.ntr_here { background: var(--SmartThemeQuoteColor, #6cf); color: #000; opacity: 1; filter: none; }
-    .ntr_pin.ntr_here::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 2px solid var(--SmartThemeQuoteColor, #6cf); animation: ntr_ping 1.6s ease-out infinite; pointer-events: none; }
-    .ntr_pin.ntr_bad { border-color: #ff8a8a; }
-    .ntr_pin.ntr_sel { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
+    #ntr_map .ntr_pin { position: absolute; transform: translate(-50%, -50%); width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid #fff; background: rgba(20,24,34,.9); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; box-shadow: 0 2px 8px rgba(0,0,0,.6); touch-action: none; }
+    #ntr_map .ntr_pin > span { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.75); font-size: 12px; pointer-events: none; }
+    #ntr_map .ntr_pin.ntr_sub { border-style: dashed; }
+    #ntr_map .ntr_pin.ntr_unseen { opacity: .45; filter: grayscale(.7); }
+    #ntr_map .ntr_pin.ntr_here { background: var(--SmartThemeQuoteColor, #6cf); color: #000; opacity: 1; filter: none; }
+    #ntr_map .ntr_pin.ntr_here::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 2px solid var(--SmartThemeQuoteColor, #6cf); animation: ntr_ping 1.6s ease-out infinite; pointer-events: none; }
+    #ntr_map .ntr_pin.ntr_bad { border-color: #ff8a8a; }
+    #ntr_map .ntr_pin.ntr_sel { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
     @keyframes ntr_ping { from { transform: scale(.8); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
     .ntr_map_pop { position: absolute; z-index: 5; min-width: 200px; max-width: 320px; transform: translate(-50%, 22px); padding: 10px 12px; border-radius: 10px; line-height: 1.35; background: var(--SmartThemeBlurTintColor, #1e1e24); border: 1px solid var(--SmartThemeBorderColor, #555); box-shadow: 0 6px 18px rgba(0,0,0,.6); display: none; cursor: default; }
     .ntr_map_pop .ntr_pop_t { font-weight: bold; }

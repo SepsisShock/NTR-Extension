@@ -6,7 +6,7 @@
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
 // For now an agent's answer shows in its activity. Showing it on screen (the Agentic Tracker Panel) comes next.
 (() => {
-  const AGENTS_VERSION = '2.35.0';
+  const AGENTS_VERSION = '2.35.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -102,16 +102,22 @@
     signal.addEventListener('abort', stop, { once: true });
     p.then(res, rej).finally(() => signal.removeEventListener('abort', stop));
   });
-  // After waiting for your reply, the page (or the agent, for a run after a reply) may have been switched off meanwhile.
-  const stillAllowed = (a, auto) => { if (!pageOn()) throw new Error('Skipped: the Agents page is off'); if (auto && !a.on) throw new Error('Skipped: this agent is off'); };
+  // After waiting for your reply, the page (or the agent, for a run after a reply) may have been switched off meanwhile,
+  // or the agent deleted.
+  const stillAllowed = (a, auto) => {
+    if (!byId(a.id)) throw new Error('Skipped: this agent was deleted');
+    if (!pageOn()) throw new Error('Skipped: the Agents page is off');
+    if (auto && !a.on) throw new Error('Skipped: this agent is off');
+  };
 
+  // The chat is read only after any wait for your reply, so the agent sees that reply finished.
   async function call(a, test, auto, signal) {
     const c = ctx();
-    const messages = prompt(a, test);
     const max = test ? 20 : a.maxTokens;
     if (a.kind === 'chat') {
       await abortable(chatIdle(), signal);
       stillAllowed(a, auto);
+      const messages = prompt(a, test);
       // SillyTavern's own request can't take our Stop, but its "generation stopped" event cancels it. That event would
       // also stop a reply being written, so it's only sent while no reply is.
       const cancel = () => { if (!chatBusy) c.eventSource.emit(c.event_types.GENERATION_STOPPED); };
@@ -124,6 +130,7 @@
     }
     if (a.kind === 'cc') {
       if (!a.ccModel.trim()) throw new Error('Type a model name first.');
+      const messages = prompt(a, test);
       if (a.ccSource === 'custom' && !a.ccUrl.trim()) throw new Error('Type the Custom link first.');
       const r = await c.ChatCompletionService.processRequest({
         stream: false, messages, model: a.ccModel.trim(), chat_completion_source: a.ccSource, max_tokens: max,
@@ -134,6 +141,7 @@
     }
     if (!a.tcUrl.trim()) throw new Error('Type the server link first.');
     if (sharesChatServer(a)) { await abortable(chatIdle(), signal); stillAllowed(a, auto); }
+    const messages = prompt(a, test);
     const r = await c.TextCompletionService.processRequest({
       stream: false, prompt: messages, max_tokens: max, api_type: a.tcType, api_server: a.tcUrl.trim(),
       model: TC_MODEL.has(a.tcType) && a.tcModel.trim() ? a.tcModel.trim() : undefined, ...samplers(a, true),
@@ -147,6 +155,7 @@
   let chain = Promise.resolve();
   let current = null;
   function log(a, entry) {
+    if (!byId(a.id)) return;
     const l = runs.get(a.id) || [];
     l.unshift(entry);
     runs.set(a.id, l.slice(0, 10));
@@ -168,7 +177,7 @@
       try {
         const text = (await call(a, test, auto, ctrl.signal)).trim();
         if (ctrl.signal.aborted) throw new Error(timedOut ? 'Timed out' : 'Stopped');
-        if (!test) answers.set(id, text);
+        if (!test && byId(id)) answers.set(id, text);
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: true, test, text: text || '(empty answer)' });
       } catch (e) {
         const msg = timedOut ? 'Timed out' : ctrl.signal.aborted ? 'Stopped' : (e?.message || String(e));
@@ -353,6 +362,7 @@
     };
     root.querySelector('#m_ag_del').onclick = async function() {
       if (!(await askYes(this, `Delete "${a.name}"? This can't be undone.`, 'Delete'))) return;
+      if (current?.id === a.id) current.ctrl.abort();
       s.agents = list().filter((x) => x !== a);
       checked.add(s.agents);
       runs.delete(a.id);

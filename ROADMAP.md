@@ -17,7 +17,7 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 - [ ] Add more parts of the screen, like the header banner.
 - [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
-- Comes before Reader Mode and the Tracker panel below, since both need parts of the screen to be adjustable.
+- Comes before Reader Mode and the Agentic Tracker Panel below, since both need parts of the screen to be adjustable.
 
 ### Reader Mode
 Read the chat a page at a time instead of scrolling up and down. Makes it easier to keep things like trackers in one place on screen.
@@ -35,8 +35,8 @@ Read the chat a page at a time instead of scrolling up and down. Makes it easier
 - SillyTavern's Left and Right arrow keys already swipe, so page turns need other keys.
 - Open questions: show SillyTavern's own messages (keeps swipes, branch buttons and formatting) or draw its own like Visual Novel Mode; which messages share a page (your message and the reply after it, or a reply and your answer to it); in the book, your message on the left page and the reply on the right, or the reply across both; a reply too long for the book scrolls inside the page or goes on to the next pages; where the message's name, "..." menu and checkpoint flag go in the book; one book picture for everything (saved in themes) or one per character.
 
-### Tracker panel
-One panel that stays on screen with the current state, instead of a tracker block repeated in every message. Works with a lorebook-based cast; group chat isn't needed.
+### Agentic Tracker Panel
+One panel that stays on screen with the current state, filled in by an agent (the Agents page). Tracker blocks your regexes already draw in messages can be shown on screen with Pinned Blocks, in Layout; this panel is for state an agent keeps. Works with a lorebook-based cast; group chat isn't needed.
 
 - [ ] Tracks location, time, weather, inventory, injuries, relationships, objectives, and other character or world values that can be set up.
 - [ ] Shows the current state in a panel that can be moved and hidden, next to the normal chat or Visual Novel Mode. Character portraits, recent changes and active objectives make it easier to read.

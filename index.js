@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.31.0';
+  const VERSION = '2.32.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -65,6 +65,8 @@
     // Layout: the chat panel, menu bar and send bar. Desktop for screens wider than 1000px, Phone (layPh) for 1000px or
     // less. Places and sizes are a % of the screen. A part that hasn't been moved stays where SillyTavern puts it.
     layEnabled: false,
+    // Pinned Blocks (see cleanPins). Their name starts with lay so themes keep them with Layout.
+    layPins: [],
     layBarEdge: 'top', layBarMoved: false, layBarPos: 25, layBarLen: 50,
     layChatMoved: false, layChatX: 25, layChatY: 4, layChatW: 50, layChatH: 92,
     laySend: 'attached', laySendX: 25, laySendB: 0, laySendW: 50,
@@ -392,6 +394,7 @@
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
+    if (!Array.isArray(s.layPins)) s.layPins = [];
     return s;
   }
 
@@ -735,6 +738,9 @@
     { id: 'us', label: 'User Pop Out' }, { id: 'ai', label: 'AI Pop Out' },
     ...['Left', 'Center', 'Right'].map((pos) => ({ id: 'fg' + pos, pos, label: `${pos} Foreground` })),
   ];
+  // Everything that can move right now: the parts above, then each Pinned Block that has something picked.
+  const placeItems = () => [...PLACE, ...settings().layPins.filter(pinSel).map((p) => ({ id: 'pin_' + p.id, pin: p.id, label: p.name }))];
+  const pinOf = (it) => settings().layPins.find((p) => p.id === it.pin);
   // Each Layout part's element, its settings, and SillyTavern's own place for it (what Reset puts back). The setting
   // names are without their layout's start (see lk and layNames).
   const LAY_PART = {
@@ -745,7 +751,9 @@
   const GRIPS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
   // The handles a picked part resizes from: the chat panel from every edge and corner, the send bar from its sides, the
   // menu bar from its two ends.
+  // A floating Pinned Block resizes like the chat panel; a docked one only from its inner edge.
   function grips(it) {
+    if (it.pin) { const pl = pinOf(it)?.place; return pl === 'left' ? ['e'] : pl === 'right' ? ['w'] : GRIPS; }
     if (it.lay === 'chat') return GRIPS;
     if (it.lay === 'bar' && barUpright(settings()[lk(scrPhone(), 'BarEdge')])) return ['n', 's'];
     return it.lay ? ['e', 'w'] : [];
@@ -765,7 +773,7 @@
   }
   // Layout settings by their full names, for the layout being edited.
   const layNames = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [lk(scrPhone(), k), x]));
-  const placeKind = (it) => (it.lay ? 'lay' : it.pos ? 'fg' : 'pop');
+  const placeKind = (it) => (it.lay ? 'lay' : it.pin ? 'pin' : it.pos ? 'fg' : 'pop');
   const place = { on: false, sel: null, drag: null, undo: [] };
   let placeTouchGuard = false;
 
@@ -780,7 +788,9 @@
     }
   }
 
-  const placeEl = (it) => (it.lay ? scrWin().document.getElementById(LAY_PART[it.lay].el) : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_pop_${it.id}`));
+  const placeEl = (it) => (it.lay ? scrWin().document.getElementById(LAY_PART[it.lay].el)
+    : it.pin ? document.querySelector(`#ntr_pin_layer > .ntr_pin[data-pin="${it.pin}"]`)
+      : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_pop_${it.id}`));
 
   // The part of a foreground image you can see: its box fills the whole side, with the picture at the bottom.
   function fgRect(el) {
@@ -814,6 +824,12 @@
       return { left: x + r.left * k, top: y + r.top * k, right: x + r.right * k, bottom: y + r.bottom * k, width: r.width * k, height: r.height * k };
     }
     const el = placeEl(it);
+    // Pinned Blocks show on this page only, not inside Phone Preview.
+    if (it.pin) {
+      if (onScreen || !el || el.hidden) return null;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 ? r : null;
+    }
     if (onScreen || !el || el.style.display === 'none' || !el.getAttribute('src')) return null;
     if (it.pos && el.parentNode?.style.display === 'none') return null;
     const r = it.pos ? fgRect(el) : el.getBoundingClientRect();
@@ -824,17 +840,23 @@
   function placeGet(it) {
     const s = settings();
     if (it.lay) return Object.fromEntries(LAY_PART[it.lay].keys.map((k) => [lk(scrPhone(), k), s[lk(scrPhone(), k)]]));
+    if (it.pin) return { ...pinOf(it)?.[pinPhone(scrPhone())] };
     if (!it.pos) return { x: rangeNum(s, it.id + 'PopX'), y: rangeNum(s, it.id + 'PopY') };
     const F = fgData();
     return { x: cardNum(F[it.pos + 'X'], 'fgX', 0), y: cardNum(F[it.pos + 'Y'], 'fgY', 0) };
   }
   const placeAtStart = (it) => {
     const v = placeGet(it);
+    if (it.pin) return JSON.stringify(v) === JSON.stringify(PIN_START[pinPhone(scrPhone())]);
     return it.lay ? Object.entries(layNames(LAY_PART[it.lay].start)).every(([k, x]) => v[k] === x) : !v.x && !v.y;
   };
 
   function placeSet(it, v) {
-    if (it.lay) {
+    if (it.pin) {
+      const p = pinOf(it);
+      if (p) p[pinPhone(scrPhone())] = pinRect(v, PIN_START[pinPhone(scrPhone())]);
+      cssTag('ntr_pin_css', pinCss(settings()));
+    } else if (it.lay) {
       Object.assign(settings(), v);
       applyLayout();
       onScreen?.apply(v);
@@ -860,6 +882,45 @@
   // Dragging a Layout part. The chat panel and send bar move anywhere and resize from their handles. The menu bar slides
   // along its edge, changes length from its ends, and goes to another edge when dragged close to it. Kept on screen and
   // saved as a % of it. Everything here is in the screen's own pixels: dx, dy and the pointer (px, py) too.
+  // A box (r: left, right, top, bottom) moved by dx, dy, or resized from d.grip, kept on a W by H screen and at least
+  // minW by minH, with whichever edge is nearer a grid line (every g pixels, 0 for none) landing on it.
+  function dragBox(r, grip, dx, dy, W, H, minW, minH, g) {
+    const snap = (v) => (g ? Math.round(v / g) * g : v);
+    const shift = (a, b, t, max) => {
+      t = clamp(t, -a, max - b);
+      if (g) {
+        const sa = snap(a + t) - a - t, sb = snap(b + t) - b - t;
+        t = clamp(t + (Math.abs(sa) <= Math.abs(sb) ? sa : sb), -a, max - b);
+      }
+      return [a + t, b + t];
+    };
+    let [L, R, T, B] = [r.left, r.right, r.top, r.bottom];
+    if (!grip) {
+      [L, R] = shift(L, R, dx, W);
+      [T, B] = shift(T, B, dy, H);
+    } else {
+      if (grip.includes('w')) L = clamp(snap(L + dx), 0, R - minW);
+      if (grip.includes('e')) R = clamp(snap(R + dx), L + minW, W);
+      if (grip.includes('n')) T = clamp(snap(T + dy), 0, B - minH);
+      if (grip.includes('s')) B = clamp(snap(B + dy), T + minH, H);
+    }
+    return [L, R, T, B];
+  }
+
+  // Dragging a Pinned Block. A floating one moves anywhere and resizes from its handles; a docked one stays on its edge
+  // and only gets wider or narrower. Saved as a % of the screen.
+  function dragPin(d, dx, dy, free) {
+    const s = settings();
+    const p = pinOf(d.it);
+    if (!p || (p.place !== 'float' && !d.grip)) return;
+    const W = window.innerWidth, H = window.innerHeight;
+    const g = s.placeSnap && !free ? rangeNum(s, 'placeGrid') : 0;
+    const [L, R, T, B] = dragBox(d.r0, d.grip, dx, dy, W, H, W * NUM_RANGE.pinW[0] / 100, H * NUM_RANGE.pinH[0] / 100, g);
+    const pct = (v, size) => Math.round(v / size * 10000) / 100;
+    const r = p[pinPhone(scrPhone())];
+    placeSet(d.it, p.place === 'float' ? { x: pct(L, W), y: pct(T, H), w: pct(R - L, W), h: pct(B - T, H) } : { ...r, w: pct(R - L, W) });
+  }
+
   function dragLayout(d, dx, dy, px, py, free) {
     const s = settings();
     const W = scrWin().innerWidth, H = scrWin().innerHeight;
@@ -904,18 +965,8 @@
       return placeSet(d.it, layNames({ BarEdge: edge, BarMoved: true, BarPos: pct(a, size), BarLen: pct(b - a, size) }));
     }
 
-    let [L, R, T, B] = [r.left, r.right, r.top, r.bottom];
-    if (!d.grip) {
-      [L, R] = shift(L, R, dx, W);
-      [T, B] = shift(T, B, dy, H);
-    } else {
-      const min = (name) => NUM_RANGE[lk(scrPhone(), name)][0] / 100;
-      const minW = W * min(d.it.lay === 'chat' ? 'ChatW' : 'SendW'), minH = H * min('ChatH');
-      if (d.grip.includes('w')) L = clamp(snap(L + dx), 0, R - minW);
-      if (d.grip.includes('e')) R = clamp(snap(R + dx), L + minW, W);
-      if (d.grip.includes('n')) T = clamp(snap(T + dy), 0, B - minH);
-      if (d.grip.includes('s')) B = clamp(snap(B + dy), T + minH, H);
-    }
+    const min = (name) => NUM_RANGE[lk(scrPhone(), name)][0] / 100;
+    const [L, R, T, B] = dragBox(r, d.grip, dx, dy, W, H, W * min(d.it.lay === 'chat' ? 'ChatW' : 'SendW'), H * min('ChatH'), g);
     if (d.it.lay === 'chat') placeSet(d.it, layNames({ ChatMoved: true, ChatX: pct(L, W), ChatY: pct(T, H), ChatW: pct(R - L, W), ChatH: pct(B - T, H) }));
     else placeSet(d.it, layNames({ SendX: pct(L, W), SendB: pct(H - B, H), SendW: pct(R - L, W) }));
   }
@@ -937,7 +988,6 @@
     layer = document.createElement('div');
     layer.id = 'cb_place_layer';
     layer.innerHTML = '<div class="cb_place_grid"></div>'
-      + PLACE.map((it) => `<div class="cb_place_box" data-id="${it.id}"><span>${it.label}</span>${it.lay ? GRIPS.map((g) => `<i class="cb_place_grip" data-g="${g}"></i>`).join('') : ''}</div>`).join('')
       + `<div id="cb_place_pill">
           <span class="cb_place_name"></span>
           <label class="cb_place_snap" title="Hold Alt while dragging to move freely for one move"><input type="checkbox" id="cb_place_snap"><span>Snap to Grid</span></label>
@@ -958,17 +1008,17 @@
     q('#cb_place_grid').onchange = save;
     q('#cb_place_undo').onclick = () => {
       const last = place.undo.pop();
-      const it = last && PLACE.find((p) => p.id === last.id);
+      const it = last && placeItems().find((p) => p.id === last.id);
       if (!it) return drawPlace();
       place.sel = it.id;
       placeSet(it, last.v);
       save();
     };
     q('#cb_place_reset').onclick = () => {
-      const it = PLACE.find((p) => p.id === place.sel);
+      const it = placeItems().find((p) => p.id === place.sel);
       if (!it || placeAtStart(it)) return;
       pushUndo(it.id, placeGet(it));
-      placeSet(it, it.lay ? layNames(LAY_PART[it.lay].start) : { x: 0, y: 0 });
+      placeSet(it, it.lay ? layNames(LAY_PART[it.lay].start) : it.pin ? { ...PIN_START[pinPhone(scrPhone())] } : { x: 0, y: 0 });
       save();
     };
     q('#cb_place_done').onclick = endPlacement;
@@ -979,7 +1029,8 @@
       const box = e.target instanceof Element ? e.target.closest('.cb_place_box') : null;
       if (!box) return;
       e.preventDefault();
-      const it = PLACE.find((p) => p.id === box.dataset.id);
+      const it = placeItems().find((p) => p.id === box.dataset.id);
+      if (!it) return;
       if (place.sel !== it.id) { place.sel = it.id; drawPlace(); return; }
       const start = placeGet(it);
       const grip = e.target.closest('.cb_place_grip')?.dataset.g || '';
@@ -1003,6 +1054,7 @@
         const { x, y, k } = d.box;
         return d.r0 && dragLayout(d, dx / k, dy / k, (e.clientX - x) / k, (e.clientY - y) / k, e.altKey);
       }
+      if (d.it.pin) return d.r0 && dragPin(d, dx, dy, e.altKey);
       const s = settings();
       if (s.placeSnap && !e.altKey && d.r0) {
         // The picture's nearest edge lands on a grid line, whichever corner or center it's tied to.
@@ -1028,7 +1080,7 @@
         // A tap on the picked item picks the next one under it, so a picture over the chat panel can still be picked.
         // They go round in drawing order, top first, which picking doesn't change, so every outline there gets a turn.
         const under = new Set(document.elementsFromPoint(e.clientX, e.clientY).filter((el) => el.classList.contains('cb_place_box')).map((el) => el.dataset.id));
-        const ids = PLACE.map((p) => p.id).reverse().filter((id) => under.has(id));
+        const ids = placeItems().map((p) => p.id).reverse().filter((id) => under.has(id));
         if (ids.length > 1) place.sel = ids[(ids.indexOf(d.it.id) + 1) % ids.length];
       }
       drawPlace();
@@ -1050,20 +1102,21 @@
     if (!layer) return;
     const s = settings();
     const small = [];
-    for (const it of PLACE) {
+    for (const it of placeItems()) {
       const box = layer.querySelector(`.cb_place_box[data-id="${it.id}"]`);
+      if (!box) continue;
       const r = placeRect(it);
       box.style.display = r ? 'block' : 'none';
       if (!r) continue;
       if (r.height < window.innerHeight * 0.3) small.push(r);
       Object.assign(box.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
       box.classList.toggle('cb_sel', it.id === place.sel);
-      if (it.lay) {
+      if (it.lay || it.pin) {
         const on = it.id === place.sel ? grips(it) : [];
         box.querySelectorAll('.cb_place_grip').forEach((h) => h.classList.toggle('cb_on', on.includes(h.dataset.g)));
       }
     }
-    const sel = PLACE.find((it) => it.id === place.sel && placeRect(it));
+    const sel = placeItems().find((it) => it.id === place.sel && placeRect(it));
     layer.querySelector('.cb_place_name').textContent = sel ? sel.label : 'Tap an outline to pick it';
     layer.querySelector('#cb_place_snap').checked = !!s.placeSnap;
     layer.querySelector('.cb_place_gridset').style.display = s.placeSnap ? '' : 'none';
@@ -1094,21 +1147,32 @@
 
   // Opened from the menu, which hides until Done. `first` picks which kind of item starts picked ('lay', 'pop' or 'fg').
   // `scr` is the phone inside Phone Preview (see onScreen); without it, this page.
+  // `first` can also be one item's id, like a Pinned Block's.
   function startPlacement(first, scr = null) {
     if (!isOn() || place.on) return;
     onScreen = scr;
-    const shown = PLACE.filter((it) => placeRect(it));
+    // Pinned Blocks with nothing to show yet get their box while Edit Layout is open, so they can be placed too.
+    place.on = true;
+    document.body.classList.add('ntr_placing');
+    syncPins();
+    const shown = placeItems().filter((it) => placeRect(it));
     if (!shown.length) {
+      place.on = false;
+      document.body.classList.remove('ntr_placing');
+      syncPins();
       onScreen = null;
-      toastr.info(scr ? 'Turn Layout on first.' : 'Nothing to move yet. Set an avatar to Pop Out, or add a foreground image, first.', 'Edit Placement');
+      toastr.info(scr ? 'Turn Layout on first.' : 'Nothing to move yet. Set an avatar to Pop Out, add a foreground image, or pick a Pinned Block with Layout on, first.', 'Edit Placement');
       return false;
     }
-    place.on = true;
     place.undo = [];
-    place.sel = (shown.find((it) => placeKind(it) === first) || shown[0]).id;
+    place.sel = (shown.find((it) => it.id === first) || shown.find((it) => placeKind(it) === first) || shown[0]).id;
     const ov = document.getElementById('cb_modal_overlay');
     if (ov && !scr) ov.style.display = 'none';
-    ensurePlaceLayer().style.display = 'block';
+    const layer = ensurePlaceLayer();
+    // One outline for each item there is now. Pinned Blocks come and go, so they're made fresh each time.
+    layer.querySelectorAll('.cb_place_box').forEach((b) => b.remove());
+    layer.querySelector('#cb_place_pill').insertAdjacentHTML('beforebegin', placeItems().map((it) => `<div class="cb_place_box" data-id="${it.id}"><span>${escapeHTML(it.label)}</span>${it.lay || it.pin ? GRIPS.map((g) => `<i class="cb_place_grip" data-g="${g}"></i>`).join('') : ''}</div>`).join(''));
+    layer.style.display = 'block';
     setPlaceTouchGuard(true);
     drawPlace();
     return true;
@@ -1122,6 +1186,8 @@
     const layer = document.getElementById('cb_place_layer');
     if (layer) layer.style.display = 'none';
     setPlaceTouchGuard(false);
+    document.body.classList.remove('ntr_placing');
+    syncPins();
     const ov = document.getElementById('cb_modal_overlay');
     syncLayoutPage(ov);
     const scr = onScreen;
@@ -1339,6 +1405,7 @@
     syncReasoningLabels();
     applyBodyOverrides();
     syncPopouts();
+    syncPins();
   }
 
   function currentKey() {
@@ -2922,6 +2989,14 @@
         ${card('', `
           ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
           <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar and send bar back where SillyTavern has them, in the layout picked above.</div>`)}
+        ${card('Pinned Blocks', `
+          <div class="cb_hint">Shows a block from the chat messages, like Coordinates, in its own box on screen, with your regex's look. Pick the block in a message, then move the box with Edit Layout. The box always shows the newest copy.</div>
+          <div id="m_pin_list"></div>
+          <button type="button" id="m_pin_add" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-plus"></i> Add Pinned Block</button>
+          <div class="ntr_soonrow ntr_soondim">
+            <i class="fa-solid fa-fw fa-robot"></i>
+            <div><strong>Agentic Tracker Panel</strong><div class="cb_hint" style="margin: 2px 0 0;">Filled in by an agent. Coming later.</div></div>
+          </div>`)}
     `, { sw: ['m_l_enable', s.layEnabled] });
   }
 
@@ -2929,6 +3004,7 @@
     const changed = () => { save(); updateAvatarStyle(); syncLayoutPage(overlay); };
     overlay.querySelector('#m_l_enable').onchange = function() { s.layEnabled = this.checked; changed(); };
     overlay.querySelector('#m_l_edit').onclick = () => startPlacement('lay');
+    bindPins(overlay, s);
     overlay.querySelector('#m_l_preview').onclick = async () => {
       const pv = await loadModule('preview', true);
       if (pv) pv.open();
@@ -2977,6 +3053,341 @@
     const over = { width: layOn(s) && s[lk(now, 'ChatMoved')], send: layOn(s) && s[lk(now, 'Send')] === 'free' };
     overlay.querySelectorAll('.m_l_over').forEach((el) => el.classList.toggle('cb_dim', !!over[el.dataset.lay]));
     overlay.querySelectorAll('.m_l_note').forEach((el) => { el.hidden = !over[el.dataset.lay]; });
+  }
+
+  // ===== Pinned Blocks =====
+  // A block your regexes draw in the chat, like a tracker, shown in a box of its own on screen. NTR copies it from the
+  // newest message that has it, so SillyTavern's own message stays as it is, and can hide it in the messages. Pinned
+  // Blocks are part of Layout, so Layout's switch counts. A block is remembered by the tag and classes of what was picked
+  // in the chat, never as typed-in CSS, so a theme from someone else can't slip CSS in through it.
+  // Each block has a place on screen for Desktop and one for Phone, as a % of the screen: Floating anywhere, or Docked
+  // to the left or right edge at full height. On a phone a docked block slides out from its edge.
+  const PIN_START = { desk: { x: 72, y: 12, w: 24, h: 40 }, phone: { x: 5, y: 12, w: 90, h: 35 } };
+  const PIN_TAG = /^[a-z][a-z0-9-]{0,30}$/;
+  const PIN_CLASS = /^[A-Za-z_-][\w-]{0,63}$/;
+  const PIN_MAX = 20;
+  // While a block is being picked in the chat (see pickPin), the boxes hide and the originals show.
+  let pinPicking = false;
+  const pinRect = (r, d) => ({ x: cardNum(r?.x, 'pinX', d.x), y: cardNum(r?.y, 'pinY', d.y), w: cardNum(r?.w, 'pinW', d.w), h: cardNum(r?.h, 'pinH', d.h) });
+  // Saved blocks, and blocks from theme files, made safe to use.
+  function cleanPins(v) {
+    const ids = new Set();
+    return cList(v, PIN_MAX, (p) => {
+      let id = cRef(p.id);
+      if (!id || ids.has(id)) id = newId('pin');
+      ids.add(id);
+      return {
+        id,
+        name: cStr(p.name, 60).trim() || 'Pinned Block',
+        tag: typeof p.tag === 'string' && PIN_TAG.test(p.tag) ? p.tag : '',
+        classes: (Array.isArray(p.classes) ? p.classes : []).filter((c) => typeof c === 'string' && PIN_CLASS.test(c)).slice(0, 5),
+        place: cPick(p.place, ['float', 'left', 'right']),
+        show: cPick(p.show, ['always', 'newest']),
+        frame: cPick(p.frame, ['none', 'panel']),
+        hide: cBool(p.hide, true),
+        vn: cPick(p.vn, ['show', 'hide']),
+        desk: pinRect(p.desk, PIN_START.desk),
+        phone: pinRect(p.phone, PIN_START.phone),
+      };
+    });
+  }
+  // What a block looks for in the messages. Empty until something has been picked.
+  const pinSel = (p) => (p.tag && p.classes.length ? p.tag + p.classes.map((c) => '.' + CSS.escape(c)).join('') : '');
+  const pinsLive = (s) => layOn(s) && s.layPins.some(pinSel);
+  const pinPhone = (phone) => (phone ? 'phone' : 'desk');
+
+  // The newest message with the block: any message, or only the newest reply. Its <style> tags come along, since a
+  // regex often puts the block's look there.
+  function pinSource(p) {
+    const sel = pinSel(p);
+    if (!sel) return null;
+    const all = [...document.querySelectorAll('#chat > .mes')].reverse();
+    const reply = all.find((m) => m.getAttribute('is_user') === 'false' && m.getAttribute('is_system') !== 'true');
+    for (const m of p.show === 'newest' ? [reply].filter(Boolean) : all) {
+      const text = m.querySelector('.mes_text');
+      const el = text?.querySelector(sel);
+      if (el) return { el, styles: [...text.querySelectorAll('style')] };
+    }
+    return null;
+  }
+
+  // The copy in the box. Ids get the block's own ending, with labels pointing at the new ones, so a label that opens
+  // something (the checkbox trick) opens the copy and not the hidden original.
+  // The copied <style> rules point at the copy's ids, like #threads-toggle:checked ~ .list. Only selectors change (the
+  // text before each {), so a color like #add inside a rule stays as it is.
+  function pinStyleIds(text, ids) {
+    if (!ids.size) return text;
+    const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m));
+    return text.replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
+  }
+
+  function pinFill(body, src, p) {
+    const was = { open: [...body.querySelectorAll('details')].map((d) => d.open), checked: [...body.querySelectorAll('input')].map((i) => i.checked) };
+    const copy = src.el.cloneNode(true);
+    const ids = new Map();
+    for (const e of [copy, ...copy.querySelectorAll('[id]')]) {
+      if (!e.id) continue;
+      ids.set(e.id, `${e.id}--ntr-${p.id}`);
+      e.id = ids.get(e.id);
+    }
+    if (ids.size) for (const l of [copy, ...copy.querySelectorAll('label[for]')]) if (l.htmlFor && ids.has(l.htmlFor)) l.htmlFor = ids.get(l.htmlFor);
+    // Radio buttons get their own group name too, so the copy's don't join the original's group and uncheck it.
+    for (const r of [copy, ...copy.querySelectorAll('input[name]')]) if (r.tagName === 'INPUT' && r.name) r.name = `${r.name}--ntr-${p.id}`;
+    const styles = src.styles.map((st) => {
+      const c = st.cloneNode(true);
+      c.textContent = pinStyleIds(c.textContent, ids);
+      return c;
+    });
+    body.replaceChildren(...styles, copy);
+    // A swipe or a new reply brings a fresh copy; what was opened in the box stays open when the copy matches.
+    const det = [...body.querySelectorAll('details')], inp = [...body.querySelectorAll('input')];
+    if (det.length === was.open.length) det.forEach((d, i) => { d.open = was.open[i]; });
+    if (inp.length === was.checked.length) inp.forEach((x, i) => { x.checked = was.checked[i]; });
+  }
+
+  const pinLast = new Map();
+  let pinObs = null, pinTimer = null;
+  function queuePins() {
+    if (pinTimer) return;
+    pinTimer = setTimeout(() => { pinTimer = null; syncPins(); }, 200);
+  }
+  // Messages being added, swiped, edited, deleted or streamed all change the chat, so the chat is watched while any block
+  // is live. Streaming changes it many times a second, so the boxes catch up at most five times a second.
+  function watchPins(on) {
+    const chat = document.getElementById('chat');
+    if (on && !pinObs && chat && window.MutationObserver) {
+      pinObs = new MutationObserver(queuePins);
+      pinObs.observe(chat, { childList: true, subtree: true, characterData: true });
+    } else if (!on && pinObs) {
+      pinObs.disconnect();
+      pinObs = null;
+    }
+  }
+
+  // The boxes on screen, and the CSS that places them and hides the originals.
+  function syncPins() {
+    const s = settings();
+    const live = pinsLive(s);
+    watchPins(live);
+    cssTag('ntr_pin_css', live && !pinPicking ? pinCss(s) : '');
+    let layer = document.getElementById('ntr_pin_layer');
+    if (!live) { layer?.remove(); pinLast.clear(); return; }
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'ntr_pin_layer';
+      layer.addEventListener('click', (e) => {
+        const tab = e.target.closest('.ntr_pin_tab');
+        if (tab) tab.parentElement.classList.toggle('ntr_open');
+      });
+      document.body.appendChild(layer);
+    }
+    const vnOn = !!s.nodeEnabled;
+    const keep = new Set();
+    for (const p of s.layPins) {
+      if (!pinSel(p)) continue;
+      keep.add(p.id);
+      let box = layer.querySelector(`:scope > .ntr_pin[data-pin="${p.id}"]`);
+      if (!box) {
+        box = document.createElement('div');
+        box.dataset.pin = p.id;
+        box.innerHTML = '<button type="button" class="ntr_pin_tab"><i class="fa-solid fa-thumbtack"></i></button><div class="ntr_pin_body mes_text"></div>';
+        layer.appendChild(box);
+      }
+      box.className = `ntr_pin ntr_pin_${p.place} ntr_pin_${p.frame}${box.classList.contains('ntr_open') ? ' ntr_open' : ''}`;
+      const tab = box.querySelector('.ntr_pin_tab');
+      tab.title = `Show or hide ${p.name}`;
+      tab.setAttribute('aria-label', tab.title);
+      const src = pinPicking ? null : pinSource(p);
+      const body = box.querySelector('.ntr_pin_body');
+      const key = src ? src.el.outerHTML + src.styles.map((x) => x.textContent).join('') : '';
+      if (pinLast.get(p.id) !== key) {
+        pinLast.set(p.id, key);
+        if (src) pinFill(body, src, p);
+        else body.replaceChildren();
+      }
+      // While Edit Layout is open, a block with nothing to show yet still gets its box, so it can be placed.
+      box.classList.toggle('ntr_pin_empty', !src);
+      if (!src) body.dataset.name = p.name;
+      box.hidden = pinPicking || (vnOn && p.vn === 'hide') || (!src && !place.on);
+    }
+    for (const box of layer.querySelectorAll(':scope > .ntr_pin')) if (!keep.has(box.dataset.pin)) { pinLast.delete(box.dataset.pin); box.remove(); }
+    if (place.on) drawPlace();
+  }
+
+  function pinCss(s) {
+    let css = '';
+    for (const p of s.layPins) {
+      const sel = pinSel(p);
+      if (!sel) continue;
+      if (p.hide) css += `\n      #chat .mes_text ${sel} { display: none !important; }`;
+      const box = `#ntr_pin_layer > .ntr_pin[data-pin="${p.id}"]`;
+      for (const phone of [false, true]) {
+        const r = p[pinPhone(phone)];
+        let props;
+        if (p.place === 'float') {
+          props = { left: `min(${r.x}vw, ${100 - r.w}vw)`, top: `min(${r.y}dvh, ${100 - r.h}dvh)`, width: `${r.w}vw`, height: `${r.h}dvh` };
+        } else {
+          // Docked: the whole height of its edge, beside SillyTavern's menu bar when the bar is on that edge. On a phone,
+          // where the bar runs across the whole screen, it also stays clear of a bar along the top or bottom, and it's a
+          // drawer at most most of the screen wide.
+          const edge = s[lk(phone, 'BarEdge')];
+          const bt = 'var(--ntr-bt, var(--topBarBlockSize))';
+          const above = phone && edge === 'top' ? bt : '0px', below = phone && edge === 'bottom' ? bt : '0px';
+          const side = edge === p.place ? bt : '0px';
+          props = {
+            top: above, height: `calc(100dvh - ${above} - ${below})`, width: phone ? `min(${r.w}vw, 85vw)` : `${r.w}vw`,
+            [p.place]: side, [p.place === 'left' ? 'right' : 'left']: 'auto', '--ntr-pin-off': side,
+          };
+        }
+        css += `\n      @media (width ${phone ? '<=' : '>'} 1000px) {${cssRule(box, props)}\n      }`;
+      }
+    }
+    return css ? css + '\n' : '';
+  }
+
+  // Pick from chat: the menu hides and clicking a block in a message picks it. What gets picked is the outermost element
+  // around the click that has a class, inside the message text: the block the regex drew, not a line inside it.
+  function pinTarget(t) {
+    const text = t instanceof Element ? t.closest('#chat .mes_text') : null;
+    if (!text || t === text) return null;
+    let best = null;
+    for (let e = t; e && e !== text; e = e.parentElement) {
+      if (PIN_TAG.test(e.tagName.toLowerCase()) && [...e.classList].some((c) => PIN_CLASS.test(c))) best = e;
+    }
+    return best;
+  }
+  function pickPin(p, done) {
+    if (pinPicking) return;
+    const ov = document.getElementById('cb_modal_overlay');
+    pinPicking = true;
+    syncPins();
+    if (ov) ov.style.display = 'none';
+    const bar = document.createElement('div');
+    bar.id = 'ntr_pick_bar';
+    bar.innerHTML = `<span>Click the block for <b>${escapeHTML(p.name)}</b> in a message. Only blocks your regex gives a class can be picked.</span><button type="button">Cancel</button>`;
+    const hl = document.createElement('div');
+    hl.id = 'ntr_pick_hl';
+    document.body.append(hl, bar);
+    const show = (el) => {
+      if (!el) { hl.style.display = 'none'; return; }
+      const r = el.getBoundingClientRect();
+      Object.assign(hl.style, { display: 'block', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    };
+    const move = (e) => show(pinTarget(e.target));
+    const finish = (el) => {
+      document.removeEventListener('pointermove', move, true);
+      document.removeEventListener('click', click, true);
+      document.removeEventListener('keydown', key, true);
+      hl.remove();
+      bar.remove();
+      pinPicking = false;
+      if (el) {
+        p.tag = el.tagName.toLowerCase();
+        p.classes = [...el.classList].filter((c) => PIN_CLASS.test(c)).slice(0, 5);
+        save();
+      }
+      if (ov) ov.style.display = '';
+      syncPins();
+      done?.();
+    };
+    const click = (e) => {
+      if (bar.contains(e.target)) { if (e.target.closest('button')) finish(null); return; }
+      e.preventDefault();
+      e.stopPropagation();
+      const el = pinTarget(e.target);
+      if (el) finish(el);
+    };
+    const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); finish(null); } };
+    document.addEventListener('pointermove', move, true);
+    document.addEventListener('click', click, true);
+    document.addEventListener('keydown', key, true);
+  }
+
+  // The Pinned Blocks card on the Layout page: the list, and the settings of the one that's open.
+  let pinOpen = null;
+  function pinListHtml(s) {
+    if (!s.layPins.length) return '<div class="cb_hint">No Pinned Blocks yet.</div>';
+    const pick = (p, name, opts, cur) => pills(`pin${name}-${p.id}`, opts, cur);
+    return s.layPins.map((p) => {
+      const sel = pinSel(p);
+      const what = sel ? `${p.tag}.${p.classes.join('.')}` : 'Nothing picked yet';
+      const row = `
+          <div class="ntr_pinrow" data-pin="${p.id}">
+            <i class="fa-solid fa-fw fa-thumbtack"></i>
+            <span class="ntr_pinname">${escapeHTML(p.name)}<small>${escapeHTML(what)}</small></span>
+            <button type="button" class="menu_button m_pin_edit${pinOpen === p.id ? ' on' : ''}" title="Settings"><i class="fa-solid fa-gear"></i></button>
+            <button type="button" class="menu_button m_pin_move" title="Move with Edit Layout"><i class="fa-solid fa-up-down-left-right"></i></button>
+            <button type="button" class="menu_button danger_button m_pin_del" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>`;
+      if (pinOpen !== p.id) return row;
+      return row + `
+          <div class="ntr_tpanel ntr_pinedit" data-pin="${p.id}">
+            <label>Name <input type="text" class="text_pole m_pin_name" maxlength="60" value="${escapeHTML(p.name)}"></label>
+            <div class="cb_plab">Block</div>
+            <button type="button" class="menu_button m_pin_pick" style="margin: 0; width: max-content;"><i class="fa-solid fa-hand-pointer"></i> Pick from chat</button>
+            <div class="cb_hint">The menu hides. Click the block in a message, like the Coordinates box. Escape cancels.</div>
+            <div class="cb_plab">Place</div>
+            ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}
+            <div class="cb_hint">Floating goes anywhere. Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
+            <div class="cb_plab">Show</div>
+            ${pick(p, 'show', [['always', 'Always'], ['newest', 'Newest Reply Only']], p.show)}
+            <div class="cb_hint">Always shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it.</div>
+            <div class="cb_plab">Frame</div>
+            ${pick(p, 'frame', [['none', 'None'], ['panel', 'Panel']], p.frame)}
+            <div class="cb_hint">None shows only what your regex draws. Panel puts it on SillyTavern's panel look.</div>
+            <div class="cb_plab">In Visual Novel Mode</div>
+            ${pick(p, 'vn', [['show', 'Show'], ['hide', 'Hide']], p.vn)}
+            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" class="m_pin_hide" ${p.hide ? 'checked' : ''}><span>Hide the original in the chat</span></label>
+          </div>`;
+    }).join('');
+  }
+
+  function bindPins(overlay, s) {
+    const list = overlay.querySelector('#m_pin_list');
+    if (!list) return;
+    const render = () => { list.innerHTML = pinListHtml(s); };
+    const changed = () => { save(); syncPins(); };
+    const pinAt = (el) => s.layPins.find((p) => p.id === el.closest('[data-pin]')?.dataset.pin);
+    render();
+    overlay.querySelector('#m_pin_add').onclick = () => {
+      if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Pinned Blocks'); return; }
+      // Each new box starts a little lower than the last, so they don't land on top of each other.
+      const n = s.layPins.length;
+      const [p] = cleanPins([{ name: `Pinned Block ${n + 1}`, desk: { ...PIN_START.desk, y: PIN_START.desk.y + (n % 6) * 8 }, phone: { ...PIN_START.phone, y: PIN_START.phone.y + (n % 6) * 8 } }]);
+      s.layPins.push(p);
+      pinOpen = p.id;
+      changed();
+      render();
+    };
+    list.addEventListener('click', async (e) => {
+      const b = e.target.closest('button');
+      const p = b && pinAt(b);
+      if (!p) return;
+      if (b.classList.contains('m_pin_edit')) { pinOpen = pinOpen === p.id ? null : p.id; render(); return; }
+      if (b.classList.contains('m_pin_pick')) { pickPin(p, render); return; }
+      if (b.classList.contains('m_pin_move')) {
+        if (!layOn(s)) toastr.info('Turn Layout on first.', 'Pinned Blocks');
+        else if (!pinSel(p)) toastr.info('Pick the block in a message first.', 'Pinned Blocks');
+        else startPlacement('pin_' + p.id);
+        return;
+      }
+      if (b.classList.contains('m_pin_del')) {
+        if (!(await askYes(b, `Delete the Pinned Block "${p.name}"? The block stays in your messages.`, 'Delete', { danger: true }))) return;
+        s.layPins = s.layPins.filter((x) => x !== p);
+        if (pinOpen === p.id) pinOpen = null;
+        changed();
+        render();
+      }
+    });
+    list.addEventListener('change', (e) => {
+      const t = e.target;
+      const p = pinAt(t);
+      if (!p) return;
+      if (t.classList.contains('m_pin_name')) { p.name = t.value.trim().slice(0, 60) || 'Pinned Block'; changed(); render(); return; }
+      if (t.classList.contains('m_pin_hide')) { p.hide = t.checked; changed(); return; }
+      const m = /^cbr_pin(place|show|frame|vn)-/.exec(t.name || '');
+      if (m && t.checked) { p[m[1]] = t.value; changed(); }
+    });
   }
 
   // ===== UI Decor (the page was called UI Display, and its keys still start with ov) =====
@@ -4298,6 +4709,8 @@
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
     // Saved in card data (and the shared Global banner), not as settings keys (see cardNum).
+    // Pinned Blocks' places, kept in each block (see cleanPins).
+    pinX: [0, 100, 0.01, '%'], pinY: [0, 100, 0.01, '%'], pinW: [5, 100, 0.01, '%'], pinH: [5, 100, 0.01, '%'],
     fgScale: [10, 300, 5, '%'], fgX: [-10000, 10000, 5, 'px', -1500, 1500], fgY: [-10000, 10000, 5, 'px', -1500, 1500], bannerPos: [0, 100, 1, '%'], bannerVideoPos: [0, 100, 1, '%'], bannerOffset: [0, 300, 5, 'px'],
   };
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
@@ -4352,6 +4765,7 @@
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
     if (k === 'bannerGlobal') return isObj(v);
+    if (k === 'layPins') return Array.isArray(v);
     if (k === 'emotions') return validEmotions(v);
     if (k === 'emoDefault') return !!cRef(v);
     if (k === 'opTransColor') return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
@@ -4366,6 +4780,7 @@
     if (!validLookValue(k, v)) return undefined;
     if (NUM_RANGE[k]) return Math.min(NUM_RANGE[k][1], Math.max(NUM_RANGE[k][0], v));
     if (k === 'emotions') return v.map((e) => ({ id: e.id, name: e.name.trim() }));
+    if (k === 'layPins') return cleanPins(v);
     if (TAG_KEYS.includes(k)) return v.trim(); // as the menu's Apply saves them
     return structuredClone(v);
   }
@@ -4965,6 +5380,8 @@
   }
 
   function syncVNToggle() {
+    // Pinned Blocks can hide in Visual Novel Mode.
+    syncPins();
     const b = document.getElementById('cb_node_toggle');
     if (!b) return;
     b.classList.toggle('cb_on', !!settings().nodeEnabled);

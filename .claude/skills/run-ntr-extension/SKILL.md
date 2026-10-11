@@ -118,7 +118,7 @@ bash .claude/skills/run-ntr-extension/st.sh bench branch full        # the worki
 bash .claude/skills/run-ntr-extension/st.sh bench table plain main branch
 ```
 
-Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Display styling and a custom cursor, through `bench-full.txt`), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen) and `runs=N` (default 3). Each run takes about a minute, and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
+Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Decor styling, a custom cursor, and Layout with a Pinned Block, through `bench-full.txt`), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen) and `runs=N` (default 3). Each run takes about a minute, and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
 
 Reading the numbers:
 

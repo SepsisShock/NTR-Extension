@@ -321,6 +321,16 @@
     }
     // The button's Border Style had None, which is ST's own look: unticked.
     if (o.rbBtnBorder === 'none') { o.rbBtnBorder = DEFAULTS.rbBtnBorder; o.rbBtnBorderOn = false; }
+    // UI Display's switch used to cover Chat Width, Space Between Messages, Send Box Position, the scrollbar and the
+    // cursor. They follow Layout's switch and their own Elements switches now, so whatever showed before still shows:
+    // with UI Display on, Layout comes on for them (it changes nothing until something is moved); with it off, they go off.
+    if ('ovEnabled' in o && !('ovScrollOn' in o)) {
+      const on = o.ovEnabled !== false;
+      const lay = ['ovWidthOn', 'ovMesGapOn', 'ovSendPosOn'];
+      o.ovScrollOn = on;
+      if (!on) { o.ovCursorOn = false; o.ovNamesOn = false; for (const k of lay) o[k] = false; }
+      else if (lay.some((k) => o[k]) && o.layEnabled !== true) o.layEnabled = true;
+    }
     return o;
   }
 
@@ -2899,7 +2909,7 @@
             + ovWhen('ovSendPos', 'separate', ovLabel('Gap', rangeSlider(s, 'ovSendGap')))
             + '<div class="cb_hint">Joined sits right under the chat panel, flat where they meet, like SillyTavern. Separate is its own box with a gap above it.</div>')}</div>
           <div class="cb_hint m_l_note" data-lay="send" hidden>The send bar is Free, so it stands on its own.</div>
-          <div class="cb_hint" style="margin-bottom: 0;">Chat Panel and Send Box apply to both Desktop and Phone.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Space Between Messages and Send Box apply to both Desktop and Phone. Chat Width is for Desktop only: on a phone, the chat fills the screen.</div>`)}
         ${card('Layout', `
           ${pills('ltab', [['desk', 'Desktop'], ['phone', 'Phone']], ph ? 'phone' : 'desk')}
           <div class="cb_hint" style="margin-bottom: 0;">Menu Bar, Send Bar and Back to SillyTavern's Layout below change this one.</div>`)}

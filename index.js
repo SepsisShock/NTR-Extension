@@ -361,6 +361,10 @@
     // Border Style had no tick in 2.10.0, so a border picked there stays on.
     if ('rbBtnBorder' in s && !('rbBtnBorderOn' in s)) s.rbBtnBorderOn = s.rbBtnBorder !== 'none';
     if ('rbBorderStyle' in s && !('rbBorderStyleOn' in s)) s.rbBorderStyleOn = s.rbBorderStyle !== 'solid';
+    // The built-in book was a drawing before 2.36.0, and its page areas don't fit the photo books.
+    if (!('rdBook' in s) && !s.rdBookImg && s.rdBookTop === 7 && s.rdBookBottom === 8 && s.rdBookOuter === 7 && s.rdBookSpine === 8) {
+      for (const k of ['rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine']) s[k] = DEFAULTS[k];
+    }
     if (!fresh) upgradeLook(s);
     for (const k of Object.keys(DEFAULTS)) {
       if (s[k] === undefined) s[k] = structuredClone(DEFAULTS[k]);

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.37.0';
+  const VERSION = '2.38.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -99,6 +99,8 @@
     emoDefault: 'emo_neutral',
     delimSpkOpen: '((', delimSpkClose: '))', delimNarOpen: '[[', delimNarClose: ']]',
     delimEmo: '%%', narratorWord: 'Narrator',
+    // Emotions outside Visual Novel Mode (cast.js): faces on chat avatars, the stage behind the chat, the [[Emotion:X]] tag
+    emoWord: 'Emotion', emoSource: 'tags', emoFaces: false, emoStage: false, emoStageScale: 100, emoStageOpacity: 100, emoInject: true,
 
     // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens; empty status text means ST's own)
     rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbTyping: 'off',
@@ -581,6 +583,8 @@
     const p = mes.getAttribute('is_user') === 'true' ? 'us' : 'ai';
     const s = settings();
     if (!ntrAvatars(s, p) || s[p + 'Style'] === 'popout') return;
+    // A face from Emotions (cast.js) is already full size.
+    if (img.dataset.ntrFace === src) return;
     const full = fullResUrl(src);
     if (full === src || img.dataset.ntrFull === full) return;
     img.dataset.ntrFull = full;
@@ -2711,7 +2715,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'av_emo', 'av_emo_list', 'av_spk']);
+  const FOLDED = new Set(['vn_guide', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -3685,7 +3689,7 @@
     layBarEdge: LAY_EDGES, laySend: ['attached', 'free'], layPhBarEdge: LAY_EDGES, layPhSend: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
-    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v),
+    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
   });
   for (const p of ['Panel', ...OV_PARTS]) {
     Object.assign(PICK_KEYS, { [`ov${p}Bg`]: ['clear', 'color'], [`ov${p}Border`]: ['none', 'line'] });
@@ -4691,13 +4695,13 @@
     layout: { label: 'Layout (chat panel, menu bar, send bar, chat width, message spacing, send box position)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
-    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS] },
+    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },
     reasoning: { label: 'Elements (reasoning block, scrollbar, cursor)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')), ...ELEMENT_OV_KEYS] },
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
     reader: { label: 'Reader Mode look (Plain or Book, book picture, page areas, ink, font)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont'] },
-    vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
+    vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
       'opLead', 'opFade', 'opSize', 'opPos', 'opHold', 'opExit', 'opTrans', 'opTransColor', 'opTransMs', 'opEarly', 'nodeMaps', 'mapGoText'] },
@@ -4715,9 +4719,9 @@
     return out;
   }
 
-  // The tag symbols and keywords Visual Novel Mode reads. They only work together, so they're checked together: by Apply
-  // in the menu's Tags & Delimiters (vn.js) and when a theme is imported or applied.
-  const TAG_KEYS = ['delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'locWord',
+  // The tag symbols and keywords Visual Novel Mode and emotions read. They only work together, so they're checked together:
+  // by Apply in the menu's Tags & Delimiters (cast.js) and when a theme is imported or applied.
+  const TAG_KEYS = ['delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord', 'locWord',
     'choiceWord', 'choiceSep', 'effectWord', 'weatherWord', 'cgWord', 'enterWord', 'exitWord', 'fxShake', 'fxFlash', 'fxFade', 'wxRain', 'wxSnow', 'wxClear'];
   function validateDelims(d) {
     const errs = [], warns = [];
@@ -4725,10 +4729,10 @@
     if (TAG_KEYS.some((k) => !d[k])) errs.push('Every field needs a value.');
     const delims = [d.delimSpkOpen, d.delimSpkClose, d.delimNarOpen, d.delimNarClose];
     const distinct = (arr) => { const a = arr.filter(Boolean).map(lc); return new Set(a).size === a.length; };
-    if (!distinct([d.narratorWord, d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord])) errs.push('The narrator, location, choice, effect, weather, CG, enter and exit keywords all need to be different.');
+    if (!distinct([d.narratorWord, d.emoWord, d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord])) errs.push('The narrator, emotion, location, choice, effect, weather, CG, enter and exit keywords all need to be different.');
     if (!distinct([d.fxShake, d.fxFlash, d.fxFade])) errs.push('The three effect names need to be different.');
     if (!distinct([d.wxRain, d.wxSnow, d.wxClear])) errs.push('The three weather names need to be different.');
-    if ([d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord].some((w) => w && w.includes(':'))) errs.push('Tag keywords can\'t contain a colon.');
+    if ([d.emoWord, d.locWord, d.choiceWord, d.effectWord, d.weatherWord, d.cgWord, d.enterWord, d.exitWord].some((w) => w && w.includes(':'))) errs.push('Tag keywords can\'t contain a colon.');
     if (d.choiceSep && delims.some((x) => x && x.includes(d.choiceSep))) errs.push('The choice separator can\'t appear inside the delimiters.');
     if (d.delimSpkOpen && d.delimSpkOpen === d.delimNarOpen) errs.push('Speaker and narrator need different opening delimiters.');
     if (d.delimEmo && delims.some((x) => x && x.includes(d.delimEmo))) errs.push('The emotion separator can\'t appear inside the other delimiters.');
@@ -4755,6 +4759,7 @@
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
+    emoStageScale: [30, 200, 5, '%'], emoStageOpacity: [10, 100, 5, '%'],
     opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
     // Saved in card data (and the shared Global banner), not as settings keys (see cardNum).
     // Pinned Blocks' places, kept in each block (see cleanPins).
@@ -4896,6 +4901,7 @@
     syncPopouts();
     syncWallpaper();
     window.NTR.vn?.refresh();
+    window.NTR.cast?.refresh();
   }
 
   function applyLook(data) {
@@ -5656,6 +5662,8 @@
     if (on) {
       if (s.nodeEnabled || s.vnUsed) { const vn = await loadVN(); if (vn) vn.refresh(); }
     } else if (window.NTR.vn) window.NTR.vn.teardown();
+    if (on) (await loadModule('cast'))?.refresh();
+    else window.NTR.cast?.teardown();
     const rd = on && s.rdEnabled ? await loadModule('reader', true) : window.NTR.reader;
     rd?.refresh();
     if (document.getElementById('cb_modal_overlay')) openCombinedModal();
@@ -5717,7 +5725,7 @@
       injectNodeToggle();
       injectReaderToggle();
       syncWandEntry();
-      if (isOn() && window.NTR.vn) window.NTR.vn.ensure();
+      if (isOn()) window.NTR.cast?.ensure();
     };
     tick();
     setInterval(tick, 1000);
@@ -5731,9 +5739,12 @@
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
-    refreshPins: () => syncPins(), readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
+    // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
+    refreshPins: () => { syncPins(); window.NTR.cast?.sync(); }, readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
+    // For cast.js: Pop Out catches up after a face changes
+    syncPopouts: () => syncPopouts(),
     // For preview.js
     PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
     startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),
@@ -5764,6 +5775,7 @@
       syncWallpaper();
       layoutFg();
       layoutPop();
+      window.NTR.cast?.sync();
       syncSendRoom();
       const ov = document.getElementById('cb_modal_overlay');
       if (!ov) return;
@@ -5775,15 +5787,21 @@
       endPlacement();
       renderAll();
       window.NTR.vn?.queue(false);
+      window.NTR.cast?.refresh();
       window.NTR.reader?.chatChanged();
       if (document.getElementById('cb_modal_overlay')) openCombinedModal();
     });
 
     for (const [name, anim] of [['USER_MESSAGE_RENDERED', true], ['MESSAGE_EDITED', false], ['MESSAGE_UPDATED', false], ['MESSAGE_DELETED', false]]) {
-      if (event_types[name]) eventSource.on(event_types[name], () => window.NTR.vn?.queue(anim));
+      if (event_types[name]) eventSource.on(event_types[name], () => { window.NTR.vn?.queue(anim); window.NTR.cast?.sync(); });
     }
     // A swipe to a new reply shows "..." until the reply arrives (see nodeSwiped in vn.js).
-    if (event_types.MESSAGE_SWIPED) eventSource.on(event_types.MESSAGE_SWIPED, (id) => (window.NTR.vn?.swiped ? window.NTR.vn.swiped(Number(id)) : window.NTR.vn?.queue(true)));
+    if (event_types.MESSAGE_SWIPED) {
+      eventSource.on(event_types.MESSAGE_SWIPED, (id) => {
+        window.NTR.cast?.sync();
+        return window.NTR.vn?.swiped ? window.NTR.vn.swiped(Number(id)) : window.NTR.vn?.queue(true);
+      });
+    }
     if (event_types.CHARACTER_MESSAGE_RENDERED) {
       eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, (id, type) => {
         const vn = window.NTR.vn;
@@ -5792,12 +5810,14 @@
         // Without streaming, SillyTavern marks a finished Continue as 'appendFinal'.
         if ((type === 'continue' || type === 'appendFinal') && vn?.continued) vn.continued(Number(id));
         else vn?.queue(true);
+        window.NTR.cast?.sync();
         window.NTR.agents?.replied(type);
       });
     }
     if (event_types.GENERATION_STARTED) {
       eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => {
         window.NTR.vn?.genStarted?.(type, dryRun);
+        window.NTR.cast?.genStarted(type, dryRun);
         window.NTR.reader?.genStarted(type, dryRun);
         window.NTR.agents?.genStarted(type, dryRun);
       });
@@ -5806,12 +5826,12 @@
     // The short delay lets a reply that did arrive go first, so it still gets typed.
     if (event_types.GENERATION_ENDED) {
       eventSource.on(event_types.GENERATION_ENDED, () => {
-        window.NTR.vn?.genEnded?.();
+        window.NTR.cast?.genEnded();
         window.NTR.agents?.genEnded();
         setTimeout(() => { if (window.NTR.vn?.endWait?.()) window.NTR.vn.queue(false); }, 300);
       });
     }
-    if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); });
+    if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); window.NTR.cast?.refresh(); });
     // A renamed preset keeps its regex folders (Regexes page, regex.js), which are saved by preset name.
     if (event_types.PRESET_RENAMED) {
       eventSource.on(event_types.PRESET_RENAMED, ({ apiId, oldName, newName } = {}) => {
@@ -5836,6 +5856,8 @@
     }
     renderAll();
     const s0 = settings();
+    // cast.js hides tags in the chat and draws emotions, so it loads whenever NTR is on. VN loads it first anyway.
+    if (isOn()) loadModule('cast').then((c) => c?.refresh());
     if (isOn() && (s0.nodeEnabled || s0.vnUsed)) loadVN().then((vn) => { if (vn) vn.refresh(); });
     if (isOn() && s0.rdEnabled) loadModule('reader').then((rd) => rd?.refresh());
     if (isOn() && s0.agEnabled && !PREVIEW) loadModule('agents');

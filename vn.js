@@ -1,15 +1,15 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.37.0';
+  const VN_VERSION = '2.38.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead } = A;
   const TAG = A.TAG || '';
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
   if (!C) { console.error('[NTR] vn.js loaded without cast.js.'); return; }
-  const { tagRe, splitTag } = C;
+  const { tagRe, splitTag, castNew, castStep, spotBoxes, pickSpots } = C;
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
   const VDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
@@ -231,7 +231,7 @@
     el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
   }
 
-  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null, writing: false };
+  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null };
   let nodeQ = null, nodeQAnim = false;
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -289,7 +289,9 @@
 
   function parseSegments(raw, fallbackName, leadAsSpeaker) {
     const s = settings();
-    raw = String(raw || '');
+    // [[Emotion:X]] (cast.js) sets the emotion of the message's own character. It's taken out here and goes on their lines.
+    const msgEmo = C.stripEmo(String(raw || ''));
+    raw = msgEmo.text;
     const re = tagRe(s);
     const nar = String(s.narratorWord).trim().toLowerCase();
     const segs = [];
@@ -324,6 +326,7 @@
       if (s.nodeSplitUntagged) segs.push(...splitUntagged(raw, fallbackName || ''));
       else segs.push({ kind: 'char', name: fallbackName || '', emo: '', text: raw.trim() });
     }
+    if (msgEmo.emo) for (const g of segs) if (g.kind === 'char' && !g.emo && lc(g.name) === lc(fallbackName)) g.emo = msgEmo.emo;
     return segs;
   }
 
@@ -337,73 +340,6 @@
 
   // Normal chat view: ((Rafe%%Sad)) -> ((Rafe)), and location, effect, weather, CG, enter and exit tags disappear.
   // `els` limits it to some messages' .mes_text (the chat watcher passes the ones that just changed).
-  function cleanEmoTags(els) {
-    const s = settings();
-    if (!A.isOn() || !s.nodeHideEmo) return;
-    const writing = node.writing && document.querySelector('#chat .mes.last_mes .mes_text');
-    // Only messages that hold a tag are worth a closer look. A reply being written also counts if it has an open
-    // speaker tag, since its emotion part may be only half written.
-    const has = (t, d) => !!d && t.includes(d);
-    const todo = [...(els || document.querySelectorAll('#chat .mes_text'))].filter((el) => {
-      const t = el.textContent;
-      return has(t, s.delimEmo) || has(t, s.delimNarOpen) || (el === writing && has(t, s.delimSpkOpen));
-    });
-    if (!todo.length) return;
-    const so = reEsc(s.delimSpkOpen), sc = reEsc(s.delimSpkClose), no = reEsc(s.delimNarOpen), nc = reEsc(s.delimNarClose);
-    const emo = s.delimEmo ? reEsc(s.delimEmo) : '';
-    const emoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${emo}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
-    const dirWords = [s.locWord, s.effectWord, s.weatherWord, s.cgWord, s.enterWord, s.exitWord].filter(Boolean).map(reEsc).join('|');
-    const locRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}?[ \\t]*${nc}[ \\t]*`, 'gi');
-    // A reply being written can end partway through a tag: ((Rafe%%Sa, ((Rafe% or [[Location:Fo. That part is hidden too.
-    const emoStart = emo ? [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|') : '';
-    const openEmoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`) : null;
-    const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}[ \\t]*$`, 'i');
-    for (const el of todo) {
-      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-      let n, last = null;
-      while ((n = w.nextNode())) {
-        if (n.parentElement?.closest('textarea')) continue;
-        if (n.nodeValue.trim()) last = n;
-        let val = n.nodeValue;
-        if (emoRe && val.includes(s.delimEmo)) val = val.replace(emoRe, '$1$2');
-        if (val.includes(s.delimNarOpen)) val = val.replace(locRe, '');
-        if (val !== n.nodeValue) n.nodeValue = val;
-      }
-      if (el !== writing || !last) continue;
-      let val = last.nodeValue;
-      if (openEmoRe) val = val.replace(openEmoRe, '$1');
-      val = val.replace(openLocRe, '');
-      if (val !== last.nodeValue) last.nodeValue = val;
-    }
-  }
-
-  let chatObs = null, cleanT = null;
-  function ensureChatObserver() {
-    const chat = document.getElementById('chat');
-    if (!chat || !window.MutationObserver || (chatObs && chatObs._el === chat)) return;
-    if (chatObs) chatObs.disconnect();
-    // The messages that changed are cleaned right away, before the browser draws them, so a reply that streams in
-    // never shows its tags. A full pass after the chat goes quiet catches anything else.
-    chatObs = new MutationObserver((recs) => {
-      const els = new Set();
-      for (const r of recs) {
-        const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
-        const m = t && t.closest('.mes_text');
-        if (m) { els.add(m); continue; }
-        for (const a of r.addedNodes) {
-          if (a.nodeType !== 1) continue;
-          if (a.matches('.mes_text')) els.add(a);
-          a.querySelectorAll('.mes_text').forEach((e) => els.add(e));
-        }
-      }
-      if (els.size) cleanEmoTags([...els].filter((e) => chat.contains(e)));
-      clearTimeout(cleanT); cleanT = setTimeout(() => cleanEmoTags(), 120);
-    });
-    chatObs.observe(chat, { childList: true, subtree: true, characterData: true });
-    chatObs._el = chat;
-    cleanEmoTags();
-  }
-
   // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
   function spriteSrc(name, emoName) {
     return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());
@@ -433,6 +369,7 @@
       { label: 'A character speaks', code: `${s.delimSpkOpen}${spk}${s.delimEmo}${emo}${s.delimSpkClose}: "Hello there."`, hint: `The name comes first, then the emotion after ${s.delimEmo}. The emotion is optional: ${s.delimSpkOpen}${spk}${s.delimSpkClose}: works too. Everything after the tag is that character's line.` },
       { label: 'Narration', code: `${no}${s.narratorWord}${nc}: The tavern was quiet.`, hint: 'No portrait is shown for the narrator.' },
       { label: 'Change the background', code: `${no}${s.locWord}:${loc}${nc}`, hint: 'The name has to match a location you added under Locations. Case, punctuation and a leading "The" are ignored. It stays until the next location tag.' },
+      { label: 'Emotion for the whole message', code: `${no}${s.emoWord}:${emo}${nc}`, hint: `Sets the emotion of the character who wrote the message, wherever no speaker tag gives one. Also works with Visual Novel Mode off (Avatars, under Emotions).` },
     ];
     if (s.nodeChoices) rows.push({ label: 'Offer choices', code: `${no}${s.choiceWord}: Stay ${s.choiceSep} Leave${nc}`, hint: `Put it at the end of a message. Separate the options with ${s.choiceSep}.` });
     if (s.nodeEffects) {
@@ -444,7 +381,7 @@
       rows.push({ label: 'A character enters', code: `${no}${s.enterWord}:${spk}${nc}`, hint: `Shows their sprite right away, even before they speak. Add a slot to choose where: ${no}${s.enterWord}:${spk} | left${nc} (left, center or right). Once a card uses ${s.enterWord} or ${s.exitWord}, sprites stay until an ${s.exitWord} tag; without them, sprites follow who spoke recently.` });
       rows.push({ label: 'A character leaves', code: `${no}${s.exitWord}:${spk}${nc}`, hint: `Removes their sprite from the next line on. ${no}${s.exitWord}:All${nc} clears the stage.` });
     }
-    const sample = [rows[2], rows[1], rows[0], ...rows.slice(3, 4)].filter(Boolean).map((r) => r.code).join('\n');
+    const sample = [rows[2], rows[1], rows[0], ...rows.slice(4, 5)].filter(Boolean).map((r) => r.code).join('\n');
     return { rows, sample };
   }
 
@@ -521,7 +458,6 @@
     const sl = (id, key, label, unit, min, max, step) => `
       <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_n_${id}val">${s[key]}</span>${unit}</span></div>
       <input type="range" class="m_n_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}">`;
-    const df = (key, label) => `<label class="cb_dfield"><span>${label}</span><input type="text" class="text_pole m_d_in" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="16"></label>`;
     const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
     const artBtns = (k, id) => `<span id="${id}" class="cb_art_btns" style="display:flex;gap:4px;">
@@ -559,8 +495,7 @@
               <div style="margin-top:10px;">${ck('m_n_pbox', s.nodePortraitBox, 'Show the portrait in the box')}</div>
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
-              ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites keep the face instead of changing with the emotion')}
-              <div class="cb_hint">A speaker's full body (Avatars, under Emotions and then Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use their faces, not card avatars. With the keep-the-face option on, faces only change in the message box: the stage keeps the speaker's main face, which is their default emotion face, or their first face, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              <div class="cb_hint">A speaker's full body (Avatars, under Emotions and then Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use their faces, not card avatars. With Keep the main face on (Avatars, under Emotions and then In the Chat), faces only change in the message box: the stage keeps the speaker's main face, which is their default emotion face, or their first face, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -614,33 +549,6 @@
             ${subSection('map', 'vn_map', 'Maps ' + TAG, s)}
             ${subSection('opening', 'vn_open', 'Opening Video ' + TAG, s)}
 
-            ${subHead('vn_tags', 'Tags & Delimiters (change the symbols)')}
-            <div class="cb_collapse_content">
-              ${ck('m_n_hide', s.nodeHideEmo, 'Hide emotion and scene tags (location, effect, weather, CG, enter, exit) in the normal chat view')}
-              <div class="cb_dgrid">
-                ${df('delimSpkOpen', 'Speaker open')}${df('delimSpkClose', 'Speaker close')}
-                ${df('delimNarOpen', 'Narrator open')}${df('delimNarClose', 'Narrator close')}
-                ${df('delimEmo', 'Emotion separator')}${df('narratorWord', 'Narrator keyword')}
-                ${df('locWord', 'Location keyword')}
-              </div>
-              <div class="cb_sub">Scene keywords</div>
-              <div class="cb_dgrid">
-                ${df('choiceWord', 'Choice keyword')}${df('choiceSep', 'Choice separator')}
-                ${df('effectWord', 'Effect keyword')}${df('weatherWord', 'Weather keyword')}
-                ${df('fxShake', 'Effect: shake')}${df('fxFlash', 'Effect: flash')}
-                ${df('fxFade', 'Effect: fade')}${df('cgWord', 'CG keyword')}
-                ${df('wxRain', 'Weather: rain')}${df('wxSnow', 'Weather: snow')}
-                ${df('wxClear', 'Weather: clear')}${df('enterWord', 'Enter keyword')}
-                ${df('exitWord', 'Exit keyword')}
-              </div>
-              <div id="m_d_preview" class="cb_code"></div>
-              <div id="m_d_msg" class="cb_hint"></div>
-              <div class="cb_actions">
-                <button id="m_d_apply" class="menu_button"><i class="fa-solid fa-check"></i> Apply</button>
-                <button id="m_d_reset" class="menu_button"><i class="fa-solid fa-rotate-left"></i> Reset to defaults</button>
-              </div>
-            </div>
-
             ${subHead('vn_prompt', 'Prompt for your LLM')}
             <div class="cb_collapse_content">
               ${ck('m_n_inj', s.nodeInject, 'Add these instructions to every request automatically')}
@@ -654,6 +562,7 @@
   // A change on the Avatars page (cast.js): redraw, and refresh the open menu's guide and prompt.
   let menuRefresh = null;
   C.onChange(() => {
+    updateStage();
     if (menuRefresh && document.getElementById('m_g_body')) { menuRefresh(); return; }
     updateInjection();
     if (settings().nodeEnabled) nodeLoad({ animate: false });
@@ -667,11 +576,12 @@
       box.innerHTML = guideHtml(s);
       box.querySelectorAll('.m_g_cp').forEach((b) => { b.onclick = () => copyText(b.dataset.c); });
     }
+    // Tags & Delimiters are on the Avatars page, under Emotions (cast.js): emotion tags work with Visual Novel Mode off too.
     const gotoDelims = (e) => {
       if (e) e.preventDefault();
-      s.uiPage = 'vn'; s.uiOpen.vn_tags = true; save();
+      s.uiPage = 'pfp'; s.uiOpen.av_emo = true; s.uiOpen.av_tags = true; save();
       A.openMenu();
-      setTimeout(() => document.querySelector('#cb_modal_overlay [data-sec="vn_tags"]')?.scrollIntoView({ block: 'start' }), 60);
+      setTimeout(() => document.querySelector('#cb_modal_overlay [data-sec="av_tags"]')?.scrollIntoView({ block: 'start' }), 60);
     };
     overlay.querySelectorAll('.m_g_goto').forEach((b) => { b.onclick = gotoDelims; });
     const refreshAll = () => { renderGuide(); refreshPrompt(); updateInjection(); if (s.nodeEnabled) nodeLoad({ animate: false }); };
@@ -695,13 +605,8 @@
     chk('#m_n_tw', 'nodeTypewriter');
     chk('#m_n_pbox', 'nodePortraitBox', () => { if (s.nodeEnabled) nodeShow(false); });
     chk('#m_n_spr', 'nodeSprites', updateStage);
-    chk('#m_n_sprbase', 'nodeSpriteBase', updateStage);
     chk('#m_n_inj', 'nodeInject', updateInjection);
     chk('#m_n_auto', 'nodeAuto');
-    chk('#m_n_hide', 'nodeHideEmo', () => {
-      if (s.nodeHideEmo) cleanEmoTags();
-      else if (typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
-    });
     const dimIf = (sel, on) => overlay.querySelector(sel)?.classList.toggle('cb_dim', !on);
     chk('#m_n_split', 'nodeSplitUntagged', () => { if (s.nodeEnabled) nodeLoad({ animate: false }); });
     chk('#m_n_choices', 'nodeChoices', () => { dimIf('#m_n_choices_body', s.nodeChoices); refreshAll(); });
@@ -722,33 +627,6 @@
       sl.onchange = save;
     });
     onPills(overlay, 'nshape', (v) => { s.nodeShape = v; save(); nodeApplyLook(); });
-
-    // Delimiters
-    const dIns = [...overlay.querySelectorAll('.m_d_in')];
-    const readD = () => Object.fromEntries(dIns.map((i) => [i.dataset.key, i.value.trim()]));
-    const preview = () => {
-      const d = readD();
-      overlay.querySelector('#m_d_preview').textContent =
-        `${d.delimSpkOpen}Rafe${d.delimEmo}Neutral${d.delimSpkClose}: "Dialogue."\n${d.delimNarOpen}${d.narratorWord}${d.delimNarClose}: Narration.\n${d.delimNarOpen}${d.locWord}:Tavern${d.delimNarClose}`
-        + `\n${d.delimNarOpen}${d.choiceWord}: Stay ${d.choiceSep} Leave${d.delimNarClose}\n${d.delimNarOpen}${d.effectWord}:${d.fxShake}${d.delimNarClose} ${d.delimNarOpen}${d.weatherWord}:${d.wxRain}${d.delimNarClose} ${d.delimNarOpen}${d.cgWord}:First Kiss${d.delimNarClose}`;
-      const { errs, warns } = validateDelims(d);
-      overlay.querySelector('#m_d_msg').innerHTML = errs.map((x) => `<div class="cb_err">${escapeHTML(x)}</div>`).join('') + warns.map((x) => `<div class="cb_warn">${escapeHTML(x)}</div>`).join('');
-    };
-    const applyD = (d) => {
-      const { errs } = validateDelims(d);
-      if (errs.length) { toastr.error(errs[0], 'Visual Novel'); return false; }
-      Object.assign(s, d);
-      save(); C.renderSpeakers(); refreshAll(); cleanEmoTags();
-      toastr.success('Delimiters updated', 'Visual Novel');
-      return true;
-    };
-    dIns.forEach((i) => { i.oninput = preview; });
-    overlay.querySelector('#m_d_apply').onclick = () => applyD(readD());
-    overlay.querySelector('#m_d_reset').onclick = () => {
-      dIns.forEach((i) => { i.value = A.DEFAULTS[i.dataset.key]; });
-      preview();
-      applyD(readD());
-    };
 
     // Prompt
     overlay.querySelector('#m_p_copy').onclick = () => copyText(overlay.querySelector('#m_p_text').value, 'Prompt copied');
@@ -885,7 +763,7 @@
       artFile.value = '';
     };
 
-    renderLoc(); renderCg(); renderArt(); preview(); refreshPrompt(); renderGuide();
+    renderLoc(); renderCg(); renderArt(); refreshPrompt(); renderGuide();
     for (const name of ['map', 'opening']) {
       const m = window.NTR[name];
       if (m) { try { m.bind(overlay, s); } catch (e) { console.error(`[NTR] ${name} menu crashed`, e); } }
@@ -1261,26 +1139,8 @@
 
   // Who is on stage. Speaking adds a character; Enter/Exit tags add or remove one explicitly.
   // Until a chat uses an Enter or Exit tag, `explicit` stays false and the stage keeps following recent speakers.
-  const castNew = () => ({ explicit: false, list: [] });
+  // Who is on stage: castNew and castStep (cast.js) keep the list. A snapshot goes on each line.
   const castSnap = (st) => ({ explicit: st.explicit, list: st.list.map((x) => ({ ...x })) });
-  function castStep(st, seg) {
-    if (seg.kind === 'enter') {
-      const [nm, sp] = String(seg.name).split('|').map((x) => x.trim());
-      const key = lc(nm);
-      if (!key) return;
-      const spot = ['left', 'center', 'right'].includes(lc(sp)) ? lc(sp) : '';
-      st.list = st.list.filter((x) => x.key !== key);
-      st.list.push({ key, name: nm, spot });
-      st.explicit = true;
-    } else if (seg.kind === 'exit') {
-      const key = lc(seg.name);
-      st.list = key === 'all' ? [] : st.list.filter((x) => x.key !== key);
-      st.explicit = true;
-    } else if (seg.kind === 'char' && seg.name) {
-      const key = lc(seg.name);
-      if (!st.list.some((x) => x.key === key)) st.list.push({ key, name: seg.name, spot: '' });
-    }
-  }
   function castAt(idx) {
     const st = castNew();
     const chat = ctx().chat || [];
@@ -1428,14 +1288,6 @@
     return st;
   }
 
-  function spotBoxes() {
-    const W = window.innerWidth;
-    const chat = document.getElementById('chat');
-    const r = chat ? chat.getBoundingClientRect() : null;
-    if (!r || r.left < 150) return { left: [0, W / 3], center: [W / 3, W / 3], right: [(2 * W) / 3, W / 3] };
-    return { left: [0, r.left], center: [r.left, r.width], right: [r.right, Math.max(0, W - r.right)] };
-  }
-
   function updateStage() {
     const s = settings();
     const st = ensureStage();
@@ -1457,18 +1309,7 @@
       for (const c of cast.list) { if (!info.has(c.key)) info.set(c.key, { name: c.name, emo: '' }); wanted.set(c.key, c.spot); }
       present = cast.list.map((c) => [c.key, info.get(c.key)]).filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
     } else present = [...info.entries()].filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
-    const persona = String(ctx().name1 || '').toLowerCase();
-    for (const k of [...stageSpots.keys()]) if (!info.has(k) || !present.some(([pk]) => pk === k)) stageSpots.delete(k);
-    // A slot chosen with an Enter tag wins over the automatic one.
-    for (const [k, sp] of wanted) if (sp && stageSpots.has(k) && stageSpots.get(k) !== sp) stageSpots.delete(k);
-    const used = new Set(stageSpots.values());
-    const personaIn = present.some(([k]) => k === persona);
-    for (const [k] of present) {
-      if (stageSpots.has(k)) continue;
-      const pref = wanted.get(k) ? [wanted.get(k), 'center', 'left', 'right'] : k === persona ? ['right', 'center', 'left'] : personaIn ? ['left', 'center', 'right'] : ['left', 'right', 'center'];
-      const spot = pref.find((x) => !used.has(x));
-      if (spot) { stageSpots.set(k, spot); used.add(spot); }
-    }
+    pickSpots(stageSpots, present.map(([k]) => k), wanted);
     const boxes = spotBoxes();
     const scale = (s.nodeSpriteScale || 100) / 100;
     st.querySelectorAll('img').forEach((img) => {
@@ -1607,13 +1448,10 @@
   // SillyTavern says when a generation starts, while a continued message still holds only its old text.
   function nodeGenStarted(type, dryRun) {
     if (dryRun) return;
-    node.writing = type !== 'quiet' && type !== 'impersonate';
     const chat = ctx().chat || [];
     const id = chat.length - 1;
     node.cont = type === 'continue' && chat[id] ? { id, mes: chat[id].mes || '' } : null;
   }
-  // The reply is done: unfinished tags at its end are no longer hidden while it's written.
-  function nodeGenEnded() { node.writing = false; }
   // A Continue's reply is in: show it from where the old text ended.
   function nodeContinued(id) {
     if (node.cont && node.cont.id === id) node.contJump = node.cont;
@@ -1641,15 +1479,15 @@
     nodeQ = setTimeout(() => { const a = nodeQAnim; nodeQAnim = false; nodeLoad({ animate: a }); }, 60);
   }
 
-  function ensure() { ensureChatObserver(); }
 
   function refresh(opts = {}) {
     applyStyle();
     loadSubs();
     nodeLoad({ animate: false, switchedOn: !!opts.switchedOn });
-    ensure();
     syncNodeToggle();
     updateInjection();
+    // The stage behind the chat and the emotion prompt (cast.js) step aside while Visual Novel Mode is on.
+    C.refresh();
     if (A.refreshFg) A.refreshFg();
   }
 
@@ -1669,6 +1507,7 @@
     safe(() => window.NTR.opening?.abort());
     updateStage();
     updateInjection();
+    C.refresh();
     syncNodeToggle();
     if (A.refreshFg) A.refreshFg();
   }
@@ -1679,15 +1518,12 @@
     bind: bindVN,
     refresh,
     teardown,
-    ensure,
     relayout,
     queue: nodeQueue,
     swiped: nodeSwiped,
     endWait: nodeEndWait,
     genStarted: nodeGenStarted,
-    genEnded: nodeGenEnded,
     continued: nodeContinued,
-    cleanEmoTags,
     // For map.js and opening.js
     data: V,
     normLoc,

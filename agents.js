@@ -6,7 +6,7 @@
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
 // For now an agent's answer shows in its activity. Showing it on screen (the Agentic Tracker Panel) comes next.
 (() => {
-  const AGENTS_VERSION = '2.35.1';
+  const AGENTS_VERSION = '2.35.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;

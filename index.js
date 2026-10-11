@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.30.2';
+  const VERSION = '2.31.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -117,7 +117,7 @@
     ovPanelBorderOn: false, ovPanelBorder: 'line', ovPanelBorderColor: '', ovPanelBorderWidth: 1, ovPanelBorderOpacity: 100,
     ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false, ovNames: 'show',
     ovSendPosOn: false, ovSendPos: 'separate', ovSendGap: 8,
-    ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
+    ovScrollOn: true, ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
     ovScrollCssOn: false, ovScrollCss: '',
     ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorTextImg: '', ovCursorSize: 32,
 
@@ -377,6 +377,8 @@
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
     if (!s.themeLookV3) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV3 = true; }
+    // Saved themes move the settings that changed pages (Chat Width to Layout, Scrollbar to Elements and so on) to their new sections.
+    if (!s.themeLookV4) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV4 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
@@ -1172,7 +1174,7 @@
 
   // The main Enable switches are sliders that still click on and off. They're styled by id because a class would rank
   // below SillyTavern's own checkbox styles, which would turn them back into square checkboxes.
-  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable', 'm_l_enable'];
+  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable', 'm_l_enable', 'm_scroll_enable', 'm_cur_enable'];
   const switches = (state) => SWITCH_IDS.map((id) => `#${id}${state}`).join(', ');
 
   function updateAvatarStyle() {
@@ -1999,6 +2001,8 @@
     const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
     document.getElementById('cb_modal_overlay')?.remove();
     const s = settings();
+    // Reasoning Block Design is part of Elements now.
+    if (s.uiPage === 'reasoning') s.uiPage = 'elements';
     if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
     const F = fgData();
     const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
@@ -2173,15 +2177,18 @@
         `, { legend: true })}
 
         ${pageHtml('pfp', `
+            ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
+              + '<div class="cb_hint">Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.</div>'))}
             <div class="ntr_cols">
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
             </div>
         `, { sw: ['m_a_enable', s.avatarEnabled] })}
 
-        ${reasoningSectionHtml(s)}
+        ${elementsSectionHtml(s)}
         ${textSectionHtml(s)}
         ${displaySectionHtml(s)}
+        ${agentsSectionHtml()}
 
         ${regexSectionHtml(s)}
         ${vnSectionHtml(s)}
@@ -2549,24 +2556,28 @@
   const PAGES = [
     ['themes', 'fa-bookmark', 'Themes', 'Themes'],
     ['layout', 'fa-table-cells-large', 'Layout', 'Layout'],
-    ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
-    ['reasoning', 'fa-comment-dots', 'Reasoning', 'Reasoning Block Design'],
+    ['display', 'fa-palette', 'Decor', 'UI Decor'],
     ['text', 'fa-text-height', 'Text', 'Text Formatting'],
-    ['display', 'fa-display', 'Display', 'UI Display'],
+    ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
+    ['elements', 'fa-shapes', 'Elements', 'Elements'],
     ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
-    ['regex', 'fa-code', 'Regexes', 'Regexes'],
     ['vn', 'fa-clapperboard', 'VN', 'Visual Novel Mode'],
+    ['regex', 'fa-code', 'Regexes', 'Regexes'],
+    ['agents', 'fa-robot', 'Agents', 'Agents'],
   ];
-  // A line above Regexes sets the pages that make up your look apart from the rest.
-  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (id === 'regex' ? '<div class="ntr_navsep" role="separator"></div>' : '') +
-    `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
+  // Lines in the column: your look (Layout to Overlays), then Visual Novel Mode, then the pages that work on the chat itself.
+  const NAV_SEP = new Set(['layout', 'vn', 'regex']);
+  // Pages that show what's planned and do nothing yet. Their icon stays greyed.
+  const SOON = new Set(['agents']);
+  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
+    `<button class="ntr_navi${id === cur ? ' on' : ''}${SOON.has(id) ? ' ntr_off' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
     + '<div class="ntr_navfill"></div>';
   // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
   // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
   function pageHtml(sec, body, { sw = null, legend = false, note = '' } = {}) {
     const [, icon, , title] = PAGES.find(([id]) => id === sec);
     return `
-      <section class="ntr_page${sw && !sw[1] ? ' ntr_off' : ''}" data-page="${sec}"${settings().uiPage === sec ? '' : ' hidden'}>
+      <section class="ntr_page${(sw && !sw[1]) || SOON.has(sec) ? ' ntr_off' : ''}" data-page="${sec}"${settings().uiPage === sec ? '' : ' hidden'}>
         <div class="ntr_phead">
           <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
           <h3 class="ntr_ptitle">${title}</h3>
@@ -2671,8 +2682,9 @@
     overlay.querySelectorAll('.ntr_page').forEach((p) => {
       const sw = p.querySelector('.ntr_phead .ntr_pswitch');
       const parts = [...p.querySelectorAll('.ntr_part .ntr_pswitch')];
-      p.classList.toggle('ntr_off', !!sw && !sw.checked);
-      const off = sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked);
+      const soon = SOON.has(p.dataset.page);
+      p.classList.toggle('ntr_off', soon || (!!sw && !sw.checked));
+      const off = soon || (sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked));
       overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
     });
   }
@@ -2873,11 +2885,21 @@
     const ph = tabPhone();
     const btn = (id, icon, label) => `<button type="button" id="${id}" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid ${icon}"></i> ${label}</button>`;
     return pageHtml('layout', `
-        <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar and the send bar. There are two layouts: Desktop for screens wider than 1000px, and Phone for screens 1000px wide or less, like phones. Turning Layout on changes nothing until you move something.</div>
+        <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar and the send bar, and set the chat width, the space between messages and where the send box sits. There are two layouts: Desktop for screens wider than 1000px, and Phone for screens 1000px wide or less, like phones. Turning Layout on changes nothing until you move something.</div>
         ${card('', `
           <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}${btn('m_l_preview', 'fa-mobile-screen-button', 'Phone Preview')}</div>
           <div class="cb_hint">Edit Layout hides the menu so you can drag the parts on screen. It changes the layout this screen uses: <b id="m_l_now"></b>. Drag the handles on the picked part to resize it. Tap the picked part to pick the one under it. Press Done to come back.</div>
           <div class="cb_hint" style="margin-bottom: 0;">Phone Preview shows SillyTavern in a phone-sized window, with its own Edit Layout for the Phone layout. Nothing inside it can be clicked or saved.</div>`)}
+        ${card('Chat Panel', `
+          <div class="m_l_over" data-lay="width">${ovRow(s, 'ovWidthOn', 'Chat Width', rangeSlider(s, 'ovWidth'))}</div>
+          <div class="cb_hint m_l_note" data-lay="width" hidden>You moved the chat panel with Edit Layout, so its size comes from there.</div>
+          ${ovRow(s, 'ovMesGapOn', 'Space Between Messages', rangeSlider(s, 'ovMesGap'))}`)}
+        ${card('Send Box', `
+          <div class="m_l_over" data-lay="send">${ovRow(s, 'ovSendPosOn', 'Position', ovPick(s, 'ovSendPos', [['joined', 'Joined'], ['separate', 'Separate']])
+            + ovWhen('ovSendPos', 'separate', ovLabel('Gap', rangeSlider(s, 'ovSendGap')))
+            + '<div class="cb_hint">Joined sits right under the chat panel, flat where they meet, like SillyTavern. Separate is its own box with a gap above it.</div>')}</div>
+          <div class="cb_hint m_l_note" data-lay="send" hidden>The send bar is Free, so it stands on its own.</div>
+          <div class="cb_hint" style="margin-bottom: 0;">Chat Panel and Send Box apply to both Desktop and Phone.</div>`)}
         ${card('Layout', `
           ${pills('ltab', [['desk', 'Desktop'], ['phone', 'Phone']], ph ? 'phone' : 'desk')}
           <div class="cb_hint" style="margin-bottom: 0;">Menu Bar, Send Bar and Back to SillyTavern's Layout below change this one.</div>`)}
@@ -2886,7 +2908,7 @@
           <div class="cb_hint" style="margin-bottom: 0;">The edge of the screen it sits on. Left and Right stand it on its side. Picking an edge here puts the bar back in its starting spot on that edge. In Edit Layout, slide it along its edge, drag its ends to change its length, or drag it to another edge. Settings panels open out of the bar; on a phone they fill the rest of the screen.</div>`)}
         ${card('Send Bar', `
           ${pills('lsend', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Send')])}
-          <div class="cb_hint" style="margin-bottom: 0;">Attached sits under the chat panel, like SillyTavern, and UI Display's Send Box Position still applies. Free goes anywhere on the screen and grows upward as you type more lines.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Attached sits under the chat panel, like SillyTavern, and Send Box Position above still applies. Free goes anywhere on the screen and grows upward as you type more lines.</div>`)}
         ${card('', `
           ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
           <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar and send bar back where SillyTavern has them, in the layout picked above.</div>`)}
@@ -2929,7 +2951,7 @@
     syncLayoutPage(overlay);
   }
 
-  // The Layout page's picks after Edit Layout or the Desktop/Phone pick changed them, and the UI Display settings the
+  // The Layout page's picks after Edit Layout or the Desktop/Phone pick changed them, and the settings the
   // layout this screen uses takes over: Chat Width once its chat panel has been moved, Send Box Position while its send
   // bar is Free. The menu follows the window across 1000px.
   function syncLayoutPage(overlay) {
@@ -2947,7 +2969,7 @@
     overlay.querySelectorAll('.m_l_note').forEach((el) => { el.hidden = !over[el.dataset.lay]; });
   }
 
-  // ===== UI Display =====
+  // ===== UI Decor (the page was called UI Display, and its keys still start with ov) =====
   // SillyTavern's round avatars are the absence of a class. Avatar Shape lives in Avatar Management but keeps these keys.
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
   const ALL_AV = ['big-avatars', 'square-avatars', 'rounded-avatars'];
@@ -2976,8 +2998,9 @@
 
   function overrideCss(s) {
     let v = '';
+    // Chat Width sits in Layout, so Layout's switch is the one that counts.
+    if (s.layEnabled && s.ovWidthOn) v += `--sheldWidth: ${rangeNum(s, 'ovWidth')}vw !important; `;
     if (s.ovEnabled) {
-      if (s.ovWidthOn) v += `--sheldWidth: ${rangeNum(s, 'ovWidth')}vw !important; `;
       if (s.ovBlurOn) v += `--blurStrength: ${rangeNum(s, 'ovBlur')} !important; `;
       if (s.ovShadowOn) v += `--shadowWidth: ${rangeNum(s, 'ovShadow')} !important; `;
     }
@@ -2987,7 +3010,8 @@
   }
 
   // Names and Pictures: Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.
-  const namesHidden = (s) => isOn() && s.ovEnabled && s.ovNamesOn && s.ovNames === 'hide';
+  // It sits in Avatar Management, so that section's switch is the one that counts.
+  const namesHidden = (s) => isOn() && s.avatarEnabled && s.ovNamesOn && s.ovNames === 'hide';
   // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar.
   const ntrAvatars = (s, prefix) => isOn() && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
 
@@ -3019,16 +3043,25 @@
     }) + cssRule(`${pre}#form_sheld #send_form`, { 'border-radius': sr === null ? '' : separate ? `${sr}px` : `0 0 ${sr}px ${sr}px` });
   }
 
+  // Send Box Position: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
+  const sendSeparate = (s) => s.layEnabled && s.ovSendPosOn && s.ovSendPos === 'separate';
+
   function chatLookCss(s) {
-    if (!s.ovEnabled) return '';
+    let css = '';
+    // Space Between Messages and Send Box Position sit in Layout; Names and Pictures in Avatar Management.
+    if (s.layEnabled && s.ovMesGapOn) css += cssRule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
+    if (sendSeparate(s)) css += cssRule('#form_sheld', { 'margin-top': `${rangeNum(s, 'ovSendGap')}px` });
+    if (namesHidden(s)) {
+      css += cssRule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
+    }
+    if (!s.ovEnabled) return css ? css + '\n' : '';
     const on = (k) => s[k + 'On'];
     const color = (k, opacity) => ovColorVal(s, k, opacity);
     const radius = (p) => ovRadius(s, p);
     const border = (p) => ovBorderVal(s, p);
     const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : color(`ov${p}BgColor`, `ov${p}BgOpacity`));
-    const separate = on('ovSendPos') && s.ovSendPos === 'separate';
+    const separate = sendSeparate(s);
     const noBlur = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
-    let css = '';
 
     // Chat panel. Transparent also clears the boxes around it, as Make Chat Panel Transparent did.
     if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...noBlur, border: 'none', 'box-shadow': 'none' });
@@ -3040,11 +3073,6 @@
       'border-top': line ? 'none' : '',
     });
     css += joinCss(s, separate);
-    if (on('ovMesGap')) css += cssRule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
-
-    if (namesHidden(s)) {
-      css += cssRule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
-    }
 
     // AI and User messages. A message with its own background or border gets the room ST's Bubbles style gives it,
     // unless NTR Avatars lays it out.
@@ -3071,14 +3099,13 @@
       // SillyTavern's own menus open outside it, so nothing gets cut off.
       overflow: sr ? 'clip' : '',
     });
-    if (separate) css += cssRule('#form_sheld', { 'margin-top': `${rangeNum(s, 'ovSendGap')}px` });
     return css ? css + '\n' : '';
   }
 
   // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color,
   // and Chrome drops the -webkit- parts when it sees it, so Firefox gets it on its own.
   function scrollbarCss(s) {
-    if (!s.ovEnabled) return '';
+    if (!s.ovScrollOn) return '';
     const color = s.ovScrollColorOn && COLOR_RE.test(s.ovScrollColor) ? s.ovScrollColor : '';
     const track = s.ovScrollTrackOn && COLOR_RE.test(s.ovScrollTrack) ? s.ovScrollTrack : '';
     let css = '';
@@ -3118,7 +3145,7 @@
   let cursorKinds = {};
   function cursorCss(s) {
     cursorKinds = {};
-    if (!s.ovEnabled || !s.ovCursorOn) return '';
+    if (!s.ovCursorOn) return '';
     const size = rangeNum(s, 'ovCursorSize');
     // The picture's top-left corner is the spot that clicks, except Text, which clicks in the middle like an I-beam.
     const one = (src, fallback, mid) => {
@@ -3383,7 +3410,7 @@
     const s = settings();
     const live = isOn() && s.rbEnabled;
     cssTag('ntr_rb_css', rbCssText((k) => live && s[k + 'On'] && s[k]));
-    cssTag('ntr_scroll_css', isOn() && s.ovEnabled && s.ovScrollCssOn ? String(s.ovScrollCss || '').slice(0, 2000).trim() : '');
+    cssTag('ntr_scroll_css', isOn() && s.ovScrollOn && s.ovScrollCssOn ? String(s.ovScrollCss || '').slice(0, 2000).trim() : '');
   }
   function cssTag(id, v) {
     let el = document.getElementById(id);
@@ -3538,7 +3565,12 @@
     });
   }
 
-  function reasoningSectionHtml(s) {
+  // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
+  function elementsSectionHtml(s) {
+    return pageHtml('elements', reasoningPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s));
+  }
+
+  function reasoningPartHtml(s) {
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => `
             <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
@@ -3550,7 +3582,7 @@
     const patLine = (k, label) => `<label class="checkbox_label"><input type="checkbox" class="m_rb_patline" data-key="${k}" ${s[k] ? 'checked' : ''}><span>${label}</span></label>`;
     const fxOpts = [['none', 'None', 'SillyTavern\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
     const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
-    return pageHtml('reasoning', `
+    return pagePart('Reasoning Block', ['m_rb_enable', s.rbEnabled], 'el_reasoning', `
           <div class="cb_hint">Only changes how the block looks. To show reasoning boxes, make sure "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion) are enabled.</div>
           <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look. Settings without a tick start on ST's look.</div>
           ${subHead('rb_header', 'Reasoning Status Text')}
@@ -3598,7 +3630,7 @@
             ${ovRow(s, 'rbCssOn', 'Box CSS', cssBox('rbCss', 'letter-spacing: 1px;&#10;& em { color: gold; }') + '<div class="cb_hint">CSS for the reasoning box, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics.</div>')}
             <div class="cb_hint">Add <code>!important</code> if a setting doesn't take. To style the rest of SillyTavern, use SillyTavern's own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>
           </div>
-    `, { sw: ['m_rb_enable', s.rbEnabled] });
+    `);
   }
 
   function textSectionHtml(s) {
@@ -3713,7 +3745,7 @@
       </div>`;
   }
 
-  // Pick-one rows of UI Display: the radio name is the key in lower case, with "o" in front.
+  // Pick-one rows of UI Decor (and the rows that moved from it to Layout and Avatars): the radio name is the key in lower case, with "o" in front.
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
   // Shown only while a pick has a certain value, like Roundness under Rounded.
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
@@ -3733,54 +3765,51 @@
           ${card('Whole Interface', `
           ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
             + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))
-            + '<div class="cb_hint">Rounds the chat panel\'s bottom corners when the Send Box is Separate, or Free in Layout. The top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
+            + '<div class="cb_hint">Rounds the chat panel\'s bottom corners when Layout\'s Send Box Position is Separate, or its send bar is Free. The top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
           ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + '<div class="cb_hint">The frosted-glass blur behind the chat, menus, drawers and popups.</div>')}
           ${row('ovShadowOn', 'Shadow Width', sl('ovShadow') + '<div class="cb_hint">The dark glow around all text in SillyTavern.</div>')}`)}
           ${card('Chat Panel', `
           ${bg('Panel', '<div class="cb_hint">Transparent shows the background picture through the chat.</div>')}
-          <div class="m_l_over" data-lay="width">${row('ovWidthOn', 'Chat Width', sl('ovWidth'))}</div>
-          <div class="cb_hint m_l_note" data-lay="width" hidden>You moved the chat panel in Layout, so its size is set there.</div>
-          ${border('Panel')}
-          ${row('ovMesGapOn', 'Space Between Messages', sl('ovMesGap'))}
-          ${row('ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
-            + '<div class="cb_hint">Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.</div>')}`)}
+          ${border('Panel')}`)}
           ${card('AI Message', shape('Ai') + bg('Ai') + border('Ai'))}
           ${card('User Message', shape('Us') + bg('Us') + border('Us'))}
-          ${card('Send Box', shape('Send') + bg('Send') + border('Send')
-            + `<div class="m_l_over" data-lay="send">${row('ovSendPosOn', 'Position', ovPick(s, 'ovSendPos', [['joined', 'Joined'], ['separate', 'Separate']])
-              + ovWhen('ovSendPos', 'separate', ovLabel('Gap', sl('ovSendGap')))
-              + '<div class="cb_hint">Joined sits right under the chat panel, flat where they meet, like SillyTavern. Separate is its own box with a gap above it.</div>')}</div>`
-            + '<div class="cb_hint m_l_note" data-lay="send" hidden>The send bar is Free in Layout, so it stands on its own.</div>')}
-          ${subHead('ov_scroll', 'Scrollbar')}
-          <div class="cb_collapse_content">
-            <div class="cb_hint">Changes every scrollbar in SillyTavern. Phones mostly show their own scrollbars.</div>
-            ${row('ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
-            ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar. SillyTavern leaves it see-through.</div>')}
-            ${subHead('ov_scroll_css', 'Advanced: Custom CSS')}
-            <div class="cb_collapse_content">
-              ${row('ovScrollCssOn', 'Scrollbar CSS', customCssBox(s, 'ovScrollCss', '::-webkit-scrollbar { width: 6px; height: 6px; }&#10;::-webkit-scrollbar-thumb { border-radius: 0; }')
-                + '<div class="cb_hint">Whole CSS rules, like <code>::-webkit-scrollbar { width: 6px; }</code> for the width or <code>::-webkit-scrollbar-thumb { border-radius: 0; }</code> for square corners. Firefox ignores <code>::-webkit-scrollbar</code> rules. Add <code>!important</code> if a setting doesn\'t take. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
-            </div>
-          </div>
-          ${subHead('ov_cursor', 'Cursor')}
-          <div class="cb_collapse_content">
-            <div class="cb_hint">Your own pictures for the mouse cursor. Phones and tablets have no cursor.</div>
-            ${row('ovCursorOn', 'Custom Cursor', cursorSlot('ovCursorImg', 'Normal', 'Everywhere else.', 'fa-arrow-pointer')
-              + cursorSlot('ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer')
-              + cursorSlot('ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system text cursor.', 'fa-i-cursor')
-              + cursorSlot('ovCursorDownImg', 'Click', 'While the mouse button is held down. Empty keeps the cursor you had.', 'fa-computer-mouse')
-              + '<div class="cb_hint">The top-left corner of each picture is the spot that clicks. For Text, it\'s the middle.</div>'
-              + '<div class="cb_hint">Size</div>' + sl('ovCursorSize')
-              + '<div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don\'t allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>'
-              + '<input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>')}
-          </div>
+          ${card('Send Box', shape('Send') + bg('Send') + border('Send'))}
     `, { sw: ['m_ov_enable', s.ovEnabled] });
   }
 
+  function scrollbarPartHtml(s) {
+    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
+    return pagePart('Scrollbar', ['m_scroll_enable', s.ovScrollOn], 'el_scroll', `
+          <div class="cb_hint">Changes every scrollbar in SillyTavern. Phones mostly show their own scrollbars.</div>
+          ${row('ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
+          ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar. SillyTavern leaves it see-through.</div>')}
+          ${subHead('ov_scroll_css', 'Advanced: Custom CSS')}
+          <div class="cb_collapse_content">
+            ${row('ovScrollCssOn', 'Scrollbar CSS', customCssBox(s, 'ovScrollCss', '::-webkit-scrollbar { width: 6px; height: 6px; }&#10;::-webkit-scrollbar-thumb { border-radius: 0; }')
+              + '<div class="cb_hint">Whole CSS rules, like <code>::-webkit-scrollbar { width: 6px; }</code> for the width or <code>::-webkit-scrollbar-thumb { border-radius: 0; }</code> for square corners. Firefox ignores <code>::-webkit-scrollbar</code> rules. Add <code>!important</code> if a setting doesn\'t take. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
+          </div>
+    `);
+  }
+
+  function cursorPartHtml(s) {
+    return pagePart('Cursor', ['m_cur_enable', s.ovCursorOn], 'el_cursor', `
+          <div class="cb_hint">Your own pictures for the mouse cursor. Phones and tablets have no cursor.</div>
+          ${cursorSlot('ovCursorImg', 'Normal', 'Everywhere else.', 'fa-arrow-pointer')}
+          ${cursorSlot('ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer')}
+          ${cursorSlot('ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system text cursor.', 'fa-i-cursor')}
+          ${cursorSlot('ovCursorDownImg', 'Click', 'While the mouse button is held down. Empty keeps the cursor you had.', 'fa-computer-mouse')}
+          <div class="cb_hint">The top-left corner of each picture is the spot that clicks. For Text, it's the middle.</div>
+          <div class="cb_hint">Size</div>
+          ${rangeSlider(s, 'ovCursorSize')}
+          <div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don't allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>
+          <input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+    `);
+  }
+
   function bindDisplay(overlay, s) {
-    overlay.querySelector('#m_ov_enable').onchange = function() {
-      s.ovEnabled = this.checked; save(); updateAvatarStyle();
-    };
+    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn']]) {
+      overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };
+    }
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
       c.onchange = () => {
         s[c.dataset.key] = c.checked;
@@ -3833,7 +3862,7 @@
         setCursor(curPending, await uploadImage(curFile.files[0], 'cursor', { max: 128 }));
       } catch (e) {
         console.error('[NTR cursor upload]', e);
-        toastr.error(e.message || 'Upload failed', 'UI Display');
+        toastr.error(e.message || 'Upload failed', 'Cursor');
       }
       curFile.value = '';
     };
@@ -4187,14 +4216,20 @@
 
   // ===== Themes =====
   const PFP_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ai') || k.startsWith('us'));
+  // UI Display keys that sit on other pages now, and go in those pages' theme sections.
+  const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap'];
+  const NAMES_KEYS = ['ovNamesOn', 'ovNames'];
+  const ELEMENT_OV_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ovScroll') || k.startsWith('ovCursor'));
+  const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...AVATAR_SHAPE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
+  // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
-    layout: { label: 'Layout (chat panel, menu bar, send bar)', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')) },
+    layout: { label: 'Layout (chat panel, menu bar, send bar, chat width, message spacing, send box position)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
+    display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
+    text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
+    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS] },
+    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')), ...ELEMENT_OV_KEYS] },
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
-    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS] },
-    reasoning: { label: 'Reasoning Block Design', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')) },
-    text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
-    display: { label: 'UI Display', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !FONT_SCALE_KEYS.includes(k) && !AVATAR_SHAPE_KEYS.includes(k)) },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
@@ -4447,7 +4482,7 @@
     const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
     return pageHtml('themes', `
         ${card('', `
-          <div class="cb_hint">A theme holds your look: Layout, banner height, gap and rotation, the Global banner, Avatar Management, Reasoning Block Design, Text Formatting, UI Display, foreground opacity, the Visual Novel box, tags and default art, and which regex folders are on. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
+          <div class="cb_hint">A theme holds your look: Layout, UI Decor, Text Formatting, Avatar Management, Elements, banner height, gap and rotation, the Global banner, foreground opacity, the Visual Novel box, tags and default art, and which regex folders are on. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
           <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
           <div class="ntr_tbar">
             ${b('m_t_new', 'fa-plus', 'Save current look as a new theme')}
@@ -4623,17 +4658,16 @@
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
       const rbPart = secs.includes('reasoning') ? cleanLookSection('reasoning', j.sections.reasoning) : {};
       const css = rbCssText((k) => rbPart[k]);
-      const ovPart = secs.includes('display') ? cleanLookSection('display', j.sections.display) : {};
-      const scrollCss = String(ovPart.ovScrollCss || '').slice(0, 2000).trim();
+      const scrollCss = String(rbPart.ovScrollCss || '').slice(0, 2000).trim();
       panel.innerHTML = `
         <div class="ntr_tpanel">
           <strong>Import theme</strong>
           <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported theme'))}"></label>
           <div class="cb_hint">Sections in this file. Untick any you don't want.</div>
           ${secBoxes(secs)}
-          ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Reasoning Block Design, Advanced: Custom CSS, and tick it to use it.</div>
+          ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Elements, Reasoning Block, Advanced: Custom CSS, and tick it to use it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
-          ${scrollCss ? `<div class="cb_hint">This theme includes Custom CSS for the scrollbar. It's added switched off: after applying the theme, check it under UI Display, Scrollbar, Advanced: Custom CSS, and tick it to use it.</div>
+          ${scrollCss ? `<div class="cb_hint">This theme includes Custom CSS for the scrollbar. It's added switched off: after applying the theme, check it under Elements, Scrollbar, Advanced: Custom CSS, and tick it to use it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(scrollCss)}</pre>` : ''}
           ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Visual Novel Mode, Tags &amp; Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
           <div class="cb_actions">
@@ -4650,7 +4684,7 @@
         for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
-        if (data.display && String(data.display.ovScrollCss || '').trim()) data.display.ovScrollCssOn = false;
+        if (data.reasoning && String(data.reasoning.ovScrollCss || '').trim()) data.reasoning.ovScrollCssOn = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s images...', 'Themes');
           const r = await unpackFiles(data);
@@ -4874,6 +4908,15 @@
 
   // The Regexes page comes from regex.js, loaded the first time the menu opens.
   let regexWaiting = false;
+  // Agents: nothing works here yet. The page shows what's planned, so it's clear which features will use an agent.
+  function agentsSectionHtml() {
+    return pageHtml('agents', card('', `
+          <div class="ntr_soonrow">
+            <i class="fa-solid fa-fw fa-robot"></i>
+            <div><strong>Agentic Tracker Panel</strong><div class="cb_hint" style="margin: 2px 0 0;">Filled in by an agent. Coming later.</div></div>
+          </div>`), { note: '<div class="cb_hint ntr_pnote">Agents are a separate call to a model that does one job, like keeping a tracker up to date. Coming later.</div>' });
+  }
+
   function regexSectionHtml(s) {
     const rx = window.NTR.regex;
     if (rx) return rx.sectionHtml(s);

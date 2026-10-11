@@ -61,39 +61,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 - [ ] Text alignment for chat messages: left, right, center or justified.
 
-## Visual Novel Mode (Low Priority)
-
-Will be worked on when the main part is done, unless there are bugs or issues to take care of.
-
-### Flags and endings
-Keep the open-world feel, and let a card optionally have endings.
-
-- [ ] `[[Flag:Name]]` tag: the model marks that something happened (e.g. Trust, Betrayal).
-- [ ] `[[Ending:Name]]` tag: shows an ending title card.
-- [ ] Work out current flags and reached endings by scanning the chat, like locations already work, so swipes, edits and branches stay correct.
-- [ ] Add the current flags to the prompt text the extension already sends, so the model doesn't have to remember them.
-- [ ] Endings gallery in the VN menu with seen/unseen state, saved under a new settings key (existing keys untouched).
-- [ ] Hide the new tags in the normal chat view, like the other scene tags.
-- [ ] Cards with no flag or ending tags behave exactly as they do now.
-
-### Ideas
-
-- Chapters and save points. In Visual Novel Mode, each message is a chapter.
-  - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
-  - Title card when a chapter starts.
-  - Chapter list to jump to any chapter.
-  - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
-  - Open question: what SillyTavern makes available to extensions for creating a branch.
-- NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
-  - For the author and for everyone else, so it needs to be friendly for first-time card makers.
-  - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
-  - Uses the `[[Chapter:Name]]` tag from Chapters and save points, where a chapter is one message. A chapter can say what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
-  - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
-  - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel menu (speakers, emotions, locations, CGs, maps).
-  - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
-- Ending credits. Would follow the ending title card from Flags and endings.
-  - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
-
 ## Misc (Low Priority)
 
 Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
@@ -222,3 +189,36 @@ Move Emotions out of the Visual Novel menu into its own section, so emotion pict
 
 ### SillyTavern's top bar icons
 - [ ] Change the icons in SillyTavern's top menu bar.
+
+## Visual Novel Mode (Low Priority)
+
+Will be worked on when the main part is done, unless there are bugs or issues to take care of.
+
+### Flags and endings
+Keep the open-world feel, and let a card optionally have endings.
+
+- [ ] `[[Flag:Name]]` tag: the model marks that something happened (e.g. Trust, Betrayal).
+- [ ] `[[Ending:Name]]` tag: shows an ending title card.
+- [ ] Work out current flags and reached endings by scanning the chat, like locations already work, so swipes, edits and branches stay correct.
+- [ ] Add the current flags to the prompt text the extension already sends, so the model doesn't have to remember them.
+- [ ] Endings gallery in the VN menu with seen/unseen state, saved under a new settings key (existing keys untouched).
+- [ ] Hide the new tags in the normal chat view, like the other scene tags.
+- [ ] Cards with no flag or ending tags behave exactly as they do now.
+
+### Ideas
+
+- Chapters and save points. In Visual Novel Mode, each message is a chapter.
+  - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
+  - Title card when a chapter starts.
+  - Chapter list to jump to any chapter.
+  - "Branch from here" on each chapter, using SillyTavern's own branching, so a chapter can be replayed in a new branch.
+  - Open question: what SillyTavern makes available to extensions for creating a branch.
+- NTR Visual Novel Card Maker. Undecided whether it belongs in this extension or should be its own. Most useful for cards that are not open world, where people need to set up different chapters and endings.
+  - For the author and for everyone else, so it needs to be friendly for first-time card makers.
+  - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
+  - Uses the `[[Chapter:Name]]` tag from Chapters and save points, where a chapter is one message. A chapter can say what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
+  - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
+  - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel menu (speakers, emotions, locations, CGs, maps).
+  - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
+- Ending credits. Would follow the ending title card from Flags and endings.
+  - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.

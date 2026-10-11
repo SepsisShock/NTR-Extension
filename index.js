@@ -5601,7 +5601,7 @@
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
-    refreshPins: () => syncPins(), readerOff: () => readerOff(),
+    refreshPins: () => syncPins(), readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(),
     // For preview.js
     PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
     startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),
@@ -5665,7 +5665,7 @@
     if (event_types.GENERATION_STARTED) {
       eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => {
         window.NTR.vn?.genStarted?.(type, dryRun);
-        window.NTR.reader?.genStarted(dryRun);
+        window.NTR.reader?.genStarted(type, dryRun);
       });
     }
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.

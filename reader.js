@@ -98,11 +98,32 @@
       });
     }
     if (bar.nextElementSibling !== form) form.before(bar);
+    placeBar();
     const n = pages.length;
     bar.querySelector('.ntr_rd_num').innerHTML = `<i class="fa-solid fa-book-open"></i>${n ? `Page ${cur + 1} of ${n}` : 'No pages'}`;
     bar.querySelector('[data-go="first"]').disabled = bar.querySelector('[data-go="prev"]').disabled = cur <= 0;
     bar.querySelector('[data-go="last"]').disabled = bar.querySelector('[data-go="next"]').disabled = cur >= n - 1;
   }
+
+  // A Free send bar (Layout) over the bottom of the chat panel would cover the page bar, so the page bar sits on top of it.
+  let formRo = null;
+  function placeBar() {
+    const bar = document.getElementById('ntr_rd_bar');
+    const sheld = document.getElementById('sheld');
+    const form = document.getElementById('form_sheld');
+    if (!bar || !sheld || !form) return;
+    let room = 0;
+    if (A.sendFree()) {
+      if (!formRo && window.ResizeObserver) (formRo = new ResizeObserver(() => placeBar())).observe(form);
+      const s = sheld.getBoundingClientRect(), f = form.getBoundingClientRect();
+      if (f.height && f.left < s.right && f.right > s.left && f.top < s.bottom && f.top > s.top + s.height / 2) room = Math.ceil(s.bottom - f.top);
+    }
+    const v = room ? room + 'px' : '';
+    if (bar.style.marginBottom !== v) bar.style.marginBottom = v;
+    // The chat's own room for the send bar is measured again now that the page bar takes it.
+    A.syncSendRoom?.();
+  }
+  window.addEventListener('resize', () => { if (live()) placeBar(); });
 
   function scrollTo(at) {
     const chat = chatEl();
@@ -218,6 +239,8 @@
       rebuild(!wasLive);
       if (!wasLive) scrollTo('bottom');
     } else {
+      formRo?.disconnect();
+      formRo = null;
       const first = pages[cur]?.[0];
       pages = [];
       cur = 0;
@@ -236,8 +259,9 @@
     // A chat opens on its last page.
     chatChanged: () => { if (!live()) return; follow = true; rebuild(true); },
     // Sending a message or starting a reply goes to the last page, so you see the reply arrive.
-    genStarted: (dryRun) => {
-      if (dryRun || !live() || !pages.length) return;
+    // Quiet generations and Impersonate don't add a reply to the chat, so they leave the page alone.
+    genStarted: (type, dryRun) => {
+      if (dryRun || type === 'quiet' || type === 'impersonate' || !live() || !pages.length) return;
       if (cur < pages.length - 1) go(pages.length - 1, 'force');
       follow = true;
     },

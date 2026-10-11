@@ -40,6 +40,11 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Doesn't block Reader Mode or the Agentic Tracker Panel: Layout and Pinned Blocks already make the parts they need adjustable.
 
+### Overlays module
+- [ ] Move header banners and foreground images into `overlays.js`.
+- [ ] Load the module only when an overlay is enabled or the Overlays page is opened.
+- [ ] Reuse shared upload, storage and layout helpers from `index.js`, and keep existing settings keys and saved data formats.
+
 ### Custom Cursor: follow-ups
 - [ ] An Advanced box with Custom CSS for anything the settings don't cover.
 

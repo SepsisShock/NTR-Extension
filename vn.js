@@ -1,11 +1,15 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.36.1';
+  const VN_VERSION = '2.37.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
   const TAG = A.TAG || '';
+  // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
+  const C = window.NTR.cast;
+  if (!C) { console.error('[NTR] vn.js loaded without cast.js.'); return; }
+  const { tagRe, splitTag } = C;
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
   const VDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
@@ -15,27 +19,9 @@
     if (!st.vn || typeof st.vn !== 'object') st.vn = VDEF();
     const d = VDEF();
     for (const k of Object.keys(d)) if (st.vn[k] === undefined) st.vn[k] = d[k];
-    if (Object.keys(st.vn.avatars).length) mergeOldFaces(st.vn);
     return st.vn;
   }
 
-  // Speakers used to have a separate face picture next to their emotion images. The face is the emotion images now:
-  // a speaker who has emotion images loses the old copy (file included); one who has none gets it as their default emotion.
-  function mergeOldFaces(v) {
-    const s = settings();
-    const olds = [];
-    for (const k of Object.keys(v.avatars)) {
-      const u = v.avatars[k];
-      delete v.avatars[k];
-      if (!u) continue;
-      const imgs = v.emoImgs[k];
-      if (imgs && s.emotions.some((e) => imgs[e.id])) { olds.push(u); continue; }
-      if (!v.emoImgs[k]) v.emoImgs[k] = Object.create(null);
-      v.emoImgs[k][s.emoDefault] = u;
-    }
-    save();
-    setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
-  }
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const lc = (x) => String(x || '').trim().toLowerCase();
   const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
@@ -247,20 +233,7 @@
 
   const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null, writing: false };
   let nodeQ = null, nodeQAnim = false;
-  const spkOpen = new Set();
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-  function tagRe(s) {
-    const so = reEsc(s.delimSpkOpen), sc = reEsc(s.delimSpkClose), no = reEsc(s.delimNarOpen), nc = reEsc(s.delimNarClose);
-    return new RegExp(`${so}[ \\t]*((?:(?!${sc})[^\\n]){1,80}?)[ \\t]*${sc}[ \\t]*:?|${no}[ \\t]*((?:(?!${nc})[^\\n]){1,400}?)[ \\t]*${nc}[ \\t]*:?`, 'g');
-  }
-
-  function splitTag(inner, s) {
-    const sep = s.delimEmo;
-    const i = sep ? inner.indexOf(sep) : -1;
-    if (i < 0) return { name: inner.trim(), emo: '' };
-    return { name: inner.slice(0, i).trim(), emo: inner.slice(i + sep.length).trim() };
-  }
 
   // Scene tags inside the narrator delimiters: [[Location:X]], [[Choice: A | B]], [[Effect:X]], [[Weather:X]], [[CG:X]], [[Enter:X | left]], [[Exit:X]]
   function dirKind(word, s) {
@@ -431,94 +404,9 @@
     cleanEmoTags();
   }
 
-  function userAvatarSrc() {
-    const img = document.querySelector('#chat .mes[is_user="true"] .avatar img');
-    if (img && img.getAttribute('src')) return fullResUrl(img.getAttribute('src'));
-    const sel = document.querySelector('#user_avatar_block .avatar-container.selected');
-    const id = sel && (sel.getAttribute('data-avatar-id') || sel.getAttribute('imgfile'));
-    return id ? `/User%20Avatars/${encodeURIComponent(id)}` : null;
-  }
-
-  // The speaker's default emotion image, or their first emotion image in list order.
-  function firstEmoImg(key) {
-    const s = settings();
-    const imgs = V().emoImgs[key] || {};
-    if (imgs[s.emoDefault]) return imgs[s.emoDefault];
-    const e = s.emotions.find((x) => imgs[x.id]);
-    return e ? imgs[e.id] : '';
-  }
-
-  // Picture from SillyTavern itself: {{user}} gets the active persona, anyone else a card in this chat with that name.
-  // Only cards in the open chat count, so an unrelated card in the library that shares the name never leaks in.
-  function stPicture(key) {
-    const c = ctx();
-    if (c.name1 && c.name1.toLowerCase() === key) { const u = userAvatarSrc(); return u ? { src: u, from: 'persona' } : null; }
-    let cards = [];
-    if (c.groupId) {
-      const g = (c.groups || []).find((x) => x.id === c.groupId);
-      cards = (g?.members || []).map((av) => (c.characters || []).find((x) => x.avatar === av));
-    } else if (c.characterId !== undefined && c.characterId !== null) cards = [c.characters?.[c.characterId]];
-    const ch = cards.find((x) => x && x.name && x.name.toLowerCase() === key);
-    if (ch && ch.avatar) return { src: `/characters/${encodeURIComponent(ch.avatar)}`, from: 'card' };
-    return null;
-  }
-
-  // Face: default emotion image > first emotion image > persona > character card in this chat
-  function resolveAvatar(name) {
-    const key = String(name || '').trim().toLowerCase();
-    if (!key) return null;
-    const emo = media(firstEmoImg(key));
-    if (emo) return emo;
-    return stPicture(key)?.src || null;
-  }
-
-  function findEmo(name) {
-    const k = String(name || '').trim().toLowerCase();
-    return k ? settings().emotions.find((e) => e.name.toLowerCase() === k) : null;
-  }
-
-  // Emotion image > default emotion image > face > placeholder (null)
-  function resolvePortrait(name, emoName) {
-    const s = settings();
-    const imgs = V().emoImgs[String(name || '').trim().toLowerCase()] || {};
-    const e = findEmo(emoName);
-    if (e && imgs[e.id]) return media(imgs[e.id]) || null;
-    if (imgs[s.emoDefault]) return media(imgs[s.emoDefault]) || null;
-    return resolveAvatar(name);
-  }
-
-  // Stage sprites: the full portrait wins. Otherwise the emotion images, never card/persona avatars.
-  // With the fixed-face option on, the stage keeps the face (see resolveAvatar) whatever the emotion.
+  // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
   function spriteSrc(name, emoName) {
-    const s = settings();
-    const v = V();
-    const key = String(name || '').trim().toLowerCase();
-    if (v.sprites[key]) return media(v.sprites[key]) || silhouetteFor(key);
-    if (s.nodeSpriteBase) return resolveAvatar(name) || silhouetteFor(key);
-    const imgs = v.emoImgs[key] || {};
-    const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || firstEmoImg(key)) || silhouetteFor(key);
-  }
-
-  // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
-  const fileOk = new Map();
-  function fileExists(u) {
-    const p = String(u || '').trim();
-    if (!/^\/?user\/files\//.test(p)) return Promise.resolve(true);
-    if (!fileOk.has(p)) fileOk.set(p, fetch(p, { method: 'HEAD', cache: 'no-store' }).then((r) => r.status !== 404).catch(() => true));
-    return fileOk.get(p);
-  }
-  async function pruneMissing() {
-    const v = V();
-    const refs = [];
-    const scan = (obj) => { for (const [k, u] of Object.entries(obj || {})) if (typeof u === 'string') refs.push([obj, k, u]); };
-    scan(v.sprites);
-    Object.values(v.emoImgs).forEach(scan);
-    const ok = await Promise.all(refs.map((r) => fileExists(r[2])));
-    if (V() !== v) return 0;
-    let n = 0;
-    refs.forEach(([obj, k, u], i) => { if (!ok[i] && obj[k] === u) { delete obj[k]; n++; } });
-    return n;
+    return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());
   }
 
   function silhouetteFor(key) {
@@ -533,109 +421,13 @@
     return s.artBg === 'custom' ? (s.artBgImg || '') : artUri(s.artBg);
   }
 
-  function collectSpeakers() {
-    const s = settings();
-    const c = ctx();
-    const map = new Map();
-    const nar = String(s.narratorWord).trim().toLowerCase();
-    const hidden = new Set((V().hiddenSpk || []).map(lc));
-    const add = (n, custom) => {
-      const t = String(n || '').trim();
-      const k = t.toLowerCase();
-      if (!t || k === nar) return;
-      if (!custom && (!s.nodeAutoSpk || hidden.has(k))) return;
-      if (!map.has(k)) map.set(k, { key: k, name: t, custom: !!custom });
-      else if (custom) map.get(k).custom = true;
-    };
-    add(c.name1);
-    if (c.groupId) {
-      const g = (c.groups || []).find((x) => x.id === c.groupId);
-      (g?.members || []).forEach((av) => { const ch = (c.characters || []).find((x) => x.avatar === av); if (ch) add(ch.name); });
-    } else if (c.characterId !== undefined && c.characterId !== null) add(c.name2);
-    (V().customSpk || []).forEach((n) => add(n, true));
-    for (const m of c.chat || []) {
-      if (m.is_system) continue;
-      for (const seg of parseSegments(m.mes || '', '', false)) if (seg.kind === 'char' && seg.name) add(seg.name);
-    }
-    return [...map.values()];
-  }
-
-  function thumbBox(src) {
-    src = media(src);
-    return `<div class="cb_thumbbox">${src ? `<img src="${escapeHTML(src)}" alt="">` : '<i class="fa-solid fa-user"></i>'}</div>`;
-  }
-
-  function spkRowsHtml(s) {
-    if (!A.store()) return '<div class="cb_hint">Open a character chat first. Speakers and portraits are saved per character.</div>';
-    const list = collectSpeakers();
-    const nHidden = (V().hiddenSpk || []).length;
-    const restore = nHidden ? `<div class="cb_hint"><a href="#" class="m_n_unhide">Restore ${nHidden} hidden speaker${nHidden === 1 ? '' : 's'}</a></div>` : '';
-    if (!list.length) return `<div class="cb_hint">No speakers yet. Add one below${s.nodeAutoSpk ? ', or they show up once tagged in the chat' : ''}.</div>${restore}`;
-    return list.map(({ key, name, custom }) => {
-      const base = resolveAvatar(name);
-      const stPic = stPicture(key);
-      const faceEmo = (() => { const im = V().emoImgs[key] || {}; return s.emotions.find((e) => e.id === s.emoDefault && im[e.id]) || s.emotions.find((e) => im[e.id]); })();
-      const n = s.emotions.length;
-      const full = V().sprites[key];
-      const imgs = V().emoImgs[key] || {};
-      const cnt = s.emotions.filter((e) => imgs[e.id]).length;
-      const open = spkOpen.has(key);
-      const k = escapeHTML(key);
-      const grid = !open ? '' : `<div class="cb_emo_grid">${s.emotions.map((e) => {
-        const src = imgs[e.id];
-        const id = escapeHTML(e.id);
-        return `<div class="cb_emo_cell">
-            ${thumbBox(src)}
-            <div class="cb_emo_label">${escapeHTML(e.name)}${e.id === s.emoDefault ? ' \u2605' : ''}</div>
-            <div style="display:flex;gap:4px;">
-              <button class="menu_button m_n_up" data-key="${k}" data-emo="${id}" title="Upload ${escapeHTML(e.name)}"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button m_n_url" data-key="${k}" data-emo="${id}" title="Use a link for ${escapeHTML(e.name)}"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="${id}" title="Clear" ${src ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
-            </div>
-          </div>`;
-      }).join('')}</div>`;
-      const facesTxt = cnt ? `${cnt} of ${n} uploaded${faceEmo ? ` \u00B7 main: ${faceEmo.name}` : ''}` : `none yet${stPic ? `: using the ${stPic.from} picture` : ''}`;
-      return `<div class="cb_spk">
-        <div class="cb_spk_row cb_spk_head">
-          <span class="cb_spk_name">${escapeHTML(name)}</span>
-          <button class="menu_button danger_button m_n_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="cb_spk_row cb_faces_row m_n_exp" data-key="${k}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open'} faces">
-          ${thumbBox(base)}
-          <span class="cb_spk_name">Faces<small>${escapeHTML(facesTxt)}</small></span>
-          <i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i>
-        </div>
-        ${grid}
-        <div class="cb_spk_row cb_full_row">
-          ${thumbBox(full)}
-          <span class="cb_spk_name">Full portrait<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the faces'}</small></span>
-          <button class="menu_button m_n_up" data-key="${k}" data-emo="" data-full="1" title="Upload full portrait (stage sprite)"><i class="fa-solid fa-upload"></i></button>
-          <button class="menu_button m_n_url" data-key="${k}" data-emo="" data-full="1" title="Use a link for the full portrait"><i class="fa-solid fa-link"></i></button>
-          <button class="menu_button danger_button m_n_clr" data-key="${k}" data-emo="" data-full="1" title="Remove full portrait" ${full ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
-        </div>
-      </div>`;
-    }).join('') + restore;
-  }
-
-  function emoRowsHtml(s) {
-    return s.emotions.map((e) => {
-      const id = escapeHTML(e.id);
-      const isDef = e.id === s.emoDefault;
-      return `<div class="cb_emo_row">
-        <label class="cb_defdot" title="Use as default"><input type="radio" name="cbr_emodef" value="${id}" ${isDef ? 'checked' : ''}></label>
-        <input type="text" class="text_pole m_e_name" data-id="${id}" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
-        <button class="menu_button danger_button m_e_del" data-id="${id}" title="${isDef ? 'Pick a different default before deleting this one' : 'Delete emotion'}" ${isDef ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
-      </div>`;
-    }).join('');
-  }
-
   // Every tag with the user's own delimiters and real names, so people can see exactly what to write in a card.
   function guideRows(s) {
     const v = V();
     const loc = (v.locations.find((l) => l.name) || {}).name || 'Tavern';
     const cg = ((v.cgs || []).find((g) => g.name) || {}).name || 'First Kiss';
     const emo = (s.emotions.find((e) => e.id !== s.emoDefault) || s.emotions[0] || {}).name || 'Happy';
-    const spk = (collectSpeakers().find((x) => x.name !== ctx().name1) || {}).name || 'Rafe';
+    const spk = (C.speakers().find((x) => x.name !== ctx().name1) || {}).name || 'Rafe';
     const no = s.delimNarOpen, nc = s.delimNarClose;
     const rows = [
       { label: 'A character speaks', code: `${s.delimSpkOpen}${spk}${s.delimEmo}${emo}${s.delimSpkClose}: "Hello there."`, hint: `The name comes first, then the emotion after ${s.delimEmo}. The emotion is optional: ${s.delimSpkOpen}${spk}${s.delimSpkClose}: works too. Everything after the tag is that character's line.` },
@@ -768,7 +560,7 @@
               ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
               ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
               ${ck('m_n_sprbase', s.nodeSpriteBase, 'Stage sprites keep the face instead of changing with the emotion')}
-              <div class="cb_hint">A speaker's full portrait (the Full portrait row under Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use the emotion images you upload under Speakers, not card avatars. With the keep-the-face option on, emotion images only change in the message box: the stage keeps the speaker's face, which is their default emotion image, or their first emotion image, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              <div class="cb_hint">A speaker's full body (Avatars, under Emotions and then Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use their faces, not card avatars. With the keep-the-face option on, faces only change in the message box: the stage keeps the speaker's main face, which is their default emotion face, or their first face, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
             </div>
 
             ${subHead('vn_art', 'Default Art')}
@@ -792,27 +584,7 @@
               <div id="m_n_fx_body" class="cb_hint ${s.nodeEffects ? '' : 'cb_dim'}">${tg(s.effectWord, s.fxShake)}, ${escapeHTML(s.fxFlash)} or ${escapeHTML(s.fxFade)} fire once when their line plays. ${tg(s.weatherWord, s.wxRain)}, ${escapeHTML(s.wxSnow)} or ${escapeHTML(s.wxClear)} stays until the weather changes, worked out from the chat history like locations.</div>
             </div>
 
-            ${subHead('vn_spk', 'Speakers & Portraits ' + TAG)}
-            <div class="cb_collapse_content">
-              <div class="cb_hint">Character cards and your persona are matched by name automatically. Open a speaker with the arrow to give them a portrait per emotion. The narrator never gets a portrait.</div>
-              ${ck('m_n_autospk', s.nodeAutoSpk, 'Auto-add speakers from the card, persona and chat')}
-              <div id="m_n_spk"></div>
-              <div class="cb_row" style="margin-top:8px;">
-                <input type="text" id="m_n_newspk" class="text_pole" placeholder="Add a speaker (e.g. an NPC)" style="flex:1;margin:0;">
-                <button id="m_n_addspk" class="menu_button" style="margin:0;"><i class="fa-solid fa-user-plus"></i> Add</button>
-              </div>
-              <input type="file" id="m_n_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-            </div>
-
-            ${subHead('vn_emo', 'Emotions')}
-            <div class="cb_collapse_content">
-              <div class="cb_hint">The dot marks the default. It's used when a tag has no emotion, or one that isn't on this list.</div>
-              <div id="m_e_list"></div>
-              <div class="cb_row" style="margin-top:6px;">
-                <input type="text" id="m_e_new" class="text_pole" placeholder="New emotion" style="flex:1;margin:0;">
-                <button id="m_e_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
-              </div>
-            </div>
+            <div class="cb_hint" style="margin: 10px 0;">Emotions, speakers, faces and full bodies are on the <a href="#" class="m_n_tocast">Avatars</a> page, under Emotions.</div>
 
             ${subHead('vn_loc', 'Locations ' + TAG)}
             <div class="cb_collapse_content">
@@ -879,6 +651,14 @@
     `, { sw: ['m_n_enable', s.nodeEnabled], legend: true });
   }
 
+  // A change on the Avatars page (cast.js): redraw, and refresh the open menu's guide and prompt.
+  let menuRefresh = null;
+  C.onChange(() => {
+    if (menuRefresh && document.getElementById('m_g_body')) { menuRefresh(); return; }
+    updateInjection();
+    if (settings().nodeEnabled) nodeLoad({ animate: false });
+  });
+
   function bindVN(overlay, s) {
     const refreshPrompt = () => { overlay.querySelector('#m_p_text').value = buildPrompt(s); };
     function renderGuide() {
@@ -895,6 +675,14 @@
     };
     overlay.querySelectorAll('.m_g_goto').forEach((b) => { b.onclick = gotoDelims; });
     const refreshAll = () => { renderGuide(); refreshPrompt(); updateInjection(); if (s.nodeEnabled) nodeLoad({ animate: false }); };
+    menuRefresh = refreshAll;
+    overlay.querySelectorAll('.m_n_tocast').forEach((b) => {
+      b.onclick = (e) => {
+        e.preventDefault();
+        s.uiPage = 'pfp'; s.uiOpen.av_emo = true; save();
+        A.openMenu();
+      };
+    });
 
     overlay.querySelector('#m_n_enable').onchange = function() {
       s.nodeEnabled = this.checked; save();
@@ -918,7 +706,6 @@
     chk('#m_n_choices', 'nodeChoices', () => { dimIf('#m_n_choices_body', s.nodeChoices); refreshAll(); });
     chk('#m_n_csend', 'choiceSend');
     chk('#m_n_fx', 'nodeEffects', () => { dimIf('#m_n_fx_body', s.nodeEffects); refreshAll(); });
-    chk('#m_n_autospk', 'nodeAutoSpk', () => { renderSpk(); refreshAll(); });
     chk('#m_n_cg', 'nodeCG', () => { dimIf('#m_c_body', s.nodeCG); refreshAll(); });
     const mapOn = overlay.querySelector('#m_map_on');
     if (mapOn) mapOn.onchange = () => { s.nodeMaps = mapOn.checked; save(); syncMapBtn(); if (s.nodeMaps) loadSub('map', true); else A.openMenu(); };
@@ -935,150 +722,6 @@
     });
     onPills(overlay, 'nshape', (v) => { s.nodeShape = v; save(); nodeApplyLook(); });
 
-    // Emotions
-    const renderEmo = () => {
-      const box = overlay.querySelector('#m_e_list');
-      box.innerHTML = emoRowsHtml(s);
-      onPills(box, 'emodef', (v) => { s.emoDefault = v; save(); renderEmo(); renderSpk(); refreshAll(); });
-      box.querySelectorAll('.m_e_name').forEach((inp) => {
-        inp.onchange = () => {
-          const e = s.emotions.find((x) => x.id === inp.dataset.id);
-          const nm = inp.value.trim();
-          if (!nm || s.emotions.some((x) => x !== e && x.name.toLowerCase() === nm.toLowerCase())) {
-            toastr.warning('Emotion names need to be unique and not empty.', 'Visual Novel');
-            inp.value = e.name;
-            return;
-          }
-          e.name = nm; save(); renderSpk(); refreshAll();
-        };
-      });
-      box.querySelectorAll('.m_e_del').forEach((b) => {
-        b.onclick = async () => {
-          const id = b.dataset.id;
-          if (id === s.emoDefault) return;
-          const e = s.emotions.find((x) => x.id === id);
-          const used = Object.values(V().emoImgs).some((m) => m[id]);
-          if (used && !(await A.askYes(b, `Delete "${e.name}" and the portraits uploaded for it?`, 'Delete', { danger: true }))) return;
-          s.emotions = s.emotions.filter((x) => x.id !== id);
-          const olds = [];
-          for (const m of Object.values(V().emoImgs)) { if (m[id]) olds.push(m[id]); delete m[id]; }
-          save(); renderEmo(); renderSpk(); refreshAll();
-          olds.forEach((u) => A.deleteFileIfUnused(u));
-        };
-      });
-    };
-    const addEmo = () => {
-      const inp = overlay.querySelector('#m_e_new');
-      const nm = inp.value.trim();
-      if (!nm) return;
-      if (s.emotions.some((x) => x.name.toLowerCase() === nm.toLowerCase())) { toastr.warning('That emotion already exists.', 'Visual Novel'); return; }
-      s.emotions.push({ id: newId('emo'), name: nm });
-      inp.value = '';
-      save(); renderEmo(); renderSpk(); refreshAll();
-    };
-    overlay.querySelector('#m_e_add').onclick = addEmo;
-    overlay.querySelector('#m_e_new').onkeydown = (e) => { if (e.key === 'Enter') addEmo(); };
-
-    // Speakers
-    const nFile = overlay.querySelector('#m_n_file');
-    let pending = null;
-    const renderSpk = () => {
-      const box = overlay.querySelector('#m_n_spk');
-      box.innerHTML = spkRowsHtml(s);
-      box.querySelectorAll('.m_n_up').forEach((b) => { b.onclick = () => { pending = { key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }; nFile.click(); }; });
-      box.querySelectorAll('.m_n_url').forEach((b) => {
-        b.onclick = async () => {
-          const url = await askImageUrl('Portrait', b);
-          if (url) setSpkImage({ key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }, url);
-        };
-      });
-      box.querySelectorAll('.m_n_clr').forEach((b) => {
-        b.onclick = () => {
-          const { key, emo, full } = b.dataset;
-          let old;
-          if (full) { old = V().sprites[key]; delete V().sprites[key]; }
-          else if (V().emoImgs[key]) { old = V().emoImgs[key][emo]; delete V().emoImgs[key][emo]; }
-          save(); renderSpk(); refreshAll();
-          A.deleteFileIfUnused(old).then((gone) => {
-            if (!gone && /^\/?user\/files\//.test(String(old || ''))) toastr.info('Removed. The file itself was kept because something else still uses it.', 'Visual Novel');
-          });
-        };
-      });
-      box.querySelectorAll('.m_n_exp').forEach((b) => {
-        b.onclick = () => { const k = b.dataset.key; if (spkOpen.has(k)) spkOpen.delete(k); else spkOpen.add(k); renderSpk(); };
-        b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
-      });
-      box.querySelectorAll('.m_n_rm').forEach((b) => {
-        b.onclick = async () => {
-          const k = b.dataset.key;
-          if (b.dataset.custom) {
-            if (!(await A.askYes(b, 'Remove this custom speaker and their uploaded portraits?', 'Remove', { danger: true }))) return;
-            V().customSpk = V().customSpk.filter((n) => n.toLowerCase() !== k);
-            const olds = [V().sprites[k], ...Object.values(V().emoImgs[k] || {})].filter(Boolean);
-            delete V().sprites[k];
-            delete V().emoImgs[k];
-            setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
-          } else {
-            // Detected from the card, persona or chat: hide it. Uploaded portraits are kept for a later restore.
-            const c = ctx();
-            if ([c.name1, c.name2].some((n) => lc(n) === k) && !(await A.askYes(b, 'This is your persona or the current character. Hide it from the list? Their portraits are kept, and you can restore it later.', 'Hide'))) return;
-            if (!V().hiddenSpk.some((n) => lc(n) === k)) V().hiddenSpk.push(k);
-          }
-          spkOpen.delete(k);
-          save(); renderSpk(); refreshAll();
-        };
-      });
-      box.querySelector('.m_n_unhide')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        V().hiddenSpk = [];
-        save(); renderSpk(); refreshAll();
-      });
-      pruneMissing().then((n) => {
-        if (!n) return;
-        save(); refreshAll();
-        if (box.isConnected) renderSpk();
-        toastr.info(`Removed ${n} link${n === 1 ? '' : 's'} to deleted portrait files.`, 'Visual Novel');
-      });
-    };
-    const setSpkImage = (p, url) => {
-      let old;
-      if (p.full) { old = V().sprites[p.key]; V().sprites[p.key] = url; }
-      else if (p.emo) {
-        if (!V().emoImgs[p.key]) V().emoImgs[p.key] = {};
-        old = V().emoImgs[p.key][p.emo];
-        V().emoImgs[p.key][p.emo] = url;
-      }
-      save(); renderSpk(); refreshAll();
-      A.deleteFileIfUnused(old);
-    };
-    nFile.onchange = async () => {
-      if (!nFile.files.length || !pending) return;
-      try {
-        const p = pending, url = await A.uploadHere(() => uploadImage(nFile.files[0], 'vnpfp', { max: p.full ? 2048 : 768 }));
-        if (url) setSpkImage(p, url);
-      } catch (e) {
-        console.error('[NTR vn portrait upload]', e);
-        toastr.error(e.message || 'Portrait upload failed', 'Visual Novel');
-      }
-      nFile.value = '';
-    };
-    const addSpk = () => {
-      const inp = overlay.querySelector('#m_n_newspk');
-      const nm = inp.value.trim();
-      if (!nm) return;
-      if (!A.store()) { toastr.warning('Open a character chat first. Speakers are saved per character.', 'Visual Novel'); return; }
-      const k = nm.toLowerCase();
-      if (k === String(s.narratorWord).trim().toLowerCase()) { toastr.warning('That name is your narrator keyword.', 'Visual Novel'); return; }
-      if ([s.delimSpkOpen, s.delimSpkClose, s.delimEmo].some((d) => nm.includes(d))) { toastr.warning('Names can\'t contain your tag delimiters.', 'Visual Novel'); return; }
-      V().hiddenSpk = V().hiddenSpk.filter((n) => lc(n) !== k);
-      if (!V().customSpk.some((n) => n.toLowerCase() === k)) V().customSpk.push(nm);
-      spkOpen.add(k);
-      inp.value = '';
-      save(); renderSpk(); refreshAll();
-    };
-    overlay.querySelector('#m_n_addspk').onclick = addSpk;
-    overlay.querySelector('#m_n_newspk').onkeydown = (e) => { if (e.key === 'Enter') addSpk(); };
-
     // Delimiters
     const dIns = [...overlay.querySelectorAll('.m_d_in')];
     const readD = () => Object.fromEntries(dIns.map((i) => [i.dataset.key, i.value.trim()]));
@@ -1094,7 +737,7 @@
       const { errs } = validateDelims(d);
       if (errs.length) { toastr.error(errs[0], 'Visual Novel'); return false; }
       Object.assign(s, d);
-      save(); renderSpk(); refreshAll(); cleanEmoTags();
+      save(); C.renderSpeakers(); refreshAll(); cleanEmoTags();
       toastr.success('Delimiters updated', 'Visual Novel');
       return true;
     };
@@ -1241,7 +884,7 @@
       artFile.value = '';
     };
 
-    renderEmo(); renderSpk(); renderLoc(); renderCg(); renderArt(); preview(); refreshPrompt(); renderGuide();
+    renderLoc(); renderCg(); renderArt(); preview(); refreshPrompt(); renderGuide();
     for (const name of ['map', 'opening']) {
       const m = window.NTR[name];
       if (m) { try { m.bind(overlay, s); } catch (e) { console.error(`[NTR] ${name} menu crashed`, e); } }
@@ -1429,7 +1072,7 @@
 
     const port = ov.querySelector('.cb_n_port');
     const img = port.querySelector('img');
-    const src = isChar ? resolvePortrait(seg.name, seg.emo) : null;
+    const src = isChar ? C.faceSrc(seg.name, seg.emo) : null;
     port.style.display = isChar && s.nodePortraitBox ? '' : 'none';
     port.classList.toggle('cb_noimg', isChar && !src);
     if (src && img.getAttribute('src') !== src) { port.classList.remove('cb_noimg'); img.src = src; }
@@ -2056,7 +1699,7 @@
     titleArt: () => {
       const c = ctx();
       if (c.groupId || !c.name2) return null;
-      return resolveAvatar(c.name2);
+      return C.baseFace(c.name2);
     },
     sceneBg: () => locUrl(currentLoc()) || (A.bannerImage ? A.bannerImage() : ''),
   };

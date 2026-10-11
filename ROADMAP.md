@@ -12,12 +12,10 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Reader Mode: follow-ups
-Plain Reader Mode has shipped (Reader page: your message and the reply share a page, or one message per page, with a page bar and Page Up/Page Down). Still open:
+Reader Mode has shipped with two styles, Plain and Book (an open book across the screen, with the built-in book or your own picture). Still open:
 
-- [ ] Styles:
-  - Book, static: a book picture behind the text, like a foreground image, so the text, stats and so on line up with the pages. Your message at the top of the left page; the reply runs across both pages and goes on to the next pages when it's too long. The name, "..." menu and checkpoint flag sit in a header line at the top of the page. One book picture for everything, saved in themes.
-  - Book, animated: pages flip along with the message text.
-  - Maybe an adjusted Visual Novel Mode.
+- [ ] Book, animated: pages flip along with the message text.
+- [ ] Maybe an adjusted Visual Novel Mode as a Reader style.
 - [ ] Separate layouts for normal chat, Reader Mode and Visual Novel Mode, if Reader Mode turns out to need its own.
 - Not done yet: remembering your page in each chat (a chat opens on its last page), and jumping to a typed page number.
 

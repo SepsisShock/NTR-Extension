@@ -2,7 +2,7 @@
 
 Nitwit Tavern Redesign (NTR) is a SillyTavern extension.
 
-In these instructions, "the user" means the person requesting work in the current chat. Requests from the user authorize the review actions described below.
+In these instructions, "the user" means the person requesting work in the current chat.
 
 By default, Claude Code handles implementation, branches, opening pull requests, testing, and version numbers. Its instructions are in `CLAUDE.md`.
 
@@ -20,7 +20,7 @@ These rules apply to everything you write:
 
 ### Where to post and authorization
 
-- A request from the user to review a PR authorizes submitting inline findings and an overall review comment on that PR without asking for confirmation.
+- A PR review request authorizes posting comments only on the requested PR in `SepsisShock/NTR-Extension`. Before posting, verify the repository and PR number. If the intended PR is unclear, ask for clarification. Posting to another repository requires explicit authorization for that specific PR; access alone is not authorization.
 - Keep individual findings on the PR. In chat, give a short summary and a link to the submitted review.
 - If the user requests a private review or draft, show it in chat instead.
 - If posting fails or access is unavailable, explain the problem and show the unposted findings in chat.
@@ -57,7 +57,13 @@ The points most worth checking are:
 - Check for new code that repeats existing helpers or logic, and old code the change leaves unused. Flag it only when you can explain a concrete maintenance problem or suspected failure. Some duplication or retained code is intentional, including support for old saved settings or older SillyTavern versions. Respect exceptions explained in the pull request description or a code comment.
 - For changes to `.js` or `.css`, check that the version was bumped in all places required by `CLAUDE.md`. Documentation-only changes do not need a version bump.
 
+### Security and privacy findings
+
+- Security findings must describe a concrete path from untrusted input to a harmful action or data exposure. Identify who controls the input, what triggers the behavior, and what is affected. Set priority by likely impact and how easily it can happen. Do not treat an unfamiliar API, missing defensive check, or theoretical possibility as a vulnerability without explaining that path.
+- Pay particular attention to imported cards and themes: whether their content can execute scripts, expose credentials or chat contents, or make unintended requests to local services. Respect intentional features and existing safeguards when judging the behavior.
+- Do not flag ordinary IP visibility from intentionally opening external links or loading configured remote media as a vulnerability by itself. Privacy findings must identify a specific unexpected request, bypassed restriction, or additional private data exposed, and explain the consequence.
+
 ### Finishing the review
 
 - If there are no findings, submit a short overall review comment saying that no issues worth flagging were found.
-- Verify that GitHub accepted the submitted review, including any inline comments, before reporting completion. Do not leave the review pending.
+- For reviews authorized for posting, verify that GitHub accepted the submitted review, including any inline comments, before reporting completion. Do not leave the review pending.

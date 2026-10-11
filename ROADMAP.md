@@ -11,21 +11,15 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
-### Reader Mode
-Read the chat a page at a time instead of scrolling up and down. Makes it easier to keep things like trackers in one place on screen.
+### Reader Mode: follow-ups
+Plain Reader Mode has shipped (Reader page: your message and the reply share a page, or one message per page, with a page bar and Page Up/Page Down). Still open:
 
-- [ ] One or two messages per page. The opening message gets its own page.
-- [ ] Click left and right to turn pages. It has to be clear this isn't swiping (left and right are only for regens now).
-- [ ] Leave room for SillyTavern's branch buttons: Create branch and Create checkpoint in the message's "..." menu, and the checkpoint flag by the name.
 - [ ] Styles:
-  - Plain: no frills. A long message scrolls up and down; it never spills onto another page.
-  - Book, static: a book picture behind the text, like a foreground image, so the text, stats and so on line up with the pages.
+  - Book, static: a book picture behind the text, like a foreground image, so the text, stats and so on line up with the pages. Your message at the top of the left page; the reply runs across both pages and goes on to the next pages when it's too long. The name, "..." menu and checkpoint flag sit in a header line at the top of the page. One book picture for everything, saved in themes.
   - Book, animated: pages flip along with the message text.
   - Maybe an adjusted Visual Novel Mode.
-- Other messages are only hidden on screen, like Visual Novel Mode does. This isn't SillyTavern's `/hide`, which also takes messages out of the prompt.
-- SillyTavern only draws the last 100 messages by default, so turning back past them has to load older ones ("Show more messages").
-- SillyTavern's Left and Right arrow keys already swipe, so page turns need other keys.
-- Open questions: show SillyTavern's own messages (keeps swipes, branch buttons and formatting) or draw its own like Visual Novel Mode; which messages share a page (your message and the reply after it, or a reply and your answer to it); in the book, your message on the left page and the reply on the right, or the reply across both; a reply too long for the book scrolls inside the page or goes on to the next pages; where the message's name, "..." menu and checkpoint flag go in the book; one book picture for everything (saved in themes) or one per character.
+- [ ] Separate layouts for normal chat, Reader Mode and Visual Novel Mode, if Reader Mode turns out to need its own.
+- Not done yet: remembering your page in each chat (a chat opens on its last page), and jumping to a typed page number.
 
 ### Agentic Tracker Panel
 One panel that stays on screen with the current state, filled in by an agent (the Agents page). Tracker blocks your regexes already draw in messages can be shown on screen with Pinned Blocks, in Layout; this panel is for state an agent keeps. Works with a lorebook-based cast; group chat isn't needed.

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.33.0';
+  const VERSION = '2.34.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -76,6 +76,10 @@
 
     // Reader Mode (reader.js): the chat a page at a time. Per Page is 'pair' (your message and the replies after it) or 'one'.
     rdEnabled: false, rdPer: 'pair',
+    // Its look, in themes: Plain or Book. An empty picture is the built-in book, and the page areas start as its own:
+    // where the text sits on the picture, as a % of its height (Top, Bottom) or width (Outer edge, Spine gap).
+    rdStyle: 'plain', rdBookImg: '', rdBookW: 90, rdBookTop: 7, rdBookBottom: 8, rdBookOuter: 7, rdBookSpine: 8,
+    rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '',
 
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
@@ -1368,6 +1372,8 @@
       .cb_cur_prev { width: 40px; height: 40px; flex: none; border-radius: 8px; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
       .cb_cur_prev img { max-width: 32px; max-height: 32px; }
       .cb_cur_prev i { opacity: .35; }
+      .cb_cur_prev.ntr_rd_pic { width: 72px; height: 48px; }
+      .cb_cur_prev.ntr_rd_pic img { max-width: 68px; max-height: 44px; }
       .cb_cur_name { flex: 1; min-width: 0; }
       .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
@@ -1409,6 +1415,7 @@
     applyBodyOverrides();
     syncPopouts();
     syncPins();
+    window.NTR.reader?.relayout();
   }
 
   function currentKey() {
@@ -3679,6 +3686,7 @@
     layBarEdge: LAY_EDGES, laySend: ['attached', 'free'], layPhBarEdge: LAY_EDGES, layPhSend: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
+    rdStyle: ['plain', 'book'],
   });
   for (const p of ['Panel', ...OV_PARTS]) {
     Object.assign(PICK_KEYS, { [`ov${p}Bg`]: ['clear', 'color'], [`ov${p}Border`]: ['none', 'line'] });
@@ -3698,7 +3706,9 @@
     ovPanelBgColor: '--SmartThemeChatTintColor', ovAiBgColor: '--SmartThemeBotMesBlurTintColor', ovUsBgColor: '--SmartThemeUserMesBlurTintColor', ovSendBgColor: '--SmartThemeBlurTintColor',
     ovPanelBorderColor: '--SmartThemeBorderColor', ovAiBorderColor: '--SmartThemeBorderColor', ovUsBorderColor: '--SmartThemeBorderColor', ovSendBorderColor: '--SmartThemeBorderColor',
   };
-  const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont'];
+  const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont', 'rdBookFont'];
+  // Reader Mode's ink colors. They start from the built-in book's ink, not SillyTavern's own colors.
+  const INK_KEYS = ['rdInk', 'rdInkEm', 'rdInkQuote'];
 
   function stColor(key) {
     const v = getComputedStyle(document.documentElement).getPropertyValue(COLOR_FROM[key]).trim();
@@ -3853,7 +3863,7 @@
   function syncGoogleFonts() {
     const s = settings();
     const want = new Set();
-    const live = (k) => (k === 'rbFont' ? s.rbEnabled : s.tfEnabled) && s[k + 'On'];
+    const live = (k) => (k === 'rbFont' ? s.rbEnabled : k === 'rdBookFont' ? s.rdEnabled && s.rdStyle === 'book' : s.tfEnabled) && s[k + 'On'];
     if (isOn()) for (const k of FONT_KEYS) { const f = live(k) ? cleanFont(s[k]) : ''; if (f) want.add(f); }
     document.querySelectorAll('link[data-ntr-gf]').forEach((l) => { if (!want.has(l.dataset.ntrGf)) l.remove(); else want.delete(l.dataset.ntrGf); });
     for (const f of want) {
@@ -4660,6 +4670,7 @@
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
+    reader: { label: 'Reader Mode look (Plain or Book, book picture, page areas, ink, font)', keys: ['rdStyle', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
@@ -4703,12 +4714,13 @@
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
+    rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
@@ -4771,6 +4783,7 @@
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
     if (k === 'ovScrollTrack') return typeof v === 'string' && COLOR_RE.test(v);
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
+    if (INK_KEYS.includes(k)) return typeof v === 'string' && COLOR_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
     if (k === 'bannerGlobal') return isObj(v);
     if (k === 'layPins') return Array.isArray(v);
@@ -5438,13 +5451,75 @@
           ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
           <div class="cb_hint" style="margin-bottom: 0;">Your Message and the Reply starts a page at each of your messages; the opening message gets page 1. One Message gives every message its own page.</div>`)}
         ${card('Turning Pages', `
-          <div class="cb_hint" style="margin: 0;">Use the page bar under the chat, or Page Up and Page Down. A page taller than the chat scrolls first. Sending a message goes to the last page. The Left and Right arrow keys still swipe, on the last page only. Turning back past the messages SillyTavern has shown loads the older ones.</div>`)}
+          <div class="cb_hint" style="margin: 0;">Use the page bar under the chat, or Page Up and Page Down. A page taller than the chat scrolls first; in the book, Next and Page Down go to the next two pages of a long reply first. Sending a message goes to the last page. The Left and Right arrow keys still swipe, on the last page only. Turning back past the messages SillyTavern has shown loads the older ones.</div>`)}
+        ${card('Style', `
+          ${pills('rdstyle', [['plain', 'Plain'], ['book', 'Book']], s.rdStyle === 'book' ? 'book' : 'plain')}
+          <div class="cb_hint" style="margin-bottom: 0;">Plain shows the messages as usual, and a long page scrolls. Book shows an open book across the screen: your message at the top of the left page, and the reply running down both pages and on to the next two. A phone held upright shows Plain; turn it sideways for the book.</div>`)}
+        ${card('Book', `
+          <div class="cb_cur_row">
+            <div class="cb_cur_prev ntr_rd_pic" id="m_rd_pic"></div>
+            <span class="cb_cur_name" style="flex: 1;">Book Picture<small id="m_rd_pic_name"></small></span>
+            <button class="menu_button" id="m_rd_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
+            <button class="menu_button" id="m_rd_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
+            <button class="menu_button" id="m_rd_clr" title="Back to the built-in book and its page areas"><i class="fa-solid fa-rotate-left"></i></button>
+          </div>
+          <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
+          <div class="cb_hint" style="margin-bottom: 0;">How much of the screen's width the book takes. It keeps the picture's shape, so it gets narrower when the screen is too short.</div>`)}
+        ${card('Page Areas', `
+          ${ovLabel('Top', rangeSlider(s, 'rdBookTop'))}
+          ${ovLabel('Bottom', rangeSlider(s, 'rdBookBottom'))}
+          ${ovLabel('Outer Edge', rangeSlider(s, 'rdBookOuter'))}
+          ${ovLabel('Spine Gap', rangeSlider(s, 'rdBookSpine'))}
+          <div class="cb_hint" style="margin-bottom: 0;">Where the text sits on the picture. Top and Bottom are a % of the book's height; Outer Edge and Spine Gap are a % of its width. Spine Gap is the space between the two pages' text. The swipe arrows sit under the text at the bottom right.</div>`)}
+        ${card('Ink', `
+          ${ovLabel('Text', ovColor(s, 'rdInk'))}
+          ${ovLabel('Italics', ovColor(s, 'rdInkEm'))}
+          ${ovLabel('Quotes', ovColor(s, 'rdInkQuote'))}
+          ${ovRow(s, 'rdBookFontOn', 'Book Font', ovFont(s, 'rdBookFont'))}
+          <div class="cb_hint" style="margin-bottom: 0;">In the book, these take the place of SillyTavern's colors and Text Formatting's colors and text effects, which are made for a dark background. Text Formatting's sizes still apply.</div>`)}
     `, { sw: ['m_rd_enable', s.rdEnabled], note: err });
   }
 
   function bindReader(overlay, s) {
     overlay.querySelector('#m_rd_enable').onchange = function() { setReader(this.checked); };
     onPills(overlay, 'rdper', (v) => { s.rdPer = v; save(); window.NTR.reader?.refresh(); });
+    onPills(overlay, 'rdstyle', (v) => { s.rdStyle = v; save(); updateAvatarStyle(); });
+
+    // The book picture: the built-in book, an upload or a link. Going back to the built-in book puts its page areas back too.
+    const file = overlay.querySelector('#m_rd_file');
+    const renderPic = () => {
+      const src = s.rdBookImg ? media(s.rdBookImg) : window.NTR.reader?.bookUri || '';
+      overlay.querySelector('#m_rd_pic').innerHTML = src ? `<img src="${escapeHTML(src)}" alt="">` : '<i class="fa-solid fa-book-open"></i>';
+      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : 'The built-in book';
+      overlay.querySelector('#m_rd_clr').disabled = !s.rdBookImg;
+    };
+    const setPic = (url) => {
+      const old = s.rdBookImg;
+      s.rdBookImg = url;
+      if (!url) for (const k of ['rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine']) s[k] = DEFAULTS[k];
+      save();
+      updateAvatarStyle();
+      deleteFileIfUnused(old);
+      if (url) renderPic(); else openCombinedModal();
+    };
+    overlay.querySelector('#m_rd_up').onclick = () => file.click();
+    overlay.querySelector('#m_rd_url').onclick = async function() {
+      const url = await askImageUrl('Book picture', this);
+      if (url) setPic(url);
+    };
+    overlay.querySelector('#m_rd_clr').onclick = () => setPic('');
+    file.onchange = async () => {
+      if (!file.files.length) return;
+      try {
+        setPic(await uploadImage(file.files[0], 'book', { max: 3000 }));
+      } catch (e) {
+        console.error('[NTR book upload]', e);
+        toastr.error(e.message || 'Upload failed', 'Book picture');
+      }
+      file.value = '';
+    };
+    renderPic();
   }
 
   async function setReader(on) {
@@ -5601,7 +5676,7 @@
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
-    refreshPins: () => syncPins(), readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(),
+    refreshPins: () => syncPins(), readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
     // For preview.js
     PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
     startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),

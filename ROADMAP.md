@@ -105,11 +105,6 @@ A "Basic Style: Reasoning Arrow" card above Advanced, for the arrow on the reaso
 - [ ] While Thinking animation: Off, Spin, Pulse or Bounce. Stops when thinking ends; off with ST Reduced Motion.
 - [ ] Arrow CSS as a third box in Advanced: Custom CSS, switched off when it comes from someone else's theme.
 
-### Banners in group chats
-The shared Global banner could show in group chats too, which have no banner now.
-
-- Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
-
 ### Avatar Shapes in Visual Novel Mode
 Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Rectangle and Square.
 
@@ -219,3 +214,8 @@ In Line looks too bulky next to the text.
 
 ### SillyTavern's top bar icons
 - [ ] Change the icons in SillyTavern's top menu bar.
+
+### Banners in group chats
+Optional: revisit during release preparation only if you decide group chats matter. The shared Global banner could show in group chats too, which have no banner now.
+
+- Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.

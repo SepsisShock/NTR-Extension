@@ -4568,12 +4568,15 @@
     if (before === '' && !legacyMoved.has(key) && cardIsEmpty(d)) return;
     try {
       // SillyTavern merges a save into what the card holds, and merging into NTR data that isn't an object drops the
-      // save. So a broken card's old value is cleared first. Clearing also drops it from memory, so it's put straight back.
+      // save. So a broken card's old value is cleared first, through the bulk save, which says whether it worked (the
+      // single one doesn't). Clearing also drops it from memory, so it's put straight back. Until it works, nothing
+      // counts as saved.
       const unset = c.constants?.unset;
-      if (cardFix.has(key) && unset) {
-        const cleared = c.writeExtensionField(i, 'ntr', unset);
-        c.characters[i].data.extensions.ntr = d;
-        await cleared;
+      if (cardFix.has(key) && unset && typeof c.writeExtensionFieldBulk === 'function') {
+        const ch = c.characters[i];
+        const r = await c.writeExtensionFieldBulk([key], 'ntr', unset);
+        ch.data.extensions.ntr = d;
+        if (![...(r?.updated || []), ...(r?.skipped || [])].includes(key)) throw new Error('Could not clear the old NTR data in the card');
         cardFix.delete(key);
       }
       await c.writeExtensionField(i, 'ntr', d);

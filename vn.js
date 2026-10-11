@@ -384,7 +384,7 @@
     // A reply being written can end partway through a tag: ((Rafe%%Sa, ((Rafe% or [[Location:Fo. That part is hidden too.
     const emoStart = emo ? [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|') : '';
     const openEmoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`) : null;
-    const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}$`, 'i');
+    const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}[ \\t]*$`, 'i');
     for (const el of todo) {
       const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let n, last = null;

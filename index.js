@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.35.1';
+  const VERSION = '2.35.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -1416,7 +1416,6 @@
     syncCustomCss();
     watchReasoningLabels();
     syncReasoningLabels();
-    applyBodyOverrides();
     syncPopouts();
     syncPins();
     window.NTR.reader?.relayout();
@@ -3413,29 +3412,6 @@
   // ===== UI Decor (the page was called UI Display, and its keys still start with ov) =====
   // SillyTavern's round avatars are the absence of a class. Avatar Shape lives in Avatar Management but keeps these keys.
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
-  const ALL_AV = ['big-avatars', 'square-avatars', 'rounded-avatars'];
-  let bodyTouched = false;
-  let bodySnap = null;
-
-  function setBodyClasses(all, want) {
-    const b = document.body;
-    for (const c of all) {
-      const on = want.includes(c);
-      if (b.classList.contains(c) !== on) b.classList.toggle(c, on);
-    }
-  }
-
-  function applyBodyOverrides() {
-    const s = settings();
-    const b = document.body;
-    if (!b) return;
-    if (!bodySnap) bodySnap = ALL_AV.filter((c) => b.classList.contains(c));
-    const p = ctx().powerUserSettings;
-    const stAv = p && p.avatar_style !== undefined ? [['', ...ALL_AV][Number(p.avatar_style)]].filter(Boolean) : bodySnap;
-
-    // Avatar Shape used to set SillyTavern's avatar classes on the page; it's per side now (see stShapeCss).
-    if (bodyTouched) { setBodyClasses(ALL_AV, stAv); bodyTouched = false; }
-  }
 
   function overrideCss(s) {
     let v = '';

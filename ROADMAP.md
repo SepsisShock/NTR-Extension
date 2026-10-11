@@ -185,9 +185,6 @@ If NTR ever needs fixes for other extensions (like a top bar or side panel anoth
 - [ ] Keep the fixes in CSS under that class, so they only apply when the extension is there.
 - [ ] Check the speed with `st.sh bench`, with and without the other extension installed.
 
-### Built-in cursor
-An arrow drawn in code with its own color, for people without a cursor image (Custom Cursor in UI Display).
-
 ### Banners in group chats
 The shared Global banner could show in group chats too, which have no banner now.
 

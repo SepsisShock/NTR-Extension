@@ -2,8 +2,6 @@
 
 Ideas and planned work for Nitwit Tavern Redesign. When something ships, it comes off the list; the PR history is the record.
 
-Within each main section, items run from highest priority to lowest. This does not move work between sections. Fix the known Pinned Blocks and Background Pattern Fade problems before adding more cosmetic options.
-
 ## Planned
 
 ### Reader Mode: follow-ups

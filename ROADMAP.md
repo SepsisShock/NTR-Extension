@@ -66,6 +66,9 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Doesn't block Reader Mode or the Agentic Tracker Panel: Layout and Pinned Blocks already make the parts they need adjustable.
 
+### Remove Phone Preview
+- [ ] Remove Phone Preview from Layout, including `preview.js` and the code in `index.js` that supports its frame and blocks saves inside it. Keep the separate Desktop and Phone layouts and editing on the actual device.
+
 ### Message details
 Find out how to make these movable and designable, and which details SillyTavern makes available.
 

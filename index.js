@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.38.2';
+  const VERSION = '2.39.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -5716,6 +5716,23 @@
       aliases: ['NTR'],
       callback: () => { openCombinedModal(); return ''; },
       helpString: 'Opens the Nitwit Tavern Redesign menu.',
+    }));
+    // /ntr-agent Name: runs that agent (Agents page, agents.js) and gives its answer to Quick Replies and STscript.
+    const { SlashCommandArgument, SlashCommandEnumValue, ARGUMENT_TYPE } = ctx();
+    if (!SlashCommandArgument || !SlashCommandEnumValue || !ARGUMENT_TYPE) return;
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+      name: 'ntr-agent',
+      callback: async (_args, name) => {
+        if (!isOn() || !settings().agEnabled || PREVIEW) { toastr.warning('Turn the Agents page on first.', 'Agents'); return ''; }
+        const ag = await loadModule('agents');
+        return ag ? ag.runByName(name) : '';
+      },
+      returns: 'the agent\'s answer',
+      unnamedArgumentList: [SlashCommandArgument.fromProps({
+        description: 'agent name', typeList: [ARGUMENT_TYPE.STRING], isRequired: true,
+        enumProvider: () => (Array.isArray(settings().agents) ? settings().agents : []).map((a) => new SlashCommandEnumValue(String(a?.name ?? ''))),
+      })],
+      helpString: 'Runs an NTR agent by its name, whether its switch is on or off, and waits for its answer. Example: <code>/ntr-agent Tracker | /echo</code>',
     }));
   }
 

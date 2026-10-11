@@ -4,9 +4,10 @@
 // samplers and limits. Its connection never changes your chat's connection or SillyTavern's Connection Profiles: it sends
 // its own request through SillyTavern (Chat Completion or Text Completion), or uses your chat's connection (Same as Chat).
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
-// For now an agent's answer shows in its activity. Showing it on screen (the Agentic Tracker Panel) comes next.
+// An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. Showing it on screen
+// (the Agentic Tracker Panel) comes next.
 (() => {
-  const AGENTS_VERSION = '2.38.2';
+  const AGENTS_VERSION = '2.39.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -40,7 +41,7 @@
     tcType: 'koboldcpp', tcUrl: 'http://127.0.0.1:5001', tcModel: '', tcInstruct: '',
     tempOn: true, temp: 0.3, topPOn: false, topP: 1, topKOn: false, topK: 0, minPOn: false, minP: 0,
     freqOn: false, freq: 0, presOn: false, pres: 0, repOn: false, rep: 1, effOn: false, eff: 'auto',
-    maxTokens: 600, context: 6,
+    maxTokens: 600, context: 6, split: false, full: false,
   });
   const num = (k, v, d) => { const [min, max] = A.numRange(k); const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
   const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
@@ -54,7 +55,8 @@
       ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: str(a?.ccModel, 200), ccUrl: str(a?.ccUrl, 500), ccKey: str(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
       tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
       effOn: a?.effOn === true, eff: pick(a?.eff, EFFORT, 'auto'),
-      maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context) };
+      maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context),
+      split: a?.split === true, full: a?.full === true };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
@@ -80,13 +82,22 @@
     return a.kind === 'tc' && c.mainApi === 'textgenerationwebui' && !!t && sameUrl(t.server_urls?.[t.type]) === sameUrl(a.tcUrl);
   }
 
-  // What the agent reads: its instructions, then the latest chat messages, oldest first.
+  // What the agent reads: its instructions, then the latest chat messages, oldest first. In one block, or as separate
+  // messages (yours as user, the rest as AI), each with its speaker's name. Separate messages end with a user line:
+  // a chat ending on an AI message would otherwise be read as the start of the agent's own answer.
+  const ROLE = { system: 'System', user: 'User', assistant: 'AI' };
   function prompt(a, test) {
     if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];
-    const chat = (ctx().chat || []).filter((m) => m && !m.is_system && typeof m.mes === 'string');
-    const lines = chat.slice(-a.context).map((m) => `${m.name || (m.is_user ? 'User' : 'Character')}: ${m.mes}`);
-    return [{ role: 'system', content: a.job }, { role: 'user', content: `The latest chat messages, oldest first:\n\n${lines.join('\n\n')}` }];
+    const chat = (ctx().chat || []).filter((m) => m && !m.is_system && typeof m.mes === 'string').slice(-a.context);
+    const said = (m) => `${m.name || (m.is_user ? 'User' : 'Character')}: ${m.mes}`;
+    if (a.split) {
+      return [{ role: 'system', content: a.job }, ...chat.map((m) => ({ role: m.is_user ? 'user' : 'assistant', content: said(m) })),
+        { role: 'user', content: 'Follow your instructions for the chat messages above.' }];
+    }
+    return [{ role: 'system', content: a.job }, { role: 'user', content: `The latest chat messages, oldest first:\n\n${chat.map(said).join('\n\n')}` }];
   }
+  // Your chat's full prompt: Same as Chat only, and never for Test Connection.
+  const usesFull = (a, test) => a.kind === 'chat' && a.full && !test;
   function samplers(a, tc) {
     const o = {};
     for (const [f, , , cc, t] of SAMP) if (a[f + 'On']) o[tc ? t : cc] = a[f];
@@ -116,13 +127,20 @@
     if (a.kind === 'chat') {
       await abortable(chatIdle(), signal);
       stillAllowed(a, auto);
-      const messages = prompt(a, test);
-      // SillyTavern's own request can't take our Stop, but its "generation stopped" event cancels it. That event would
-      // also stop a reply being written, so it's only sent while no reply is.
-      const cancel = () => { if (!chatBusy) c.eventSource.emit(c.event_types.GENERATION_STOPPED); };
+      const full = usesFull(a, test);
+      // SillyTavern's own request can't take our Stop, but its "generation stopped" event cancels it, and Stop Generation
+      // cancels a full-prompt request. Both would also stop a reply being written, so they're only used while no reply is.
+      const cancel = () => { if (!chatBusy) { if (full) c.stopGeneration(); else c.eventSource.emit(c.event_types.GENERATION_STOPPED); } };
       signal.addEventListener('abort', cancel, { once: true });
       try {
-        return String(await abortable(c.generateRaw({ prompt: messages[1].content, systemPrompt: messages[0].content, responseLength: max }), signal) ?? '');
+        // SillyTavern skips a full-prompt request without a word while your chat has no connection.
+        if (full && c.onlineStatus === 'no_connection') throw new Error('Your chat isn\'t connected to an API.');
+        // SillyTavern builds your chat's full prompt and adds the instructions at the end.
+        if (full) return String(await abortable(c.generateQuietPrompt({ quietPrompt: a.job, responseLength: max }), signal) ?? '');
+        const messages = prompt(a, test);
+        // The speaker's name is already in each message, so SillyTavern doesn't add one (name: '').
+        const chatPart = a.split && !test ? messages.slice(1).map((m) => ({ ...m, name: '' })) : messages[1].content;
+        return String(await abortable(c.generateRaw({ prompt: chatPart, systemPrompt: messages[0].content, responseLength: max }), signal) ?? '');
       } finally {
         signal.removeEventListener('abort', cancel);
       }
@@ -160,13 +178,13 @@
     runs.set(a.id, l.slice(0, 10));
     renderActivity();
   }
-  // auto: a run after a reply, which also needs the agent's own switch on.
+  // auto: a run after a reply, which also needs the agent's own switch on. Resolves with the run's result: { ok, text }.
   function enqueue(id, test = false, auto = false) {
     chain = chain.then(async () => {
       const a = byId(id);
-      if (!a) return;
+      if (!a) return { ok: false, text: 'This agent was deleted.' };
       const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : auto && !a.on ? '' : !test && !a.job.trim() ? 'Write its instructions first.' : null;
-      if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return; }
+      if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return { ok: false, text: skip || 'Skipped' }; }
       const ctrl = new AbortController();
       let timedOut = false;
       const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, TIMEOUT_MS);
@@ -178,9 +196,11 @@
         if (ctrl.signal.aborted) throw new Error(timedOut ? 'Timed out' : 'Stopped');
         if (!test && byId(id)) answers.set(id, text);
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: true, test, text: text || '(empty answer)' });
+        return { ok: true, text };
       } catch (e) {
         const msg = timedOut ? 'Timed out' : ctrl.signal.aborted ? 'Stopped' : (e?.message || String(e));
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: false, test, text: msg });
+        return { ok: false, text: msg };
       } finally {
         clearTimeout(timer);
         current = null;
@@ -265,6 +285,13 @@
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
         <div class="cb_hint">Chat Completion is an online API, or a local server with an OpenAI-style link (Custom). Text Completion is a local server like KoboldCpp or llama.cpp. Neither changes your chat's connection or SillyTavern's Connection Profiles.</div>
         ${connBody}`)}
+      ${card('Prompt', `
+        ${a.kind === 'chat' ? `${lab('What It Sends', pills('agfull', [['own', 'Its Own Prompt'], ['full', 'Your Chat\'s Full Prompt']], a.full ? 'full' : 'own'))}
+        <div class="cb_hint">Its Own Prompt: its instructions and the latest chat messages. Your Chat's Full Prompt: everything your chat sends for a reply (card, lorebooks, Author's Note, chat history), with its instructions added at the end. That costs more tokens.</div>` : ''}
+        ${usesFull(a) ? '' : `${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
+        <div class="cb_hint">As One Block: all the messages in one text. As Separate Messages: your messages as user and the others as AI. Each keeps its speaker's name either way.${a.kind === 'cc' ? ' If your API complains about the order of messages, set Prompt Post-Processing to Semi-strict.' : ''}</div>`}
+        <div class="cb_actions" style="margin:6px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}</div>
+        <div id="m_ag_prevbox" hidden></div>`)}
       ${a.kind === 'chat' ? '' : card('Samplers', `
         ${sampRows}
         <div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="effOn" ${a.effOn ? 'checked' : ''}><span>Reasoning Effort</span></label>
@@ -272,11 +299,22 @@
         <div class="cb_hint" style="margin-bottom:0;">Unticked uses the API's own default. An API that doesn't use one ignores it. Your Chat Completion presets are never used.</div>`)}
       ${card('Limits', `
         ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}
-        ${lab('Messages Read', slider(a, 'context', 'agContext'))}
-        <div class="cb_hint" style="margin-bottom:0;">How long its answer may be, and how many of the latest chat messages it reads.</div>`)}
+        ${usesFull(a) ? '<div class="cb_hint" style="margin-bottom:0;">How long its answer may be. With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
+          : `${lab('Messages Read', slider(a, 'context', 'agContext'))}
+        <div class="cb_hint" style="margin-bottom:0;">How long its answer may be, and how many of the latest chat messages it reads.</div>`}`)}
       ${card('Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
         <div id="m_ag_act">${activityHtml(a, past)}</div>`)}`;
+  }
+
+  // What the agent sends on its next run, from the chat as it is now. Keys and links are never part of it.
+  function previewHtml(a) {
+    const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
+    if (usesFull(a)) return `<div class="cb_hint" style="margin:8px 0 0;">Your chat's full prompt, as SillyTavern builds it for a reply, then these instructions at the end:${box(a.job)}</div>`;
+    const how = a.kind === 'chat' ? 'SillyTavern formats it for your chat\'s API before sending.'
+      : a.kind === 'tc' ? (a.tcInstruct ? `Formatted with the ${esc(a.tcInstruct)} instruct template before sending.` : 'Sent in plain format.') : 'Sent as these messages.';
+    return prompt(a).map((m) => `<div class="cb_hint" style="margin:8px 0 0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('')
+      + `<div class="cb_hint" style="margin:8px 0 0;">${how}</div>`;
   }
 
   function activityHtml(a, l = runs.get(a.id) || []) {
@@ -384,6 +422,8 @@
     };
     onPills(root, 'agruns', (v) => { a.runs = v; changed(true); });
     onPills(root, 'agkind', (v) => { a.kind = v; changed(true); });
+    onPills(root, 'agfull', (v) => { a.full = v === 'full'; changed(true); });
+    onPills(root, 'agsplit', (v) => { a.split = v === 'split'; changed(true); });
     onPills(root, 'ageff', (v) => { a.eff = v; changed(false); });
 
     root.querySelectorAll('.m_ag_txt').forEach((el) => {
@@ -409,6 +449,11 @@
       };
       el.onchange = () => changed(false);
     });
+    root.querySelector('#m_ag_prev').onclick = () => {
+      const box = root.querySelector('#m_ag_prevbox');
+      box.hidden = !box.hidden;
+      if (!box.hidden) box.innerHTML = previewHtml(a);
+    };
     root.querySelector('#m_ag_run').onclick = () => enqueue(a.id);
     root.querySelector('#m_ag_test').onclick = () => enqueue(a.id, true);
     root.querySelector('#m_ag_stop').onclick = () => current?.ctrl.abort();
@@ -433,6 +478,15 @@
     },
     genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; },
     genEnded: () => { chatBusy = false; const w = waiters; waiters = []; w.forEach((r) => r()); },
+    // /ntr-agent (index.js): runs an agent by name, on or off, and gives back its answer, or '' with a message if it fails.
+    runByName: async (name) => {
+      const want = String(name ?? '').trim().toLowerCase();
+      const a = list().find((x) => x.name.toLowerCase() === want);
+      if (!a) { toastr.warning(`No agent named "${String(name ?? '').trim()}".`, 'Agents'); return ''; }
+      const r = await enqueue(a.id);
+      if (!r.ok) { toastr.warning(r.text, a.name); return ''; }
+      return r.text;
+    },
     // For the Agentic Tracker Panel: an agent's last answer since the page loaded.
     answer: (id) => answers.get(id) ?? '',
   };

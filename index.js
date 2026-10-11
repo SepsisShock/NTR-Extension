@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.36.1';
+  const VERSION = '2.37.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -2284,7 +2284,8 @@
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
             </div>
-        `, { sw: ['m_a_enable', s.avatarEnabled] })}
+            ${castPartHtml()}
+        `, { sw: ['m_a_enable', s.avatarEnabled], legend: true })}
 
         ${elementsSectionHtml(s)}
         ${textSectionHtml(s)}
@@ -2566,6 +2567,7 @@
     bindReader(overlay, s);
     window.NTR.regex?.bind(overlay, s);
     window.NTR.agents?.bind(overlay, s);
+    window.NTR.cast?.bind(overlay, s);
     bindDisplay(overlay, s);
     bindTextFormatting(overlay, s);
 
@@ -2709,7 +2711,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css']);
+  const FOLDED = new Set(['vn_guide', 'vn_tags', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'av_emo', 'av_emo_list', 'av_spk']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -5350,7 +5352,7 @@
 
   // ===== Visual Novel module loader + its toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions' };
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -5376,7 +5378,8 @@
     }
     return modPromise[name];
   }
-  const loadVN = () => loadModule('vn', true);
+  // vn.js draws the speakers' pictures from cast.js, so cast.js loads first.
+  const loadVN = () => loadModule('cast', true).then((c) => (c ? loadModule('vn', true) : null));
 
   // The Regexes page comes from regex.js, loaded the first time the menu opens.
   let regexWaiting = false;
@@ -5394,6 +5397,22 @@
     }
     const msg = modError.agents ? 'Agents failed to load: ' + escapeHTML(modError.agents) : 'Loading your agents.';
     return pageHtml('agents', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
+  }
+
+  // The Emotions part of the Avatars page comes from cast.js, loaded the first time the menu opens.
+  let castWaiting = false;
+  function castPartHtml() {
+    const c = window.NTR.cast;
+    if (c) return c.partHtml(settings());
+    if (!modError.cast && !castWaiting) {
+      castWaiting = true;
+      loadModule('cast').then(() => {
+        castWaiting = false;
+        if (document.getElementById('cb_modal_overlay')) openCombinedModal();
+      });
+    }
+    const msg = modError.cast ? 'Emotions failed to load: ' + escapeHTML(modError.cast) : 'Loading emotions.';
+    return `<div class="cb_hint ntr_keepon">${msg}</div>`;
   }
 
   function regexSectionHtml(s) {

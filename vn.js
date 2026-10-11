@@ -4,7 +4,7 @@
   const VN_VERSION = '2.37.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, fullResUrl, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead, validateDelims } = A;
   const TAG = A.TAG || '';
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
@@ -584,7 +584,7 @@
               <div id="m_n_fx_body" class="cb_hint ${s.nodeEffects ? '' : 'cb_dim'}">${tg(s.effectWord, s.fxShake)}, ${escapeHTML(s.fxFlash)} or ${escapeHTML(s.fxFade)} fire once when their line plays. ${tg(s.weatherWord, s.wxRain)}, ${escapeHTML(s.wxSnow)} or ${escapeHTML(s.wxClear)} stays until the weather changes, worked out from the chat history like locations.</div>
             </div>
 
-            <div class="cb_hint" style="margin: 10px 0;">Emotions, speakers, faces and full bodies are on the <a href="#" class="m_n_tocast">Avatars</a> page, under Emotions.</div>
+            <div class="cb_hint ntr_keepon" style="margin: 10px 0;">Emotions, speakers, faces and full bodies are on the <a href="#" class="m_n_tocast">Avatars</a> page, under Emotions.</div>
 
             ${subHead('vn_loc', 'Locations ' + TAG)}
             <div class="cb_collapse_content">
@@ -681,6 +681,7 @@
         e.preventDefault();
         s.uiPage = 'pfp'; s.uiOpen.av_emo = true; save();
         A.openMenu();
+        setTimeout(() => document.querySelector('#cb_modal_overlay [data-sec="av_emo"]')?.scrollIntoView({ block: 'start' }), 60);
       };
     });
 

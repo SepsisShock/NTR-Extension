@@ -221,7 +221,7 @@
 .ntr_pbody > .cb_hint:first-child { margin-top: 12px; }
 .ntr_page.ntr_off .ntr_picon,
 .ntr_page.ntr_off .ntr_ptitle { opacity: 0.45; filter: grayscale(1); }
-/* A page switched off dims its settings, except a part that works without it (ntr_keepon: Emotions on Avatars). */
+/* A page switched off dims its settings, except what works without it (ntr_keepon: Emotions on Avatars, the link to it on VN). */
 .ntr_page.ntr_off .ntr_pbody > :not(.ntr_keepon) { opacity: 0.38; filter: grayscale(1); pointer-events: none; transition: opacity 0.15s; }
 
 /* A part of a page with its own title and switch (Header Banner and Foreground Images on Overlays, the parts of Elements). */

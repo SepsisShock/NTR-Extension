@@ -247,7 +247,7 @@
 
   // ----- The chat with Visual Novel Mode off: faces on chat avatars, the stage behind the chat -----
   // A message's speakers and stage tags, in order. Its writer speaks first, with the message's emotion: the last
-  // Emotion tag, or the last emotion in a speaker tag with their own name. Kept per message until its text changes.
+  // Emotion tag or speaker tag with their own name that gives one. Kept per message until its text changes.
   const beats = new Map();
   function msgInfo(m, i) {
     const text = String(m.mes || ''), name = String(m.name || '');
@@ -275,7 +275,8 @@
       else if (word === lc(s.enterWord)) list.push({ kind: 'enter', name: arg });
       else if (word === lc(s.exitWord)) list.push({ kind: 'exit', name: arg });
     }
-    for (const b of list) if (b.kind === 'char' && !b.emo && lc(b.name) === author) b.emo = emo;
+    // The writer has one emotion per message, the same for their avatar and the stage.
+    for (const b of list) if (b.kind === 'char' && lc(b.name) === author) b.emo = emo;
     const info = { text, name, emo, beats: list };
     beats.set(i, info);
     return info;
@@ -293,6 +294,7 @@
     if (!on && !facesShown) return;
     facesShown = on;
     const chat = ctx().chat || [];
+    let swapped = false;
     document.querySelectorAll('#chat .mes[mesid]').forEach((mes) => {
       const img = mes.querySelector('.avatar img');
       if (!img) return;
@@ -309,12 +311,16 @@
         img.dataset.ntrOrig = mine ? img.dataset.ntrOrig : cur;
         img.dataset.ntrFace = want;
         img.src = want;
+        swapped = true;
       } else if (img.dataset.ntrFace) {
         if (mine && img.dataset.ntrOrig) img.src = img.dataset.ntrOrig;
         delete img.dataset.ntrFace;
         delete img.dataset.ntrOrig;
+        swapped = true;
       }
     });
+    // Pop Out copies the newest avatar, which only happens when messages are added; a changed face is caught up here.
+    if (swapped) A.syncPopouts?.();
   }
 
   // The stage behind the chat: full bodies (or faces) of the last speakers, left, center and right, between the
@@ -334,8 +340,10 @@
     }
     const st = castNew();
     const recent = [];
+    // In Reader Mode the stage follows the page being read: nothing after its last message counts.
+    const upTo = window.NTR.reader?.upTo?.();
     (ctx().chat || []).forEach((m, i) => {
-      if (!m || m.is_system || !m.mes) return;
+      if (!m || m.is_system || !m.mes || (upTo != null && i > upTo)) return;
       for (const b of msgInfo(m, i).beats) { castStep(st, b); if (b.kind === 'char' && b.name) recent.push(b); }
     });
     const info = new Map();

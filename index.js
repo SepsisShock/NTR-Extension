@@ -4901,6 +4901,7 @@
     syncPopouts();
     syncWallpaper();
     window.NTR.vn?.refresh();
+    window.NTR.cast?.refresh();
   }
 
   function applyLook(data) {
@@ -5738,9 +5739,12 @@
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
-    refreshPins: () => syncPins(), readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
+    // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
+    refreshPins: () => { syncPins(); window.NTR.cast?.sync(); }, readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
+    // For cast.js: Pop Out catches up after a face changes
+    syncPopouts: () => syncPopouts(),
     // For preview.js
     PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
     startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),

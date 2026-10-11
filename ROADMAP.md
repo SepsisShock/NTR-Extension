@@ -70,29 +70,11 @@ Worth doing, but after the planned work. Includes checks for problems that aren'
 - [ ] Fix the Pinned Block background in Reader Mode: it is not transparent and appears to inherit the chat panel's color. Check where the background comes from.
 - [ ] Check whether either problem occurs in normal chat and Visual Novel Mode; those modes are unverified.
 
-### In Line avatar: spacing and look
-In Line looks too bulky next to the text.
-
-- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
-
 ### Avatar fades: clear all
 - [ ] A button in the avatar Fades section that sets all eight fades to 0 at once.
 
 ### Typing in slider values
 - [ ] Everywhere in the menu a slider shows a value in % or px, let the value be typed in as well as dragged. Typed values stay within the slider's range.
-
-### Mobile compatibility testing
-Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
-
-- [ ] Android (Chrome).
-- [ ] iOS (Safari).
-- [ ] NTR menu as a full-screen sheet.
-- [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
-- [ ] Maps: pins and popups near the screen edge.
-- [ ] Opening video and banner video: autoplay, sound button, YouTube.
-- [ ] Dragging popup characters by touch.
-- [ ] Screen height changes when the address bar shows or hides.
-- [ ] Notch and home bar areas on iPhone.
 
 ### Visual Novel Mode and opening video sliders read `NUM_RANGE`
 Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The ones in `vn.js` and `opening.js` still have their own numbers. Users would see no difference, so this waits until those files are worked on anyway.
@@ -147,13 +129,6 @@ A Scrollbar Color that changes from one side of the scrollbar to the other (a ho
 - [ ] Check the buttons, the wand entry and Visual Novel Mode still come back after a chat switch, a reload and a theme change.
 - Worth it? The gain is small, mostly a little phone battery. The risk is bigger: SillyTavern doesn't send an event for every change, so a missed one leaves a button missing or Visual Novel Mode off until a reload, and event names can change between SillyTavern versions. The timer can't miss anything. Only do this if a speed test on a phone shows NTR's idle cost matters.
 
-### Compatibility with other extensions
-If NTR ever needs fixes for other extensions (like a top bar or side panel another extension adds), detect them in JavaScript and set a class on the page, like `body.ntr-has-topbar`, then use that class in CSS. A `body:has(...)` rule in CSS makes the browser check the whole page on every change, even for people who don't have that extension: in a sandbox test, rules like that made up about half of another theme's extra work while a reply streamed in. NTR's own two `:has()` rules only look inside small menu parts, so nothing needs changing now.
-
-- [ ] Detect the other extension at load and when the Extensions panel changes, and add or remove the class.
-- [ ] Keep the fixes in CSS under that class, so they only apply when the extension is there.
-- [ ] Check the speed with `st.sh bench`, with and without the other extension installed.
-
 ### Banners in group chats
 The shared Global banner could show in group chats too, which have no banner now.
 
@@ -178,9 +153,6 @@ Decorative image borders around interface parts, stretched to fit any size.
 A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
 
 - Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
-
-### SillyTavern's top bar icons
-- [ ] Change the icons in SillyTavern's top menu bar.
 
 ## Visual Novel Mode (Low Priority)
 
@@ -214,3 +186,28 @@ Keep the open-world feel, and let a card optionally have endings.
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 - Ending credits. Would follow the ending title card from Flags and endings.
   - Open questions: where the text comes from (typed per character in the menu, built from speakers, locations and CGs, or both); music or video behind it; what starts it (only an ending tag, or also a button); whether it can be skipped.
+
+## Release Preparation (Low Priority)
+
+Start this work only when the repository owner, SepsisShock, says release is approaching.
+
+### Mobile compatibility testing
+Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
+
+- [ ] Android (Chrome).
+- [ ] iOS (Safari).
+- [ ] NTR menu as a full-screen sheet.
+- [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
+- [ ] Maps: pins and popups near the screen edge.
+- [ ] Opening video and banner video: autoplay, sound button, YouTube.
+- [ ] Dragging popup characters by touch.
+- [ ] Screen height changes when the address bar shows or hides.
+- [ ] Notch and home bar areas on iPhone.
+
+### In Line avatar: spacing and look
+In Line looks too bulky next to the text.
+
+- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
+
+### SillyTavern's top bar icons
+- [ ] Change the icons in SillyTavern's top menu bar.

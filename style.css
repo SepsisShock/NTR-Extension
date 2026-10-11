@@ -325,3 +325,49 @@
 }
 
 .cb_popup_content input[type="range"] { width: 100%; }
+
+/* Pinned Blocks: a block from the chat in a box of its own (see syncPins). Where each box sits comes from Layout. */
+#ntr_pin_layer { position: fixed; inset: 0; z-index: 2600; pointer-events: none; }
+#ntr_pin_layer .ntr_pin { position: absolute; box-sizing: border-box; display: flex; pointer-events: auto; }
+#ntr_pin_layer .ntr_pin[hidden] { display: none; }
+#ntr_pin_layer .ntr_pin_body { flex: 1; min-width: 0; overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0; }
+/* Panel: SillyTavern's own panel look. None keeps only what the regex draws. */
+#ntr_pin_layer .ntr_pin_panel { background-color: var(--SmartThemeBlurTintColor); backdrop-filter: blur(calc(var(--SmartThemeBlurStrength) * 1px)); -webkit-backdrop-filter: blur(calc(var(--SmartThemeBlurStrength) * 1px)); border: 1px solid var(--SmartThemeBorderColor); border-radius: 10px; }
+#ntr_pin_layer .ntr_pin_panel .ntr_pin_body { padding: 8px 10px; }
+#ntr_pin_layer .ntr_pin_panel.ntr_pin_left { border-radius: 0 10px 10px 0; border-left: 0; }
+#ntr_pin_layer .ntr_pin_panel.ntr_pin_right { border-radius: 10px 0 0 10px; border-right: 0; }
+/* A box with nothing to show yet only shows while Edit Layout is open, so it can be placed. */
+#ntr_pin_layer .ntr_pin_empty { background: rgba(0, 0, 0, 0.35); border: 1px dashed rgba(255, 255, 255, 0.4); }
+#ntr_pin_layer .ntr_pin_empty .ntr_pin_body { display: flex; align-items: center; justify-content: center; text-align: center; opacity: 0.8; }
+#ntr_pin_layer .ntr_pin_empty .ntr_pin_body::before { content: attr(data-name); }
+/* The tab that slides a docked block out on a phone. */
+#ntr_pin_layer .ntr_pin_tab { display: none; position: absolute; top: 50%; width: 28px; height: 56px; margin: -28px 0 0; padding: 0; border: 1px solid var(--SmartThemeBorderColor); background: var(--SmartThemeBlurTintColor); color: var(--SmartThemeBodyColor); cursor: pointer; }
+#ntr_pin_layer .ntr_pin_left .ntr_pin_tab { left: 100%; border-left: 0; border-radius: 0 10px 10px 0; }
+#ntr_pin_layer .ntr_pin_right .ntr_pin_tab { right: 100%; border-right: 0; border-radius: 10px 0 0 10px; }
+@media (width <= 1000px) {
+  #ntr_pin_layer .ntr_pin_left .ntr_pin_tab, #ntr_pin_layer .ntr_pin_right .ntr_pin_tab { display: block; }
+  #ntr_pin_layer .ntr_pin_left, #ntr_pin_layer .ntr_pin_right { transition: transform 0.2s ease; }
+  #ntr_pin_layer .ntr_pin_left:not(.ntr_open) { transform: translateX(calc(-100% - var(--ntr-pin-off, 0px))); }
+  #ntr_pin_layer .ntr_pin_right:not(.ntr_open) { transform: translateX(calc(100% + var(--ntr-pin-off, 0px))); }
+  /* Edit Layout shows them slid out, so they can be resized. */
+  body.ntr_placing #ntr_pin_layer .ntr_pin { transform: none; }
+}
+
+/* The Pinned Blocks list on the Layout page. */
+.ntr_pinrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.ntr_pinrow + .ntr_pinrow, .ntr_pinedit + .ntr_pinrow { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ntr_pinrow > i { opacity: 0.7; }
+.ntr_pinrow .menu_button { margin: 0; padding: 4px 8px; }
+.ntr_pinrow .m_pin_edit.on { outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }
+.ntr_pinname { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ntr_pinname small { display: block; opacity: 0.6; font-family: monospace; font-size: 0.85em; }
+.ntr_pinedit { margin: 0 0 8px; }
+.ntr_pinedit .cb_plab { margin-top: 4px; font-weight: 600; }
+.ntr_pinedit .cb_hint { margin: 0; }
+/* A planned feature shown greyed in a working page (the Agentic Tracker Panel on Layout). */
+.ntr_soondim { margin-top: 12px; opacity: 0.45; filter: grayscale(1); }
+
+/* Pick from chat: the bar at the top and the outline of the block that a click would pick. */
+#ntr_pick_hl { position: fixed; z-index: 9995; display: none; pointer-events: none; outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); }
+#ntr_pick_bar { position: fixed; z-index: 9996; top: calc(12px + env(safe-area-inset-top, 0px)); left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 22px; background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 13px; line-height: 1.3; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); }
+#ntr_pick_bar button { flex: none; padding: 6px 12px; border: 0; border-radius: 16px; background: rgba(255, 255, 255, 0.15); color: #fff; cursor: pointer; }

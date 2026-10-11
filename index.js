@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.34.0';
+  const VERSION = '2.35.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -80,6 +80,10 @@
     // where the text sits on the picture, as a % of its height (Top, Bottom) or width (Outer edge, Spine gap).
     rdStyle: 'plain', rdBookImg: '', rdBookW: 90, rdBookTop: 7, rdBookBottom: 8, rdBookOuter: 7, rdBookSpine: 8,
     rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '',
+
+    // Agents page (agents.js): your agents (each with its own job, connection, samplers and limits; see clean in agents.js)
+    // and the one picked in the menu. Not in themes.
+    agEnabled: false, agents: [], agPick: '',
 
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
@@ -2275,7 +2279,7 @@
         ${elementsSectionHtml(s)}
         ${textSectionHtml(s)}
         ${displaySectionHtml(s)}
-        ${agentsSectionHtml()}
+        ${agentsSectionHtml(s)}
 
         ${regexSectionHtml(s)}
         ${vnSectionHtml(s)}
@@ -2551,6 +2555,7 @@
     bindVNSection(overlay, s);
     bindReader(overlay, s);
     window.NTR.regex?.bind(overlay, s);
+    window.NTR.agents?.bind(overlay, s);
     bindDisplay(overlay, s);
     bindTextFormatting(overlay, s);
 
@@ -2658,7 +2663,7 @@
   // Lines in the column: your look (Layout to Overlays), then Visual Novel and Reader Mode, then the pages that work on the chat itself.
   const NAV_SEP = new Set(['layout', 'vn', 'regex']);
   // Pages that show what's planned and do nothing yet. Their icon stays greyed.
-  const SOON = new Set(['agents']);
+  const SOON = new Set();
   const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
     `<button class="ntr_navi${id === cur ? ' on' : ''}${SOON.has(id) ? ' ntr_off' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
     + '<div class="ntr_navfill"></div>';
@@ -4720,6 +4725,8 @@
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
+    agTemp: [0, 2, 0.05, ''], agTopP: [0, 1, 0.01, ''], agTopK: [0, 200, 1, ''], agMinP: [0, 1, 0.01, ''], agFreq: [-2, 2, 0.05, ''], agPres: [-2, 2, 0.05, ''], agRep: [1, 2, 0.01, ''],
+    agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
@@ -5324,7 +5331,7 @@
 
   // ===== Visual Novel module loader + its toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes', reader: 'Reader Mode' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents' };
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -5354,13 +5361,20 @@
 
   // The Regexes page comes from regex.js, loaded the first time the menu opens.
   let regexWaiting = false;
-  // Agents: nothing works here yet. The page shows what's planned, so it's clear which features will use an agent.
-  function agentsSectionHtml() {
-    return pageHtml('agents', card('', `
-          <div class="ntr_soonrow">
-            <i class="fa-solid fa-fw fa-robot"></i>
-            <div><strong>Agentic Tracker Panel</strong><div class="cb_hint" style="margin: 2px 0 0;">Filled in by an agent. Coming later.</div></div>
-          </div>`), { note: '<div class="cb_hint ntr_pnote">Agents are a separate call to a model that does one job, like keeping a tracker up to date. Coming later.</div>' });
+  // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
+  let agentsWaiting = false;
+  function agentsSectionHtml(s) {
+    const ag = window.NTR.agents;
+    if (ag) return ag.sectionHtml(s);
+    if (!modError.agents && !agentsWaiting) {
+      agentsWaiting = true;
+      loadModule('agents').then(() => {
+        agentsWaiting = false;
+        if (document.getElementById('cb_modal_overlay')) openCombinedModal();
+      });
+    }
+    const msg = modError.agents ? 'Agents failed to load: ' + escapeHTML(modError.agents) : 'Loading your agents.';
+    return pageHtml('agents', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
   }
 
   function regexSectionHtml(s) {
@@ -5677,6 +5691,8 @@
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
     refreshPins: () => syncPins(), readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
+    // For agents.js: its sliders' ranges
+    numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For preview.js
     PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
     startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),
@@ -5735,12 +5751,14 @@
         // Without streaming, SillyTavern marks a finished Continue as 'appendFinal'.
         if ((type === 'continue' || type === 'appendFinal') && vn?.continued) vn.continued(Number(id));
         else vn?.queue(true);
+        window.NTR.agents?.replied(type);
       });
     }
     if (event_types.GENERATION_STARTED) {
       eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => {
         window.NTR.vn?.genStarted?.(type, dryRun);
         window.NTR.reader?.genStarted(type, dryRun);
+        window.NTR.agents?.genStarted(type, dryRun);
       });
     }
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
@@ -5748,6 +5766,7 @@
     if (event_types.GENERATION_ENDED) {
       eventSource.on(event_types.GENERATION_ENDED, () => {
         window.NTR.vn?.genEnded?.();
+        window.NTR.agents?.genEnded();
         setTimeout(() => { if (window.NTR.vn?.endWait?.()) window.NTR.vn.queue(false); }, 300);
       });
     }
@@ -5778,6 +5797,7 @@
     const s0 = settings();
     if (isOn() && (s0.nodeEnabled || s0.vnUsed)) loadVN().then((vn) => { if (vn) vn.refresh(); });
     if (isOn() && s0.rdEnabled) loadModule('reader').then((rd) => rd?.refresh());
+    if (isOn() && s0.agEnabled && !PREVIEW) loadModule('agents');
   });
 })();
 

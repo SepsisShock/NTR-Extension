@@ -181,6 +181,14 @@ Optional: revisit if group chats become useful to me or are requested. The share
 - [ ] Check the buttons, the wand entry and Visual Novel Mode still come back after a chat switch, a reload and a theme change.
 - Worth it? The gain is small, mostly a little phone battery. The risk is bigger: SillyTavern doesn't send an event for every change, so a missed one leaves a button missing or Visual Novel Mode off until a reload, and event names can change between SillyTavern versions. The timer can't miss anything. Only do this if a speed test on a phone shows NTR's idle cost matters.
 
+**Note: phone performance during streaming under background load.** A phone simulation used a touch viewport, 4× CPU throttling and competing background CPU work. Across three runs per condition, background load increased streaming frames delayed over 50 ms from about 4–7% to about 16%. Disabling the once-a-second check did not consistently reduce those pauses. Scrolling stayed smooth. This was a synthetic test, not a measurement on a real phone.
+
+- [ ] Profile streaming to find which scripts, styling or animations cause pauses.
+- [ ] Compare plain SillyTavern with NTR under the same background load.
+- [ ] Repeat with commonly used visual effects disabled, then enabled individually.
+- [ ] Confirm the findings on a real phone before choosing a fix.
+- Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
+
 ## Visual Novel Mode (Low Priority)
 
 Will be worked on when the main part is done, unless there are bugs or issues to take care of.

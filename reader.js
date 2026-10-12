@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.45.0';
+  const READER_VERSION = '2.46.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -143,10 +143,24 @@
       num.innerHTML = `<i class="fa-solid fa-book-open"></i>${n ? `Page ${cur + 1} of ${n}${sp}` : 'No pages'}`;
       if (n > 1) { num.setAttribute('role', 'button'); num.tabIndex = 0; } else { num.removeAttribute('role'); num.removeAttribute('tabindex'); }
     }
+    const min = barMin() + 'px';
+    if (document.documentElement.style.getPropertyValue('--ntr-rdbar-min') !== min) document.documentElement.style.setProperty('--ntr-rdbar-min', min);
     const atStart = cur <= 0 && (!booked() || spread <= 0);
     const atEnd = cur >= n - 1 && (!booked() || spread >= spreads - 1);
     bar.querySelector('[data-go="first"]').disabled = bar.querySelector('[data-go="prev"]').disabled = atStart;
     bar.querySelector('[data-go="last"]').disabled = bar.querySelector('[data-go="next"]').disabled = atEnd;
+  }
+
+  // The width the page bar's buttons and page number need. A Free page bar (Layout) is never narrower, so none of them
+  // ends up outside it or off the screen.
+  function barMin() {
+    const bar = document.getElementById('ntr_rd_bar');
+    if (!bar) return 0;
+    const cs = getComputedStyle(bar);
+    const kids = [...bar.children];
+    const px = (k) => parseFloat(cs[k]) || 0;
+    return Math.ceil(kids.reduce((a, k) => a + k.getBoundingClientRect().width, 0) + px('columnGap') * Math.max(0, kids.length - 1)
+      + px('paddingLeft') + px('paddingRight') + px('borderLeftWidth') + px('borderRightWidth'));
   }
 
   // Clicking the page number turns it into a box to type a page in. Enter goes there (the start of the page), Escape or
@@ -188,6 +202,7 @@
   }
 
   // A Free send bar (Layout) over the bottom of the chat panel would cover the page bar, so the page bar sits on top of it.
+  // A Free page bar (Layout) has its own place.
   let formRo = null;
   function placeBar() {
     const bar = document.getElementById('ntr_rd_bar');
@@ -195,7 +210,7 @@
     const form = document.getElementById('form_sheld');
     if (!bar || !sheld || !form) return;
     let room = 0;
-    if (A.sendFree()) {
+    if (A.sendFree() && !A.pageFree?.()) {
       if (!formRo && window.ResizeObserver) (formRo = new ResizeObserver(() => { placeBar(); if (geom) layoutBook(); })).observe(form);
       const s = sheld.getBoundingClientRect(), f = form.getBoundingClientRect();
       if (f.height && f.left < s.right && f.right > s.left && f.top < s.bottom && f.top > s.top + s.height / 2) room = Math.ceil(s.bottom - f.top);
@@ -247,7 +262,8 @@
     const form = document.getElementById('form_sheld');
     const f = form?.getBoundingClientRect();
     if (free && f?.height && f.top > H / 2) bottom = Math.min(bottom, f.top);
-    const below = (document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form?.offsetHeight || 0);
+    const pageFree = !!A.pageFree?.();
+    const below = (pageFree ? 0 : document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form?.offsetHeight || 0);
     const room = { w: right - left, h: bottom - top - below - 16 };
     const ratio = ratioOf(s.rdBookImg);
     let w = room.w * n('rdBookW') / 100, h = w / ratio;
@@ -301,7 +317,7 @@
     ${B} #chat .mes :is(.swipe_left, .swipeRightBlock, .swipe_right, .swipes-counter) { color: ${col('rdInk')}; }
     ${B} #chat .mes .swipeRightBlock { position: fixed !important; left: ${px(g.x + g.w - g.po - 50)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
     ${B} #chat .mes .swipe_left { position: fixed !important; left: ${px(g.x + g.w - g.po - 90)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
-    ${B} #ntr_rd_bar { align-self: center; width: min(100%, var(--sheldWidth)); box-sizing: border-box; }
+    ${pageFree ? '' : `${B} #ntr_rd_bar { align-self: center; width: min(100%, var(--sheldWidth)); box-sizing: border-box; }`}
     ${free ? '' : `${B} #form_sheld { align-self: center; width: min(100%, var(--sheldWidth)) !important; }`}
     `;
     if (css !== bookCss) {
@@ -637,6 +653,8 @@
     savedMsg,
     rememberMsg,
     askNumber,
+    // For Edit Layout: the narrowest a Free page bar can be.
+    barMin,
     // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.
     drawTo: (first) => loadUpTo(first, opened),
     // For Pinned Blocks: the last message on the page you're on, or the message Visual Novel shows, or null when Reader

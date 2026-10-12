@@ -4,6 +4,12 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
+### Section enable/disable buttons
+Fix the enable/disable button at the top right of sections.
+
+- [ ] Add the missing button to Regexes.
+- [ ] Replace the buttons in Reader Mode and Agents with the same type used in the other sections.
+
 ### Reader Mode: follow-ups
 Reader Mode has shipped with two styles, Plain and Book (an open book across the screen, with the built-in book or your own picture). Still open:
 

@@ -134,8 +134,10 @@
         const b = e.target.closest('button[data-go]');
         if (!b) { if (e.target.closest('.ntr_rd_num')) askPage(); return; }
         const k = b.dataset.go;
-        if (k === 'next' || k === 'prev') turn(k === 'next' ? 1 : -1, 'top');
-        else if (k === 'first') { if (cur === 0) showSpread(0); else go(0, 'top'); }
+        if (k === 'next' || k === 'prev') { turn(k === 'next' ? 1 : -1, 'top'); return; }
+        // First and Last go straight there, dropping a turn that hasn't happened yet.
+        dropFlip();
+        if (k === 'first') { if (cur === 0) showSpread(0); else go(0, 'top'); }
         // In the book, Last goes to the last two pages of the last page.
         else if (!booked()) go(pages.length - 1, 'top');
         else if (cur === pages.length - 1) showSpread(Infinity);
@@ -182,6 +184,7 @@
     askNumber(num, cur, pages.length, '<i class="fa-solid fa-book-open"></i>Page', 'of', 'Page number', (to) => {
       syncBar();
       if (to == null) return;
+      dropFlip();
       if (to !== cur) go(to, 'top');
       else scrollTo('top');
     });
@@ -388,7 +391,9 @@
       spreads = countSpreads();
       const within = d > 0 ? spread < spreads - 1 : spread > 0;
       if (!within && (cur + d < 0 || cur + d > pages.length - 1)) return;
-      flip(d, () => (within ? showSpread(spread + d) : go(cur + d, d > 0 ? 'top' : 'bottom')));
+      // Where it goes is taken now: the pages change a frame later (see flip).
+      const to = within ? spread + d : cur + d;
+      flip(d, () => (within ? showSpread(to) : go(to, d > 0 ? 'top' : 'bottom')));
       return;
     }
     go(cur + d, plainAt);
@@ -402,7 +407,10 @@
   // How far the paper reaches past the text, as a share of the page areas' margins; past that are the picture's page
   // edges and cover. Measured on the built-in books, whose page areas sit about this far in from the paper's edge.
   const PAPER = 0.8;
+  // flipEnd() finishes the flip going on, turning its page if it hasn't yet; flipEnd(false) drops a turn that hasn't
+  // happened yet, for First, Last, a typed page and the like, which go straight to their page.
   let flipEnd = null;
+  const dropFlip = () => flipEnd?.(false);
   const flipOn = () => booked() && settings().rdFlip !== false && !ctx().powerUserSettings?.reduced_motion
     && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   function flip(d, act) {
@@ -439,13 +447,27 @@
     box.append(cover, sheet);
     document.body.appendChild(box);
     // The pages change under the paper, a frame after it's drawn so the old text never shows through. A page whose older
-    // messages are still being drawn keeps the paper on until it's there.
-    let timer = 0, waiting = 2, acted = false;
-    const run = () => { if (acted) return; acted = true; Promise.resolve(act()).finally(step); };
-    const end = () => { run(); clearTimeout(timer); box.remove(); if (flipEnd === end) flipEnd = null; };
-    const step = () => { if (--waiting <= 0) end(); };
+    // messages are still being drawn keeps both pages under paper, once the sheet has landed, until it's there.
+    let timer = 0, acted = false, turned = false, landed = false;
+    const done = () => {
+      if (turned && landed) return end();
+      if (landed && !box.querySelector('.ntr_flip_rest')) {
+        const rest = div('ntr_flip_half ntr_flip_rest');
+        rest.style.left = from ? '50%' : '0';
+        paper(rest, from);
+        box.appendChild(rest);
+      }
+    };
+    const run = () => { if (acted) return; acted = true; Promise.resolve(act()).finally(() => { turned = true; done(); }); };
+    function end(turn = true) {
+      if (turn) run();
+      else acted = true;
+      clearTimeout(timer);
+      box.remove();
+      if (flipEnd === end) flipEnd = null;
+    }
     flipEnd = end;
-    timer = setTimeout(step, FLIP_MS + 30);
+    timer = setTimeout(() => { landed = true; done(); }, FLIP_MS + 30);
     requestAnimationFrame(run);
   }
   // The book picture, decoded ahead, so the paper is there in the flip's first frame.
@@ -577,6 +599,7 @@
 
   // A chat opening, or Reader Mode coming on: the page this chat was left on. False when that's the last page.
   function openSaved() {
+    dropFlip();
     opened++;
     openedMd = ctx().chatMetadata;
     const at = savedMsg();
@@ -685,6 +708,7 @@
   let wasLive = false;
   // Switched on: the page this chat was left on, or the last page. Switched off: the chat stays at the page you were reading.
   function refresh() {
+    dropFlip();
     const on = live();
     watch(on);
     // The page bar goes in first, so the book is sized with it under it.
@@ -726,6 +750,7 @@
     // Quiet generations and Impersonate don't add a reply to the chat, so they leave the page alone.
     genStarted: (type, dryRun) => {
       if (dryRun || type === 'quiet' || type === 'impersonate' || !live() || !pages.length) return;
+      dropFlip();
       if (cur < pages.length - 1) go(pages.length - 1, 'force');
       follow = true;
     },

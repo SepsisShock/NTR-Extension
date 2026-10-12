@@ -42,7 +42,10 @@
   let cur = 0;
   // On the last page: new pages are followed, so a new reply shows as it arrives.
   let follow = true;
-  let obs = null, queued = false, turning = false;
+  let obs = null, queued = false;
+  // Each chat opening gets a number (see openSaved). A page turn that's drawing older messages holds the number of the
+  // chat it's for, so one left over from the chat before stops instead of landing in the new chat.
+  let opened = 1, turning = 0;
   // The first message of the page on screen, as it is in the chat.
   let shownMsg = null;
   // Book: the two pages on screen (a spread) out of the spreads this page's messages fill, and the book's size and place.
@@ -402,8 +405,8 @@
   }
 
   // Draws older messages until the page's first one is there, with SillyTavern's own "Show more messages".
-  async function loadUpTo(first) {
-    for (let tries = 0; tries < 200; tries++) {
+  async function loadUpTo(first, n) {
+    for (let tries = 0; tries < 200 && n === opened; tries++) {
       const top = drawnFrom();
       const more = document.getElementById('show_more_messages');
       if (top <= first || !more) return;
@@ -415,14 +418,15 @@
 
   // Turns to a page. Only a page whose messages SillyTavern hasn't drawn yet has to wait for them.
   async function go(i, at = 'top') {
-    if (!live() || !pages.length || turning) return;
+    if (!live() || !pages.length || turning === opened) return;
     const to = Math.max(0, Math.min(pages.length - 1, i));
     if (to === cur && at !== 'force') return;
     cur = to;
     follow = cur === pages.length - 1;
     if (drawnFrom() > pages[cur][0]) {
-      turning = true;
-      try { await loadUpTo(pages[cur][0]); } finally { turning = false; }
+      const n = turning = opened;
+      try { await loadUpTo(pages[cur][0], n); } finally { if (turning === n) turning = 0; }
+      if (n !== opened) return;
     }
     paint();
     syncBar();
@@ -461,6 +465,7 @@
 
   // A chat opening, or Reader Mode coming on: the page this chat was left on. False when that's the last page.
   function openSaved() {
+    opened++;
     openedMd = ctx().chatMetadata;
     const at = savedMsg();
     follow = true;
@@ -499,7 +504,7 @@
     if (queued) return;
     queued = true;
     // While a page turn is loading older messages, counting waits until it's done.
-    requestAnimationFrame(() => { queued = false; if (!live()) return; if (turning) queue(); else rebuild(); });
+    requestAnimationFrame(() => { queued = false; if (!live()) return; if (turning === opened) queue(); else rebuild(); });
   }
 
   // SillyTavern scrolls the chat down for new messages. The book's pages never scroll up and down, so it stays at the top.

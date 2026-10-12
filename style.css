@@ -338,6 +338,9 @@
 #ntr_pin_layer .ntr_pin_panel.ntr_pin_left { border-radius: 0 10px 10px 0; border-left: 0; }
 #ntr_pin_layer .ntr_pin_panel.ntr_pin_right { border-radius: 10px 0 0 10px; border-right: 0; }
 /* A box with nothing to show yet only shows while Edit Layout is open, so it can be placed. */
+/* Agents page: the name and job title look like text and show a border only to be typed in. */
+#cb_modal_overlay .m_ag_prof { background: transparent; border-color: transparent; }
+#cb_modal_overlay .m_ag_prof:hover, #cb_modal_overlay .m_ag_prof:focus { border-color: var(--SmartThemeBorderColor); }
 /* Agent Results in a Pinned Block (agents.js): each agent's name and buttons, then its saved result. */
 #ntr_pin_layer .ntr_agres + .ntr_agres { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--SmartThemeBorderColor); }
 #ntr_pin_layer .ntr_agres_head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 600; }

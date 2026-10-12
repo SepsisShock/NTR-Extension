@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.49.0';
+  const AGENTS_VERSION = '2.50.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -36,7 +36,7 @@
 
   // A new agent: off, run on the button, Same as Chat. Temperature starts low: agents keep records, they don't write prose.
   const fresh = (name) => ({
-    id: newId('ag'), name, on: false, pic: '', job: '', runs: 'button', kind: 'chat',
+    id: newId('ag'), name, title: '', example: false, on: false, pic: '', job: '', runs: 'button', kind: 'chat',
     ccSource: 'openrouter', ccModel: '', ccUrl: '', ccKey: '', ccPost: '',
     tcType: 'koboldcpp', tcUrl: 'http://127.0.0.1:5001', tcModel: '', tcInstruct: '',
     tempOn: true, temp: 0.3, topPOn: false, topP: 1, topKOn: false, topK: 0, minPOn: false, minP: 0,
@@ -47,8 +47,10 @@
   // Send to Main AI: where in your chat's prompt (SillyTavern's extension prompt places and roles).
   const WHERE = [['chat', 'In Chat', 1], ['before', 'Before Main Prompt', 2], ['after', 'After Main Prompt', 0]];
   const ROLES = [['system', 'System', 0], ['user', 'User', 1], ['assistant', 'AI', 2]];
-  // The example tracker: an ordinary agent, made by its button, to edit or delete like any other.
-  const DELTA_JOB = `You are Delta, a story state tracker. Read your last result and the latest chat messages, then write the updated state.
+  // Margi, the example tracker: an ordinary agent, made by its button, to edit or delete like any other. Her button
+  // shows while no agent made by it is left (example marks it; Duplicate doesn't copy that). Her picture comes with
+  // NTR, cropped, and Crop starts from the full one. Saved as a path from the site's root, so it works from any address.
+  const MARGI_JOB = `You are Margi, a story state tracker. Read your last result and the latest chat messages, then write the updated state.
 
 Format, in Markdown:
 **Time:** time of day, and the date if known
@@ -59,13 +61,17 @@ Format, in Markdown:
 **Objectives:** active goals, one per line
 
 Keep every value from your last result that the new messages leave as it was, and change only what the new messages change. Write "Unknown" for anything the story hasn't said yet. Answer with the state only.`;
+  const asset = (f) => new URL(`./assets/agents/${f}`, import.meta.url).pathname;
+  const MARGI_PIC = asset('margi.webp');
+  const FULL_PIC = { [MARGI_PIC]: asset('margi-full.webp') };
   const num = (k, v, d) => { const [min, max] = A.numRange(k); const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
   const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const pick = (v, list, d) => (list.some(([x]) => x === v) ? v : d);
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
   function clean(a) {
     const d = fresh('Agent');
-    const o = { ...d, id: typeof a?.id === 'string' && /^[\w-]{1,40}$/.test(a.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent', on: a?.on === true,
+    const o = { ...d, id: typeof a?.id === 'string' && /^[\w-]{1,40}$/.test(a.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
+      title: str(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
       pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
       kind: ['chat', 'cc', 'tc'].includes(a?.kind) ? a.kind : 'chat',
       ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: str(a?.ccModel, 200), ccUrl: str(a?.ccUrl, 500), ccKey: str(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
@@ -362,7 +368,8 @@ Keep every value from your last result that the new messages leave as it was, an
   const opt = (pairs, cur) => pairs.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const lab = (l, i) => `<div class="cb_hint" style="margin:6px 0 0;">${l}</div>${i}`;
   const card = (l, i) => `${l ? `<div class="ntr_glab">${l}</div>` : ''}<div class="ntr_card">${i}</div>`;
-  const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;"${title ? ` title="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label ? ' ' + label : ''}</button>`;
+  // SillyTavern's buttons are flex boxes, which drop a space between the icon and the label, so the gap does it.
+  const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;gap:6px;"${title ? ` title="${esc(title)}" aria-label="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label || ''}</button>`;
   // An agent's picture is always a circle.
   const picHtml = (a, size) => {
     return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
@@ -382,17 +389,31 @@ Keep every value from your last result that the new messages leave as it was, an
     const rows = l.map((a) => `
       <div class="m_ag_row" data-id="${a.id}" tabindex="0" role="button" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;${a.id === s.agPick ? 'background:rgba(255,255,255,.07);outline:1px solid var(--SmartThemeQuoteColor);' : ''}">
         ${picHtml(a, 28)}
-        <div style="flex:1;min-width:0;"><strong>${esc(a.name)}</strong><div class="cb_hint" style="margin:0;">${a.runs === 'reply' ? 'After every reply' : 'On the button only'} · ${esc(conn(a))}</div></div>
+        <div style="flex:1;min-width:0;"><strong>${esc(a.name)}</strong>${a.title ? `<span style="opacity:.7;"> · ${esc(a.title)}</span>` : ''}<div class="cb_hint" style="margin:0;">${a.runs === 'reply' ? 'After every reply' : 'On the button only'} · ${esc(conn(a))}</div></div>
         <input type="checkbox" class="ntr_pswitch m_ag_on" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off">
       </div>`).join('');
-    const picked = byId(s.agPick);
-    return card('Your Agents', `
-      ${rows || '<div class="cb_hint" style="margin:0;">No agents yet.</div>'}
-      <div class="cb_actions" style="margin:8px 0 0;">
+    return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
         ${btn('m_ag_new', 'fa-plus', 'Create Agent')}
-        ${btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Example Tracker', 'Create Delta, an example tracker agent to edit or delete like any other')}
-        ${picked ? btn('m_ag_dup', 'fa-copy', 'Duplicate') + btn('m_ag_ren', 'fa-pen', 'Rename') + btn('m_ag_del', 'fa-trash-can', '', 'Delete this agent') : ''}
-      </div>`);
+        ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker, to edit or delete like any other agent')}
+      </div>
+      ${card('Your Agents', rows || '<div class="cb_hint" style="margin:0;">No agents yet.</div>')}`;
+  }
+
+  // Picture, name and job title. The name and title are typed in place; the title is only shown here and in the list.
+  function profileHtml(a) {
+    const field = (f, v, ph, max, big) => `<input type="text" class="text_pole m_ag_prof" data-f="${f}" value="${esc(v)}" maxlength="${max}" placeholder="${ph}" aria-label="${ph}"
+      style="margin:0;width:100%;padding:2px 6px;${big ? 'font-size:1.2em;font-weight:bold;' : 'opacity:.8;'}">`;
+    return `<div class="ntr_card" style="margin-top:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button type="button" id="m_ag_pic" title="Change picture" aria-label="Change picture" aria-expanded="false" style="all:unset;cursor:pointer;border-radius:50%;flex:none;display:flex;">${picHtml(a, 64)}</button>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">${field('name', a.name, 'Name', 60, true)}${field('title', a.title, 'Job title', 60, false)}</div>
+        <div style="display:flex;gap:6px;align-self:flex-start;">${btn('m_ag_dup', 'fa-copy', '', 'Duplicate')}${btn('m_ag_del', 'fa-trash-can', '', 'Delete')}</div>
+      </div>
+      <div id="m_ag_picmenu" hidden><div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0;">
+        ${btn('m_ag_up', 'fa-upload', 'Upload')}${btn('m_ag_url', 'fa-link', 'Use a Link')}${btn('m_ag_crop', 'fa-crop-simple', 'Crop')}${btn('m_ag_clr', 'fa-robot', 'Back to the Robot')}
+      </div></div>
+      <input type="file" id="m_ag_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+    </div>`;
   }
 
   function editorHtml(a) {
@@ -417,19 +438,14 @@ Keep every value from your last result that the new messages leave as it was, an
       ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is the same server your chat uses, and it answers one request at a time, so this agent waits until your reply is finished.</div>' : ''}`
       : '<div class="cb_hint" style="margin-bottom:0;">Uses whatever your chat is connected to, with your chat\'s samplers. It waits until a reply is finished.</div>';
     const past = runs.get(a.id) || [];
+    const full = usesFull(a);
     return `
-      <div class="ntr_glab" style="font-size:1.05em;opacity:1;display:flex;align-items:center;gap:8px;">${picHtml(a, 22)}${esc(a.name)}</div>
-      ${card('Job', `
-        <div class="cb_cur_row">
-          <div class="cb_cur_prev" style="overflow:hidden;">${picHtml(a, 36)}</div>
-          <span class="cb_cur_name" style="flex:1;">Picture<small>${a.pic ? 'Your picture' : 'The robot'}</small></span>
-          ${btn('m_ag_up', 'fa-upload', '', 'Upload')}${btn('m_ag_url', 'fa-link', '', 'Use a link')}${btn('m_ag_clr', 'fa-rotate-left', '', 'Back to the robot')}
-        </div>
-        <input type="file" id="m_ag_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-        ${lab('Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" placeholder="What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list." style="width:100%;">${esc(a.job)}</textarea>`)}
+      ${profileHtml(a)}
+      ${card('Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list." style="width:100%;margin:0;">${esc(a.job)}</textarea>`)}
+      ${card('When It Runs', `
         ${lab('Runs', pills('agruns', [['reply', 'After Every Reply'], ['button', 'On the Button Only']], a.runs))}
         ${lab('Results', pills('agkeep', [['off', 'Activity Only'], ['chat', 'Saved in the Chat']], a.keep))}
-        <div class="cb_hint"${a.keep === 'chat' ? '' : ' style="margin-bottom:0;"'}>Activity Only shows its answers under Activity below until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Pinned Block on the Layout page and set it to Agent Results.</div>
+        <div class="cb_hint"${a.keep === 'chat' ? '' : ' style="margin-bottom:0;"'}>Activity Only shows its answers under Activity at the bottom until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Pinned Block on the Layout page and set it to Agent Results.</div>
         ${a.keep === 'chat' ? `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" data-redraw="1" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">Adds its newest saved answer from before the message it runs on to its prompt, so it updates what it had instead of starting over.</div>` : ''}`)}
       ${a.keep === 'chat' ? card('Main AI', `
@@ -444,24 +460,24 @@ Keep every value from your last result that the new messages leave as it was, an
       ${card('Connection', `
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
         <div class="cb_hint">Chat Completion is an online API, or a local server with an OpenAI-style link (Custom). Text Completion is a local server like KoboldCpp or llama.cpp. Neither changes your chat's connection or SillyTavern's Connection Profiles.</div>
-        ${connBody}`)}
-      ${card('Prompt', `
+        ${connBody}
+        ${a.kind === 'chat' ? '' : `<div class="cb_sub">Samplers</div>
+        ${sampRows}
+        <div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="effOn" ${a.effOn ? 'checked' : ''}><span>Reasoning Effort</span></label>
+          <div class="m_o_body${a.effOn ? '' : ' cb_dim'}" data-for="effOn">${pills('ageff', EFFORT, a.eff)}</div></div>
+        <div class="cb_hint" style="margin-bottom:0;">Unticked uses the API's own default. An API that doesn't use one ignores it. Your Chat Completion presets are never used.</div>`}
+        <div class="cb_sub">Reply</div>
+        ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}
+        <div class="cb_hint" style="margin-bottom:0;">How long its answer may be.</div>`)}
+      ${card('What It Reads', `
         ${a.kind === 'chat' ? `${lab('What It Sends', pills('agfull', [['own', 'Its Own Prompt'], ['full', 'Your Chat\'s Full Prompt']], a.full ? 'full' : 'own'))}
         <div class="cb_hint">Its Own Prompt: its instructions and the latest chat messages. Your Chat's Full Prompt: everything your chat sends for a reply (card, lorebooks, Author's Note, chat history), with its instructions added at the end. That costs more tokens.</div>` : ''}
         ${usesFull(a) ? '' : `${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
         <div class="cb_hint">As One Block: all the messages in one text. As Separate Messages: your messages as user and the others as AI. Each keeps its speaker's name either way.${a.kind === 'cc' ? ' If your API complains about the order of messages, set Prompt Post-Processing to Semi-strict.' : ''}</div>`}
+        ${full ? '<div class="cb_hint">With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
+          : `${lab('Messages Read', slider(a, 'context', 'agContext'))}<div class="cb_hint">How many of the latest chat messages it reads.</div>`}
         <div class="cb_actions" style="margin:6px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}</div>
         <div id="m_ag_prevbox" hidden></div>`)}
-      ${a.kind === 'chat' ? '' : card('Samplers', `
-        ${sampRows}
-        <div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="effOn" ${a.effOn ? 'checked' : ''}><span>Reasoning Effort</span></label>
-          <div class="m_o_body${a.effOn ? '' : ' cb_dim'}" data-for="effOn">${pills('ageff', EFFORT, a.eff)}</div></div>
-        <div class="cb_hint" style="margin-bottom:0;">Unticked uses the API's own default. An API that doesn't use one ignores it. Your Chat Completion presets are never used.</div>`)}
-      ${card('Limits', `
-        ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}
-        ${usesFull(a) ? '<div class="cb_hint" style="margin-bottom:0;">How long its answer may be. With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
-          : `${lab('Messages Read', slider(a, 'context', 'agContext'))}
-        <div class="cb_hint" style="margin-bottom:0;">How long its answer may be, and how many of the latest chat messages it reads.</div>`}`)}
       ${card('Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
         <div id="m_ag_act">${activityHtml(a, past)}</div>`)}`;
@@ -494,7 +510,8 @@ Keep every value from your last result that the new messages leave as it was, an
     const box = root.querySelector('#m_ag_act');
     if (a && box) box.innerHTML = activityHtml(a);
     const stop = root.querySelector('#m_ag_stop');
-    if (stop) stop.hidden = !current;
+    // style.display, not hidden: SillyTavern's buttons are flex boxes, which would show a hidden one anyway.
+    if (stop) stop.style.display = current ? '' : 'none';
   }
 
   // Your saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
@@ -525,6 +542,33 @@ Keep every value from your last result that the new messages leave as it was, an
     if (a?.kind === 'cc') fillKeys(a);
   }
 
+  // SillyTavern's crop box, square, on the picture at src. Returns the cropped part as a PNG file (transparency kept), or
+  // null on Cancel. Without the crop box (an older SillyTavern), the whole picture. A picture from another site that
+  // doesn't allow reading it can't be cropped.
+  async function cropFile(src, revoke = false) {
+    try {
+      const img = new Image();
+      if (!src.startsWith('blob:')) img.crossOrigin = 'anonymous';
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.')); img.src = src; });
+      const c = ctx();
+      let box = { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
+      if (typeof c.Popup === 'function' && c.POPUP_TYPE?.CROP != null) {
+        const p = new c.Popup('', c.POPUP_TYPE.CROP, '', { cropImage: src, cropAspect: 1, okButton: 'Crop' });
+        // On Crop it answers with its own JPEG of the crop (no transparency), on Cancel with null: only its box is used.
+        if (!(await p.show()) || !p.cropData) return null;
+        box = p.cropData;
+      }
+      const w = Math.max(1, Math.round(box.width)), h = Math.max(1, Math.round(box.height));
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, Math.round(box.x), Math.round(box.y), w, h, 0, 0, w, h);
+      let blob;
+      try { blob = await new Promise((ok) => cv.toBlob(ok, 'image/png')); } catch (e) { throw new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.'); }
+      if (!blob) throw new Error('The cropped picture couldn\'t be made.');
+      return new File([blob], 'agent.png', { type: 'image/png' });
+    } finally { if (revoke) URL.revokeObjectURL(src); }
+  }
+
   function bindAll(s, a) {
     const changed = (redraw) => { save(); if (redraw) render(); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
@@ -542,28 +586,33 @@ Keep every value from your last result that the new messages leave as it was, an
       s.agPick = x.id;
       changed(true);
     };
-    root.querySelector('#m_ag_ex').onclick = () => {
+    const ex = root.querySelector('#m_ag_ex');
+    if (ex) ex.onclick = () => {
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
-      const x = { ...fresh('Delta'), on: true, job: DELTA_JOB, runs: 'reply', keep: 'chat', last: true };
+      const x = { ...fresh('Margi'), title: 'Story Tracker', example: true, pic: MARGI_PIC, on: true, job: MARGI_JOB, runs: 'reply', keep: 'chat', last: true };
       list().push(x);
       s.agPick = x.id;
       changed(true);
-      toastr.info('Delta runs after every reply. To see it on screen, add a Pinned Block on the Layout page and set it to Agent Results.', 'Agents');
+      toastr.info('Margi runs after every reply. To see her on screen, add a Pinned Block on the Layout page and set it to Agent Results.', 'Agents');
     };
     if (!a) return;
     root.querySelector('#m_ag_dup').onclick = () => {
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
-      const x = { ...structuredClone(a), id: newId('ag'), name: `${a.name} (copy)`.slice(0, 60), on: false };
+      const x = { ...structuredClone(a), id: newId('ag'), name: `${a.name} (copy)`.slice(0, 60), on: false, example: false };
       list().splice(list().indexOf(a) + 1, 0, x);
       s.agPick = x.id;
       changed(true);
     };
-    root.querySelector('#m_ag_ren').onclick = async function() {
-      const name = await askText(this, { label: 'Agent name', value: a.name, ok: '<i class="fa-solid fa-floppy-disk"></i> Save', check: (v) => (v.trim() ? { value: v.trim().slice(0, 60) } : { error: 'Type a name first.' }) });
-      if (!name) return;
-      a.name = name;
-      changed(true);
-    };
+    // Name and job title, typed in place. An empty name goes back to the one it had.
+    root.querySelectorAll('.m_ag_prof').forEach((el) => {
+      el.onkeydown = (e) => { if (e.key === 'Enter') el.blur(); };
+      el.onchange = () => {
+        const v = el.value.trim().slice(0, 60);
+        if (el.dataset.f === 'name' && !v) { el.value = a.name; return; }
+        a[el.dataset.f] = v;
+        changed(true);
+      };
+    });
     root.querySelector('#m_ag_del').onclick = async function() {
       if (!(await askYes(this, `Delete "${a.name}"? This can't be undone.`, 'Delete'))) return;
       if (current?.id === a.id) current.ctrl.abort();
@@ -577,17 +626,30 @@ Keep every value from your last result that the new messages leave as it was, an
       deleteFileIfUnused(a.pic);
     };
 
-    // Picture
+    // Picture: clicking it opens its buttons. Uploads and Crop go through SillyTavern's crop box, like its avatars.
     const file = root.querySelector('#m_ag_file');
+    const picBtn = root.querySelector('#m_ag_pic');
+    const picMenu = root.querySelector('#m_ag_picmenu');
+    picBtn.onclick = () => { picMenu.hidden = !picMenu.hidden; picBtn.setAttribute('aria-expanded', String(!picMenu.hidden)); };
     const setPic = (url) => { const old = a.pic; a.pic = url; changed(true); if (old && old !== url) deleteFileIfUnused(old); };
+    const fail = (e) => { console.error('[NTR agent picture]', e); toastr.error(e.message || 'Upload failed', 'Agent picture'); };
     root.querySelector('#m_ag_up').onclick = () => file.click();
     root.querySelector('#m_ag_url').onclick = async function() { const url = await askImageUrl('Agent picture', this); if (url) setPic(url); };
     root.querySelector('#m_ag_clr').onclick = () => setPic('');
     root.querySelector('#m_ag_clr').disabled = !a.pic;
+    root.querySelector('#m_ag_crop').disabled = !a.pic;
+    root.querySelector('#m_ag_crop').onclick = async () => {
+      try { const f = await cropFile(FULL_PIC[a.pic] || media(a.pic)); if (f) setPic(await uploadImage(f, 'agent', { max: 128 })); } catch (e) { fail(e); }
+    };
     file.onchange = async () => {
-      if (!file.files.length) return;
-      try { setPic(await uploadImage(file.files[0], 'agent', { max: 128 })); } catch (e) { console.error('[NTR agent picture]', e); toastr.error(e.message || 'Upload failed', 'Agent picture'); }
+      const f = file.files[0];
       file.value = '';
+      if (!f) return;
+      try {
+        // A GIF goes as it is, to keep its animation.
+        const out = f.type === 'image/gif' ? f : await cropFile(URL.createObjectURL(f), true);
+        if (out) setPic(await uploadImage(out, 'agent', { max: 128 }));
+      } catch (e) { fail(e); }
     };
     onPills(root, 'agruns', (v) => { a.runs = v; changed(true); });
     onPills(root, 'agkind', (v) => { a.kind = v; changed(true); });

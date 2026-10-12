@@ -25,7 +25,7 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Agents: next steps
-The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), prompt (with a preview), samplers and limits, and run them on a button, after every reply, or from Quick Replies with `/ntr-agent`. Their answers only show in each agent's activity for now, and are lost on reload.
+The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), prompt (with a preview), samplers and limits, and run them on a button, after every reply, or from Quick Replies with `/ntr-agent`. An agent can save its answers in the chat, and a Pinned Block set to Agent Results shows them on screen (with Edit, Run Again and Undo). Example Tracker makes Delta, a ready-made tracker.
 
 Decided so far:
 - The first agent to build for is a tracker. A director or summarizer can use the same parts later.
@@ -34,20 +34,15 @@ Decided so far:
 - Triggers come from Quick Replies (button, after your message, after an AI message, on chat open) through `/ntr-agent`, instead of NTR building its own trigger settings.
 - Left out: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup.
 
-In this order, one PR each:
+Still open:
 
-1. **Agentic Tracker Panel.** One panel that stays on screen with the current state, filled in by an agent. Tracker blocks your regexes already draw in messages can be shown on screen with Pinned Blocks, in Layout; this panel is for state an agent keeps. Works with a lorebook-based cast; group chat isn't needed. Plan to be approved before code.
-   - [ ] Saves each result on the message and swipe it describes, in the chat file. Swipes, deletes and branches then keep the right state with no extra history to manage; earlier messages' results are the history.
-   - [ ] The current state is the newest saved result at or before the last message. Fixes the current problem that an agent's answer isn't tied to a chat.
-   - [ ] Tracks location, time, weather, inventory, injuries, relationships, objectives, and other character or world values that can be set up.
-   - [ ] Shows the current state in a panel that can be moved and hidden, next to the normal chat or Visual Novel Mode. Pick which agents show in it. Character portraits, recent changes and active objectives make it easier to read.
-   - [ ] Values can be checked and fixed by hand (the edit is saved on that message), and an agent can be run again on a message. Relationship scores need set rules; plain facts like an item changing hands are easier to keep track of.
-   - [ ] One example tracker agent, an ordinary agent that can be edited or deleted.
-   - Without NTR, the saved results stay in the chat file but nothing shows them or sends them.
-   - zTracker is an example of the saving part: it keeps tracker data on a message, shows a tracker block inside that message, and can send saved snapshots in later prompts. NTR's difference is showing the current state in a panel that stays on screen.
-2. **Send to the main AI.** Off unless you turn it on for an agent.
+1. **Send to the main AI.** Off unless you turn it on for an agent.
    - [ ] Puts the agent's current result in your chat's prompt, with depth and role, the way Cast and Visual Novel Mode already add their instructions.
    - [ ] A `{{agent::Name}}` macro, so a result can go anywhere: Author's Note, a lorebook entry, or another agent's instructions. Check SillyTavern's current macro API first.
+2. **Tracker panel follow-ups.** Left out of the first panel, for later if they turn out to be missed.
+   - [ ] Character portraits next to the tracked characters.
+   - [ ] Highlight what changed since the last result.
+   - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
 
 ### Dragging and placement
 Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar and send bar. Still open:
@@ -55,7 +50,7 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 - [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
 - [ ] Add more parts of the screen, like the header banner.
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
-- Doesn't block Reader Mode or the Agentic Tracker Panel: Layout and Pinned Blocks already make the parts they need adjustable.
+- Doesn't block Reader Mode: Layout and Pinned Blocks already make the parts it needs adjustable.
 
 ### Remove Phone Preview
 - [ ] Remove Phone Preview from Layout, including `preview.js` and the code in `index.js` that supports its frame and blocks saves inside it. Keep the separate Desktop and Phone layouts and editing on the actual device.

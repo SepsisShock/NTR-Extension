@@ -338,6 +338,18 @@
 #ntr_pin_layer .ntr_pin_panel.ntr_pin_left { border-radius: 0 10px 10px 0; border-left: 0; }
 #ntr_pin_layer .ntr_pin_panel.ntr_pin_right { border-radius: 10px 0 0 10px; border-right: 0; }
 /* A box with nothing to show yet only shows while Edit Layout is open, so it can be placed. */
+/* Agent Results in a Pinned Block (agents.js): each agent's name and buttons, then its saved result. */
+#ntr_pin_layer .ntr_agres + .ntr_agres { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--SmartThemeBorderColor); }
+#ntr_pin_layer .ntr_agres_head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 600; }
+#ntr_pin_layer .ntr_agres_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ntr_pin_layer .ntr_agres_btns { display: flex; gap: 2px; flex: none; }
+#ntr_pin_layer .ntr_agres_btn { background: none; border: 0; padding: 2px 4px; color: inherit; opacity: 0.55; cursor: pointer; border-radius: 4px; }
+#ntr_pin_layer .ntr_agres_btn:hover, #ntr_pin_layer .ntr_agres_btn:focus-visible { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+#ntr_pin_layer .ntr_agres_note { opacity: 0.7; font-size: 0.9em; margin-top: 4px; }
+#ntr_pin_layer .ntr_agres_fail { color: #e88; opacity: 1; }
+#ntr_pin_layer .ntr_agres_edit { width: 100%; box-sizing: border-box; resize: vertical; }
+#ntr_pin_layer .ntr_agres_editbtns { display: flex; gap: 6px; margin-top: 4px; }
+#ntr_pin_layer .ntr_agres_editbtns .menu_button { margin: 0; width: max-content; }
 #ntr_pin_layer .ntr_pin_empty { background: rgba(0, 0, 0, 0.35); border: 1px dashed rgba(255, 255, 255, 0.4); }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body { display: flex; align-items: center; justify-content: center; text-align: center; opacity: 0.8; }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body::before { content: attr(data-name); }

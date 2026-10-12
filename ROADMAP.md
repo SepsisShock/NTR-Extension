@@ -19,7 +19,7 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Text alignment for chat messages: left, right, center or justified.
 - [ ] Move the time and date.
 - [ ] Move the character and user names, maybe with a background image or border behind them.
-- [ ] Speech bubble messages, as a message shape in UI Decor (normal chat and Reader Mode's Plain style).
+- [ ] Speech bubble messages in UI Decor (normal chat and Reader Mode's Plain style): the bubble wraps only the message text, with avatars, names, buttons and the reasoning block outside it. A tail (Pointed, Curved, Thought) at the top or bottom, AI and user on opposite sides, a max width, shrink to fit, and runs of messages from one speaker grouped under one tail. Presets: iMessage, WhatsApp, Discord, Comic. Built to look right on long replies.
 
 ## Misc (Low Priority)
 

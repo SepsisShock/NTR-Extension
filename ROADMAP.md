@@ -7,10 +7,9 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ### Reader Mode: follow-ups
 Reader Mode has shipped with two styles, Plain and Book (an open book across the screen, with the built-in book or your own picture). Still open:
 
-- [ ] Remember your page in each chat (a chat opens on its last page), and jump to a typed page number.
 - [ ] Separate layouts for normal chat, Reader Mode and Visual Novel Mode, if Reader Mode turns out to need its own.
 - [ ] Book, animated: pages flip along with the message text.
-- [ ] Maybe an adjusted Visual Novel Mode as a Reader style.
+- [ ] Visual Novel Mode moves into Reader Mode as a third style next to Plain and Book.
 
 ### Send box
 - [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
@@ -27,7 +26,6 @@ The sections themselves and the first batch of text effects have shipped. Still 
 ### Dragging and placement
 Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar and send bar. Still open:
 
-- [ ] Grid spacing as a percent of the screen, so a layout made on a computer lands in the same place on a phone.
 - [ ] Add more parts of the screen, like the header banner.
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Doesn't block Reader Mode: Layout and Pinned Blocks already make the parts it needs adjustable.

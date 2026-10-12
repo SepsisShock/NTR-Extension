@@ -5,7 +5,7 @@
 // Two styles: Plain (a page scrolls when it's long) and Book (an open book across the screen, the text flowing over both
 // pages and on to the next two pages).
 (() => {
-  const READER_VERSION = '2.43.0';
+  const READER_VERSION = '2.44.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -20,6 +20,10 @@
     #ntr_rd_bar button:disabled { opacity: .3; cursor: default; }
     #ntr_rd_bar .ntr_rd_num { min-width: 8em; text-align: center; white-space: nowrap; }
     #ntr_rd_bar .ntr_rd_num i { margin-right: 6px; opacity: .7; }
+    #ntr_rd_bar .ntr_rd_num[role="button"] { cursor: pointer; border-radius: 6px; padding: 4px 6px; }
+    #ntr_rd_bar .ntr_rd_num[role="button"]:hover { background: rgba(255,255,255,.08); }
+    #ntr_rd_bar .ntr_rd_num input { width: 4em; margin: 0 4px; padding: 1px 4px; text-align: center; font: inherit; color: inherit;
+      background: rgba(0,0,0,.25); border: 1px solid var(--SmartThemeBorderColor); border-radius: 4px; }
     #ntr_rd_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
   `;
 
@@ -38,7 +42,10 @@
   let cur = 0;
   // On the last page: new pages are followed, so a new reply shows as it arrives.
   let follow = true;
-  let obs = null, queued = false, turning = false;
+  let obs = null, queued = false;
+  // Each chat opening gets a number (see openSaved). A page turn that's drawing older messages holds the number of the
+  // chat it's for, so one left over from the chat before stops instead of landing in the new chat.
+  let opened = 1, turning = 0;
   // The first message of the page on screen, as it is in the chat.
   let shownMsg = null;
   // Book: the two pages on screen (a spread) out of the spreads this page's messages fill, and the book's size and place.
@@ -105,12 +112,12 @@
       bar.innerHTML = `
         <button type="button" data-go="first" title="First page"><i class="fa-solid fa-angles-left"></i></button>
         <button type="button" data-go="prev" title="Previous page (Page Up)"><i class="fa-solid fa-angle-left"></i></button>
-        <span class="ntr_rd_num"></span>
+        <span class="ntr_rd_num" title="Go to page"></span>
         <button type="button" data-go="next" title="Next page (Page Down)"><i class="fa-solid fa-angle-right"></i></button>
         <button type="button" data-go="last" title="Last page"><i class="fa-solid fa-angles-right"></i></button>`;
       bar.addEventListener('click', (e) => {
         const b = e.target.closest('button[data-go]');
-        if (!b) return;
+        if (!b) { if (e.target.closest('.ntr_rd_num')) askPage(); return; }
         const k = b.dataset.go;
         if (k === 'next' || k === 'prev') turn(k === 'next' ? 1 : -1, 'top');
         else if (k === 'first') { if (cur === 0) showSpread(0); else go(0, 'top'); }
@@ -119,16 +126,54 @@
         else if (cur === pages.length - 1) showSpread(Infinity);
         else go(pages.length - 1, 'bottom');
       });
+      bar.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.ntr_rd_num')) { e.preventDefault(); askPage(); }
+      });
     }
     if (bar.nextElementSibling !== form) form.before(bar);
     placeBar();
     const n = pages.length;
     const sp = booked() && spreads > 1 ? ` · ${spread + 1} of ${spreads}` : '';
-    bar.querySelector('.ntr_rd_num').innerHTML = `<i class="fa-solid fa-book-open"></i>${n ? `Page ${cur + 1} of ${n}${sp}` : 'No pages'}`;
+    const num = bar.querySelector('.ntr_rd_num');
+    // Left alone while a page number is being typed in it.
+    if (!num.querySelector('input')) {
+      num.innerHTML = `<i class="fa-solid fa-book-open"></i>${n ? `Page ${cur + 1} of ${n}${sp}` : 'No pages'}`;
+      if (n > 1) { num.setAttribute('role', 'button'); num.tabIndex = 0; } else { num.removeAttribute('role'); num.removeAttribute('tabindex'); }
+    }
     const atStart = cur <= 0 && (!booked() || spread <= 0);
     const atEnd = cur >= n - 1 && (!booked() || spread >= spreads - 1);
     bar.querySelector('[data-go="first"]').disabled = bar.querySelector('[data-go="prev"]').disabled = atStart;
     bar.querySelector('[data-go="last"]').disabled = bar.querySelector('[data-go="next"]').disabled = atEnd;
+  }
+
+  // Clicking the page number turns it into a box to type a page in. Enter goes there (the start of the page), Escape or
+  // clicking away leaves it. Numbers past either end go to the first or last page.
+  function askPage() {
+    const num = document.querySelector('#ntr_rd_bar .ntr_rd_num');
+    const n = pages.length;
+    if (!num || n < 2 || num.querySelector('input')) return;
+    num.innerHTML = `<i class="fa-solid fa-book-open"></i>Page<input type="number" min="1" max="${n}" step="1" value="${cur + 1}" aria-label="Page number">of ${n}`;
+    const box = num.querySelector('input');
+    let done = false;
+    const end = (jump) => {
+      if (done) return;
+      done = true;
+      const v = Math.round(Number(box.value));
+      box.remove();
+      syncBar();
+      if (!jump || !box.value.trim() || !Number.isFinite(v)) return;
+      const to = Math.max(0, Math.min(pages.length - 1, v - 1));
+      if (to !== cur) go(to, 'top');
+      else scrollTo('top');
+    };
+    box.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); end(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); end(false); }
+    });
+    box.addEventListener('blur', () => end(false));
+    box.focus();
+    box.select();
   }
 
   // A Free send bar (Layout) over the bottom of the chat panel would cover the page bar, so the page bar sits on top of it.
@@ -360,8 +405,8 @@
   }
 
   // Draws older messages until the page's first one is there, with SillyTavern's own "Show more messages".
-  async function loadUpTo(first) {
-    for (let tries = 0; tries < 200; tries++) {
+  async function loadUpTo(first, n) {
+    for (let tries = 0; tries < 200 && n === opened; tries++) {
       const top = drawnFrom();
       const more = document.getElementById('show_more_messages');
       if (top <= first || !more) return;
@@ -373,24 +418,68 @@
 
   // Turns to a page. Only a page whose messages SillyTavern hasn't drawn yet has to wait for them.
   async function go(i, at = 'top') {
-    if (!live() || !pages.length || turning) return;
+    if (!live() || !pages.length || turning === opened) return;
     const to = Math.max(0, Math.min(pages.length - 1, i));
     if (to === cur && at !== 'force') return;
     cur = to;
     follow = cur === pages.length - 1;
     if (drawnFrom() > pages[cur][0]) {
-      turning = true;
-      try { await loadUpTo(pages[cur][0]); } finally { turning = false; }
+      const n = turning = opened;
+      try { await loadUpTo(pages[cur][0], n); } finally { if (turning === n) turning = 0; }
+      if (n !== opened) return;
     }
     paint();
     syncBar();
     scrollTo(at === 'force' ? 'bottom' : at);
     A.refreshPins?.();
+    remember();
+  }
+
+  // The page you're on is kept in the chat's own data, saved with the chat, so the chat opens there next time: its first
+  // message's number and send date (deleting earlier messages renumbers it), or, on the last page, just that, so new
+  // replies are followed.
+  const SAVED = 'ntr_reader';
+  // The data of the chat whose saved page was read. A chat that's loading is drawn before it counts as opened, and its
+  // pages counted then would save the last page over the one it was left on.
+  let openedMd = null;
+  function remember() {
+    const md = ctx().chatMetadata;
+    if (!live() || !md || md !== openedMd || !pages.length) return;
+    const a = pages[cur][0];
+    const v = follow ? { last: true } : { at: a, date: ctx().chat?.[a]?.send_date ?? null };
+    const old = md[SAVED];
+    if (old && old.last === v.last && old.at === v.at && old.date === v.date) return;
+    md[SAVED] = v;
+    ctx().saveMetadataDebounced?.();
+  }
+
+  // The first message of the page this chat was left on, or null for the last page.
+  function savedMsg() {
+    const v = ctx().chatMetadata?.[SAVED];
+    if (!v || typeof v !== 'object' || v.last || !Number.isInteger(v.at) || v.at < 0) return null;
+    const chat = ctx().chat || [];
+    if (v.date == null || chat[v.at]?.send_date === v.date) return v.at;
+    const i = chat.findIndex((m) => m?.send_date === v.date);
+    return i >= 0 ? i : v.at;
+  }
+
+  // A chat opening, or Reader Mode coming on: the page this chat was left on. False when that's the last page.
+  function openSaved() {
+    opened++;
+    openedMd = ctx().chatMetadata;
+    const at = savedMsg();
+    follow = true;
+    rebuild(true, true);
+    const to = at == null ? -1 : pages.findLastIndex(([a]) => a <= at);
+    if (to < 0 || to >= pages.length - 1) return false;
+    go(to, 'top');
+    return true;
   }
 
   // The chat changed (messages added, deleted or drawn): count the pages again and stay on the same messages, or on the
   // last page while following it.
-  function rebuild(toLast = false) {
+  // quiet: the page isn't remembered (a chat opening, before its saved page is read).
+  function rebuild(toLast = false, quiet = false) {
     let anchor = pages[cur]?.[0];
     const was = cur;
     // Deleting earlier messages renumbers the rest, so the page's first message is found again in the chat.
@@ -408,13 +497,14 @@
     if (booked()) showSpread(cur === was && !toLast ? spread : 0);
     else syncBar();
     A.refreshPins?.();
+    if (!quiet) remember();
   }
 
   function queue() {
     if (queued) return;
     queued = true;
     // While a page turn is loading older messages, counting waits until it's done.
-    requestAnimationFrame(() => { queued = false; if (!live()) return; if (turning) queue(); else rebuild(); });
+    requestAnimationFrame(() => { queued = false; if (!live()) return; if (turning === opened) queue(); else rebuild(); });
   }
 
   // SillyTavern scrolls the chat down for new messages. The book's pages never scroll up and down, so it stays at the top.
@@ -472,7 +562,7 @@
   window.addEventListener('keydown', onKey, true);
 
   let wasLive = false;
-  // Switched on: the last page. Switched off: the chat stays at the page you were reading.
+  // Switched on: the page this chat was left on, or the last page. Switched off: the chat stays at the page you were reading.
   function refresh() {
     const on = live();
     watch(on);
@@ -480,8 +570,8 @@
     if (on) syncBar();
     layoutBook();
     if (on) {
-      rebuild(!wasLive);
-      if (!wasLive) scrollTo('bottom');
+      if (wasLive) rebuild();
+      else if (!openSaved()) scrollTo('bottom');
       placeBar();
     } else {
       formRo?.disconnect();
@@ -509,8 +599,8 @@
     refresh,
     // A Book setting changed (index.js calls this whenever the menu's look settings do).
     relayout,
-    // A chat opens on its last page.
-    chatChanged: () => { if (!live()) return; follow = true; rebuild(true); },
+    // A chat opens on the page it was left on, or its last page.
+    chatChanged: () => { if (live()) openSaved(); },
     // Sending a message or starting a reply goes to the last page, so you see the reply arrive.
     // Quiet generations and Impersonate don't add a reply to the chat, so they leave the page alone.
     genStarted: (type, dryRun) => {

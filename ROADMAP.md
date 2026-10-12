@@ -178,6 +178,21 @@ Optional: revisit if group chats become useful to me or are requested. The share
 - [ ] Confirm the findings on a real phone before choosing a fix.
 - Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
 
+### Story Memory
+Build on saved agent results and the Agent Results panel with NTR's own story state, scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.
+
+- [ ] Keep tracker snapshots tied to the chat message and swipe they describe, using the saved agent results where practical.
+- [ ] Add editable scene summaries: what happened, important facts and promises, unresolved matters, and links to source messages.
+- [ ] Start with manual scene marking. Reuse NTR's agents for optional automatic tracking and summarizing, after replies or through Quick Replies.
+- [ ] Optionally send current state, pinned facts and relevant scene memories with the prompt, within a configurable token budget. Reuse the planned agent prompt controls where practical.
+- [ ] Provide separate switches for tracking, summarizing and recall, so users can combine NTR with other tools.
+- [ ] Handle edits, swipes, deletions and branches so saved and recalled information stays correct.
+- [ ] Reader and Visual Novel modes show state for the point being viewed, without revealing later events.
+- [ ] Let users inspect, correct, delete and export memories. Check that chat backups and imports preserve them.
+- [ ] Consider integrations and semantic search later; neither is required for the basic system.
+
+- Open questions: where the editor opens; how automatic scene detection works; whether pinned facts belong to one branch or the whole chat.
+
 ## Visual Novel Mode (Low Priority)
 
 Will be worked on when the main part is done, unless there are bugs or issues to take care of.

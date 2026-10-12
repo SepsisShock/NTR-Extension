@@ -35,7 +35,6 @@ Worth doing, but after the planned work. Includes checks for problems that aren'
 - [ ] Character portraits next to the tracked characters.
 - [ ] Highlight what changed since the last result.
 - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
-- [ ] Check that a Pinned Block with Agent Results follows the page in Reader Mode and the message shown in Visual Novel. It uses the same lookup as other Pinned Blocks, which were tried in Visual Novel, but Agent Results haven't been.
 - [ ] Decide whether `/sendas` should count as a reply for After Every Reply agents. It does now, so a Quick Reply that uses it also runs them.
 - Left out on purpose: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup. Triggers come from Quick Replies through `/ntr-agent`.
 - Agents run after the AI's reply. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.

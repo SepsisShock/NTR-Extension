@@ -764,7 +764,7 @@
     const v = placeGet(it);
     if (it.pin) {
       const p = pinOf(it);
-      if (p.from === 'chat' && p.place === 'float') return !pinBoxed(p, phoneNow());
+      if (p.from === 'chat' && p.place === 'float') return !p[pinPhone(phoneNow())].moved;
       return JSON.stringify(v) === JSON.stringify(pinStart(p, phoneNow()));
     }
     return it.lay ? Object.entries(layNames(LAY_PART[it.lay].start)).every(([k, x]) => v[k] === x) : !v.x && !v.y;
@@ -2328,8 +2328,9 @@
   const pinHas = (p) => (p.from === 'agents' ? p.agents.length > 0 : !!pinSel(p));
   const pinsLive = (s) => layOn(s) && s.layPins.some(pinHas);
   const pinPhone = (phone) => (phone ? 'phone' : 'desk');
-  // Whether a block has its own box in that layout, or stays in its message.
-  const pinBoxed = (p, phone) => p.from === 'agents' || p.place !== 'float' || p[pinPhone(phone)].moved;
+  // Whether a block has its own box in that layout, or stays in its message. Visual Novel Mode shows a message's text
+  // only, so there a block still in its message gets its box too, at its starting spot.
+  const pinBoxed = (p, phone) => p.from === 'agents' || p.place !== 'float' || p[pinPhone(phone)].moved || !!settings().nodeEnabled;
   // Where Reset puts a block: a Floating one back in its message (Agent Results, which have no message, to the starting
   // spot), a Docked one back to its starting width, still docked.
   function pinStart(p, phone) {
@@ -2595,7 +2596,7 @@
             <div class="cb_hint">The menu hides. Click the block in a message, like the Coordinates box. Escape cancels.</div>`}
             <div class="cb_plab">Place</div>
             ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}
-            <div class="cb_hint">Floating goes anywhere. ${p.from === 'agents' ? '' : 'It stays in its message until you drag it out with Edit Layout; Reset puts it back there. '}Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
+            <div class="cb_hint">Floating goes anywhere. ${p.from === 'agents' ? '' : 'It stays in its message until you drag it out with Edit Layout; Reset puts it back there. In Visual Novel Mode it shows in its box. '}Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
             ${p.from === 'agents' ? '' : `<div class="cb_plab">Show</div>
             ${pick(p, 'show', [['always', 'Always'], ['newest', 'Newest Reply Only']], p.show)}
             <div class="cb_hint">Always shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it.</div>`}

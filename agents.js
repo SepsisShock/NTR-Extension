@@ -389,7 +389,7 @@ Keep every value from your last result that the new messages leave as it was, an
     const rows = l.map((a) => `
       <div class="m_ag_row" data-id="${a.id}" tabindex="0" role="button" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;${a.id === s.agPick ? 'background:rgba(255,255,255,.07);outline:1px solid var(--SmartThemeQuoteColor);' : ''}">
         ${picHtml(a, 28)}
-        <div style="flex:1;min-width:0;"><strong>${esc(a.name)}</strong>${a.title ? `<span style="opacity:.7;"> · ${esc(a.title)}</span>` : ''}<div class="cb_hint" style="margin:0;">${a.runs === 'reply' ? 'After every reply' : 'On the button only'} · ${esc(conn(a))}</div></div>
+        <div style="flex:1;min-width:0;"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle" style="opacity:.7;">${a.title ? ` · ${esc(a.title)}` : ''}</span><div class="cb_hint" style="margin:0;">${a.runs === 'reply' ? 'After every reply' : 'On the button only'} · ${esc(conn(a))}</div></div>
         <input type="checkbox" class="ntr_pswitch m_ag_on" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off">
       </div>`).join('');
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
@@ -456,7 +456,7 @@ Keep every value from your last result that the new messages leave as it was, an
         <div class="cb_hint">Depth 0 is after the last message, 1 is before it, and so on.</div>` : ''}
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Lorebooks Can Read It</span></label>
         <div class="cb_hint">Words in it can trigger lorebook entries, like a location's entry.</div>` : ''}
-        <div class="cb_hint" style="margin-bottom:0;">To place it yourself instead, type <code>{{agent::${esc(a.name)}}}</code> anywhere SillyTavern reads macros, like the Author's Note, a lorebook entry or another agent's instructions.</div>`) : ''}
+        <div class="cb_hint" style="margin-bottom:0;">To place it yourself instead, type <code class="m_ag_macro">{{agent::${esc(a.name)}}}</code> anywhere SillyTavern reads macros, like the Author's Note, a lorebook entry or another agent's instructions.</div>`) : ''}
       ${card('Connection', `
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
         <div class="cb_hint">Chat Completion is an online API, or a local server with an OpenAI-style link (Custom). Text Completion is a local server like KoboldCpp or llama.cpp. Neither changes your chat's connection or SillyTavern's Connection Profiles.</div>
@@ -603,14 +603,28 @@ Keep every value from your last result that the new messages leave as it was, an
       s.agPick = x.id;
       changed(true);
     };
-    // Name and job title, typed in place. An empty name goes back to the one it had.
+    // Name and job title, typed in place. An empty name goes back to the one it had. Saving updates the text where it
+    // shows instead of redrawing the page: the change fires when the field loses focus, which is often a click on
+    // Duplicate or on another agent, and a redraw then would swallow that click.
     root.querySelectorAll('.m_ag_prof').forEach((el) => {
       el.onkeydown = (e) => { if (e.key === 'Enter') el.blur(); };
       el.onchange = () => {
         const v = el.value.trim().slice(0, 60);
         if (el.dataset.f === 'name' && !v) { el.value = a.name; return; }
+        el.value = v;
         a[el.dataset.f] = v;
-        changed(true);
+        changed(false);
+        const row = root.querySelector(`.m_ag_row[data-id="${a.id}"]`);
+        if (row) {
+          row.querySelector('.m_ag_rname').textContent = a.name;
+          row.querySelector('.m_ag_rtitle').textContent = a.title ? ` · ${a.title}` : '';
+          const sw = row.querySelector('.m_ag_on');
+          sw.title = `Turn ${a.name} on or off`;
+          sw.setAttribute('aria-label', sw.title);
+        }
+        const macro = root.querySelector('.m_ag_macro');
+        if (macro) macro.textContent = `{{agent::${a.name}}}`;
+        refreshBoxes();
       };
     });
     root.querySelector('#m_ag_del').onclick = async function() {

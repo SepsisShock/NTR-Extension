@@ -215,27 +215,37 @@ Keep every value from your last result that the new messages leave as it was, an
   function samplers(a, tc) {
     const o = {};
     for (const [f, , , cc, t] of SAMP) if (a[f + 'On']) o[tc ? t : cc] = a[f];
-    if (tc && a.repOn) o.repetition_penalty = a.rep;
+    // Text Completion servers read Repetition Penalty under different names: Ollama only reads repeat_penalty.
+    if (tc && a.repOn) { o.repetition_penalty = a.rep; o.repeat_penalty = a.rep; }
     return o;
   }
   // Same as Chat with its own samplers: your chat's APIs that SillyTavern lets extensions change a request for.
   const OWN_SAMP_API = { openai: 'CHAT_COMPLETION_SETTINGS_READY', textgenerationwebui: 'TEXT_COMPLETION_SETTINGS_READY' };
   // While a Same as Chat run builds its request, its ticked samplers replace your preset's in that one request. Only
-  // samplers SillyTavern already put in it are replaced, so one your chat's API doesn't take stays out. A reply of yours
-  // started meanwhile keeps your preset's. Returns the function that stops listening.
+  // samplers SillyTavern already put in it are replaced, so one your chat's API doesn't take stays out. Reasoning
+  // Effort is different for each API (Auto leaves it out for some), so SillyTavern works it out: the agent's choice
+  // stands in your Chat Completion settings only while the request is built, and yours is back as soon as it's ready.
+  // A reply of yours started meanwhile keeps your preset's samplers. Returns the function that stops listening.
   function ownSamplers(a, c) {
     const ev = OWN_SAMP_API[c.mainApi];
-    const own = { ...samplers(a, c.mainApi === 'textgenerationwebui'), ...(a.effOn && c.mainApi === 'openai' ? { reasoning_effort: a.eff } : {}) };
-    if (!ev || !c.event_types?.[ev] || !Object.keys(own).length) return () => {};
+    if (!ev || !c.event_types?.[ev]) return () => {};
+    const own = samplers(a, c.mainApi === 'textgenerationwebui');
+    const set = c.mainApi === 'openai' && a.effOn ? c.chatCompletionSettings : null;
+    if (!set && !Object.keys(own).length) return () => {};
+    const yours = set ? set.reasoning_effort : null;
+    let back = !set;
+    const restore = () => { if (!back) { back = true; set.reasoning_effort = yours; } };
+    if (set) set.reasoning_effort = a.eff;
     const name = c.event_types[ev];
     let used = false;
     const hook = (data) => {
+      restore();
       if (used || chatBusy || !data || typeof data !== 'object') return;
       used = true;
       for (const [k, v] of Object.entries(own)) if (k in data) data[k] = v;
     };
     c.eventSource.on(name, hook);
-    return () => c.eventSource.removeListener(name, hook);
+    return () => { c.eventSource.removeListener(name, hook); restore(); };
   }
 
   // Stop and the time limit end a run right away, even while it waits for your reply or for an answer.

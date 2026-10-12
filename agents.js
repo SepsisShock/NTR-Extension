@@ -125,10 +125,13 @@ Keep every value from your last result that the new messages leave as it was, an
     return null;
   }
   // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}, {{agent::Name}}...), and with Include Its
-  // Last Result, the newest result saved before message `at`. A saved result is left as it is.
+  // Last Result, the newest result saved before message `at`. A saved result is left as it is. {{agent::Name}} looks
+  // only up to message `at` meanwhile (macroAt), so Run Again on an older message doesn't see later results.
+  let macroAt = null;
   function withLast(a, at) {
     let job = a.job;
-    try { job = ctx().substituteParams(job); } catch (e) { /* as typed */ }
+    macroAt = at;
+    try { job = ctx().substituteParams(job); } catch (e) { /* as typed */ } finally { macroAt = null; }
     const prev = a.keep === 'chat' && a.last ? latest(a.id, at - 1) : null;
     return prev ? `${job}\n\nYour last result:\n${prev.text}` : job;
   }
@@ -724,7 +727,7 @@ Keep every value from your last result that the new messages leave as it was, an
     macro: (name) => {
       const want = String(name ?? '').trim().toLowerCase();
       const a = list().find((x) => x.name.toLowerCase() === want);
-      return a && a.keep === 'chat' ? latest(a.id, sendUpTo())?.text ?? '' : '';
+      return a && a.keep === 'chat' ? latest(a.id, macroAt ?? sendUpTo())?.text ?? '' : '';
     },
     // /ntr-agent (index.js): runs an agent by name, on or off, and gives back its answer, or '' with a message if it fails.
     runByName: async (name) => {

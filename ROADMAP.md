@@ -17,7 +17,7 @@ Find out how to make these movable and designable, and which details SillyTavern
 
 - [ ] Details like message number, time spent thinking (outside the reasoning block), token count and date.
 - [ ] Text alignment for chat messages: left, right, center or justified.
-- [ ] Move the time and date.
+- [ ] Move the time and date, including inside a speech bubble's bottom corner, like WhatsApp.
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 
 ## Misc (Low Priority)
@@ -36,6 +36,9 @@ Worth doing, but after the planned work. Includes checks for problems that aren'
 - [ ] Decide whether `/sendas` should count as a reply for After Every Reply agents. It does now, so a Quick Reply that uses it also runs them.
 - Left out on purpose: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup. Triggers come from Quick Replies through `/ntr-agent`.
 - Agents run after the AI's reply. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.
+
+### Speech Bubbles: comic dialogue
+- [ ] Only the quoted speech in a bubble, with the narration as plain text, so long replies read like a comic or a visual novel in the normal chat. Means picking apart the message text, so it's a bigger job.
 
 ### Typing in slider values
 - [ ] Everywhere in the menu a slider shows a value in % or px, let the value be typed in as well as dragged. Typed values stay within the slider's range.

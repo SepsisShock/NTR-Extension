@@ -637,7 +637,10 @@
     savedMsg,
     rememberMsg,
     askNumber,
-    // For Pinned Blocks: the last message on the page you're on, or null when Reader Mode is off.
-    upTo: () => (live() && pages.length ? pages[cur][1] : null),
+    // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.
+    drawTo: (first) => loadUpTo(first, opened),
+    // For Pinned Blocks: the last message on the page you're on, or the message Visual Novel shows, or null when Reader
+    // Mode is off or on the newest.
+    upTo: () => (vnNow() ? window.NTR.vn?.shownMsg?.() ?? null : live() && pages.length ? pages[cur][1] : null),
   };
 })();

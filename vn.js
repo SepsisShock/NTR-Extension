@@ -1366,11 +1366,15 @@
 
   // Remembers the message on screen, and saves it as the one this chat was left on (Reader Mode keeps it, for every style),
   // once this chat's saved message has been read.
+  // Pinned Blocks follow it too, so they don't show what happens later; older messages are drawn first for them.
   function keepPlace() {
     const idx = node.list[node.pos];
+    const was = node.shown;
     node.follow = node.pos >= node.list.length - 1;
     node.shown = ctx().chat?.[idx] || null;
-    if (node.md && ctx().chatMetadata === node.md) window.NTR.reader?.rememberMsg?.(idx, node.follow);
+    const R = window.NTR.reader;
+    if (node.md && ctx().chatMetadata === node.md) R?.rememberMsg?.(idx, node.follow);
+    if (node.shown !== was) Promise.resolve(R?.drawTo?.(idx)).then(() => A.refreshPins?.());
   }
 
   const syncNodeToggle = () => A.syncVNToggle();
@@ -1573,6 +1577,8 @@
     continued: nodeContinued,
     // For Reader Mode's Page Up and Page Down.
     goMsg: (d) => nodeGoMsg(d),
+    // For Pinned Blocks (through Reader Mode): the message on screen, or null on the newest.
+    shownMsg: () => (A.isOn() && settings().nodeEnabled && node.list.length && !node.follow ? node.list[node.pos] : null),
     // For map.js and opening.js
     data: V,
     normLoc,

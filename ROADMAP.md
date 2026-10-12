@@ -5,11 +5,10 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ## Planned
 
 ### Reader Mode: follow-ups
-Reader Mode has shipped with two styles, Plain and Book (an open book across the screen, with the built-in book or your own picture). Still open:
+Reader Mode has shipped with three styles: Plain, Book (an open book across the screen, with the built-in book or your own picture) and Visual Novel (Visual Novel Mode). Still open:
 
 - [ ] Separate layouts for normal chat, Reader Mode and Visual Novel Mode, if Reader Mode turns out to need its own.
 - [ ] Book, animated: pages flip along with the message text.
-- [ ] Visual Novel Mode moves into Reader Mode as a third style next to Plain and Book.
 
 ### Send box
 - [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.

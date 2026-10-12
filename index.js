@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.44.0';
+  const VERSION = '2.45.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -356,6 +356,8 @@
     // Off used to be one of the banner kinds; it's now its own switch for every character.
     if (s.bannerMode === 'off') { s.bannerOn = false; s.bannerMode = 'image'; }
     if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
+    // Visual Novel Mode is Reader Mode's Visual Novel style, so it's only on while Reader Mode is.
+    if (s.nodeEnabled && !s.rdEnabled) s.rdEnabled = true;
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
     if (!s.themeLookV3) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV3 = true; }
@@ -3000,7 +3002,7 @@
   function syncGoogleFonts() {
     const s = settings();
     const want = new Set();
-    const live = (k) => (k === 'rbFont' ? s.rbEnabled : k === 'rdBookFont' ? s.rdEnabled && s.rdStyle === 'book' : s.tfEnabled) && s[k + 'On'];
+    const live = (k) => (k === 'rbFont' ? s.rbEnabled : k === 'rdBookFont' ? s.rdEnabled && !s.nodeEnabled && s.rdStyle === 'book' : s.tfEnabled) && s[k + 'On'];
     if (isOn()) for (const k of FONT_KEYS) { const f = live(k) ? cleanFont(s[k]) : ''; if (f) want.add(f); }
     document.querySelectorAll('link[data-ntr-gf]').forEach((l) => { if (!want.has(l.dataset.ntrGf)) l.remove(); else want.delete(l.dataset.ntrGf); });
     for (const f of want) {
@@ -4608,12 +4610,7 @@
     if (vn) { vn.bind(overlay, s); return; }
     const cb = overlay.querySelector('#m_n_enable');
     cb.onchange = async () => {
-      s.nodeEnabled = cb.checked;
-      if (cb.checked) { s.vnUsed = true; readerOff(); }
-      save();
-      const m = cb.checked ? await loadVN() : null;
-      if (m) m.refresh({ switchedOn: true });
-      syncVNToggle();
+      await setReader(cb.checked, cb.checked);
       openCombinedModal();
     };
   }
@@ -4627,23 +4624,13 @@
     b.style.display = isOn() ? '' : 'none';
   }
 
+  // The chat bubbles button: Reader Mode with the Visual Novel style, or Reader Mode off.
   async function toggleVN() {
-    const s = settings();
     const had = !!window.NTR.vn;
-    s.nodeEnabled = !s.nodeEnabled;
-    if (s.nodeEnabled) { s.vnUsed = true; readerOff(); }
-    save();
-    const vn = s.nodeEnabled ? await loadVN() : window.NTR.vn;
-    if (vn) vn.refresh({ switchedOn: s.nodeEnabled });
-    syncVNToggle();
-    if (document.getElementById('cb_modal_overlay')) {
-      if (vn && !had) openCombinedModal();
-      else {
-        const cb = document.getElementById('m_n_enable');
-        if (cb) cb.checked = s.nodeEnabled;
-        syncPageOff(document.getElementById('cb_modal_overlay'));
-      }
-    }
+    const on = !settings().nodeEnabled;
+    await setReader(on, on);
+    // Visual Novel Mode's menu page fills in once its module has loaded.
+    if (window.NTR.vn && !had && document.getElementById('cb_modal_overlay')) openCombinedModal();
   }
 
   function injectNodeToggle() {
@@ -4660,19 +4647,21 @@
   }
 
   // ===== Reader Mode (the paging itself lives in reader.js) =====
-  // Visual Novel Mode and Reader Mode both pick which messages show, so only one is on at a time.
+  // Visual Novel Mode is Reader Mode's third style (Visual Novel), next to Plain and Book (rdStyle). It keeps its own
+  // switch (nodeEnabled), which is on only while Reader Mode is, so Plain or Book is still picked for when it's off.
+  const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : s.rdStyle === 'book' ? 'book' : 'plain');
   function readerSectionHtml(s) {
     const err = modError.reader ? `<div class="cb_hint ntr_pnote">Reader Mode failed to load: ${escapeHTML(modError.reader)}</div>` : '';
     return pageHtml('reader', `
-        <div class="cb_hint">Read the chat a page at a time instead of scrolling. Messages on other pages are only hidden on screen: they're still sent with the prompt. Turning Reader Mode on turns Visual Novel Mode off.</div>
+        <div class="cb_hint">Read the chat a page at a time instead of scrolling. Messages on other pages are only hidden on screen: they're still sent with the prompt. Each chat opens on the page you left it on.</div>
         ${card('Per Page', `
           ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
           <div class="cb_hint" style="margin-bottom: 0;">Your Message and the Reply starts a page at each of your messages; the opening message gets page 1. One Message gives every message its own page.</div>`)}
         ${card('Turning Pages', `
-          <div class="cb_hint" style="margin: 0;">Use the page bar under the chat, or Page Up and Page Down. A page taller than the chat scrolls first; in the book, Next and Page Down go to the next two pages of a long reply first. Sending a message goes to the last page. The Left and Right arrow keys still swipe, on the last page only. Turning back past the messages SillyTavern has shown loads the older ones.</div>`)}
+          <div class="cb_hint" style="margin: 0;">Use the page bar under the chat, or Page Up and Page Down. A page taller than the chat scrolls first; in the book, Next and Page Down go to the next two pages of a long reply first. Sending a message goes to the last page. The Left and Right arrow keys still swipe, on the last page only. Turning back past the messages SillyTavern has shown loads the older ones. Click the page number to type a page to go to. In Visual Novel, the dialogue box has its own buttons: click its counter to type a message number, and Page Up and Page Down go to the older or newer message.</div>`)}
         ${card('Style', `
-          ${pills('rdstyle', [['plain', 'Plain'], ['book', 'Book']], s.rdStyle === 'book' ? 'book' : 'plain')}
-          <div class="cb_hint" style="margin-bottom: 0;">Plain shows the messages as usual, and a long page scrolls. Book shows an open book across the screen: your message at the top of the left page, and the reply running down both pages and on to the next two. A phone held upright shows Plain; turn it sideways for the book.</div>`)}
+          ${pills('rdstyle', [['plain', 'Plain'], ['book', 'Book'], ['vn', 'Visual Novel']], readerStyle(s))}
+          <div class="cb_hint" style="margin-bottom: 0;">Plain shows the messages as usual, and a long page scrolls. Book shows an open book across the screen: your message at the top of the left page, and the reply running down both pages and on to the next two. A phone held upright shows Plain; turn it sideways for the book. Visual Novel is Visual Novel Mode, set up on its own page; picking it turns Reader Mode on, and so does the chat bubbles button next to the send box.</div>`)}
         ${card('Book', `
           <div class="cb_cur_row">
             <div class="cb_cur_prev ntr_rd_pic" id="m_rd_pic"></div>
@@ -4704,7 +4693,14 @@
   function bindReader(overlay, s) {
     overlay.querySelector('#m_rd_enable').onchange = function() { setReader(this.checked); };
     onPills(overlay, 'rdper', (v) => { s.rdPer = v; save(); window.NTR.reader?.refresh(); });
-    onPills(overlay, 'rdstyle', (v) => { s.rdStyle = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'rdstyle', async (v) => {
+      const had = !!window.NTR.vn;
+      if (v !== 'vn') s.rdStyle = v;
+      if (v === 'vn' || s.nodeEnabled) await setReader(s.rdEnabled || v === 'vn', v === 'vn');
+      else save();
+      updateAvatarStyle();
+      if (window.NTR.vn && !had) openCombinedModal();
+    });
 
     // The book picture: the built-in book, an upload or a link. Going back to the built-in book puts its page areas back too.
     const file = overlay.querySelector('#m_rd_file');
@@ -4743,32 +4739,26 @@
     renderPic();
   }
 
-  async function setReader(on) {
+  // Reader Mode on or off, in Plain or Book (rdStyle) or, with vn, in Visual Novel (Visual Novel Mode).
+  async function setReader(on, vn = false) {
     const s = settings();
-    s.rdEnabled = on;
-    if (on && s.nodeEnabled) {
-      s.nodeEnabled = false;
-      window.NTR.vn?.refresh();
-      syncVNToggle();
-    }
+    const wasVN = !!s.nodeEnabled;
+    s.rdEnabled = !!on;
+    s.nodeEnabled = !!on && !!vn;
+    if (s.nodeEnabled) s.vnUsed = true;
     save();
-    const rd = on && isOn() ? await loadModule('reader', true) : window.NTR.reader;
+    const live = isOn();
+    const rd = on && live ? await loadModule('reader', true) : window.NTR.reader;
+    const vnm = s.nodeEnabled && live ? await loadVN() : window.NTR.vn;
+    if (s.nodeEnabled !== wasVN) vnm?.refresh({ switchedOn: s.nodeEnabled });
     rd?.refresh();
     syncReaderToggle();
+    syncVNToggle();
     syncModeSwitches();
   }
   const toggleReader = () => setReader(!settings().rdEnabled);
 
-  function readerOff() {
-    const s = settings();
-    if (!s.rdEnabled) return;
-    s.rdEnabled = false;
-    window.NTR.reader?.refresh();
-    syncReaderToggle();
-    syncModeSwitches();
-  }
-
-  // The open menu's Visual Novel and Reader switches, after one of them turned the other off.
+  // The open menu's Visual Novel and Reader switches and the Reader style, after the other page changed them.
   function syncModeSwitches() {
     const ov = document.getElementById('cb_modal_overlay');
     if (!ov) return;
@@ -4777,6 +4767,8 @@
       const cb = ov.querySelector('#' + id);
       if (cb) cb.checked = !!on;
     }
+    const pick = ov.querySelector(`input[name="cbr_rdstyle"][value="${readerStyle(s)}"]`);
+    if (pick) pick.checked = true;
     syncPageOff(ov);
   }
 
@@ -4819,13 +4811,14 @@
     syncExtBar();
     syncVNToggle();
     syncReaderToggle();
+    // Reader Mode first: Visual Novel opens on the message saved through it.
+    const rd = on && s.rdEnabled ? await loadModule('reader', true) : window.NTR.reader;
+    rd?.refresh();
     if (on) {
       if (s.nodeEnabled || s.vnUsed) { const vn = await loadVN(); if (vn) vn.refresh(); }
     } else if (window.NTR.vn) window.NTR.vn.teardown();
     if (on) (await loadModule('cast'))?.refresh();
     else window.NTR.cast?.teardown();
-    const rd = on && s.rdEnabled ? await loadModule('reader', true) : window.NTR.reader;
-    rd?.refresh();
     if (document.getElementById('cb_modal_overlay')) openCombinedModal();
   }
 
@@ -4932,7 +4925,7 @@
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
-    refreshPins: () => { syncPins(); window.NTR.cast?.sync(); }, readerOff: () => readerOff(), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
+    refreshPins: () => { syncPins(); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => syncSendRoom(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For cast.js: Pop Out catches up after a face changes
@@ -5045,8 +5038,9 @@
     const s0 = settings();
     // cast.js hides tags in the chat and draws emotions, so it loads whenever NTR is on. VN loads it first anyway.
     if (isOn()) loadModule('cast').then((c) => c?.refresh());
-    if (isOn() && (s0.nodeEnabled || s0.vnUsed)) loadVN().then((vn) => { if (vn) vn.refresh(); });
-    if (isOn() && s0.rdEnabled) loadModule('reader').then((rd) => rd?.refresh());
+    // Reader Mode first: Visual Novel opens on the message saved through it.
+    const rdLoad = isOn() && s0.rdEnabled ? loadModule('reader').then((rd) => rd?.refresh()) : Promise.resolve();
+    if (isOn() && (s0.nodeEnabled || s0.vnUsed)) rdLoad.catch(() => {}).then(() => loadVN()).then((vn) => { if (vn) vn.refresh(); });
     if (isOn() && s0.agEnabled) loadModule('agents');
   });
 })();

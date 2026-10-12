@@ -778,7 +778,7 @@ try {
   }
   // Switches the folders a theme knows to how it saved them, turning on first, then off, so the chat reloads at most twice.
   // One theme at a time: a theme picked while another is still switching waits for it, and the older one skips any step
-  // it hasn't started, so the last theme picked always wins.
+  // it hasn't started, so the last theme picked always wins. Switching the Regexes page off stops any step not started yet.
   let applying = Promise.resolve();
   let applyGen = 0;
   function applyStates(map) {
@@ -787,7 +787,8 @@ try {
     return applying;
   }
   async function switchFolders(map, gen) {
-    if (!ready() || !map || gen !== applyGen) return;
+    const live = () => gen === applyGen && settings().rxEnabled !== false;
+    if (!ready() || !map || !live()) return;
     const on = [], off = [];
     for (const sec of SECS.filter(shown)) {
       for (const { f, items } of view(sec).groups) {
@@ -799,7 +800,7 @@ try {
     }
     save();
     await bulk(on, true);
-    if (gen !== applyGen) return;
+    if (!live()) return;
     await bulk(off, false);
   }
 

@@ -735,8 +735,8 @@
       return r;
     }
     if (it.pin && !pinBoxed(pinOf(it), phoneNow())) {
-      // Still in its message: the newest copy there, if it's on screen.
-      const r = pinSource(pinOf(it))?.el.getBoundingClientRect();
+      // Still in its message: the newest copy there, if it's on screen. Pinned Blocks are part of Layout, so none with it off.
+      const r = layOn(settings()) ? pinSource(pinOf(it))?.el.getBoundingClientRect() : null;
       return r && r.width > 0 && r.height > 0 ? r : null;
     }
     const el = placeEl(it);
@@ -1067,6 +1067,9 @@
     place.on = true;
     document.body.classList.add('ntr_placing');
     syncPins();
+    // A block still in its message is outlined there, so the chat scrolls to it first.
+    const firstPin = placeItems().find((it) => it.id === first && it.pin);
+    if (firstPin && !pinBoxed(pinOf(firstPin), phoneNow())) pinSource(pinOf(firstPin))?.el.scrollIntoView({ block: 'nearest' });
     const shown = placeItems().filter((it) => placeRect(it));
     if (!shown.length) {
       place.on = false;

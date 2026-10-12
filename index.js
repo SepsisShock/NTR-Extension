@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.51.2';
+  const VERSION = '2.51.3';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1224,6 +1224,32 @@
       .cb_cur_prev i { opacity: .35; }
       .cb_cur_prev.ntr_rd_pic { width: 72px; height: 48px; }
       .cb_cur_prev.ntr_rd_pic img { max-width: 68px; max-height: 44px; }
+      /* Speakers and their faces (cast.js), and Visual Novel's lists, which use the same rows. */
+      .cb_defdot { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; cursor: pointer; }
+      .cb_spk { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; }
+      .cb_spk + .cb_spk { margin-top: 6px; }
+      .cb_spk_row { display: flex; align-items: center; gap: 6px; }
+      .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { margin: 0; padding: 4px 8px; }
+      .cb_spk_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+      .cb_spk_name small { display: block; opacity: .6; font-size: .8em; }
+      .cb_thumbbox { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+      .cb_thumbbox img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+      .cb_thumbbox i { opacity: .35; }
+      .cb_spk_head { padding: 0 0 6px 2px; }
+      .cb_spk_head .cb_spk_name { font-weight: bold; }
+      .cb_faces_row { cursor: pointer; user-select: none; padding: 4px; margin-bottom: 4px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, #444); transition: background .15s, border-color .15s; }
+      .cb_faces_row:hover, .cb_faces_row:focus-visible { background: rgba(255,255,255,.06); border-color: var(--SmartThemeQuoteColor, #6cf); outline: none; }
+      .cb_faces_row > .fa-solid { padding: 0 8px; opacity: .8; }
+      .cb_faces_row + .cb_emo_grid { margin: 0 0 8px; }
+      .cb_full_row { padding: 0 5px; }
+      .cb_emo_grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+      .cb_emo_cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: rgba(0,0,0,.2); }
+      .cb_emo_cell .cb_thumbbox { width: 64px; height: 64px; }
+      .cb_emo_label { font-size: .8em; text-align: center; word-break: break-word; }
+      .cb_emo_row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .cb_dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+      .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
+      .cb_dfield input { margin: 0; font-family: monospace; }
       .ntr_rd_books { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
       .ntr_rd_books label { position: relative; cursor: pointer; }
       .ntr_rd_books input { position: absolute; opacity: 0; pointer-events: none; }
@@ -4663,7 +4689,7 @@
     return `<div class="cb_hint">${msg}</div>`;
   }
 
-  const bindVNSection = (overlay, s) => window.NTR.vn?.bind(overlay, s);
+  const bindVNSection = (overlay, s) => { if (readerPart(s) === 'vn') window.NTR.vn?.bind(overlay, s); };
 
   function syncVNToggle() {
     // Pinned Blocks can hide in Visual Novel Mode.
@@ -4697,6 +4723,8 @@
   // Visual Novel Mode is Reader Mode's third style (Visual Novel), next to Plain and Book (rdStyle). It keeps its own
   // switch (nodeEnabled), which is on only while Reader Mode is, so Plain or Book is still picked for when it's off.
   const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : s.rdStyle === 'book' ? 'book' : 'plain');
+  // Only the style in use shows its part of the page: Book or Visual Novel, while Reader Mode is on. Plain has none.
+  const readerPart = (s) => (s.rdEnabled ? readerStyle(s) : 'off');
   // The page's Book and Visual Novel parts fold; the picked style's part opens, the other folds.
   function openStyleGroup(s) {
     const st = readerStyle(s);
@@ -4705,17 +4733,18 @@
   }
   function readerSectionHtml(s) {
     const err = modError.reader ? `<div class="cb_hint ntr_pnote">Reader Mode failed to load: ${escapeHTML(modError.reader)}</div>` : '';
+    const part = readerPart(s);
     return pageHtml('reader', `
-        <div class="cb_hint">Read the chat a page at a time instead of scrolling. Messages on other pages are only hidden on screen: they're still sent with the prompt. Each chat opens on the page you left it on.</div>
-        ${card('Per Page', `
+        <div class="cb_hint" data-rd-part="${part}">Read the chat a page at a time instead of scrolling. Messages on other pages are only hidden on screen: they're still sent with the prompt. Each chat opens on the page you left it on.</div>
+        ${part === 'vn' ? '' : card('Per Page', `
           ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
           <div class="cb_hint" style="margin-bottom: 0;">Your Message and the Reply starts a page at each of your messages; the opening message gets page 1. One Message gives every message its own page.</div>`)}
         ${card('Turning Pages', `
           <div class="cb_hint" style="margin: 0;">Use the page bar under the chat, or Page Up and Page Down. A page taller than the chat scrolls first; in the book, Next and Page Down go to the next two pages of a long reply first. Sending a message goes to the last page. The Left and Right arrow keys still swipe, on the last page only. Turning back past the messages SillyTavern has shown loads the older ones. Click the page number to type a page to go to. The page bar can be moved on the Layout page (Page Bar). In Visual Novel, the dialogue box has its own buttons: click its counter to type a message number, and Page Up and Page Down go to the older or newer message.</div>`)}
         ${card('Style', `
           ${pills('rdstyle', [['plain', 'Plain'], ['book', 'Book'], ['vn', 'Visual Novel']], readerStyle(s))}
-          <div class="cb_hint" style="margin-bottom: 0;">Plain shows the messages as usual, and a long page scrolls. Book shows an open book across the screen: your message at the top of the left page, and the reply running down both pages and on to the next two. A phone held upright shows Plain; turn it sideways for the book. Visual Novel is Visual Novel Mode, set up in its part below; picking it turns Reader Mode on, and so does the chat bubbles button next to the send box.</div>`)}
-        ${subHead('rd_book', 'Book')}
+          <div class="cb_hint" style="margin-bottom: 0;">Plain shows the messages as usual, and a long page scrolls. Book shows an open book across the screen: your message at the top of the left page, and the reply running down both pages and on to the next two. A phone held upright shows Plain; turn it sideways for the book. Visual Novel is Visual Novel Mode; picking it turns Reader Mode on, and so does the chat bubbles button next to the send box. Book and Visual Novel have their own settings, shown below while that style is on.</div>`)}
+        ${part !== 'book' ? '' : `${subHead('rd_book', 'Book')}
         <div class="cb_collapse_content">
         ${card('Book', `
           <div class="cb_cur_row">
@@ -4743,11 +4772,11 @@
           ${ovLabel('Quotes', ovColor(s, 'rdInkQuote'))}
           ${ovRow(s, 'rdBookFontOn', 'Book Font', ovFont(s, 'rdBookFont'))}
           <div class="cb_hint" style="margin-bottom: 0;">In the book, these take the place of SillyTavern's colors, Text Formatting's colors and text effects, and the reasoning block's look, which are made for a dark background. The reasoning text uses the Italics color. Text Formatting's sizes still apply.</div>`)}
-        </div>
-        ${subHead('rd_vn', 'Visual Novel')}
+        </div>`}
+        ${part !== 'vn' ? '' : `${subHead('rd_vn', 'Visual Novel')}
         <div class="cb_collapse_content">
         ${vnSectionHtml(s)}
-        </div>
+        </div>`}
     `, { sw: ['m_rd_enable', s.rdEnabled], note: err, legend: true });
   }
 
@@ -4766,6 +4795,7 @@
 
     // The book picture: the built-in book, an upload or a link. Going back to the built-in book puts its page areas back too.
     const file = overlay.querySelector('#m_rd_file');
+    if (!file) return;
     const renderPic = () => {
       const src = s.rdBookImg ? media(s.rdBookImg) : bookUrl(s.rdBook);
       overlay.querySelector('#m_rd_pic').innerHTML = `<img src="${escapeHTML(src)}" alt="">`;
@@ -4808,6 +4838,7 @@
     s.rdEnabled = !!on;
     s.nodeEnabled = !!on && !!vn;
     if (s.nodeEnabled) s.vnUsed = true;
+    openStyleGroup(s);
     save();
     const live = isOn();
     const rd = on && live ? await loadModule('reader', true) : window.NTR.reader;
@@ -4830,6 +4861,9 @@
     const pick = ov.querySelector(`input[name="cbr_rdstyle"][value="${readerStyle(s)}"]`);
     if (pick) pick.checked = true;
     syncPageOff(ov);
+    // The page shows a different style's settings now.
+    const shown = ov.querySelector('[data-rd-part]');
+    if (shown && shown.dataset.rdPart !== readerPart(s)) openCombinedModal();
   }
 
   function syncReaderToggle() {
@@ -4875,7 +4909,7 @@
     const rd = on && s.rdEnabled ? await loadModule('reader', true) : window.NTR.reader;
     rd?.refresh();
     if (on) {
-      if (s.nodeEnabled || s.vnUsed) { const vn = await loadVN(); if (vn) vn.refresh(); }
+      if (s.nodeEnabled) { const vn = await loadVN(); if (vn) vn.refresh(); }
     } else if (window.NTR.vn) window.NTR.vn.teardown();
     if (on) (await loadModule('cast'))?.refresh();
     else window.NTR.cast?.teardown();
@@ -5074,7 +5108,7 @@
       eventSource.on(event_types.GENERATION_ENDED, () => {
         window.NTR.cast?.genEnded();
         window.NTR.agents?.genEnded();
-        setTimeout(() => { if (window.NTR.vn?.endWait?.()) window.NTR.vn.queue(false); }, 300);
+        if (isOn() && settings().nodeEnabled) setTimeout(() => { if (window.NTR.vn?.endWait?.()) window.NTR.vn.queue(false); }, 300);
       });
     }
     if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); window.NTR.cast?.refresh(); });
@@ -5100,7 +5134,8 @@
     if (isOn()) loadModule('cast').then((c) => c?.refresh());
     // Reader Mode first: Visual Novel opens on the message saved through it.
     const rdLoad = isOn() && s0.rdEnabled ? loadModule('reader').then((rd) => rd?.refresh()) : Promise.resolve();
-    if (isOn() && (s0.nodeEnabled || s0.vnUsed)) rdLoad.catch(() => {}).then(() => loadVN()).then((vn) => { if (vn) vn.refresh(); });
+    // Visual Novel Mode loads when it's switched on (see setReader).
+    if (isOn() && s0.nodeEnabled) rdLoad.catch(() => {}).then(() => loadVN()).then((vn) => { if (vn) vn.refresh(); });
     if (isOn() && s0.agEnabled) loadModule('agents');
   });
 })();

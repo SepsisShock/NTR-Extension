@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.51.2';
+  const READER_VERSION = '2.51.3';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -258,6 +258,7 @@
   function layoutBook() {
     const on = bookNow();
     document.body.classList.toggle('ntr_book', on);
+    bookListen(on);
     if (!on) {
       geom = null;
       document.body.classList.remove('ntr_bk_edit');
@@ -381,7 +382,6 @@
   const onLoad = (e) => { if (e.target instanceof HTMLImageElement) recount(); };
   // Opening or closing a reasoning block does too.
   const onToggle = () => recount();
-  document.fonts?.addEventListener?.('loadingdone', recount);
 
   // Next and Previous: in the book, the next or previous two pages of the same messages first.
   function turn(d, plainAt) {
@@ -511,8 +511,32 @@
     else showSpread(spread);
   }
   const checkEdit = () => { if (!geom) return; requestAnimationFrame(syncEdit); setTimeout(syncEdit, 300); };
-  document.addEventListener('click', checkEdit, true);
-  document.addEventListener('keyup', checkEdit, true);
+
+  // What only the book needs is watched only while it's on screen.
+  let bookChat = null;
+  function bookListen(on) {
+    const chat = on ? chatEl() : null;
+    if (chat === bookChat) return;
+    if (bookChat) {
+      bookChat.removeEventListener('scroll', keepTop);
+      bookChat.removeEventListener('load', onLoad, true);
+      bookChat.removeEventListener('toggle', onToggle, true);
+    } else if (chat) {
+      document.addEventListener('click', checkEdit, true);
+      document.addEventListener('keyup', checkEdit, true);
+      document.fonts?.addEventListener?.('loadingdone', recount);
+    }
+    if (chat) {
+      chat.addEventListener('scroll', keepTop, { passive: true });
+      chat.addEventListener('load', onLoad, true);
+      chat.addEventListener('toggle', onToggle, true);
+    } else {
+      document.removeEventListener('click', checkEdit, true);
+      document.removeEventListener('keyup', checkEdit, true);
+      document.fonts?.removeEventListener?.('loadingdone', recount);
+    }
+    bookChat = chat;
+  }
 
   // After a setting or the screen size changed: the book again, at the same spread.
   function relayout() {
@@ -524,7 +548,7 @@
     if (geom) { requestAnimationFrame(() => showSpread(was ? spread : 0)); watchText(); }
     else { spread = 0; spreads = 1; textObs?.disconnect(); textObs = null; const chat = chatEl(); if (chat) chat.scrollLeft = 0; syncBar(); }
   }
-  window.addEventListener('resize', () => { if (live()) relayout(); });
+  const onResize = () => { if (live()) relayout(); };
 
   function scrollTo(at) {
     const chat = chatEl();
@@ -648,16 +672,11 @@
   // Only the chat's own list of messages is watched, so a streaming reply doesn't count pages again for every word.
   function watch(on) {
     const chat = chatEl();
+    if (on) window.addEventListener('resize', onResize); else window.removeEventListener('resize', onResize);
     if (on && !obs && chat) {
       obs = new MutationObserver(queue);
       obs.observe(chat, { childList: true });
-      chat.addEventListener('scroll', keepTop, { passive: true });
-      chat.addEventListener('load', onLoad, true);
-      chat.addEventListener('toggle', onToggle, true);
     } else if (!on && obs) {
-      chat?.removeEventListener('scroll', keepTop);
-      chat?.removeEventListener('load', onLoad, true);
-      chat?.removeEventListener('toggle', onToggle, true);
       obs.disconnect();
       obs = null;
     }

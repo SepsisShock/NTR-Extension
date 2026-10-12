@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.40.0';
+  const AGENTS_VERSION = '2.41.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -42,7 +42,11 @@
     tempOn: true, temp: 0.3, topPOn: false, topP: 1, topKOn: false, topK: 0, minPOn: false, minP: 0,
     freqOn: false, freq: 0, presOn: false, pres: 0, repOn: false, rep: 1, effOn: false, eff: 'auto',
     maxTokens: 600, context: 6, split: false, full: false, keep: 'off', last: false,
+    send: false, sendWhere: 'chat', sendDepth: 1, sendRole: 'system', sendScan: false,
   });
+  // Send to Main AI: where in your chat's prompt (SillyTavern's extension prompt places and roles).
+  const WHERE = [['chat', 'In Chat', 1], ['before', 'Before Main Prompt', 2], ['after', 'After Main Prompt', 0]];
+  const ROLES = [['system', 'System', 0], ['user', 'User', 1], ['assistant', 'AI', 2]];
   // The example tracker: an ordinary agent, made by its button, to edit or delete like any other.
   const DELTA_JOB = `You are Delta, a story state tracker. Read your last result and the latest chat messages, then write the updated state.
 
@@ -68,7 +72,9 @@ Keep every value from your last result that the new messages leave as it was, an
       tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
       effOn: a?.effOn === true, eff: pick(a?.eff, EFFORT, 'auto'),
       maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context),
-      split: a?.split === true, full: a?.full === true, keep: a?.keep === 'chat' ? 'chat' : 'off', last: a?.last === true };
+      split: a?.split === true, full: a?.full === true, keep: a?.keep === 'chat' ? 'chat' : 'off', last: a?.last === true,
+      send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
+      sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
@@ -118,10 +124,54 @@ Keep every value from your last result that the new messages leave as it was, an
     }
     return null;
   }
-  // Its instructions, and with Include Its Last Result, the newest result saved before message `at`.
+  // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}, {{agent::Name}}...), and with Include Its
+  // Last Result, the newest result saved before message `at`. A saved result is left as it is. {{agent::Name}} looks
+  // only up to message `at` meanwhile (macroAt), so Run Again on an older message doesn't see later results.
+  let macroAt = null;
   function withLast(a, at) {
+    let job = a.job;
+    macroAt = at;
+    try { job = ctx().substituteParams(job); } catch (e) { /* as typed */ } finally { macroAt = null; }
     const prev = a.keep === 'chat' && a.last ? latest(a.id, at - 1) : null;
-    return prev ? `${a.job}\n\nYour last result:\n${prev.text}` : a.job;
+    return prev ? `${job}\n\nYour last result:\n${prev.text}` : job;
+  }
+
+  // ----- Sent to your chat's prompt -----
+  // Just before SillyTavern builds the prompt for a reply, each agent with Send to Main AI puts its current saved result
+  // there, under its name. A swipe or Regenerate replaces the last reply, so the result sent is the one from before that
+  // reply. At this point the reply is still in the chat (Regenerate removes it afterwards), so the message that counts
+  // is noted now (sendAt), for {{agent::Name}} during the same reply too.
+  const injKey = (id) => `ntr_agent_${id}`;
+  const injected = new Set();
+  let sendAt = null;
+  // An agent's own run with your chat's full prompt leaves its own result out, so it doesn't get it twice.
+  let fullRun = null;
+  function upToFor(type) {
+    const chat = ctx().chat || [];
+    const last = chat.length - 1;
+    return (type === 'swipe' || type === 'regenerate') && chat[last] && !chat[last].is_user ? last - 1 : last;
+  }
+  const sendUpTo = () => sendAt ?? (ctx().chat || []).length - 1;
+  function inject(type, dryRun) {
+    const at = upToFor(type);
+    // A dry run (SillyTavern counting tokens) never sends "generation ended", so it doesn't set sendAt.
+    if (!dryRun) sendAt = at;
+    const c = ctx();
+    if (typeof c.setExtensionPrompt !== 'function') return;
+    const sent = new Set();
+    if (pageOn()) {
+      for (const a of list()) {
+        if (!a.send || a.keep !== 'chat' || (type === 'quiet' && a.id === fullRun)) continue;
+        const r = latest(a.id, at);
+        if (!r) continue;
+        const where = WHERE.find(([v]) => v === a.sendWhere)[2];
+        const role = a.sendWhere === 'chat' ? ROLES.find(([v]) => v === a.sendRole)[2] : 0;
+        try { c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${r.text}`, where, a.sendDepth, a.sendScan, role); sent.add(a.id); } catch (e) { console.error('[NTR] Could not send an agent result', e); }
+      }
+    }
+    for (const id of injected) if (!sent.has(id)) { try { c.setExtensionPrompt(injKey(id), '', 1, 0); } catch (e) { /* gone */ } }
+    injected.clear();
+    sent.forEach((id) => injected.add(id));
   }
 
   // ----- Running -----
@@ -206,7 +256,10 @@ Keep every value from your last result that the new messages leave as it was, an
         if (full) {
           if (o.at != null && o.at !== (c.chat || []).length - 1) throw new Error('With your chat\'s full prompt, it can only run on the last message.');
           const i = aim(o);
-          return String(await abortable(c.generateQuietPrompt({ quietPrompt: withLast(a, i), responseLength: max }), signal) ?? '');
+          fullRun = a.id;
+          try {
+            return String(await abortable(c.generateQuietPrompt({ quietPrompt: withLast(a, i), responseLength: max }), signal) ?? '');
+          } finally { fullRun = null; }
         }
         const messages = prompt(a, test, test ? null : aim(o));
         // The speaker's name is already in each message, so SillyTavern doesn't add one (name: '').
@@ -379,6 +432,15 @@ Keep every value from your last result that the new messages leave as it was, an
         <div class="cb_hint"${a.keep === 'chat' ? '' : ' style="margin-bottom:0;"'}>Activity Only shows its answers under Activity below until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Pinned Block on the Layout page and set it to Agent Results.</div>
         ${a.keep === 'chat' ? `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" data-redraw="1" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">Adds its newest saved answer from before the message it runs on to its prompt, so it updates what it had instead of starting over.</div>` : ''}`)}
+      ${a.keep === 'chat' ? card('Main AI', `
+        <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
+        <div class="cb_hint"${a.send ? '' : ' style="margin-bottom:0;"'}>Puts its current saved answer, under its name, into your chat's prompt for every reply. After a swipe, it's the answer from before the swiped reply.</div>
+        ${a.send ? `${lab('Where', pills('agwhere', WHERE.map(([v, l]) => [v, l]), a.sendWhere))}
+        ${a.sendWhere === 'chat' ? `${lab('Depth', slider(a, 'sendDepth', 'agSendDepth'))}${lab('As', pills('agrole', ROLES.map(([v, l]) => [v, l]), a.sendRole))}
+        <div class="cb_hint">Depth 0 is after the last message, 1 is before it, and so on.</div>` : ''}
+        <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Lorebooks Can Read It</span></label>
+        <div class="cb_hint">Words in it can trigger lorebook entries, like a location's entry.</div>` : ''}
+        <div class="cb_hint" style="margin-bottom:0;">To place it yourself instead, type <code>{{agent::${esc(a.name)}}}</code> anywhere SillyTavern reads macros, like the Author's Note, a lorebook entry or another agent's instructions.</div>`) : ''}
       ${card('Connection', `
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
         <div class="cb_hint">Chat Completion is an online API, or a local server with an OpenAI-style link (Custom). Text Completion is a local server like KoboldCpp or llama.cpp. Neither changes your chat's connection or SillyTavern's Connection Profiles.</div>
@@ -532,6 +594,8 @@ Keep every value from your last result that the new messages leave as it was, an
     onPills(root, 'agfull', (v) => { a.full = v === 'full'; changed(true); });
     onPills(root, 'agsplit', (v) => { a.split = v === 'split'; changed(true); });
     onPills(root, 'agkeep', (v) => { a.keep = v; changed(true); refreshBoxes(); });
+    onPills(root, 'agwhere', (v) => { a.sendWhere = v; changed(true); });
+    onPills(root, 'agrole', (v) => { a.sendRole = v; changed(false); });
     onPills(root, 'ageff', (v) => { a.eff = v; changed(false); });
 
     root.querySelectorAll('.m_ag_txt').forEach((el) => {
@@ -656,8 +720,15 @@ Keep every value from your last result that the new messages leave as it was, an
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       for (const a of list()) if (a.on && a.runs === 'reply' && a.job.trim()) enqueue(a.id, false, true);
     },
-    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; },
-    genEnded: () => { chatBusy = false; const w = waiters; waiters = []; w.forEach((r) => r()); },
+    // A reply is about to be built (after its slash commands): agents' results go into its prompt.
+    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type, dryRun); },
+    genEnded: () => { chatBusy = false; sendAt = null; const w = waiters; waiters = []; w.forEach((r) => r()); },
+    // {{agent::Name}} (index.js): that agent's current saved result, chosen like Send to Main AI's.
+    macro: (name) => {
+      const want = String(name ?? '').trim().toLowerCase();
+      const a = list().find((x) => x.name.toLowerCase() === want);
+      return a && a.keep === 'chat' ? latest(a.id, macroAt ?? sendUpTo())?.text ?? '' : '';
+    },
     // /ntr-agent (index.js): runs an agent by name, on or off, and gives back its answer, or '' with a message if it fails.
     runByName: async (name) => {
       const want = String(name ?? '').trim().toLowerCase();

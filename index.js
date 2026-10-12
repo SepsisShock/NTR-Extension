@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.40.0';
+  const VERSION = '2.41.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
@@ -4784,7 +4784,7 @@
   // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
     agTemp: [0, 2, 0.05, ''], agTopP: [0, 1, 0.01, ''], agTopK: [0, 200, 1, ''], agMinP: [0, 1, 0.01, ''], agFreq: [-2, 2, 0.05, ''], agPres: [-2, 2, 0.05, ''], agRep: [1, 2, 0.01, ''],
-    agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'],
+    agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'], agSendDepth: [0, 50, 1, ''],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
@@ -5769,6 +5769,21 @@
     }));
   }
 
+  // {{agent::Name}}: an agent's current saved result (agents.js), anywhere SillyTavern reads macros. Registered here so
+  // it gives nothing, instead of staying as typed, while the Agents page is off. Needs SillyTavern's new macro engine.
+  function registerMacro() {
+    const m = ctx().macros;
+    if (typeof m?.register !== 'function') return;
+    try {
+      m.register('agent', {
+        unnamedArgs: [{ name: 'name', description: 'The agent\'s name' }],
+        description: 'An NTR agent\'s current result saved in this chat (Agents page). Empty if it has none.',
+        exampleUsage: '{{agent::Delta}}',
+        handler: ({ unnamedArgs: [name] }) => (isOn() && settings().agEnabled && !PREVIEW ? window.NTR.agents?.macro(name) ?? '' : ''),
+      });
+    } catch (e) { console.error('[NTR] Could not add the {{agent}} macro', e); }
+  }
+
   function injectExtensionMenuButton() {
     const tick = () => {
       injectExtBar();
@@ -5812,6 +5827,7 @@
     const { eventSource, event_types } = ctx();
     injectExtensionMenuButton();
     registerSlashCommand();
+    registerMacro();
     document.addEventListener('pointerover', onCursorOver, true);
     document.addEventListener('pointerdown', onCursorDown, true);
     document.addEventListener('load', (e) => {

@@ -6,11 +6,13 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.47.0';
+  const READER_VERSION = '2.48.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
 
+  // How long a page flip takes (Book, see flip).
+  const FLIP_MS = 450;
   // The page bar sits between the chat and the send box, with the chat's own background.
   const CSS = `
     #ntr_rd_bar { display: flex; align-items: center; justify-content: center; gap: 4px; flex: 0 0 auto; padding: 3px 6px; z-index: 30;
@@ -26,6 +28,16 @@
     #ntr_rd_bar .ntr_rd_num input { width: 4em; margin: 0 4px; padding: 1px 4px; text-align: center; font: inherit; color: inherit;
       background: rgba(0,0,0,.25); border: 1px solid var(--SmartThemeBorderColor); border-radius: 4px; }
     #ntr_rd_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
+    #ntr_flip { position: fixed; z-index: 32; pointer-events: none; }
+    #ntr_flip .ntr_flip_half { position: absolute; top: 0; width: 50%; height: 100%; }
+    #ntr_flip .ntr_flip_sheet { transform-style: preserve-3d; animation: ntr_flip_next ${FLIP_MS}ms ease-in-out forwards; }
+    #ntr_flip .ntr_flip_sheet.ntr_flip_prev { animation-name: ntr_flip_prev; }
+    #ntr_flip .ntr_flip_face { position: absolute; inset: 0; background-repeat: no-repeat; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    #ntr_flip .ntr_flip_back { transform: rotateY(180deg); }
+    #ntr_flip .ntr_flip_sheet .ntr_flip_face::after { content: ''; position: absolute; inset: 0; background: #000; opacity: 0; animation: ntr_flip_shade ${FLIP_MS}ms ease-in-out; }
+    @keyframes ntr_flip_next { to { transform: rotateY(-180deg); } }
+    @keyframes ntr_flip_prev { to { transform: rotateY(180deg); } }
+    @keyframes ntr_flip_shade { 50% { opacity: .3; } }
   `;
 
   // The built-in books (assets/books) are one photo of an open book in seven cover colors, 3:2. Their page areas are where
@@ -122,8 +134,10 @@
         const b = e.target.closest('button[data-go]');
         if (!b) { if (e.target.closest('.ntr_rd_num')) askPage(); return; }
         const k = b.dataset.go;
-        if (k === 'next' || k === 'prev') turn(k === 'next' ? 1 : -1, 'top');
-        else if (k === 'first') { if (cur === 0) showSpread(0); else go(0, 'top'); }
+        if (k === 'next' || k === 'prev') { turn(k === 'next' ? 1 : -1, 'top'); return; }
+        // First and Last go straight there, dropping a turn that hasn't happened yet.
+        dropFlip();
+        if (k === 'first') { if (cur === 0) showSpread(0); else go(0, 'top'); }
         // In the book, Last goes to the last two pages of the last page.
         else if (!booked()) go(pages.length - 1, 'top');
         else if (cur === pages.length - 1) showSpread(Infinity);
@@ -170,6 +184,7 @@
     askNumber(num, cur, pages.length, '<i class="fa-solid fa-book-open"></i>Page', 'of', 'Page number', (to) => {
       syncBar();
       if (to == null) return;
+      dropFlip();
       if (to !== cur) go(to, 'top');
       else scrollTo('top');
     });
@@ -266,6 +281,7 @@
     const below = (pageFree ? 0 : document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form?.offsetHeight || 0);
     const room = { w: right - left, h: bottom - top - below - 16 };
     const ratio = ratioOf(s.rdBookImg);
+    if (s.rdFlip !== false) decodeBook(s.rdBookImg ? A.media(s.rdBookImg) : A.bookUrl(s.rdBook));
     let w = room.w * n('rdBookW') / 100, h = w / ratio;
     if (h > room.h) { h = Math.max(160, room.h); w = h * ratio; }
     const g = { x: left + (room.w - w) / 2, y: top + 8, w, h, pt: h * n('rdBookTop') / 100, pb: h * n('rdBookBottom') / 100, po: w * n('rdBookOuter') / 100, gap: w * n('rdBookSpine') / 100 };
@@ -370,13 +386,98 @@
   // Next and Previous: in the book, the next or previous two pages of the same messages first.
   function turn(d, plainAt) {
     if (booked()) {
+      // A flip still going finishes first, so this turn starts from where it lands.
+      flipEnd?.();
       spreads = countSpreads();
-      if (d > 0 && spread < spreads - 1) { showSpread(spread + 1); return; }
-      if (d < 0 && spread > 0) { showSpread(spread - 1); return; }
-      go(cur + d, d > 0 ? 'top' : 'bottom');
+      const within = d > 0 ? spread < spreads - 1 : spread > 0;
+      if (!within && (cur + d < 0 || cur + d > pages.length - 1)) return;
+      // Where it goes is taken now: the pages change a frame later (see flip).
+      const to = within ? spread + d : cur + d;
+      flip(d, () => (within ? showSpread(to) : go(to, d > 0 ? 'top' : 'bottom')));
       return;
     }
     go(cur + d, plainAt);
+  }
+
+  // ----- Page flip -----
+  // In the book, Next and Previous turn a page: a sheet of the book picture's paper lifts off the right page (the left
+  // one going back) and turns over the spine while the next two pages show under it. The sheet is paper only, so the
+  // other page is covered with its paper too until the sheet lands on it. Off with Page Flip unticked and with Reduced
+  // Motion, SillyTavern's or the device's.
+  // How far the paper reaches past the text, as a share of the page areas' margins; past that are the picture's page
+  // edges and cover. Measured on the built-in books, whose page areas sit about this far in from the paper's edge.
+  const PAPER = 0.8;
+  // flipEnd() finishes the flip going on, turning its page if it hasn't yet; flipEnd(false) drops a turn that hasn't
+  // happened yet, for First, Last, a typed page and the like, which go straight to their page.
+  let flipEnd = null;
+  const dropFlip = () => flipEnd?.(false);
+  const flipOn = () => booked() && settings().rdFlip !== false && !ctx().powerUserSettings?.reduced_motion
+    && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  function flip(d, act) {
+    // A turn while one is still going finishes that one at once.
+    flipEnd?.();
+    const chat = chatEl();
+    const r = chat?.getBoundingClientRect();
+    if (!flipOn() || !r?.width) { act(); return; }
+    const s = settings();
+    const W = r.width, H = r.height;
+    const px = (v) => `${Math.round(v * 10) / 10}px`;
+    const t = px(geom.pt * PAPER), b = px(geom.pb * PAPER), o = px(geom.po * PAPER);
+    const img = cssUrl(s.rdBookImg, s);
+    const div = (cls) => { const el = document.createElement('div'); el.className = cls; return el; };
+    // A half of the book's paper, as in the picture: the right half (1) or the left (0).
+    const paper = (el, side) => Object.assign(el.style, {
+      backgroundImage: img, backgroundSize: `${px(W)} ${px(H)}`, backgroundPosition: `${side ? px(-W / 2) : '0px'} 0px`,
+      clipPath: `inset(${t} ${side ? o : '0px'} ${b} ${side ? '0px' : o})`,
+    });
+    // Next lifts the right page, Previous the left.
+    const from = d > 0 ? 1 : 0;
+    const box = div('');
+    box.id = 'ntr_flip';
+    Object.assign(box.style, { left: px(r.left), top: px(r.top), width: px(W), height: px(H), perspective: px(W * 2) });
+    const cover = div('ntr_flip_half');
+    cover.style.left = from ? '0' : '50%';
+    paper(cover, 1 - from);
+    const sheet = div(`ntr_flip_half ntr_flip_sheet ntr_flip_${from ? 'next' : 'prev'}`);
+    Object.assign(sheet.style, { left: from ? '50%' : '0', transformOrigin: from ? 'left center' : 'right center' });
+    const front = div('ntr_flip_face'), back = div('ntr_flip_face ntr_flip_back');
+    paper(front, from);
+    paper(back, 1 - from);
+    sheet.append(front, back);
+    box.append(cover, sheet);
+    document.body.appendChild(box);
+    // The pages change under the paper, a frame after it's drawn so the old text never shows through. A page whose older
+    // messages are still being drawn keeps both pages under paper, once the sheet has landed, until it's there.
+    let timer = 0, acted = false, turned = false, landed = false;
+    const done = () => {
+      if (turned && landed) return end();
+      if (landed && !box.querySelector('.ntr_flip_rest')) {
+        const rest = div('ntr_flip_half ntr_flip_rest');
+        rest.style.left = from ? '50%' : '0';
+        paper(rest, from);
+        box.appendChild(rest);
+      }
+    };
+    const run = () => { if (acted) return; acted = true; Promise.resolve(act()).finally(() => { turned = true; done(); }); };
+    function end(turn = true) {
+      if (turn) run();
+      else acted = true;
+      clearTimeout(timer);
+      box.remove();
+      if (flipEnd === end) flipEnd = null;
+    }
+    flipEnd = end;
+    timer = setTimeout(() => { landed = true; done(); }, FLIP_MS + 30);
+    requestAnimationFrame(run);
+  }
+  // The book picture, decoded ahead, so the paper is there in the flip's first frame.
+  const decoded = new Map();
+  function decodeBook(u) {
+    if (decoded.has(u)) return;
+    const img = new Image();
+    img.src = u;
+    img.decode?.().catch(() => {});
+    decoded.set(u, img);
   }
 
   // The book follows a reply as it's written, while you're on its last two pages.
@@ -415,6 +516,7 @@
 
   // After a setting or the screen size changed: the book again, at the same spread.
   function relayout() {
+    flipEnd?.();
     if (!live()) return;
     const was = !!geom;
     layoutBook();
@@ -497,6 +599,7 @@
 
   // A chat opening, or Reader Mode coming on: the page this chat was left on. False when that's the last page.
   function openSaved() {
+    dropFlip();
     opened++;
     openedMd = ctx().chatMetadata;
     const at = savedMsg();
@@ -605,6 +708,7 @@
   let wasLive = false;
   // Switched on: the page this chat was left on, or the last page. Switched off: the chat stays at the page you were reading.
   function refresh() {
+    dropFlip();
     const on = live();
     watch(on);
     // The page bar goes in first, so the book is sized with it under it.
@@ -646,6 +750,7 @@
     // Quiet generations and Impersonate don't add a reply to the chat, so they leave the page alone.
     genStarted: (type, dryRun) => {
       if (dryRun || type === 'quiet' || type === 'impersonate' || !live() || !pages.length) return;
+      dropFlip();
       if (cur < pages.length - 1) go(pages.length - 1, 'force');
       follow = true;
     },

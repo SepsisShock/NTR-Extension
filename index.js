@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.51.3';
+  const VERSION = '2.52.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -734,6 +734,11 @@
       if (!r) return null;
       return r;
     }
+    if (it.pin && !pinBoxed(pinOf(it), phoneNow())) {
+      // Still in its message: the newest copy there, if it's on screen.
+      const r = pinSource(pinOf(it))?.el.getBoundingClientRect();
+      return r && r.width > 0 && r.height > 0 ? r : null;
+    }
     const el = placeEl(it);
     if (it.pin) {
       if (!el || el.hidden) return null;
@@ -757,7 +762,11 @@
   }
   const placeAtStart = (it) => {
     const v = placeGet(it);
-    if (it.pin) return JSON.stringify(v) === JSON.stringify(PIN_START[pinPhone(phoneNow())]);
+    if (it.pin) {
+      const p = pinOf(it);
+      if (p.from === 'chat' && p.place === 'float') return !pinBoxed(p, phoneNow());
+      return JSON.stringify(v) === JSON.stringify(pinStart(p, phoneNow()));
+    }
     return it.lay ? Object.entries(layNames(LAY_PART[it.lay].start)).every(([k, x]) => v[k] === x) : !v.x && !v.y;
   };
 
@@ -816,8 +825,8 @@
     return [L, R, T, B];
   }
 
-  // Dragging a Pinned Block. A floating one moves anywhere and resizes from its handles; a docked one stays on its edge
-  // and only gets wider or narrower. Saved as a % of the screen.
+  // Dragging a Pinned Block. A floating one moves anywhere and resizes from its handles, and dragging one out of its message
+  // gives it its own box there; a docked one stays on its edge and only gets wider or narrower. Saved as a % of the screen.
   function dragPin(d, dx, dy, free) {
     const s = settings();
     const p = pinOf(d.it);
@@ -827,7 +836,7 @@
     const [L, R, T, B] = dragBox(d.r0, d.grip, dx, dy, W, H, W * NUM_RANGE.pinW[0] / 100, H * NUM_RANGE.pinH[0] / 100, g);
     const pct = (v, size) => Math.round(v / size * 10000) / 100;
     const r = p[pinPhone(phoneNow())];
-    placeSet(d.it, p.place === 'float' ? { x: pct(L, W), y: pct(T, H), w: pct(R - L, W), h: pct(B - T, H) } : { ...r, w: pct(R - L, W) });
+    placeSet(d.it, p.place === 'float' ? { x: pct(L, W), y: pct(T, H), w: pct(R - L, W), h: pct(B - T, H), moved: true } : { ...r, w: pct(R - L, W) });
   }
 
   function dragLayout(d, dx, dy, px, py, free) {
@@ -931,7 +940,7 @@
       const it = placeItems().find((p) => p.id === place.sel);
       if (!it || placeAtStart(it)) return;
       pushUndo(it.id, placeGet(it));
-      placeSet(it, it.lay ? layNames(LAY_PART[it.lay].start) : it.pin ? { ...PIN_START[pinPhone(phoneNow())] } : { x: 0, y: 0 });
+      placeSet(it, it.lay ? layNames(LAY_PART[it.lay].start) : it.pin ? pinStart(pinOf(it), phoneNow()) : { x: 0, y: 0 });
       save();
     };
     q('#cb_place_done').onclick = endPlacement;
@@ -2280,13 +2289,15 @@
   // A block can show agents' saved results instead (Agent Results; agents.js draws them).
   // Each block has a place on screen for Desktop and one for Phone, as a % of the screen: Floating anywhere, or Docked
   // to the left or right edge at full height. On a phone a docked block slides out from its edge.
+  // A Floating block from the chat stays in its message until it's dragged out with Edit Layout (moved, kept for Desktop
+  // and Phone apart); Reset puts it back there.
   const PIN_START = { desk: { x: 72, y: 12, w: 24, h: 40 }, phone: { x: 5, y: 12, w: 90, h: 35 } };
   const PIN_TAG = /^[a-z][a-z0-9-]{0,30}$/;
   const PIN_CLASS = /^[A-Za-z_-][\w-]{0,63}$/;
   const PIN_MAX = 20;
   // While a block is being picked in the chat (see pickPin), the boxes hide and the originals show.
   let pinPicking = false;
-  const pinRect = (r, d) => ({ x: cardNum(r?.x, 'pinX', d.x), y: cardNum(r?.y, 'pinY', d.y), w: cardNum(r?.w, 'pinW', d.w), h: cardNum(r?.h, 'pinH', d.h) });
+  const pinRect = (r, d) => ({ x: cardNum(r?.x, 'pinX', d.x), y: cardNum(r?.y, 'pinY', d.y), w: cardNum(r?.w, 'pinW', d.w), h: cardNum(r?.h, 'pinH', d.h), moved: cBool(r?.moved, true) });
   // Saved blocks, and blocks from theme files, made safe to use.
   function cleanPins(v) {
     const ids = new Set();
@@ -2317,6 +2328,15 @@
   const pinHas = (p) => (p.from === 'agents' ? p.agents.length > 0 : !!pinSel(p));
   const pinsLive = (s) => layOn(s) && s.layPins.some(pinHas);
   const pinPhone = (phone) => (phone ? 'phone' : 'desk');
+  // Whether a block has its own box in that layout, or stays in its message.
+  const pinBoxed = (p, phone) => p.from === 'agents' || p.place !== 'float' || p[pinPhone(phone)].moved;
+  // Where Reset puts a block: a Floating one back in its message (Agent Results, which have no message, to the starting
+  // spot), a Docked one back to its starting width, still docked.
+  function pinStart(p, phone) {
+    const k = pinPhone(phone), d = PIN_START[k];
+    if (p.place !== 'float') return { ...p[k], w: d.w };
+    return { ...d, moved: p.from === 'agents' ? p[k].moved : false };
+  }
 
   // The newest message with the block: any message, or only the newest reply. Its <style> tags come along, since a
   // regex often puts the block's look there.
@@ -2455,12 +2475,14 @@
     for (const p of s.layPins) {
       if (!pinHas(p)) continue;
       const sel = pinSel(p);
-      if (p.from === 'chat' && p.hide) css += `\n      #chat .mes_text ${sel} { display: none !important; }`;
       const box = `#ntr_pin_layer > .ntr_pin[data-pin="${p.id}"]`;
       for (const phone of [false, true]) {
         const r = p[pinPhone(phone)];
+        const boxed = pinBoxed(p, phone);
         let props;
-        if (p.place === 'float') {
+        if (!boxed) {
+          props = { display: 'none' };
+        } else if (p.place === 'float') {
           props = { left: `min(${r.x}vw, ${100 - r.w}vw)`, top: `min(${r.y}dvh, ${100 - r.h}dvh)`, width: `${r.w}vw`, height: `${r.h}dvh` };
         } else {
           // Docked: the whole height of its edge, beside SillyTavern's menu bar when the bar is on that edge. On a phone,
@@ -2475,7 +2497,8 @@
             [p.place]: side, [p.place === 'left' ? 'right' : 'left']: 'auto', '--ntr-pin-off': side,
           };
         }
-        css += `\n      @media (width ${phone ? '<=' : '>'} 1000px) {${cssRule(box, props)}\n      }`;
+        const hide = p.from === 'chat' && p.hide && boxed ? `\n      #chat .mes_text ${sel} { display: none !important; }` : '';
+        css += `\n      @media (width ${phone ? '<=' : '>'} 1000px) {${hide}${cssRule(box, props)}\n      }`;
       }
     }
     return css ? css + '\n' : '';
@@ -2572,7 +2595,7 @@
             <div class="cb_hint">The menu hides. Click the block in a message, like the Coordinates box. Escape cancels.</div>`}
             <div class="cb_plab">Place</div>
             ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}
-            <div class="cb_hint">Floating goes anywhere. Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
+            <div class="cb_hint">Floating goes anywhere. ${p.from === 'agents' ? '' : 'It stays in its message until you drag it out with Edit Layout; Reset puts it back there. '}Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
             ${p.from === 'agents' ? '' : `<div class="cb_plab">Show</div>
             ${pick(p, 'show', [['always', 'Always'], ['newest', 'Newest Reply Only']], p.show)}
             <div class="cb_hint">Always shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it.</div>`}
@@ -2597,7 +2620,7 @@
       if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Pinned Blocks'); return; }
       // Each new box starts a little lower than the last, so they don't land on top of each other.
       const n = s.layPins.length;
-      const [p] = cleanPins([{ name: `Pinned Block ${n + 1}`, desk: { ...PIN_START.desk, y: PIN_START.desk.y + (n % 6) * 8 }, phone: { ...PIN_START.phone, y: PIN_START.phone.y + (n % 6) * 8 } }]);
+      const [p] = cleanPins([{ name: `Pinned Block ${n + 1}`, desk: { ...PIN_START.desk, y: PIN_START.desk.y + (n % 6) * 8, moved: false }, phone: { ...PIN_START.phone, y: PIN_START.phone.y + (n % 6) * 8, moved: false } }]);
       s.layPins.push(p);
       pinOpen = p.id;
       changed();

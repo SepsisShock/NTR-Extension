@@ -40,11 +40,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Move the time and date.
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 
-### Overlays module
-- [ ] Move header banners and foreground images into `overlays.js`.
-- [ ] Load the module only when an overlay is enabled or the Overlays page is opened.
-- [ ] Reuse shared upload, storage and layout helpers from `index.js`, and keep existing settings keys and saved data formats.
-
 ## Misc (Low Priority)
 
 Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.

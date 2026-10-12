@@ -3,9 +3,10 @@
 // Shows the chat a page at a time. The messages are SillyTavern's own, so swipes, editing and the "..." menu keep working.
 // Messages on other pages are only hidden on screen, like Visual Novel Mode does: they stay in the prompt.
 // Two styles: Plain (a page scrolls when it's long) and Book (an open book across the screen, the text flowing over both
-// pages and on to the next two pages).
+// pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
+// for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.44.0';
+  const READER_VERSION = '2.45.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -34,7 +35,9 @@
   const INK = { rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e' };
   const COLOR_OK = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i;
 
-  const live = () => isOn() && !!settings().rdEnabled;
+  const live = () => isOn() && !!settings().rdEnabled && !settings().nodeEnabled;
+  // Visual Novel, Reader Mode's third style.
+  const vnNow = () => isOn() && !!settings().rdEnabled && !!settings().nodeEnabled;
   // Book on a computer, and on a phone held sideways. An upright phone is too narrow for two pages, so it shows Plain.
   const bookNow = () => live() && settings().rdStyle === 'book' && (window.innerWidth > 1000 || window.innerWidth > window.innerHeight);
   // Each page is [first, last] message number (mesid).
@@ -150,21 +153,29 @@
   // clicking away leaves it. Numbers past either end go to the first or last page.
   function askPage() {
     const num = document.querySelector('#ntr_rd_bar .ntr_rd_num');
-    const n = pages.length;
-    if (!num || n < 2 || num.querySelector('input')) return;
-    num.innerHTML = `<i class="fa-solid fa-book-open"></i>Page<input type="number" min="1" max="${n}" step="1" value="${cur + 1}" aria-label="Page number">of ${n}`;
-    const box = num.querySelector('input');
-    let done = false;
-    const end = (jump) => {
-      if (done) return;
-      done = true;
-      const v = Math.round(Number(box.value));
-      box.remove();
+    askNumber(num, cur, pages.length, '<i class="fa-solid fa-book-open"></i>Page', 'of', 'Page number', (to) => {
       syncBar();
-      if (!jump || !box.value.trim() || !Number.isFinite(v)) return;
-      const to = Math.max(0, Math.min(pages.length - 1, v - 1));
+      if (to == null) return;
       if (to !== cur) go(to, 'top');
       else scrollTo('top');
+    });
+  }
+
+  // Turns el into a box for a number from 1 to n, starting at at + 1, with before and after (HTML) around it. Enter calls
+  // done with the number picked, counted from 0 and kept within 0 to n - 1; Escape, clicking away or an empty box call it
+  // with null. el should be redrawn in done, and left alone while it holds the box.
+  function askNumber(el, at, n, before, after, label, done) {
+    if (!el || n < 2 || el.querySelector('input')) return;
+    el.innerHTML = `${before}<input type="number" min="1" max="${n}" step="1" value="${at + 1}" aria-label="${label}">${after} ${n}`;
+    const box = el.querySelector('input');
+    let over = false;
+    const end = (jump) => {
+      if (over) return;
+      over = true;
+      const v = Math.round(Number(box.value));
+      const typed = jump && box.value.trim() && Number.isFinite(v);
+      box.remove();
+      done(typed ? Math.max(0, Math.min(n - 1, v - 1)) : null);
     };
     box.addEventListener('keydown', (e) => {
       e.stopPropagation();
@@ -443,10 +454,15 @@
   // pages counted then would save the last page over the one it was left on.
   let openedMd = null;
   function remember() {
+    if (!live() || ctx().chatMetadata !== openedMd || !pages.length) return;
+    rememberMsg(pages[cur][0], follow);
+  }
+  // Saves message at (a page's first message, or the message Visual Novel shows) as the one this chat was left on, or the
+  // last page with last.
+  function rememberMsg(at, last) {
     const md = ctx().chatMetadata;
-    if (!live() || !md || md !== openedMd || !pages.length) return;
-    const a = pages[cur][0];
-    const v = follow ? { last: true } : { at: a, date: ctx().chat?.[a]?.send_date ?? null };
+    if (!md) return;
+    const v = last ? { last: true } : { at, date: ctx().chat?.[at]?.send_date ?? null };
     const old = md[SAVED];
     if (old && old.last === v.last && old.at === v.at && old.date === v.date) return;
     md[SAVED] = v;
@@ -535,13 +551,22 @@
   // SillyTavern's popups.
   // SillyTavern's Left and Right arrow keys swipe the last reply, which is hidden on an earlier page, so they wait for
   // the last page.
+  // In Visual Novel, Page Up and Page Down go to the older or newer message.
   function onKey(e) {
-    if (!live() || !pages.length || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const vn = vnNow();
+    if (!(vn || (live() && pages.length)) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const k = e.key;
     const el = document.activeElement;
     if (el && el !== document.body && el.closest('#cb_modal_overlay, .popup, dialog')) return;
     const send = document.getElementById('send_textarea');
     const typing = typingIn(el) && !(el === send && !send.value);
+    if (vn) {
+      if ((k !== 'PageUp' && k !== 'PageDown') || typing || !window.NTR.vn?.goMsg) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      window.NTR.vn.goMsg(k === 'PageDown' ? 1 : -1);
+      return;
+    }
     if (k === 'ArrowLeft' || k === 'ArrowRight') {
       if (!typing && cur < pages.length - 1) e.stopImmediatePropagation();
       return;
@@ -608,6 +633,10 @@
       if (cur < pages.length - 1) go(pages.length - 1, 'force');
       follow = true;
     },
+    // For Visual Novel: the message this chat was left on (null for the last), saving the one it shows, and its number box.
+    savedMsg,
+    rememberMsg,
+    askNumber,
     // For Pinned Blocks: the last message on the page you're on, or null when Reader Mode is off.
     upTo: () => (live() && pages.length ? pages[cur][1] : null),
   };

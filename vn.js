@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.44.0';
+  const VN_VERSION = '2.45.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead } = A;
@@ -149,6 +149,10 @@
       #cb_node .cb_n_arrow { position: absolute; left: 50%; bottom: 4px; font-size: 12px; animation: cbn_blink 1s infinite; pointer-events: none; }
       #cb_node .cb_n_ctrl { position: absolute; right: 8px; bottom: 3px; display: flex; align-items: center; gap: 2px; font-size: 11px; opacity: .75; }
       #cb_node .cb_n_ctrl button { background: none; border: none; color: inherit; cursor: pointer; padding: 2px 6px; font-size: 13px; }
+      #cb_node .cb_n_count { cursor: pointer; border-radius: 4px; padding: 1px 3px; }
+      #cb_node .cb_n_count:hover { background: rgba(255,255,255,.1); }
+      #cb_node .cb_n_count input { width: 3.5em; margin: 0 3px; padding: 0 3px; text-align: center; font: inherit; color: inherit;
+        background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.3); border-radius: 4px; }
       @keyframes cbn_blink { 50% { opacity: .15; } }
       #cb_node_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
       .cb_defdot { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; cursor: pointer; }
@@ -231,7 +235,9 @@
     el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
   }
 
-  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null };
+  // follow: on the newest message, so new ones are followed. shown: the chat message on screen, found again after earlier
+  // ones are deleted. md: the chat data whose saved message was read (see keepPlace).
+  const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null, follow: true, shown: null, md: null };
   let nodeQ = null, nodeQAnim = false;
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -595,11 +601,8 @@
       };
     });
 
-    overlay.querySelector('#m_n_enable').onchange = function() {
-      s.nodeEnabled = this.checked; save();
-      if (this.checked) { s.vnUsed = true; A.readerOff?.(); }
-      refresh({ switchedOn: this.checked });
-    };
+    // Visual Novel Mode is Reader Mode's Visual Novel style: on turns Reader Mode on with it, off turns Reader Mode off.
+    overlay.querySelector('#m_n_enable').onchange = function() { A.setReader(this.checked, this.checked); };
     const chk = (id, key, after) => { const el = overlay.querySelector(id); if (el) el.onchange = function() { s[key] = this.checked; save(); if (after) after(); }; };
     chk('#m_n_user', 'nodeUserMsgs', () => { refreshPrompt(); nodeLoad({ animate: false }); });
     chk('#m_n_tw', 'nodeTypewriter');
@@ -868,7 +871,7 @@
           <button type="button" data-a="map" class="cb_n_mapbtn" title="Map" style="display:none;"><i class="fa-solid fa-map"></i></button>
           <button type="button" data-a="older" title="Older message"><i class="fa-solid fa-angles-left"></i></button>
           <button type="button" data-a="prev" title="Previous line"><i class="fa-solid fa-angle-left"></i></button>
-          <span class="cb_n_count"></span>
+          <span class="cb_n_count" role="button" tabindex="0" title="Go to message"></span>
           <button type="button" data-a="next" title="Next line"><i class="fa-solid fa-angle-right"></i></button>
           <button type="button" data-a="newer" title="Newer message"><i class="fa-solid fa-angles-right"></i></button>
         </div>
@@ -882,6 +885,9 @@
     ov.querySelectorAll('.cb_n_ctrl button').forEach((b) => {
       b.onclick = (e) => { e.stopPropagation(); acts[b.dataset.a](); };
     });
+    const cnt = ov.querySelector('.cb_n_count');
+    cnt.onclick = (e) => { e.stopPropagation(); askMsg(); };
+    cnt.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === cnt) { e.preventDefault(); askMsg(); } };
     const port = ov.querySelector('.cb_n_port');
     port.querySelector('img').onerror = () => port.classList.add('cb_noimg');
     // While Visual Novel Mode is off the box is hidden, so there's nothing to move.
@@ -958,7 +964,8 @@
 
     const c = ctx();
     ov.classList.toggle('cb_right', isChar && !!c.name1 && seg.name.toLowerCase() === c.name1.toLowerCase());
-    ov.querySelector('.cb_n_count').textContent = `${node.pos + 1}/${node.list.length} \u00B7 ${node.i + 1}/${node.segs.length}`;
+    const cnt = ov.querySelector('.cb_n_count');
+    if (!cnt.querySelector('input')) cnt.textContent = countText();
 
     const text = ov.querySelector('.cb_n_text');
     const arrow = ov.querySelector('.cb_n_arrow');
@@ -1340,9 +1347,30 @@
     const np = node.pos + d;
     if (np < 0 || np >= node.list.length) return;
     node.pos = np;
+    keepPlace();
     nodeParseCurrent();
     node.i = 0;
     nodeShow(false);
+  }
+
+  // The counter under the box: message, then line.
+  const countText = () => `${node.pos + 1}/${node.list.length} \u00B7 ${node.i + 1}/${node.segs.length}`;
+  // Clicking the counter turns the message number into a box to type one in, like Reader Mode's page number.
+  function askMsg() {
+    const cnt = document.querySelector('#cb_node .cb_n_count');
+    window.NTR.reader?.askNumber?.(cnt, node.pos, node.list.length, '', '/', 'Message number', (to) => {
+      cnt.textContent = countText();
+      if (to != null) nodeGoMsg(to - node.pos);
+    });
+  }
+
+  // Remembers the message on screen, and saves it as the one this chat was left on (Reader Mode keeps it, for every style),
+  // once this chat's saved message has been read.
+  function keepPlace() {
+    const idx = node.list[node.pos];
+    node.follow = node.pos >= node.list.length - 1;
+    node.shown = ctx().chat?.[idx] || null;
+    if (node.md && ctx().chatMetadata === node.md) window.NTR.reader?.rememberMsg?.(idx, node.follow);
   }
 
   const syncNodeToggle = () => A.syncVNToggle();
@@ -1410,7 +1438,24 @@
       node.list.push(i);
     });
     if (!node.list.length) { nodeStopTyping(); ov.style.display = 'none'; setLocation(null); clearScene(); updateStage(); return; }
-    node.pos = node.list.length - 1;
+    // A chat opening, or Visual Novel coming on: the message this chat was left on, or the newest. After that, new messages
+    // are followed from the newest one, and otherwise the same message stays. Reader Mode's saved page is its first
+    // message, so the first one shown from there on.
+    const last = node.list.length - 1;
+    const R = window.NTR.reader;
+    const md = c.chatMetadata;
+    let pos = last;
+    if (opened || opts.switchedOn || (R && md !== node.md)) {
+      const at = R?.savedMsg?.();
+      const i = at == null ? -1 : node.list.findIndex((x) => x >= at);
+      if (i >= 0) pos = i;
+      node.md = R ? md : null;
+    } else if (!node.follow) {
+      const at = node.shown ? c.chat.indexOf(node.shown) : -1;
+      pos = at >= 0 ? Math.max(0, node.list.findLastIndex((x) => x <= at)) : Math.min(node.pos, last);
+    }
+    node.pos = pos;
+    keepPlace();
     nodeParseCurrent();
     node.i = 0;
     if (jump && jump.id === node.list[node.pos]) {
@@ -1448,6 +1493,8 @@
   // SillyTavern says when a generation starts, while a continued message still holds only its old text.
   function nodeGenStarted(type, dryRun) {
     if (dryRun) return;
+    // A reply on its way is followed, like in Reader Mode's other styles.
+    if (type !== 'quiet' && type !== 'impersonate') node.follow = true;
     const chat = ctx().chat || [];
     const id = chat.length - 1;
     node.cont = type === 'continue' && chat[id] ? { id, mes: chat[id].mes || '' } : null;
@@ -1524,6 +1571,8 @@
     endWait: nodeEndWait,
     genStarted: nodeGenStarted,
     continued: nodeContinued,
+    // For Reader Mode's Page Up and Page Down.
+    goMsg: (d) => nodeGoMsg(d),
     // For map.js and opening.js
     data: V,
     normLoc,

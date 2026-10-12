@@ -871,7 +871,9 @@
 
     const min = (name) => NUM_RANGE[lk(phoneNow(), name)][0] / 100;
     const part = { chat: 'Chat', send: 'Send', page: 'Page' }[d.it.lay];
-    const [L, R, T, B] = dragBox(r, d.grip, dx, dy, W, H, W * min(part + 'W'), H * min('ChatH'), g);
+    // The page bar is never narrower than its buttons (see the Page Bar's CSS).
+    const minW = Math.max(W * min(part + 'W'), part === 'Page' ? window.NTR.reader?.barMin?.() || 0 : 0);
+    const [L, R, T, B] = dragBox(r, d.grip, dx, dy, W, H, minW, H * min('ChatH'), g);
     if (part === 'Chat') placeSet(d.it, layNames({ ChatMoved: true, ChatX: pct(L, W), ChatY: pct(T, H), ChatW: pct(R - L, W), ChatH: pct(B - T, H) }));
     else placeSet(d.it, layNames({ [part + 'X']: pct(L, W), [part + 'B']: pct(H - B, H), [part + 'W']: pct(R - L, W) }));
   }
@@ -2025,11 +2027,12 @@
       if (s.ovEnabled) css += joinCss(s, true, 'body ');
     }
 
-    // Reader Mode's page bar (reader.js). Free, it has its own place, like a Free send bar.
+    // Reader Mode's page bar (reader.js). Free, it has its own place, like a Free send bar. It's never narrower than its
+    // buttons and page number need (--ntr-rdbar-min, from reader.js), and stays on the screen.
     if (v('Page') === 'free') {
-      const w = n('PageW');
+      const w = `max(${n('PageW')}vw, var(--ntr-rdbar-min, 0px))`;
       css += cssRule('body #ntr_rd_bar', {
-        position: 'fixed', left: `min(${n('PageX')}vw, ${100 - w}vw)`, width: `${w}vw`, margin: '0', 'box-sizing': 'border-box',
+        position: 'fixed', left: `clamp(0px, ${n('PageX')}vw, 100vw - ${w})`, width: w, margin: '0', 'box-sizing': 'border-box',
         top: 'auto', bottom: `min(${n('PageB')}dvh, 100dvh - 2.5em)`, 'align-self': 'auto', 'border-radius': '8px', border: '1px solid var(--SmartThemeBorderColor)',
       });
     }

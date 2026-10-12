@@ -143,10 +143,24 @@
       num.innerHTML = `<i class="fa-solid fa-book-open"></i>${n ? `Page ${cur + 1} of ${n}${sp}` : 'No pages'}`;
       if (n > 1) { num.setAttribute('role', 'button'); num.tabIndex = 0; } else { num.removeAttribute('role'); num.removeAttribute('tabindex'); }
     }
+    const min = barMin() + 'px';
+    if (document.documentElement.style.getPropertyValue('--ntr-rdbar-min') !== min) document.documentElement.style.setProperty('--ntr-rdbar-min', min);
     const atStart = cur <= 0 && (!booked() || spread <= 0);
     const atEnd = cur >= n - 1 && (!booked() || spread >= spreads - 1);
     bar.querySelector('[data-go="first"]').disabled = bar.querySelector('[data-go="prev"]').disabled = atStart;
     bar.querySelector('[data-go="last"]').disabled = bar.querySelector('[data-go="next"]').disabled = atEnd;
+  }
+
+  // The width the page bar's buttons and page number need. A Free page bar (Layout) is never narrower, so none of them
+  // ends up outside it or off the screen.
+  function barMin() {
+    const bar = document.getElementById('ntr_rd_bar');
+    if (!bar) return 0;
+    const cs = getComputedStyle(bar);
+    const kids = [...bar.children];
+    const px = (k) => parseFloat(cs[k]) || 0;
+    return Math.ceil(kids.reduce((a, k) => a + k.getBoundingClientRect().width, 0) + px('columnGap') * Math.max(0, kids.length - 1)
+      + px('paddingLeft') + px('paddingRight') + px('borderLeftWidth') + px('borderRightWidth'));
   }
 
   // Clicking the page number turns it into a box to type a page in. Enter goes there (the start of the page), Escape or
@@ -639,6 +653,8 @@
     savedMsg,
     rememberMsg,
     askNumber,
+    // For Edit Layout: the narrowest a Free page bar can be.
+    barMin,
     // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.
     drawTo: (first) => loadUpTo(first, opened),
     // For Pinned Blocks: the last message on the page you're on, or the message Visual Novel shows, or null when Reader

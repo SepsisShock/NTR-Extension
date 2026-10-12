@@ -4,7 +4,7 @@
 // The header banner above the chat (images that can rotate, a YouTube loop or a video) and the foreground images beside
 // the chat panel, with their page in the menu. Their settings, card data and Edit Placement stay in index.js.
 (() => {
-  const OVERLAYS_VERSION = '2.48.0';
+  const OVERLAYS_VERSION = '2.49.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange, cNum,
@@ -415,8 +415,17 @@
     new MutationObserver(() => {
       const key = currentKey();
       if (!banner || !key || !settings().bannerOn) return;
-      if (!peek(key).locked && chat.firstElementChild !== banner) chat.prepend(banner);
+      if (!peek(key).locked && !A.banFree?.() && chat.firstElementChild !== banner) chat.prepend(banner);
     }).observe(chat, { childList: true });
+  }
+
+  // Where the banner sits: locked above the chat, or at the top of the messages, overlapping them or not. A Free banner
+  // (Layout) has its own place, so it stays out of the messages and doesn't overlap them.
+  function placeBanner(chat, r) {
+    const free = !!A.banFree?.();
+    banner.classList.toggle('cb_overlap', !!r.overlap && !free);
+    attachBanner(chat, r.locked || free);
+    chat.style.paddingTop = r.overlap && !free ? cardNum(r.overlapOffset, 'bannerOffset', 0) + 'px' : '';
   }
 
   // Shows or hides both overlays for the chat that's open now.
@@ -440,13 +449,7 @@
         return;
       }
       
-      banner.classList.toggle('cb_overlap', !!r.overlap);
-      attachBanner(chat, r.locked);
-      
-      if (r.overlap) {
-        chat.style.paddingTop = cardNum(r.overlapOffset, 'bannerOffset', 0) + 'px';
-      }
-      
+      placeBanner(chat, r);
       updateBanner();
     } catch (e) {
       console.error('[NTR overlays]', e);
@@ -505,7 +508,7 @@
     const chat = document.getElementById('chat');
     const w = Math.round((banner && banner.offsetWidth) || (chat ? chat.getBoundingClientRect().width : 0));
     if (!w) return '';
-    const h = currentLook().height;
+    const h = (A.banFree?.() && banner?.offsetHeight) || currentLook().height;
     const ratio = (w / h).toFixed(1);
     return `Your banner is currently ${w} × ${h} px (${ratio}:1). For sharp results use images at least ${w * 2} × ${Math.round(h * 2 * 1.3)} px. A little taller than the banner's shape gives the Crop slider room to work.`;
   }
@@ -601,6 +604,8 @@
             </div>
 
             ${card('Layout', `
+              ${A.banFree?.() ? '<div class="cb_hint">The banner is Free on the Layout page, so it sits where Edit Layout puts it: Lock to top, Overlap, Banner Height, Gap and Overlap Offset don\'t apply.</div>' : ''}
+              <div class="${A.banFree?.() ? 'cb_dim' : ''}">
               <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                 <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>
               </label>
@@ -620,6 +625,7 @@
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
               <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval">${cardNum(r.overlapOffset, 'bannerOffset', 0)}</span>${numRange('bannerOffset')[3]}</span></div>
               <input type="range" id="m_b_offset" ${rangeAttrs('bannerOffset')} value="${cardNum(r.overlapOffset, 'bannerOffset', 0)}" ${!key ? 'disabled' : ''}>
+            </div>
             </div>
 
             <div style="margin-top: 10px;"><strong>Transparent areas show:${btag}</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
@@ -924,7 +930,14 @@
 
   window.NTR.overlays = {
     version: OVERLAYS_VERSION, render, ensureFg, sectionHtml, bind, rotRestart,
-    relayout: () => { layoutFg(); syncWallpaper(); },
+    relayout: () => {
+      layoutFg();
+      // Layout can make the banner Free or Attached.
+      const chat = document.getElementById('chat');
+      const key = currentKey();
+      if (banner && chat && key && banner.style.display !== 'none') placeBanner(chat, peek(key));
+      syncWallpaper();
+    },
     syncWallpaper,
   };
 })();

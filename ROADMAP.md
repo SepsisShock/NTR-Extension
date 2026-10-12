@@ -5,11 +5,10 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ## Planned
 
 ### Reader Mode: follow-ups
-- [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel.
-- [ ] Reader Mode gets its own Layout. Right now the Layout page's positions (chat panel, menu bar, send bar, page bar, banner) are the same in normal chat and in Reader Mode. This would let Reader Mode use different ones, for example the chat panel on the left in normal chat but centered while reading in Plain. Only if that's ever wanted.
+- [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel. Build it after Speech bubble messages (see Message details) and reuse them, so it only adds the frame, a contact header and a status bar. On a real phone it fills the screen without the frame.
+- Left out on purpose: a separate Layout and separate themes for Reader Mode. Normal chat and Reader Mode share the same positions and themes.
 
 ### Reasoning Block and Text Formatting: follow-ups
-- Separate themes for normal chat and Reader Mode's styles, so each can have its own look.
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 

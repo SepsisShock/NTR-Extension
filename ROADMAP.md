@@ -4,12 +4,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-### Section enable/disable buttons
-Fix the enable/disable button at the top right of sections.
-
-- [ ] Add the missing button to Regexes.
-- [ ] Replace the buttons in Reader Mode and Agents with the same type used in the other sections.
-
 ### Reader Mode: follow-ups
 Reader Mode has shipped with two styles, Plain and Book (an open book across the screen, with the built-in book or your own picture). Still open:
 
@@ -38,9 +32,6 @@ Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Doesn't block Reader Mode: Layout and Pinned Blocks already make the parts it needs adjustable.
 
-### Remove Phone Preview
-- [ ] Remove Phone Preview from Layout, including `preview.js` and the code in `index.js` that supports its frame and blocks saves inside it. Keep the separate Desktop and Phone layouts and editing on the actual device.
-
 ### Message details
 Find out how to make these movable and designable, and which details SillyTavern makes available.
 
@@ -48,9 +39,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Text alignment for chat messages: left, right, center or justified.
 - [ ] Move the time and date.
 - [ ] Move the character and user names, maybe with a background image or border behind them.
-
-### Custom Cursor: follow-ups
-- [ ] An Advanced box with Custom CSS for anything the settings don't cover.
 
 ### Overlays module
 - [ ] Move header banners and foreground images into `overlays.js`.
@@ -84,9 +72,6 @@ The agents plan has shipped: agents with their own connection and prompt, `/ntr-
 
 ### Typing in slider values
 - [ ] Everywhere in the menu a slider shows a value in % or px, let the value be typed in as well as dragged. Typed values stay within the slider's range.
-
-### Avatar fades: clear all
-- [ ] A button in the avatar Fades section that sets all eight fades to 0 at once.
 
 ### Interface Shape for the rest of SillyTavern
 Interface Shape (UI Decor, Whole Interface) rounds or squares the chat panel. Extend it to SillyTavern's own drawers, menus, popups and top bar, so the whole interface matches.

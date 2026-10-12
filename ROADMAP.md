@@ -25,21 +25,18 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Agents: next steps
-The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), prompt (with a preview), samplers and limits, and run them on a button, after every reply, or from Quick Replies with `/ntr-agent`. An agent can save its answers in the chat, and a Pinned Block set to Agent Results shows them on screen (with Edit, Run Again and Undo). Example Tracker makes Delta, a ready-made tracker.
+The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), prompt (with a preview), samplers and limits, and run them on a button, after every reply, or from Quick Replies with `/ntr-agent`. An agent can save its answers in the chat, and a Pinned Block set to Agent Results shows them on screen (with Edit, Run Again and Undo). Example Tracker makes Delta, a ready-made tracker. Send to Main AI puts an agent's saved answer into your chat's prompt, and `{{agent::Name}}` puts it anywhere SillyTavern reads macros.
 
 Decided so far:
 - The first agent to build for is a tracker. A director or summarizer can use the same parts later.
 - Agents run after the AI's reply, not before it, so you never wait twice per turn. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.
-- Results show in the panel only. Nothing is added to the chat as messages.
+- Results show in the panel, and go to the main AI only when Send to Main AI is on. Nothing is added to the chat as messages.
 - Triggers come from Quick Replies (button, after your message, after an AI message, on chat open) through `/ntr-agent`, instead of NTR building its own trigger settings.
 - Left out: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup.
 
 Still open:
 
-1. **Send to the main AI.** Off unless you turn it on for an agent.
-   - [ ] Puts the agent's current result in your chat's prompt, with depth and role, the way Cast and Visual Novel Mode already add their instructions.
-   - [ ] A `{{agent::Name}}` macro, so a result can go anywhere: Author's Note, a lorebook entry, or another agent's instructions. Check SillyTavern's current macro API first.
-2. **Tracker panel follow-ups.** Left out of the first panel, for later if they turn out to be missed.
+1. **Tracker panel follow-ups.** Left out of the first panel, for later if they turn out to be missed.
    - [ ] Character portraits next to the tracked characters.
    - [ ] Highlight what changed since the last result.
    - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.

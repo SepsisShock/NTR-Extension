@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.41.0';
+  const REGEX_VERSION = '2.42.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -452,7 +452,7 @@ try {
     if (!ready()) {
       const why = E ? 'SillyTavern\'s Regex extension is switched off. Turn it on in Manage Extensions to use this page.'
         : 'Couldn\'t reach SillyTavern\'s Regex extension, so this page can\'t show your regexes.';
-      return pageHtml('regex', '', { note: `<div class="cb_hint ntr_pnote">${why}</div>` });
+      return pageHtml('regex', '', { sw: ['m_rx_enable', true], note: `<div class="cb_hint ntr_pnote">${why}</div>` });
     }
     return pageHtml('regex', `
       <div class="cb_hint">SillyTavern's regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Order can matter, since each regex works on what the ones above it left.<br>Drag here to change the order; SillyTavern's own order changes to match. Edit opens SillyTavern's own editor.</div>
@@ -460,7 +460,7 @@ try {
       <div class="rx_top">
         <input type="search" class="text_pole rx_search" placeholder="Search regexes" aria-label="Search regexes" value="${esc(query)}">
       </div>
-      <div class="rx_list">${listHtml()}</div>`);
+      <div class="rx_list">${listHtml()}</div>`, { sw: ['m_rx_enable', true] });
   }
 
   let page = null;
@@ -778,7 +778,7 @@ try {
   }
   // Switches the folders a theme knows to how it saved them, turning on first, then off, so the chat reloads at most twice.
   // One theme at a time: a theme picked while another is still switching waits for it, and the older one skips any step
-  // it hasn't started, so the last theme picked always wins.
+  // it hasn't started, so the last theme picked always wins. Switching the Regexes page off stops any step not started yet.
   let applying = Promise.resolve();
   let applyGen = 0;
   function applyStates(map) {
@@ -787,7 +787,8 @@ try {
     return applying;
   }
   async function switchFolders(map, gen) {
-    if (!ready() || !map || gen !== applyGen) return;
+    const live = () => gen === applyGen && settings().rxEnabled !== false;
+    if (!ready() || !map || !live()) return;
     const on = [], off = [];
     for (const sec of SECS.filter(shown)) {
       for (const { f, items } of view(sec).groups) {
@@ -799,7 +800,7 @@ try {
     }
     save();
     await bulk(on, true);
-    if (gen !== applyGen) return;
+    if (!live()) return;
     await bulk(off, false);
   }
 

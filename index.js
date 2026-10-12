@@ -1,25 +1,8 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.41.0';
+  const VERSION = '2.42.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
-  // Inside Phone Preview (preview.js) this is a look-only copy of SillyTavern in a frame. Nothing it does may be saved or
-  // reach an AI service, so the main page's settings, chats and cards always win, and it stays quiet and out of reach.
-  const PREVIEW = (() => { try { return window.frameElement?.id === 'ntr_phone_frame'; } catch (e) { return false; } })();
-  if (PREVIEW) {
-    blockSaves(window);
-    document.addEventListener('play', (e) => { if (e.target instanceof HTMLMediaElement) e.target.muted = true; }, true);
-    document.addEventListener('focusin', (e) => e.target.blur?.(), true);
-    // No key reaches this copy, not even SillyTavern's own shortcuts. Escape still closes the preview.
-    for (const type of ['keydown', 'keypress', 'keyup']) {
-      window.addEventListener(type, (e) => {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-        const top = window.parent.NTR;
-        if (type === 'keydown' && e.key === 'Escape' && !top?.api?.placing()) top?.preview?.close();
-      }, true);
-    }
-  }
   const DEFAULTS = { 
     bannerOn: false,
     bannerMode: 'image', 
@@ -135,10 +118,14 @@
     ovScrollOn: true, ovScrollColorOn: false, ovScrollColor: '', ovScrollTrackOn: false, ovScrollTrack: 'rgba(0, 0, 0, 0)',
     ovScrollCssOn: false, ovScrollCss: '',
     ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorTextImg: '', ovCursorSize: 32,
+    ovCursorCssOn: false, ovCursorCss: '',
 
     // Menu state
     uiOpen: {},
     // Regexes page (regex.js): Global folders, and Preset folders by preset. Character folders live in the card.
+    // Switched off, NTR leaves SillyTavern's regexes alone: they still run, but the page and themes don't show, sort or
+    // switch them.
+    rxEnabled: true,
     regexFolders: [],
     regexPresetFolders: {},
     uiPage: 'fg',
@@ -183,7 +170,6 @@
 
   const ctx = () => SillyTavern.getContext();
   const save = () => {
-    if (PREVIEW) return;
     ctx().saveSettingsDebounced();
     const k = currentKey();
     if (k) scheduleCardFlush(k);
@@ -197,38 +183,6 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     }[match]));
   };
-
-  // Requests that only read from SillyTavern's server, by the last part of their address. Most are sent as POST, like
-  // the ones that save, delete, upload or ask an AI service for a reply.
-  const READ_API = /^(get|all|read|find|list|folders|workflows|status|models|text-models|props|encode|decode|count|version|info|ping|discover)$/i;
-  // Anything else sent to the server: saving, deleting, generating and the like.
-  function isWrite(w, url, method) {
-    if (String(method || 'GET').toUpperCase() === 'GET') return false;
-    let path;
-    try { path = new w.URL(String(url), w.location.href).pathname; } catch (e) { return true; }
-    return path.startsWith('/api/') && !READ_API.test(path.split('/').filter(Boolean).pop() || '');
-  }
-  // Stops a window from sending them. Phone Preview's frame gets this from the main page as soon as it starts loading, and
-  // again from its own copy of NTR. Blocked requests answer as if they worked, so nothing shows an error.
-  function blockSaves(w) {
-    if (w.__ntrNoSave) return;
-    w.__ntrNoSave = true;
-    const fetch0 = w.fetch;
-    w.fetch = function (input, init) {
-      const url = typeof input === 'string' || input instanceof w.URL ? input : input?.url;
-      const method = init?.method || input?.method || 'GET';
-      if (isWrite(w, url, method)) return w.Promise.resolve(new w.Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
-      return fetch0.call(w, input, init);
-    };
-    const xhr = w.XMLHttpRequest.prototype, open0 = xhr.open, send0 = xhr.send;
-    xhr.open = function (method, url) { this.ntrWrite = isWrite(w, url, method); return open0.apply(this, arguments); };
-    xhr.send = function () { if (!this.ntrWrite) return send0.apply(this, arguments); };
-    const nav = w.navigator;
-    if (nav.sendBeacon) {
-      const beacon0 = nav.sendBeacon.bind(nav);
-      nav.sendBeacon = (url, data) => (isWrite(w, url, 'POST') ? true : beacon0(url, data));
-    }
-  }
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
   const FADE_PARTS = {
@@ -752,7 +706,7 @@
   // screen. Edit Placement hides the menu and outlines what can move; only the picked item drags, and a picked Layout
   // part also resizes from the handles on its edges. Tapping the picked item picks the one under it. The bar at the
   // bottom has Snap to Grid, Undo, Reset and Done.
-  // Layout parts come first, so the pictures' outlines sit on top of theirs. Inside Phone Preview only Layout parts move.
+  // Layout parts come first, so the pictures' outlines sit on top of theirs.
   const PLACE = [
     { id: 'layChat', lay: 'chat', label: 'Chat Panel' }, { id: 'layBar', lay: 'bar', label: 'Menu Bar' }, { id: 'laySend', lay: 'send', label: 'Send Bar' },
     { id: 'us', label: 'User Pop Out' }, { id: 'ai', label: 'AI Pop Out' },
@@ -775,24 +729,12 @@
   function grips(it) {
     if (it.pin) { const pl = pinOf(it)?.place; return pl === 'left' ? ['e'] : pl === 'right' ? ['w'] : GRIPS; }
     if (it.lay === 'chat') return GRIPS;
-    if (it.lay === 'bar' && barUpright(settings()[lk(scrPhone(), 'BarEdge')])) return ['n', 's'];
+    if (it.lay === 'bar' && barUpright(settings()[lk(phoneNow(), 'BarEdge')])) return ['n', 's'];
     return it.lay ? ['e', 'w'] : [];
   }
 
-  // The screen Edit Placement works on: this page, or the phone inside Phone Preview. preview.js hands that one over as
-  // { win, frame, apply, done }: the phone's window, its frame on this page (scaled down to fit), what shows changed
-  // settings inside it, and what happens on Done. The phone always uses the Phone layout.
-  let onScreen = null;
-  const scrWin = () => onScreen?.win || window;
-  const scrPhone = () => (onScreen ? true : phoneNow());
-  // Where the screen sits on this page, and how much it's scaled.
-  function scrBox() {
-    if (!onScreen) return { x: 0, y: 0, k: 1 };
-    const r = onScreen.frame.getBoundingClientRect();
-    return { x: r.left, y: r.top, k: r.width / (onScreen.frame.offsetWidth || r.width || 1) };
-  }
   // Layout settings by their full names, for the layout being edited.
-  const layNames = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [lk(scrPhone(), k), x]));
+  const layNames = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [lk(phoneNow(), k), x]));
   const placeKind = (it) => (it.lay ? 'lay' : it.pin ? 'pin' : it.pos ? 'fg' : 'pop');
   const place = { on: false, sel: null, drag: null, undo: [] };
   let placeTouchGuard = false;
@@ -808,7 +750,7 @@
     }
   }
 
-  const placeEl = (it) => (it.lay ? scrWin().document.getElementById(LAY_PART[it.lay].el)
+  const placeEl = (it) => (it.lay ? document.getElementById(LAY_PART[it.lay].el)
     : it.pin ? document.querySelector(`#ntr_pin_layer > .ntr_pin[data-pin="${it.pin}"]`)
       : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_pop_${it.id}`));
 
@@ -830,7 +772,7 @@
   function layRect(it) {
     const s = settings();
     const el = placeEl(it);
-    if (!el || !layOn(s) || (it.lay === 'send' && s[lk(scrPhone(), 'Send')] !== 'free')) return null;
+    if (!el || !layOn(s) || (it.lay === 'send' && s[lk(phoneNow(), 'Send')] !== 'free')) return null;
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 ? r : null;
   }
@@ -840,17 +782,15 @@
     if (it.lay) {
       const r = layRect(it);
       if (!r) return null;
-      const { x, y, k } = scrBox();
-      return { left: x + r.left * k, top: y + r.top * k, right: x + r.right * k, bottom: y + r.bottom * k, width: r.width * k, height: r.height * k };
+      return r;
     }
     const el = placeEl(it);
-    // Pinned Blocks show on this page only, not inside Phone Preview.
     if (it.pin) {
-      if (onScreen || !el || el.hidden) return null;
+      if (!el || el.hidden) return null;
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0 ? r : null;
     }
-    if (onScreen || !el || el.style.display === 'none' || !el.getAttribute('src')) return null;
+    if (!el || el.style.display === 'none' || !el.getAttribute('src')) return null;
     if (it.pos && el.parentNode?.style.display === 'none') return null;
     const r = it.pos ? fgRect(el) : el.getBoundingClientRect();
     return r && r.width > 0 && r.height > 0 ? r : null;
@@ -859,27 +799,26 @@
   // Where an item is, in the form placeSet takes: an offset for a picture, the part's settings for a Layout part.
   function placeGet(it) {
     const s = settings();
-    if (it.lay) return Object.fromEntries(LAY_PART[it.lay].keys.map((k) => [lk(scrPhone(), k), s[lk(scrPhone(), k)]]));
-    if (it.pin) return { ...pinOf(it)?.[pinPhone(scrPhone())] };
+    if (it.lay) return Object.fromEntries(LAY_PART[it.lay].keys.map((k) => [lk(phoneNow(), k), s[lk(phoneNow(), k)]]));
+    if (it.pin) return { ...pinOf(it)?.[pinPhone(phoneNow())] };
     if (!it.pos) return { x: rangeNum(s, it.id + 'PopX'), y: rangeNum(s, it.id + 'PopY') };
     const F = fgData();
     return { x: cardNum(F[it.pos + 'X'], 'fgX', 0), y: cardNum(F[it.pos + 'Y'], 'fgY', 0) };
   }
   const placeAtStart = (it) => {
     const v = placeGet(it);
-    if (it.pin) return JSON.stringify(v) === JSON.stringify(PIN_START[pinPhone(scrPhone())]);
+    if (it.pin) return JSON.stringify(v) === JSON.stringify(PIN_START[pinPhone(phoneNow())]);
     return it.lay ? Object.entries(layNames(LAY_PART[it.lay].start)).every(([k, x]) => v[k] === x) : !v.x && !v.y;
   };
 
   function placeSet(it, v) {
     if (it.pin) {
       const p = pinOf(it);
-      if (p) p[pinPhone(scrPhone())] = pinRect(v, PIN_START[pinPhone(scrPhone())]);
+      if (p) p[pinPhone(phoneNow())] = pinRect(v, PIN_START[pinPhone(phoneNow())]);
       cssTag('ntr_pin_css', pinCss(settings()));
     } else if (it.lay) {
       Object.assign(settings(), v);
       applyLayout();
-      onScreen?.apply(v);
     } else if (!it.pos) {
       const s = settings();
       s[it.id + 'PopX'] = Math.round(v.x);
@@ -937,13 +876,13 @@
     const g = s.placeSnap && !free ? rangeNum(s, 'placeGrid') : 0;
     const [L, R, T, B] = dragBox(d.r0, d.grip, dx, dy, W, H, W * NUM_RANGE.pinW[0] / 100, H * NUM_RANGE.pinH[0] / 100, g);
     const pct = (v, size) => Math.round(v / size * 10000) / 100;
-    const r = p[pinPhone(scrPhone())];
+    const r = p[pinPhone(phoneNow())];
     placeSet(d.it, p.place === 'float' ? { x: pct(L, W), y: pct(T, H), w: pct(R - L, W), h: pct(B - T, H) } : { ...r, w: pct(R - L, W) });
   }
 
   function dragLayout(d, dx, dy, px, py, free) {
     const s = settings();
-    const W = scrWin().innerWidth, H = scrWin().innerHeight;
+    const W = innerWidth, H = innerHeight;
     const g = s.placeSnap && !free ? rangeNum(s, 'placeGrid') : 0;
     const snap = (v) => (g ? Math.round(v / g) * g : v);
     // A span from a to b moved by t, kept within 0 to max, with whichever end is nearer a grid line landing on it.
@@ -960,7 +899,7 @@
 
     if (d.it.lay === 'bar') {
       const up0 = barUpright(d.edge0);
-      const doc = scrWin().document;
+      const doc = document;
       const min = (d.min ??= barIcons(doc) * barCell(doc));
       let edge = d.edge0, a, b;
       if (d.grip) {
@@ -985,7 +924,7 @@
       return placeSet(d.it, layNames({ BarEdge: edge, BarMoved: true, BarPos: pct(a, size), BarLen: pct(b - a, size) }));
     }
 
-    const min = (name) => NUM_RANGE[lk(scrPhone(), name)][0] / 100;
+    const min = (name) => NUM_RANGE[lk(phoneNow(), name)][0] / 100;
     const [L, R, T, B] = dragBox(r, d.grip, dx, dy, W, H, W * min(d.it.lay === 'chat' ? 'ChatW' : 'SendW'), H * min('ChatH'), g);
     if (d.it.lay === 'chat') placeSet(d.it, layNames({ ChatMoved: true, ChatX: pct(L, W), ChatY: pct(T, H), ChatW: pct(R - L, W), ChatH: pct(B - T, H) }));
     else placeSet(d.it, layNames({ SendX: pct(L, W), SendB: pct(H - B, H), SendW: pct(R - L, W) }));
@@ -1038,7 +977,7 @@
       const it = placeItems().find((p) => p.id === place.sel);
       if (!it || placeAtStart(it)) return;
       pushUndo(it.id, placeGet(it));
-      placeSet(it, it.lay ? layNames(LAY_PART[it.lay].start) : it.pin ? { ...PIN_START[pinPhone(scrPhone())] } : { x: 0, y: 0 });
+      placeSet(it, it.lay ? layNames(LAY_PART[it.lay].start) : it.pin ? { ...PIN_START[pinPhone(phoneNow())] } : { x: 0, y: 0 });
       save();
     };
     q('#cb_place_done').onclick = endPlacement;
@@ -1054,10 +993,8 @@
       if (place.sel !== it.id) { place.sel = it.id; drawPlace(); return; }
       const start = placeGet(it);
       const grip = e.target.closest('.cb_place_grip')?.dataset.g || '';
-      const sb = scrBox();
-      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false, box: sb };
-      // A Layout part drags in its screen's own pixels.
-      if (it.lay) Object.assign(place.drag, { r0: layRect(it), px0: (e.clientX - sb.x) / sb.k, py0: (e.clientY - sb.y) / sb.k, edge0: settings()[lk(scrPhone(), 'BarEdge')] });
+      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false };
+      if (it.lay) Object.assign(place.drag, { r0: layRect(it), px0: e.clientX, py0: e.clientY, edge0: settings()[lk(phoneNow(), 'BarEdge')] });
       else place.drag.r0 = placeRect(it);
       place.drag.edge = place.drag.edge0;
       box.classList.add('cb_dragging');
@@ -1070,10 +1007,7 @@
       // A tap that wobbles a little isn't a drag.
       if (!d.moved && Math.hypot(dx, dy) < 4) return;
       d.moved = true;
-      if (d.it.lay) {
-        const { x, y, k } = d.box;
-        return d.r0 && dragLayout(d, dx / k, dy / k, (e.clientX - x) / k, (e.clientY - y) / k, e.altKey);
-      }
+      if (d.it.lay) return d.r0 && dragLayout(d, dx, dy, e.clientX, e.clientY, e.altKey);
       if (d.it.pin) return d.r0 && dragPin(d, dx, dy, e.altKey);
       const s = settings();
       if (s.placeSnap && !e.altKey && d.r0) {
@@ -1140,13 +1074,10 @@
     layer.querySelector('.cb_place_name').textContent = sel ? sel.label : 'Tap an outline to pick it';
     layer.querySelector('#cb_place_snap').checked = !!s.placeSnap;
     layer.querySelector('.cb_place_gridset').style.display = s.placeSnap ? '' : 'none';
-    // The grid covers the screen being edited, in that screen's pixels.
     const grid = layer.querySelector('.cb_place_grid');
-    const fr = onScreen?.frame.getBoundingClientRect();
-    const gs = rangeNum(s, 'placeGrid') * scrBox().k;
+    const gs = rangeNum(s, 'placeGrid');
     grid.style.display = s.placeSnap ? 'block' : 'none';
     grid.style.backgroundSize = `${gs}px ${gs}px`;
-    Object.assign(grid.style, fr ? { inset: 'auto', left: fr.left + 'px', top: fr.top + 'px', width: fr.width + 'px', height: fr.height + 'px' } : { inset: '', left: '', top: '', width: '', height: '' });
     layer.querySelector('#cb_place_undo').disabled = !place.undo.length;
     layer.querySelector('#cb_place_reset').disabled = !sel || placeAtStart(sel);
     // The bar sits at the bottom of the screen, or at the top or in the middle while it would cover a small item there,
@@ -1166,11 +1097,9 @@
   }
 
   // Opened from the menu, which hides until Done. `first` picks which kind of item starts picked ('lay', 'pop' or 'fg').
-  // `scr` is the phone inside Phone Preview (see onScreen); without it, this page.
   // `first` can also be one item's id, like a Pinned Block's.
-  function startPlacement(first, scr = null) {
+  function startPlacement(first) {
     if (!isOn() || place.on) return;
-    onScreen = scr;
     // Pinned Blocks with nothing to show yet get their box while Edit Layout is open, so they can be placed too.
     place.on = true;
     document.body.classList.add('ntr_placing');
@@ -1180,14 +1109,13 @@
       place.on = false;
       document.body.classList.remove('ntr_placing');
       syncPins();
-      onScreen = null;
-      toastr.info(scr ? 'Turn Layout on first.' : 'Nothing to move yet. Set an avatar to Pop Out, add a foreground image, or pick a Pinned Block with Layout on, first.', 'Edit Placement');
+      toastr.info('Nothing to move yet. Set an avatar to Pop Out, add a foreground image, or pick a Pinned Block with Layout on, first.', 'Edit Placement');
       return false;
     }
     place.undo = [];
     place.sel = (shown.find((it) => it.id === first) || shown.find((it) => placeKind(it) === first) || shown[0]).id;
     const ov = document.getElementById('cb_modal_overlay');
-    if (ov && !scr) ov.style.display = 'none';
+    if (ov) ov.style.display = 'none';
     const layer = ensurePlaceLayer();
     // One outline for each item there is now. Pinned Blocks come and go, so they're made fresh each time.
     layer.querySelectorAll('.cb_place_box').forEach((b) => b.remove());
@@ -1210,9 +1138,6 @@
     syncPins();
     const ov = document.getElementById('cb_modal_overlay');
     syncLayoutPage(ov);
-    const scr = onScreen;
-    onScreen = null;
-    if (scr) return scr.done?.();
     if (ov) ov.style.display = '';
   }
 
@@ -1268,10 +1193,11 @@
     wall.style.height = `${window.innerHeight}px`;
   }
 
-  // The main Enable switches are sliders that still click on and off. They're styled by id because a class would rank
-  // below SillyTavern's own checkbox styles, which would turn them back into square checkboxes.
-  const SWITCH_IDS = ['m_f_enable', 'm_a_enable', 'm_n_enable', 'm_ai_on', 'm_us_on', 'm_rb_enable', 'm_tf_enable', 'm_ov_enable', 'm_b_enable', 'm_l_enable', 'm_scroll_enable', 'm_cur_enable'];
-  const switches = (state) => SWITCH_IDS.map((id) => `#${id}${state}`).join(', ');
+  // The Enable switches are sliders that still click on and off: every page and part switch (ntr_pswitch), and the
+  // avatar switches. They're styled through an id because a class alone would rank below SillyTavern's own checkbox
+  // styles, which would turn them back into square checkboxes.
+  const SWITCHES = ['#cb_modal_overlay .ntr_pswitch', '#m_ai_on', '#m_us_on'];
+  const switches = (state) => SWITCHES.map((sel) => sel + state).join(', ');
 
   function updateAvatarStyle() {
     let styleEl = document.getElementById('aw_dynamic_style');
@@ -2074,8 +2000,9 @@
         ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
           + fadeGrid(prefix, s, fadeCur)
           + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
-          <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">`
-          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the avatar as it shows, so they keep their look at any Image Scale.</div>')}
+          <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">
+          <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
+          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the avatar as it shows, so they keep their look at any Image Scale. Clear Fades sets all eight to 0.</div>')}
 
         ${grp('popout', `<div class="cb_sub">Screen Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
@@ -2570,7 +2497,8 @@
     bindData(overlay);
     bindVNSection(overlay, s);
     bindReader(overlay, s);
-    window.NTR.regex?.bind(overlay, s);
+    overlay.querySelector('#m_rx_enable').onchange = function() { s.rxEnabled = this.checked; save(); openCombinedModal(); };
+    if (s.rxEnabled) window.NTR.regex?.bind(overlay, s);
     window.NTR.agents?.bind(overlay, s);
     window.NTR.cast?.bind(overlay, s);
     bindDisplay(overlay, s);
@@ -2629,6 +2557,15 @@
         updateAvatarStyle();
       };
       fadeSl.onchange = save;
+      overlay.querySelector(`#m_${prefix}_fadeclr`).onclick = async function() {
+        if (!(await askYes(this, `Set all eight ${label} avatar fades to 0?`, 'Clear'))) return;
+        for (const [key] of Object.values(FADE_PARTS)) s[prefix + key] = 0;
+        save();
+        fadeSl.value = 0;
+        col.querySelector(`#m_${prefix}_fadeval`).textContent = 0;
+        col.querySelectorAll(`input[name="cbr_${prefix}fade"]`).forEach((r) => r.closest('label').classList.remove('cb_fon'));
+        updateAvatarStyle();
+      };
 
       overlay.querySelector(`#m_${prefix}_reset`).onclick = async function() {
         if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style included?`, 'Reset'))) return;
@@ -2716,7 +2653,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['vn_guide', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
+  const FOLDED = new Set(['vn_guide', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -3004,9 +2941,8 @@
     return pageHtml('layout', `
         <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar and the send bar, and set the chat width, the space between messages and where the send box sits. There are two layouts: Desktop for screens wider than 1000px, and Phone for screens 1000px wide or less, like phones. Turning Layout on changes nothing until you move something.</div>
         ${card('', `
-          <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}${btn('m_l_preview', 'fa-mobile-screen-button', 'Phone Preview')}</div>
-          <div class="cb_hint">Edit Layout hides the menu so you can drag the parts on screen. It changes the layout this screen uses: <b id="m_l_now"></b>. Drag the handles on the picked part to resize it. Tap the picked part to pick the one under it. Press Done to come back.</div>
-          <div class="cb_hint" style="margin-bottom: 0;">Phone Preview shows SillyTavern in a phone-sized window, with its own Edit Layout for the Phone layout. Nothing inside it can be clicked or saved.</div>`)}
+          <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}</div>
+          <div class="cb_hint">Edit Layout hides the menu so you can drag the parts on screen. It changes the layout this screen uses: <b id="m_l_now"></b>. Drag the handles on the picked part to resize it. Tap the picked part to pick the one under it. Press Done to come back.</div>`)}
         ${card('Chat Panel', `
           <div class="m_l_over" data-lay="width">${ovRow(s, 'ovWidthOn', 'Chat Width', rangeSlider(s, 'ovWidth'))}</div>
           <div class="cb_hint m_l_note" data-lay="width" hidden>You moved the chat panel with Edit Layout, so its size comes from there.</div>
@@ -3045,10 +2981,6 @@
     overlay.querySelector('#m_l_enable').onchange = function() { s.layEnabled = this.checked; changed(); };
     overlay.querySelector('#m_l_edit').onclick = () => startPlacement('lay');
     bindPins(overlay, s);
-    overlay.querySelector('#m_l_preview').onclick = async () => {
-      const pv = await loadModule('preview', true);
-      if (pv) pv.open();
-    };
     onPills(overlay, 'ltab', (v) => { layTab = v; syncLayoutPage(overlay); });
     onPills(overlay, 'lbaredge', (v) => {
       const ph = tabPhone();
@@ -3886,6 +3818,7 @@
     const live = isOn() && s.rbEnabled;
     cssTag('ntr_rb_css', rbCssText((k) => live && s[k + 'On'] && s[k]));
     cssTag('ntr_scroll_css', isOn() && s.ovScrollOn && s.ovScrollCssOn ? String(s.ovScrollCss || '').slice(0, 2000).trim() : '');
+    cssTag('ntr_cursor_css', isOn() && s.ovCursorOn && s.ovCursorCssOn ? String(s.ovCursorCss || '').slice(0, 2000).trim() : '');
   }
   function cssTag(id, v) {
     let el = document.getElementById(id);
@@ -4278,6 +4211,11 @@
           ${rangeSlider(s, 'ovCursorSize')}
           <div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don't allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>
           <input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          ${subHead('ov_cursor_css', 'Advanced: Custom CSS')}
+          <div class="cb_collapse_content">
+            ${ovRow(s, 'ovCursorCssOn', 'Cursor CSS', customCssBox(s, 'ovCursorCss', '.mes_buttons .mes_button { cursor: help; }&#10;.swipe_left, .swipe_right { cursor: grab; }')
+              + '<div class="cb_hint">Whole CSS rules for anything the settings above don\'t cover, like <code>.mes_buttons .mes_button { cursor: help; }</code> for a different cursor on the message buttons. Add <code>!important</code> if a setting doesn\'t take. Works while Cursor is on. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
+          </div>
     `);
   }
 
@@ -4582,7 +4520,6 @@
   }
 
   function scheduleCardFlush(key) {
-    if (PREVIEW) return;
     clearTimeout(cardTimers.get(key));
     cardTimers.set(key, setTimeout(() => { cardTimers.delete(key); flushCard(key); }, 700));
   }
@@ -4829,7 +4766,7 @@
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
   const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
-  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, ovScrollCss: 2000, mapGoText: 200 };
+  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;
@@ -5047,7 +4984,8 @@
       openCombinedModal();
     };
     // Which regex folders are on (regex.js) is kept with a theme, outside its look settings, and never exported.
-    const regexStates = async () => (await loadModule('regex'))?.states?.() || null;
+    // With the Regexes page off, themes leave regex folders alone.
+    const regexStates = async () => (s.rxEnabled ? (await loadModule('regex'))?.states?.() || null : null);
     const saveNew = async () => {
       const name = await askName(`Theme ${s.themes.length + 1}`);
       if (!name) return;
@@ -5070,7 +5008,7 @@
       s.themeActive = t.id;
       applyLook(t.data);
       openCombinedModal();
-      if (t.regex) (await loadModule('regex'))?.applyStates?.(t.regex);
+      if (t.regex && s.rxEnabled) (await loadModule('regex'))?.applyStates?.(t.regex);
     };
 
     overlay.querySelector('#m_t_new').onclick = saveNew;
@@ -5172,6 +5110,7 @@
       const rbPart = secs.includes('reasoning') ? cleanLookSection('reasoning', j.sections.reasoning) : {};
       const css = rbCssText((k) => rbPart[k]);
       const scrollCss = String(rbPart.ovScrollCss || '').slice(0, 2000).trim();
+      const cursorCssIn = String(rbPart.ovCursorCss || '').slice(0, 2000).trim();
       panel.innerHTML = `
         <div class="ntr_tpanel">
           <strong>Import theme</strong>
@@ -5182,6 +5121,8 @@
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
           ${scrollCss ? `<div class="cb_hint">This theme includes Custom CSS for the scrollbar. It's added switched off: after applying the theme, check it under Elements, Scrollbar, Advanced: Custom CSS, and tick it to use it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(scrollCss)}</pre>` : ''}
+          ${cursorCssIn ? `<div class="cb_hint">This theme includes Custom CSS for the cursor. It's added switched off: after applying the theme, check it under Elements, Cursor, Advanced: Custom CSS, and tick it to use it.</div>
+          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(cursorCssIn)}</pre>` : ''}
           ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Visual Novel Mode, Tags &amp; Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add theme</button>
@@ -5197,7 +5138,7 @@
         for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
-        if (data.reasoning && String(data.reasoning.ovScrollCss || '').trim()) data.reasoning.ovScrollCssOn = false;
+        for (const k of ['ovScrollCss', 'ovCursorCss']) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s images...', 'Themes');
           const r = await unpackFiles(data);
@@ -5391,7 +5332,7 @@
 
   // ===== Visual Novel module loader + its toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', preview: 'Phone Preview', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions' };
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -5455,6 +5396,9 @@
   }
 
   function regexSectionHtml(s) {
+    if (!s.rxEnabled) {
+      return pageHtml('regex', '', { sw: ['m_rx_enable', false], note: '<div class="cb_hint ntr_pnote">Your regexes still run in SillyTavern as usual. With this page off, NTR doesn\'t show or sort them, and themes don\'t switch regex folders on or off.</div>' });
+    }
     const rx = window.NTR.regex;
     if (rx) return rx.sectionHtml(s);
     if (!modError.regex && !regexWaiting) {
@@ -5465,7 +5409,7 @@
       });
     }
     const msg = modError.regex ? 'Regexes failed to load: ' + escapeHTML(modError.regex) : 'Loading your regexes.';
-    return pageHtml('regex', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
+    return pageHtml('regex', '', { sw: ['m_rx_enable', true], note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
   }
 
   function vnSectionHtml(s) {
@@ -5756,7 +5700,7 @@
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
       name: 'ntr-agent',
       callback: async (_args, name) => {
-        if (!isOn() || !settings().agEnabled || PREVIEW) { toastr.warning('Turn the Agents page on first.', 'Agents'); return ''; }
+        if (!isOn() || !settings().agEnabled) { toastr.warning('Turn the Agents page on first.', 'Agents'); return ''; }
         const ag = await loadModule('agents');
         return ag ? ag.runByName(name) : '';
       },
@@ -5779,7 +5723,7 @@
         unnamedArgs: [{ name: 'name', description: 'The agent\'s name' }],
         description: 'An NTR agent\'s current result saved in this chat (Agents page). Empty if it has none.',
         exampleUsage: '{{agent::Delta}}',
-        handler: ({ unnamedArgs: [name] }) => (isOn() && settings().agEnabled && !PREVIEW ? window.NTR.agents?.macro(name) ?? '' : ''),
+        handler: ({ unnamedArgs: [name] }) => (isOn() && settings().agEnabled ? window.NTR.agents?.macro(name) ?? '' : ''),
       });
     } catch (e) { console.error('[NTR] Could not add the {{agent}} macro', e); }
   }
@@ -5810,9 +5754,6 @@
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For cast.js: Pop Out catches up after a face changes
     syncPopouts: () => syncPopouts(),
-    // For preview.js
-    PREVIEW, blockSaves, applyLayout: () => applyLayout(), refreshVisuals: () => refreshVisuals(),
-    startPlacement: (first, scr) => startPlacement(first, scr), placing: () => place.on, redrawPlacement: () => drawPlace(),
     loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
@@ -5929,7 +5870,7 @@
     if (isOn()) loadModule('cast').then((c) => c?.refresh());
     if (isOn() && (s0.nodeEnabled || s0.vnUsed)) loadVN().then((vn) => { if (vn) vn.refresh(); });
     if (isOn() && s0.rdEnabled) loadModule('reader').then((rd) => rd?.refresh());
-    if (isOn() && s0.agEnabled && !PREVIEW) loadModule('agents');
+    if (isOn() && s0.agEnabled) loadModule('agents');
   });
 })();
 

@@ -7,26 +7,20 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ### Reader Mode: follow-ups
 Reader Mode has shipped with three styles: Plain, Book (an open book across the screen, with the built-in book or your own picture) and Visual Novel (Visual Novel Mode). Still open:
 
-- [ ] Reader Mode: when Plain or Visual Novel is on, Book settings can still be accessed and changed. When Plain or Book is on, Visual Novel settings can still be accessed and changed. Hide or disable inactive settings, and ensure inactive styles aren't running in the background and wasting energy. Stop inactive timers, observers and processing. Preserve saved settings when switching styles.
-- [ ] Separate layouts for normal chat, Reader Mode and Visual Novel Mode, if Reader Mode turns out to need its own.
+- [ ] Confirm with a speed test that styles that aren't on do no work in the background. A look at the code found only listeners that return at once (window resize, clicks): no timers, observers or processing. Their settings stay reachable in the Reader page's folded parts, so a style can be set up while reading in another.
+- [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel.
+- [ ] Separate layouts for normal chat and Reader Mode, or per Reader style, if Reader Mode turns out to need its own.
 
 ### Send box
 - [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
-- [ ] Show the Visual Novel Mode button (chat bubbles icon) only while VN Mode is on, so it works as a quick way out. VN Mode is switched on from the Reader page's Style.
 - [ ] Maybe let the send box stretch across the whole screen, keeping its contents in the center.
 
 ### Reasoning Block and Text Formatting: follow-ups
 The sections themselves and the first batch of text effects have shipped. Still open:
 
-- Separate themes for the normal chat and for Visual Novel Mode, so each can have its own look.
+- Separate themes for normal chat and Reader Mode's styles, so each can have its own look.
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
-
-### Dragging and placement
-Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar, send bar, Reader Mode's page bar and the header banner. Still open:
-
-- [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
-- Doesn't block Reader Mode: Layout and Pinned Blocks already make the parts it needs adjustable.
 
 ### Message details
 Find out how to make these movable and designable, and which details SillyTavern makes available.
@@ -35,6 +29,7 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Text alignment for chat messages: left, right, center or justified.
 - [ ] Move the time and date.
 - [ ] Move the character and user names, maybe with a background image or border behind them.
+- [ ] Speech bubble messages, as a message shape in UI Decor (normal chat and Reader Mode's Plain style).
 
 ## Misc (Low Priority)
 
@@ -56,7 +51,7 @@ The agents plan has shipped: agents with their own connection and prompt, `/ntr-
 - [ ] Character portraits next to the tracked characters.
 - [ ] Highlight what changed since the last result.
 - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
-- [ ] Check that a Pinned Block with Agent Results follows the page in Reader Mode. It uses the same page lookup as other Pinned Blocks but hasn't been tried.
+- [ ] Check that a Pinned Block with Agent Results follows the page in Reader Mode and the message shown in Visual Novel. It uses the same lookup as other Pinned Blocks, which were tried in Visual Novel, but Agent Results haven't been.
 - [ ] Decide whether `/sendas` should count as a reply for After Every Reply agents. It does now, so a Quick Reply that uses it also runs them.
 - Left out on purpose: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup. Triggers come from Quick Replies through `/ntr-agent`.
 - Agents run after the AI's reply. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.
@@ -159,7 +154,7 @@ Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI
 - [ ] Optionally send pinned facts and relevant scene memories with the prompt, within a configurable token budget. The current state already goes through Send to Main AI; reuse its placement settings where practical.
 - [ ] Provide separate switches for tracking, summarizing and recall, so users can combine NTR with other tools.
 - [ ] Handle edits, swipes, deletions and branches so saved and recalled information stays correct, the way saved agent results already do.
-- [ ] Reader and Visual Novel modes show state for the point being viewed, without revealing later events.
+- [ ] Reader Mode, in all its styles, shows state for the point being viewed, without revealing later events.
 - [ ] Let users inspect, correct, delete and export memories. Check that chat backups and imports preserve them.
 - [ ] Consider integrations and semantic search later; neither is required for the basic system.
 
@@ -195,7 +190,7 @@ Keep the open-world feel, and let a card optionally have endings.
   - Fills in the card and tag setup, and also validates it (for example an ending that can't be reached, or a flag that is never set).
   - Uses the `[[Chapter:Name]]` tag from Chapters and save points, where a chapter is one message. A chapter can say what is unlocked (locations, characters, required flags), and endings become a chapter plus flags.
   - Leaning towards an isolated module in this repo, split out later if it earns it. A standalone page that exports the card is the other option.
-  - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel menu (speakers, emotions, locations, CGs, maps).
+  - Own menu, separate from the settings menu. Reads and writes the same per-character data as the Visual Novel part of the Reader page (speakers, emotions, locations, CGs, maps).
   - Open question: how it is opened (a button in the NTR menu, its own button next to the VN toggle, or its own entry in the Extensions panel).
 
 ## Release Preparation (Low Priority)
@@ -214,6 +209,7 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
 - [ ] Maps: pins and popups near the screen edge.
 - [ ] Opening video and banner video: autoplay, sound button, YouTube.
+- [ ] Reader Mode: Book on a phone held sideways, the page flip, and dragging a Free page bar and banner by touch.
 
 ### In Line avatar: spacing and look
 In Line looks too bulky next to the text.

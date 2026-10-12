@@ -85,17 +85,20 @@ Keep every value from your last result that the new messages leave as it was, an
   // ----- Saved results -----
   // With Results set to Saved in the Chat, an answer is saved on the message that was newest when the run started, on its
   // current swipe, under extra.ntr_agents (by agent id) in the chat file. SillyTavern carries a message's extra along
-  // with its swipe, so swipes, deleted messages and branches keep the right result. prev is the text it replaced on
-  // that message, for Undo. A chat file can come from someone else, so what's read is limited and shown sanitized.
+  // with its swipe, so swipes, deleted messages and branches keep the right result. A new swipe starts as a copy of the
+  // one it replaces, extra included, so each result also notes its swipe's date and only counts on that swipe. prev is
+  // the text it replaced there, for Undo. A chat file can come from someone else, so what's read is limited and shown
+  // sanitized.
   const KEY = 'ntr_agents';
   const MAX_SAVED = 20000;
   const chatId = () => { try { return String(ctx().getCurrentChatId() ?? ''); } catch (e) { return ''; } };
   function savedAt(m, id) {
     const v = m?.extra?.[KEY]?.[id];
-    if (!v || typeof v.text !== 'string') return null;
+    if (!v || typeof v.text !== 'string' || v.date !== m.send_date) return null;
     return { text: v.text.slice(0, MAX_SAVED), at: Number(v.at) || 0, prev: typeof v.prev === 'string' ? v.prev.slice(0, MAX_SAVED) : null };
   }
   function saveAt(m, id, entry) {
+    entry = { ...entry, date: m.send_date };
     const put = (x) => {
       if (!x.extra || typeof x.extra !== 'object') x.extra = {};
       const all = x.extra[KEY] && typeof x.extra[KEY] === 'object' ? x.extra[KEY] : {};
@@ -181,7 +184,7 @@ Keep every value from your last result that the new messages leave as it was, an
     const chat = ctx().chat || [];
     const i = o.at ?? chat.length - 1;
     const m = chat[i];
-    o.target = m ? { chat: chatId(), i, swipe: m.swipe_id, date: m.send_date } : null;
+    o.target = m ? { chat: chatId(), i, swipe: m.swipe_id, date: m.send_date, mes: m.mes } : null;
     return i;
   }
   async function call(a, o, signal) {
@@ -258,6 +261,7 @@ Keep every value from your last result that the new messages leave as it was, an
     if (!text) return 'Not saved: empty answer.';
     const m = (ctx().chat || [])[t.i];
     if (chatId() !== t.chat || !m || m.swipe_id !== t.swipe || m.send_date !== t.date) return 'Not saved: the chat changed while it ran.';
+    if (m.mes !== t.mes) return 'Not saved: the message was edited while it ran.';
     const old = savedAt(m, a.id);
     saveAt(m, a.id, { text: text.slice(0, MAX_SAVED), at: Date.now(), ...(old ? { prev: old.text } : {}) });
     return '';
@@ -573,7 +577,7 @@ Keep every value from your last result that the new messages leave as it was, an
   // ----- In a Pinned Block (Agent Results) -----
   // Each picked agent's newest saved result up to message upTo (Reader Mode's page, or the last message), formatted
   // like a message: Markdown and your regexes, sanitized by SillyTavern. Edit, Run Again (on that message) and Undo
-  // sit next to its name. editing: the result being edited, by agent, message and chat.
+  // sit next to its name. editing: the result being edited, by agent, chat, message and swipe date.
   let editing = null;
   const iconBtn = (act, icon, title) => `<button type="button" class="ntr_agres_btn" data-act="${act}" title="${esc(title)}" aria-label="${esc(title)}"><i class="fa-solid fa-fw ${icon}"></i></button>`;
   function formatted(a, r) {
@@ -582,7 +586,7 @@ Keep every value from your last result that the new messages leave as it was, an
   function pinPart({ a, r, run, fail, edit }, last) {
     const again = !r || r.mes === last ? 'Run again' : `Run again on message ${r.mes}`;
     const btns = (r ? iconBtn('edit', 'fa-pen', 'Edit') : '') + iconBtn('run', 'fa-rotate', r ? again : 'Run') + (r?.prev != null ? iconBtn('undo', 'fa-rotate-left', 'Undo') : '');
-    const body = edit ? `<textarea class="text_pole ntr_agres_edit" rows="8">${esc(r.text)}</textarea>
+    const body = edit ? `<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
       <div class="ntr_agres_editbtns"><button type="button" class="menu_button" data-act="save"><i class="fa-solid fa-check"></i> Save</button><button type="button" class="menu_button" data-act="cancel">Cancel</button></div>`
       : r ? `<div class="ntr_agres_text">${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
     return `<div class="ntr_agres" data-ag="${esc(a.id)}" data-mes="${r ? r.mes : ''}">
@@ -596,21 +600,24 @@ Keep every value from your last result that the new messages leave as it was, an
     if (!pageOn()) return null;
     const cid = chatId();
     const last = (ctx().chat || []).length - 1;
+    const chat = ctx().chat || [];
     const parts = ids.map(byId).filter(Boolean).map((a) => {
       const r = latest(a.id, upTo);
       const f = fails.get(a.id);
-      return { a, r, run: current?.id === a.id, fail: f && f.chat === cid ? f.text : '', edit: !!(r && editing && editing.id === a.id && editing.mes === r.mes && editing.chat === cid) };
+      const mine = r && editing && editing.id === a.id && editing.mes === r.mes && editing.chat === cid && editing.date === chat[r.mes]?.send_date;
+      return { a, r, run: current?.id === a.id, fail: f && f.chat === cid ? f.text : '', edit: mine ? editing.key : '' };
     });
     if (!parts.some((x) => x.r || x.run || x.fail)) return null;
     const key = JSON.stringify(parts.map(({ a, r, run, fail, edit }) => [a.id, a.name, a.pic, r?.mes, r?.at, r?.text, r?.prev != null, run, fail, edit, last]));
     return {
       key,
       fill: (body) => {
-        // Text being typed in an edit box survives a redraw.
-        const typed = body.querySelector('.ntr_agres_edit')?.value;
+        // Text being typed in an edit box survives a redraw, in the box for the same result only.
+        const old = body.querySelector('.ntr_agres_edit');
+        const typed = old ? [old.dataset.for, old.value] : null;
         body.innerHTML = parts.map((x) => pinPart(x, last)).join('');
         const ed = body.querySelector('.ntr_agres_edit');
-        if (ed && typed != null) ed.value = typed;
+        if (ed && typed && typed[0] === ed.dataset.for) ed.value = typed[1];
       },
     };
   }
@@ -626,11 +633,14 @@ Keep every value from your last result that the new messages leave as it was, an
     const r = m ? savedAt(m, a.id) : null;
     const act = b.dataset.act;
     if (act === 'run') { enqueue(a.id, false, false, mes === (ctx().chat || []).length - 1 ? null : mes); return; }
-    if (act === 'edit' && r) editing = { id: a.id, mes, chat: chatId() };
+    if (act === 'edit' && r) editing = { id: a.id, mes, chat: chatId(), date: m.send_date, key: `${a.id}:${mes}:${m.send_date}` };
     else if (act === 'cancel') editing = null;
-    else if (act === 'save' && r) {
+    else if (act === 'save') {
+      // Only onto the result the edit was started on, in case the message or swipe changed meanwhile.
+      const same = r && editing && editing.id === a.id && editing.mes === mes && editing.chat === chatId() && editing.date === m.send_date;
       const text = String(box.querySelector('.ntr_agres_edit')?.value ?? '').trim().slice(0, MAX_SAVED);
-      if (text && text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text });
+      if (!same) toastr.warning('The message changed, so the edit wasn\'t saved.', a.name);
+      else if (text && text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text });
       editing = null;
     } else if (act === 'undo' && r?.prev != null) saveAt(m, a.id, { text: r.prev, at: r.at });
     refreshBoxes();

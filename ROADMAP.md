@@ -23,9 +23,8 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Dragging and placement
-Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar, send bar and Reader Mode's page bar. Still open:
+Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar, send bar, Reader Mode's page bar and the header banner. Still open:
 
-- [ ] Add more parts of the screen, like the header banner.
 - [ ] Message looks: chat messages shaped like speech bubbles, or a phone texting look.
 - Doesn't block Reader Mode: Layout and Pinned Blocks already make the parts it needs adjustable.
 

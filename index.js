@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.48.0';
+  const VERSION = '2.49.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -45,7 +45,7 @@
     // Edit Placement (dragging pop-outs and foreground images): editor choices, not part of themes
     placeSnap: false, placeGrid: 20,
 
-    // Layout: the chat panel, menu bar, send bar and Reader Mode's page bar. Desktop for screens wider than 1000px, Phone (layPh) for 1000px or
+    // Layout: the chat panel, menu bar, send bar, Reader Mode's page bar and the header banner. Desktop for screens wider than 1000px, Phone (layPh) for 1000px or
     // less. Places and sizes are a % of the screen. A part that hasn't been moved stays where SillyTavern puts it.
     layEnabled: false,
     // Pinned Blocks (see cleanPins). Their name starts with lay so themes keep them with Layout.
@@ -54,10 +54,12 @@
     layChatMoved: false, layChatX: 25, layChatY: 4, layChatW: 50, layChatH: 92,
     laySend: 'attached', laySendX: 25, laySendB: 0, laySendW: 50,
     layPage: 'attached', layPageX: 25, layPageB: 12, layPageW: 50,
+    layBan: 'attached', layBanX: 25, layBanY: 6, layBanW: 50, layBanH: 15,
     layPhBarEdge: 'top', layPhBarMoved: false, layPhBarPos: 0, layPhBarLen: 100,
     layPhChatMoved: false, layPhChatX: 0, layPhChatY: 5, layPhChatW: 100, layPhChatH: 90,
     layPhSend: 'attached', layPhSendX: 0, layPhSendB: 0, layPhSendW: 100,
     layPhPage: 'attached', layPhPageX: 0, layPhPageB: 12, layPhPageW: 100,
+    layPhBan: 'attached', layPhBanX: 0, layPhBanY: 6, layPhBanW: 100, layPhBanH: 15,
 
     // Reader Mode (reader.js): the chat a page at a time. Per Page is 'pair' (your message and the replies after it) or 'one'.
     rdEnabled: false, rdPer: 'pair',
@@ -645,14 +647,14 @@
   }
 
   // ===== Edit Placement =====
-  // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar and page bar can be dragged on
+  // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar, page bar and banner can be dragged on
   // screen. Edit Placement hides the menu and outlines what can move; only the picked item drags, and a picked Layout
   // part also resizes from the handles on its edges. Tapping the picked item picks the one under it. The bar at the
   // bottom has Snap to Grid, Undo, Reset and Done.
   // Layout parts come first, so the pictures' outlines sit on top of theirs.
   const PLACE = [
     { id: 'layChat', lay: 'chat', label: 'Chat Panel' }, { id: 'layBar', lay: 'bar', label: 'Menu Bar' }, { id: 'laySend', lay: 'send', label: 'Send Bar' },
-    { id: 'layPage', lay: 'page', label: 'Page Bar' },
+    { id: 'layPage', lay: 'page', label: 'Page Bar' }, { id: 'layBan', lay: 'ban', label: 'Banner' },
     { id: 'us', label: 'User Pop Out' }, { id: 'ai', label: 'AI Pop Out' },
     ...['Left', 'Center', 'Right'].map((pos) => ({ id: 'fg' + pos, pos, label: `${pos} Foreground` })),
   ];
@@ -666,14 +668,15 @@
     bar: { el: 'top-settings-holder', keys: ['BarEdge', 'BarMoved', 'BarPos', 'BarLen'], start: { BarEdge: 'top', BarMoved: false } },
     send: { el: 'form_sheld', keys: ['Send', 'SendX', 'SendB', 'SendW'], start: { Send: 'attached' } },
     page: { el: 'ntr_rd_bar', keys: ['Page', 'PageX', 'PageB', 'PageW'], start: { Page: 'attached' } },
+    ban: { el: 'cb_banner', keys: ['Ban', 'BanX', 'BanY', 'BanW', 'BanH'], start: { Ban: 'attached' } },
   };
   const GRIPS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
-  // The handles a picked part resizes from: the chat panel from every edge and corner, the send bar and page bar from their
-  // sides, the menu bar from its two ends.
+  // The handles a picked part resizes from: the chat panel and banner from every edge and corner, the send bar and page bar
+  // from their sides, the menu bar from its two ends.
   // A floating Pinned Block resizes like the chat panel; a docked one only from its inner edge.
   function grips(it) {
     if (it.pin) { const pl = pinOf(it)?.place; return pl === 'left' ? ['e'] : pl === 'right' ? ['w'] : GRIPS; }
-    if (it.lay === 'chat') return GRIPS;
+    if (it.lay === 'chat' || it.lay === 'ban') return GRIPS;
     if (it.lay === 'bar' && barUpright(settings()[lk(phoneNow(), 'BarEdge')])) return ['n', 's'];
     return it.lay ? ['e', 'w'] : [];
   }
@@ -712,12 +715,13 @@
     return { left, top, right: left + dw, bottom: top + dh, width: dw, height: dh };
   }
 
-  // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar and page bar only
-  // while they're Free, since Attached they follow the chat panel. The page bar is there in Reader Mode's Plain and Book.
+  // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar, page bar and
+  // banner only while they're Free, since Attached they follow the chat panel. The page bar is there in Reader Mode's Plain
+  // and Book, the banner while the open chat shows one.
   function layRect(it) {
     const s = settings();
     const el = placeEl(it);
-    const att = { send: 'Send', page: 'Page' }[it.lay];
+    const att = { send: 'Send', page: 'Page', ban: 'Ban' }[it.lay];
     if (!el || !layOn(s) || (att && s[lk(phoneNow(), att)] !== 'free')) return null;
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 ? r : null;
@@ -871,11 +875,12 @@
     }
 
     const min = (name) => NUM_RANGE[lk(phoneNow(), name)][0] / 100;
-    const part = { chat: 'Chat', send: 'Send', page: 'Page' }[d.it.lay];
+    const part = { chat: 'Chat', send: 'Send', page: 'Page', ban: 'Ban' }[d.it.lay];
     // The page bar is never narrower than its buttons (see the Page Bar's CSS).
     const minW = Math.max(W * min(part + 'W'), part === 'Page' ? window.NTR.reader?.barMin?.() || 0 : 0);
-    const [L, R, T, B] = dragBox(r, d.grip, dx, dy, W, H, minW, H * min('ChatH'), g);
+    const [L, R, T, B] = dragBox(r, d.grip, dx, dy, W, H, minW, H * min(part === 'Ban' ? 'BanH' : 'ChatH'), g);
     if (part === 'Chat') placeSet(d.it, layNames({ ChatMoved: true, ChatX: pct(L, W), ChatY: pct(T, H), ChatW: pct(R - L, W), ChatH: pct(B - T, H) }));
+    else if (part === 'Ban') placeSet(d.it, layNames({ BanX: pct(L, W), BanY: pct(T, H), BanW: pct(R - L, W), BanH: pct(B - T, H) }));
     else placeSet(d.it, layNames({ [part + 'X']: pct(L, W), [part + 'B']: pct(H - B, H), [part + 'W']: pct(R - L, W) }));
   }
 
@@ -1937,6 +1942,7 @@
   const layOn = (s) => isOn() && s.layEnabled;
   const sendFree = (s = settings()) => layOn(s) && s[lk(phoneNow(), 'Send')] === 'free';
   const pageFree = (s = settings()) => layOn(s) && s[lk(phoneNow(), 'Page')] === 'free';
+  const banFree = (s = settings()) => layOn(s) && s[lk(phoneNow(), 'Ban')] === 'free';
   const barUpright = (edge) => edge === 'left' || edge === 'right';
   // The menu bar's icons. The bar is never shorter than one icon's room (SillyTavern's bar thickness) for each of them,
   // unless the screen edge is shorter than that: then the icons squeeze to fit.
@@ -2037,6 +2043,16 @@
         top: 'auto', bottom: `min(${n('PageB')}dvh, 100dvh - 2.5em)`, 'align-self': 'auto', 'border-radius': '8px', border: '1px solid var(--SmartThemeBorderColor)',
       });
     }
+
+    // The header banner (overlays.js). Free, it has its own place and size, and sits above the chat panel's top (overlays.js
+    // keeps it out of the messages and drops Overlap while it's Free).
+    if (v('Ban') === 'free') {
+      const w = n('BanW'), h = n('BanH');
+      css += cssRule('body #cb_banner', {
+        position: 'fixed', left: `min(${n('BanX')}vw, ${100 - w}vw)`, top: `min(${n('BanY')}dvh, ${100 - h}dvh)`, width: `${w}vw`, height: `${h}dvh`,
+        right: 'auto', bottom: 'auto', margin: '0', 'z-index': '35',
+      });
+    }
     return `\n      @media (width ${phone ? '<=' : '>'} 1000px) {${cssRule('html:root', root)}${css}\n      }\n`;
   }
 
@@ -2130,7 +2146,7 @@
     const ph = tabPhone();
     const btn = (id, icon, label) => `<button type="button" id="${id}" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid ${icon}"></i> ${label}</button>`;
     return pageHtml('layout', `
-        <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar, the send bar and Reader Mode's page bar, and set the chat width, the space between messages and where the send box sits. There are two layouts: Desktop for screens wider than 1000px, and Phone for screens 1000px wide or less, like phones. Turning Layout on changes nothing until you move something.</div>
+        <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar, the send bar, Reader Mode's page bar and the header banner, and set the chat width, the space between messages and where the send box sits. There are two layouts: Desktop for screens wider than 1000px, and Phone for screens 1000px wide or less, like phones. Turning Layout on changes nothing until you move something.</div>
         ${card('', `
           <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}</div>
           <div class="cb_hint">Edit Layout hides the menu so you can drag the parts on screen. It changes the layout this screen uses: <b id="m_l_now"></b>. Drag the handles on the picked part to resize it. Tap the picked part to pick the one under it. Press Done to come back.</div>`)}
@@ -2146,7 +2162,7 @@
           <div class="cb_hint" style="margin-bottom: 0;">Space Between Messages and Send Box apply to both Desktop and Phone. Chat Width is for Desktop only: on a phone, the chat fills the screen.</div>`)}
         ${card('Layout', `
           ${pills('ltab', [['desk', 'Desktop'], ['phone', 'Phone']], ph ? 'phone' : 'desk')}
-          <div class="cb_hint" style="margin-bottom: 0;">Menu Bar, Send Bar, Page Bar and Back to SillyTavern's Layout below change this one.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Menu Bar, Send Bar, Page Bar, Banner and Back to SillyTavern's Layout below change this one.</div>`)}
         ${card('Menu Bar', `
           ${pills('lbaredge', [['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']], s[lk(ph, 'BarEdge')])}
           <div class="cb_hint" style="margin-bottom: 0;">The edge of the screen it sits on. Left and Right stand it on its side. Picking an edge here puts the bar back in its starting spot on that edge. In Edit Layout, slide it along its edge, drag its ends to change its length, or drag it to another edge. Settings panels open out of the bar; on a phone they fill the rest of the screen.</div>`)}
@@ -2156,9 +2172,12 @@
         ${card('Page Bar', `
           ${pills('lpage', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Page')])}
           <div class="cb_hint" style="margin-bottom: 0;">Reader Mode's page bar, in Plain and Book. Attached sits between the chat and the send box. Free goes anywhere on the screen: move it and change its width with Edit Layout while Reader Mode is on.</div>`)}
+        ${card('Banner', `
+          ${pills('lban', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Ban')])}
+          <div class="cb_hint" style="margin-bottom: 0;">The header banner (Overlays). Attached sits at the top of the chat panel, with Lock to top and Overlap. Free goes anywhere on the screen, at the same place for every character: move it and resize it from its edges and corners with Edit Layout while a chat with a banner is open. Free, its height comes from Edit Layout instead of Banner Height.</div>`)}
         ${card('', `
           ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
-          <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar, send bar and page bar back where SillyTavern and Reader Mode have them, in the layout picked above.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar, send bar, page bar and banner back where they start, in the layout picked above.</div>`)}
         ${card('Pinned Blocks', `
           <div class="cb_hint">Shows a block from the chat messages, like Coordinates, in its own box on screen, with your regex's look. Pick the block in a message, then move the box with Edit Layout. The box always shows the newest copy; in Reader Mode, the newest up to the page you're on.</div>
           <div id="m_pin_list"></div>
@@ -2181,8 +2200,8 @@
       Object.assign(s, { [lk(ph, 'BarEdge')]: v, [lk(ph, 'BarMoved')]: false });
       changed();
     });
-    // Free starts where the bar is now, so it doesn't jump. For the other screen's layout, or a page bar that isn't on
-    // screen, it starts where it was last, or at its starting place.
+    // Free starts where the part is now, so it doesn't jump. For the other screen's layout, or a part that isn't on screen,
+    // it starts where it was last, or at its starting place. The bars keep their bottom edge, the banner its top and height.
     const freeFrom = (part, id) => (v) => {
       const ph = tabPhone();
       const el = document.getElementById(id);
@@ -2190,16 +2209,19 @@
       if (v === 'free' && s[lk(ph, part)] !== 'free' && ph === phoneNow() && layOn(s) && r?.width) {
         const W = window.innerWidth, H = window.innerHeight;
         const pct = (x, size) => Math.round(x / size * 10000) / 100;
-        Object.assign(s, { [lk(ph, part + 'X')]: pct(r.left, W), [lk(ph, part + 'B')]: pct(Math.max(0, H - r.bottom), H), [lk(ph, part + 'W')]: pct(r.width, W) });
+        Object.assign(s, { [lk(ph, part + 'X')]: pct(r.left, W), [lk(ph, part + 'W')]: pct(r.width, W) });
+        if (part === 'Ban') Object.assign(s, { [lk(ph, 'BanY')]: pct(Math.max(0, r.top), H), [lk(ph, 'BanH')]: pct(r.height, H) });
+        else s[lk(ph, part + 'B')] = pct(Math.max(0, H - r.bottom), H);
       }
       s[lk(ph, part)] = v;
       changed();
     };
     onPills(overlay, 'lsend', freeFrom('Send', 'form_sheld'));
     onPills(overlay, 'lpage', freeFrom('Page', 'ntr_rd_bar'));
+    onPills(overlay, 'lban', freeFrom('Ban', 'cb_banner'));
     overlay.querySelector('#m_l_reset').onclick = async function() {
       const ph = tabPhone();
-      if (!(await askYes(this, `Put the chat panel, menu bar, send bar and page bar back where they start, in the ${ph ? 'Phone' : 'Desktop'} layout?`, 'Reset'))) return;
+      if (!(await askYes(this, `Put the chat panel, menu bar, send bar, page bar and banner back where they start, in the ${ph ? 'Phone' : 'Desktop'} layout?`, 'Reset'))) return;
       for (const part of Object.values(LAY_PART)) for (const [k, x] of Object.entries(part.start)) s[lk(ph, k)] = x;
       changed();
     };
@@ -2213,7 +2235,7 @@
     if (!overlay) return;
     const s = settings();
     const ph = tabPhone(), now = phoneNow();
-    for (const [name, val] of [['ltab', ph ? 'phone' : 'desk'], ['lbaredge', s[lk(ph, 'BarEdge')]], ['lsend', s[lk(ph, 'Send')]], ['lpage', s[lk(ph, 'Page')]]]) {
+    for (const [name, val] of [['ltab', ph ? 'phone' : 'desk'], ['lbaredge', s[lk(ph, 'BarEdge')]], ['lsend', s[lk(ph, 'Send')]], ['lpage', s[lk(ph, 'Page')]], ['lban', s[lk(ph, 'Ban')]]]) {
       const r = overlay.querySelector(`input[name="cbr_${name}"][value="${val}"]`);
       if (r) r.checked = true;
     }
@@ -2849,7 +2871,7 @@
   Object.assign(PICK_KEYS, {
     bannerBackdrop: ['wallpaper', 'panel'], ovAvatar: Object.keys(AV_CLS), ovShape: OV_SHAPES, ovNames: ['show', 'hide'], ovSendPos: ['joined', 'separate'],
     layBarEdge: LAY_EDGES, laySend: ['attached', 'free'], layPhBarEdge: LAY_EDGES, layPhSend: ['attached', 'free'],
-    layPage: ['attached', 'free'], layPhPage: ['attached', 'free'],
+    layPage: ['attached', 'free'], layPhPage: ['attached', 'free'], layBan: ['attached', 'free'], layPhBan: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
     rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
@@ -3860,7 +3882,7 @@
   const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...AVATAR_SHAPE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
   // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
-    layout: { label: 'Layout (chat panel, menu bar, send bar, page bar, chat width, message spacing, send box position)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
+    layout: { label: 'Layout (chat panel, menu bar, send bar, page bar, banner, chat width, message spacing, send box position)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },
@@ -3937,9 +3959,9 @@
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];
   for (const phone of [false, true]) {
     const r = (name, min) => { NUM_RANGE[lk(phone, name)] = [min, 100, 0.01, '%']; };
-    for (const name of ['BarPos', 'ChatX', 'ChatY', 'SendX', 'SendB', 'PageX', 'PageB']) r(name, 0);
-    r('BarLen', 5);
-    for (const name of ['ChatW', 'ChatH', 'SendW', 'PageW']) r(name, 10);
+    for (const name of ['BarPos', 'ChatX', 'ChatY', 'SendX', 'SendB', 'PageX', 'PageB', 'BanX', 'BanY']) r(name, 0);
+    for (const name of ['BarLen', 'BanH']) r(name, 5);
+    for (const name of ['ChatW', 'ChatH', 'SendW', 'PageW', 'BanW']) r(name, 10);
   }
   for (const p of ['Panel', ...OV_PARTS]) {
     Object.assign(NUM_RANGE, { [`ov${p}BgOpacity`]: [0, 100, 1, '%'], [`ov${p}BorderWidth`]: [1, 6, 1, 'px'], [`ov${p}BorderOpacity`]: [0, 100, 1, '%'] });
@@ -4963,7 +4985,7 @@
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
-    refreshPins: () => { syncPins(); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => syncSendRoom(), pageFree: () => pageFree(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
+    refreshPins: () => { syncPins(); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => syncSendRoom(), pageFree: () => pageFree(), banFree: () => banFree(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For cast.js: Pop Out catches up after a face changes

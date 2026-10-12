@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.51.0';
+  const AGENTS_VERSION = '2.51.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -399,8 +399,7 @@ Keep every value from your last result that the new messages leave as it was, an
   const opt = (pairs, cur) => pairs.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const lab = (l, i) => `<div class="cb_hint" style="margin:6px 0 0;">${l}</div>${i}`;
   const card = (l, i) => `${l ? `<div class="ntr_glab">${l}</div>` : ''}<div class="ntr_card">${i}</div>`;
-  // SillyTavern's buttons are flex boxes, which drop a space between the icon and the label, so the gap does it.
-  const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;gap:6px;"${title ? ` title="${esc(title)}" aria-label="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label || ''}</button>`;
+  const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;"${title ? ` title="${esc(title)}" aria-label="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label || ''}</button>`;
   // An agent's picture is always a circle.
   const picHtml = (a, size) => {
     return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`

@@ -30,23 +30,6 @@ The sections themselves and the first batch of text effects have shipped. Still 
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
-### Agents: next steps
-The Agents page is in: you can create and name agents, each with its own picture, instructions, connection (Same as Chat, Chat Completion or local Text Completion), prompt (with a preview), samplers and limits, and run them on a button, after every reply, or from Quick Replies with `/ntr-agent`. An agent can save its answers in the chat, and a Pinned Block set to Agent Results shows them on screen (with Edit, Run Again and Undo). Example Tracker makes Delta, a ready-made tracker. Send to Main AI puts an agent's saved answer into your chat's prompt, and `{{agent::Name}}` puts it anywhere SillyTavern reads macros.
-
-Decided so far:
-- The first agent to build for is a tracker. A director or summarizer can use the same parts later.
-- Agents run after the AI's reply, not before it, so you never wait twice per turn. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.
-- Results show in the panel, and go to the main AI only when Send to Main AI is on. Nothing is added to the chat as messages.
-- Triggers come from Quick Replies (button, after your message, after an AI message, on chat open) through `/ntr-agent`, instead of NTR building its own trigger settings.
-- Left out: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup.
-
-Still open:
-
-1. **Tracker panel follow-ups.** Left out of the first panel, for later if they turn out to be missed.
-   - [ ] Character portraits next to the tracked characters.
-   - [ ] Highlight what changed since the last result.
-   - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
-
 ### Dragging and placement
 Edit Placement has shipped for pop-out avatars and foreground images (drag, Snap to Grid, Undo, Reset, Done), and Layout for the chat panel, menu bar and send bar. Still open:
 
@@ -87,6 +70,17 @@ Worth doing, but after the planned work. Includes checks for problems that aren'
 - [ ] Fade isn't working correctly yet. Find what's wrong and fix it.
 - [ ] Give Fade its own section in Background Pattern (Reasoning Box), so a fade can be combined with Notebook, Lines, Dots or Checkers.
 - [ ] Gradient fade options, like how far the fade reaches and how soft it is.
+
+### Agents: follow-ups
+The agents plan has shipped: agents with their own connection and prompt, `/ntr-agent`, results saved on the message and swipe they describe, Agent Results in Pinned Blocks, Delta, Send to Main AI and `{{agent::Name}}`. Still open, for when they turn out to be missed:
+
+- [ ] Character portraits next to the tracked characters.
+- [ ] Highlight what changed since the last result.
+- [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
+- [ ] Check that a Pinned Block with Agent Results follows the page in Reader Mode. It uses the same page lookup as other Pinned Blocks but hasn't been tried.
+- [ ] Decide whether `/sendas` should count as a reply for After Every Reply agents. It does now, so a Quick Reply that uses it also runs them.
+- Left out on purpose: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup. Triggers come from Quick Replies through `/ntr-agent`.
+- Agents run after the AI's reply. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.
 
 ### Typing in slider values
 - [ ] Everywhere in the menu a slider shows a value in % or px, let the value be typed in as well as dragged. Typed values stay within the slider's range.
@@ -182,14 +176,13 @@ Optional: revisit if group chats become useful to me or are requested. The share
 - Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
 
 ### Story Memory
-Build on saved agent results and the Agent Results panel with NTR's own story state, scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.
+Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.
 
-- [ ] Keep tracker snapshots tied to the chat message and swipe they describe, using the saved agent results where practical.
 - [ ] Add editable scene summaries: what happened, important facts and promises, unresolved matters, and links to source messages.
 - [ ] Start with manual scene marking. Reuse NTR's agents for optional automatic tracking and summarizing, after replies or through Quick Replies.
-- [ ] Optionally send current state, pinned facts and relevant scene memories with the prompt, within a configurable token budget. Reuse the planned agent prompt controls where practical.
+- [ ] Optionally send pinned facts and relevant scene memories with the prompt, within a configurable token budget. The current state already goes through Send to Main AI; reuse its placement settings where practical.
 - [ ] Provide separate switches for tracking, summarizing and recall, so users can combine NTR with other tools.
-- [ ] Handle edits, swipes, deletions and branches so saved and recalled information stays correct.
+- [ ] Handle edits, swipes, deletions and branches so saved and recalled information stays correct, the way saved agent results already do.
 - [ ] Reader and Visual Novel modes show state for the point being viewed, without revealing later events.
 - [ ] Let users inspect, correct, delete and export memories. Check that chat backups and imports preserve them.
 - [ ] Consider integrations and semantic search later; neither is required for the basic system.

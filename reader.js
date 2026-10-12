@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.52.0';
+  const READER_VERSION = '2.53.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -784,5 +784,7 @@
     // For Pinned Blocks: the last message on the page you're on, or the message Visual Novel shows, or null when Reader
     // Mode is off or on the newest.
     upTo: () => (vnNow() ? window.NTR.vn?.shownMsg?.() ?? null : live() && pages.length ? pages[cur][1] : null),
+    // For Speech Bubbles: the first and last message on the page on screen, or null when Reader Mode is off.
+    page: () => (live() && pages.length ? pages[cur] : null),
   };
 })();

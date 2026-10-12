@@ -4,7 +4,7 @@
 // The header banner above the chat (images that can rotate, a YouTube loop or a video) and the foreground images beside
 // the chat panel, with their page in the menu. Their settings, card data and Edit Placement stay in index.js.
 (() => {
-  const OVERLAYS_VERSION = '2.52.0';
+  const OVERLAYS_VERSION = '2.53.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange, cNum,

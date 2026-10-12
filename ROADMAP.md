@@ -5,7 +5,7 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ## Planned
 
 ### Reader Mode: follow-ups
-- [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel. Build it after Speech bubble messages (see Message details) and reuse them, so it only adds the frame, a contact header and a status bar. On a real phone it fills the screen without the frame.
+- [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel. Build it on Speech Bubbles (UI Decor), so it only adds the frame, a contact header and a status bar. On a real phone it fills the screen without the frame.
 - Left out on purpose: a separate Layout and separate themes for Reader Mode. Normal chat and Reader Mode share the same positions and themes.
 
 ### Reasoning Block and Text Formatting: follow-ups
@@ -19,7 +19,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Text alignment for chat messages: left, right, center or justified.
 - [ ] Move the time and date.
 - [ ] Move the character and user names, maybe with a background image or border behind them.
-- [ ] Speech bubble messages, as a message shape in UI Decor (normal chat and Reader Mode's Plain style).
 
 ## Misc (Low Priority)
 

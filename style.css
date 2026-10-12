@@ -316,6 +316,8 @@
 
 .cb_actions { display: flex; gap: 8px; }
 .cb_actions button { flex: 1; }
+/* SillyTavern's buttons are flex boxes, which drop the space between an icon and its label, so the gap does it. */
+#cb_modal_overlay .menu_button, #ntr_pin_layer .menu_button { gap: 6px; }
 
 .cb_carousel_nav {
   display: flex;

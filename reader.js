@@ -784,5 +784,7 @@
     // For Pinned Blocks: the last message on the page you're on, or the message Visual Novel shows, or null when Reader
     // Mode is off or on the newest.
     upTo: () => (vnNow() ? window.NTR.vn?.shownMsg?.() ?? null : live() && pages.length ? pages[cur][1] : null),
+    // For Speech Bubbles: the first and last message on the page on screen, or null when Reader Mode is off.
+    page: () => (live() && pages.length ? pages[cur] : null),
   };
 })();

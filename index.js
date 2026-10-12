@@ -2891,15 +2891,18 @@
   }
 
   // Marks each message by whether the one before it (ntr_bub_prev) or after it (ntr_bub_next) is from the same speaker.
-  // By name, so two characters in a group chat stay apart.
+  // By name, so two characters in a group chat stay apart. In Reader Mode, only the messages on the page on screen
+  // count, so each page's runs keep their tail and avatar (Reader Mode calls refreshPins on every page change).
   function markBubbleRuns() {
     const chat = document.getElementById('chat');
     if (!chat) return;
     const s = settings();
     const on = bubblesOn(s) && s.ovBubGroup === 'group';
+    const page = window.NTR.reader?.page?.();
+    const shown = (m) => !page || (Number(m.getAttribute('mesid')) >= page[0] && Number(m.getAttribute('mesid')) <= page[1]);
     let prev = null;
     for (const m of chat.querySelectorAll(':scope > .mes')) {
-      const same = on && !!prev && prev.getAttribute('is_user') === m.getAttribute('is_user') && prev.getAttribute('ch_name') === m.getAttribute('ch_name');
+      const same = on && !!prev && shown(prev) && shown(m) && prev.getAttribute('is_user') === m.getAttribute('is_user') && prev.getAttribute('ch_name') === m.getAttribute('ch_name');
       m.classList.toggle('ntr_bub_prev', same);
       if (prev) prev.classList.toggle('ntr_bub_next', same);
       prev = m;
@@ -5230,7 +5233,7 @@
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
-    refreshPins: () => { syncPins(); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => syncSendRoom(), pageFree: () => pageFree(), banFree: () => banFree(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
+    refreshPins: () => { syncPins(); markBubbleRuns(); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => syncSendRoom(), pageFree: () => pageFree(), banFree: () => banFree(), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For cast.js: Pop Out catches up after a face changes

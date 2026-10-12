@@ -5,7 +5,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ## Planned
 
 ### Reader Mode: follow-ups
-- [ ] Reader Mode: when Plain or Visual Novel is on, Book settings can still be accessed and changed. When Plain or Book is on, Visual Novel settings can still be accessed and changed. Hide or disable inactive settings, and ensure inactive styles aren't running in the background and wasting energy. Stop inactive timers, observers and processing. Preserve saved settings when switching styles.
 - [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel.
 - [ ] Reader Mode gets its own Layout. Right now the Layout page's positions (chat panel, menu bar, send bar, page bar, banner) are the same in normal chat and in Reader Mode. This would let Reader Mode use different ones, for example the chat panel on the left in normal chat but centered while reading in Plain. Only if that's ever wanted.
 

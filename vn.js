@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.51.2';
+  const VN_VERSION = '2.51.3';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -25,6 +25,7 @@
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const lc = (x) => String(x || '').trim().toLowerCase();
   const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
+  const vnOn = () => A.isOn() && settings().nodeEnabled;
 
   // ----- Built-in art kit: original SVG drawn in code, no outside art -----
   function rng(seed) {
@@ -155,31 +156,6 @@
         background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.3); border-radius: 4px; }
       @keyframes cbn_blink { 50% { opacity: .15; } }
       #cb_node_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
-      .cb_defdot { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; cursor: pointer; }
-      .cb_spk { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; }
-      .cb_spk + .cb_spk { margin-top: 6px; }
-      .cb_spk_row { display: flex; align-items: center; gap: 6px; }
-      .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { margin: 0; padding: 4px 8px; }
-      .cb_spk_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-      .cb_spk_name small { display: block; opacity: .6; font-size: .8em; }
-      .cb_thumbbox { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
-      .cb_thumbbox img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-      .cb_thumbbox i { opacity: .35; }
-      .cb_spk_head { padding: 0 0 6px 2px; }
-      .cb_spk_head .cb_spk_name { font-weight: bold; }
-      .cb_faces_row { cursor: pointer; user-select: none; padding: 4px; margin-bottom: 4px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, #444); transition: background .15s, border-color .15s; }
-      .cb_faces_row:hover, .cb_faces_row:focus-visible { background: rgba(255,255,255,.06); border-color: var(--SmartThemeQuoteColor, #6cf); outline: none; }
-      .cb_faces_row > .fa-solid { padding: 0 8px; opacity: .8; }
-      .cb_faces_row + .cb_emo_grid { margin: 0 0 8px; }
-      .cb_full_row { padding: 0 5px; }
-      .cb_emo_grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
-      .cb_emo_cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: rgba(0,0,0,.2); }
-      .cb_emo_cell .cb_thumbbox { width: 64px; height: 64px; }
-      .cb_emo_label { font-size: .8em; text-align: center; word-break: break-word; }
-      .cb_emo_row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-      .cb_dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
-      .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
-      .cb_dfield input { margin: 0; font-family: monospace; }
       #cb_node.cb_shape_round .cb_n_port { border-radius: 50%; }
       #cb_node.cb_shape_square .cb_n_port { border-radius: 0; }
       #cb_node.cb_shape_rect .cb_n_port { height: calc(var(--cbn-ps, 120px) * 1.5); }
@@ -839,7 +815,7 @@
 
   // The chat panel or send bar moved (Layout): the dialogue box and sprites follow.
   function relayout() {
-    if (!(A.isOn() && settings().nodeEnabled)) return;
+    if (!vnOn()) return;
     placeNode();
     updateStage();
   }
@@ -891,15 +867,25 @@
     cnt.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === cnt) { e.preventDefault(); askMsg(); } };
     const port = ov.querySelector('.cb_n_port');
     port.querySelector('img').onerror = () => port.classList.add('cb_noimg');
-    // While Visual Novel Mode is off the box is hidden, so there's nothing to move.
-    const vnOn = () => A.isOn() && settings().nodeEnabled;
-    window.addEventListener('resize', relayout);
-    if (window.ResizeObserver) {
-      const ro = new ResizeObserver(() => { if (vnOn()) placeNode(); });
-      for (const id of ['chat', 'form_sheld']) { const el = document.getElementById(id); if (el) ro.observe(el); }
-    }
     nodeApplyLook();
     return ov;
+  }
+
+  // The box follows the screen and the chat panel while Visual Novel Mode is on. While it's off the box is hidden, so
+  // nothing is watched.
+  let layoutRo = null;
+  function watchLayout(on) {
+    if (on && !layoutRo) {
+      window.addEventListener('resize', relayout);
+      if (window.ResizeObserver) {
+        layoutRo = new ResizeObserver(() => { if (vnOn()) placeNode(); });
+        for (const id of ['chat', 'form_sheld']) { const el = document.getElementById(id); if (el) layoutRo.observe(el); }
+      } else layoutRo = true;
+    } else if (!on && layoutRo) {
+      window.removeEventListener('resize', relayout);
+      layoutRo.disconnect?.();
+      layoutRo = null;
+    }
   }
 
   function nodeStopTyping() {
@@ -1426,12 +1412,17 @@
     lastSig = sig;
     if (opened) { node.waitId = null; node.cont = null; jump = null; safe(() => window.NTR.map?.close()); }
     if (!s.nodeEnabled || !A.isOn()) {
+      watchLayout(false);
+      clearTimeout(nodeQ);
       nodeStopTyping(); ov.style.display = 'none'; node.list = []; setLocation(null); clearScene(); updateStage();
       node.held = false;
+      node.waitId = null;
+      node.cont = null;
       safe(() => window.NTR.map?.close());
       safe(() => window.NTR.opening?.abort());
       return;
     }
+    watchLayout(true);
     if (opened) node.held = false; // opening.js stops a video that belongs to the previous chat
     if (opts.switchedOn) maybeOpening('vn');
     else if (opened) maybeOpening('open');
@@ -1497,7 +1488,7 @@
   }
   // SillyTavern says when a generation starts, while a continued message still holds only its old text.
   function nodeGenStarted(type, dryRun) {
-    if (dryRun) return;
+    if (dryRun || !vnOn()) return;
     // A reply on its way is followed, like in Reader Mode's other styles.
     if (type !== 'quiet' && type !== 'impersonate') node.follow = true;
     const chat = ctx().chat || [];
@@ -1506,6 +1497,7 @@
   }
   // A Continue's reply is in: show it from where the old text ended.
   function nodeContinued(id) {
+    if (!vnOn()) return;
     if (node.cont && node.cont.id === id) node.contJump = node.cont;
     node.cont = null;
     nodeQueue(true);
@@ -1514,6 +1506,7 @@
   // SillyTavern says a message was swiped before a new swipe is written, while it still holds the old reply.
   // A swipe to the empty slot past the last one is a new reply on its way: wait for it instead of typing the old one.
   function nodeSwiped(id) {
+    if (!vnOn()) return;
     const m = (ctx().chat || [])[id];
     node.waitId = m && Array.isArray(m.swipes) && m.swipe_id >= m.swipes.length ? id : null;
     nodeQueue(node.waitId === null);
@@ -1525,7 +1518,9 @@
     return true;
   }
 
+  // While Visual Novel Mode is off, new messages, edits and swipes are left alone: switching it on loads the chat again.
   function nodeQueue(animate) {
+    if (!vnOn()) return;
     nodeQAnim = nodeQAnim || !!animate;
     clearTimeout(nodeQ);
     nodeQ = setTimeout(() => { const a = nodeQAnim; nodeQAnim = false; nodeLoad({ animate: a }); }, 60);
@@ -1545,6 +1540,8 @@
 
   function teardown() {
     applyStyle();
+    watchLayout(false);
+    clearTimeout(nodeQ);
     nodeStopTyping();
     const ov = document.getElementById('cb_node');
     if (ov) ov.style.display = 'none';

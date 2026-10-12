@@ -7,6 +7,7 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ### Reader Mode: follow-ups
 Reader Mode has shipped with three styles: Plain, Book (an open book across the screen, with the built-in book or your own picture) and Visual Novel (Visual Novel Mode). Still open:
 
+- [ ] Reader Mode: when Plain or Visual Novel is on, Book settings can still be accessed and changed. When Plain or Book is on, Visual Novel settings can still be accessed and changed. Hide or disable inactive settings, and ensure inactive styles aren't running in the background and wasting energy. Stop inactive timers, observers and processing. Preserve saved settings when switching styles.
 - [ ] Separate layouts for normal chat, Reader Mode and Visual Novel Mode, if Reader Mode turns out to need its own.
 - [ ] Book, animated: pages flip along with the message text.
 

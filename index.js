@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.47.0';
+  const VERSION = '2.48.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -64,7 +64,7 @@
     // Its look, in themes: Plain or Book. An empty picture is the built-in book, and the page areas start as its own:
     // where the text sits on the picture, as a % of its height (Top, Bottom) or width (Outer edge, Spine gap).
     rdStyle: 'plain', rdBook: 'brown', rdBookImg: '', rdBookW: 90, rdBookTop: 13, rdBookBottom: 15, rdBookOuter: 11, rdBookSpine: 11,
-    rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '',
+    rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '', rdFlip: true,
 
     // Agents page (agents.js): your agents (each with its own job, connection, samplers and limits; see clean in agents.js)
     // and the one picked in the menu. Not in themes.
@@ -3868,7 +3868,7 @@
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
-    reader: { label: 'Reader Mode look (Plain or Book, book picture, page areas, ink, font)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont'] },
+    reader: { label: 'Reader Mode look (Plain or Book, book picture, page areas, ink, font, page flip)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
@@ -4707,7 +4707,8 @@
           <div class="cb_hint">The dots pick the built-in book's cover color. Picking one also sets the page areas to fit it.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
-          <div class="cb_hint" style="margin-bottom: 0;">How much of the screen's width the book takes. It keeps the picture's shape, so it gets narrower when the screen is too short.</div>`)}
+          <div class="cb_hint">How much of the screen's width the book takes. It keeps the picture's shape, so it gets narrower when the screen is too short.</div>
+          ${ovRow(s, 'rdFlip', 'Page Flip', '<div class="cb_hint" style="margin: 0;">Next, Previous, Page Up and Page Down turn the page over the spine. First, Last and a typed page number go straight there. Off with SillyTavern\'s Reduced Motion.</div>')}`)}
         ${card('Page Areas', `
           ${ovLabel('Top', rangeSlider(s, 'rdBookTop'))}
           ${ovLabel('Bottom', rangeSlider(s, 'rdBookBottom'))}

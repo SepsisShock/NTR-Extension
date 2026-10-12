@@ -26,11 +26,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 
 Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
 
-### Pinned Blocks: reset and background
-- [ ] Fix Reset for a Pinned Block after it has been moved around in Reader Mode: it does not fully reset.
-- [ ] Fix the Pinned Block background in Reader Mode: it is not transparent and appears to inherit the chat panel's color. Check where the background comes from.
-- [ ] Check whether either problem occurs in normal chat and Visual Novel Mode; those modes are unverified.
-
 ### Background Pattern: Fade
 - [ ] Fade isn't working correctly yet. Find what's wrong and fix it.
 - [ ] Give Fade its own section in Background Pattern (Reasoning Box), so a fade can be combined with Notebook, Lines, Dots or Checkers.

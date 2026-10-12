@@ -1088,6 +1088,8 @@
     layer.querySelector('#cb_place_pill').insertAdjacentHTML('beforebegin', placeItems().map((it) => `<div class="cb_place_box" data-id="${it.id}"><span>${escapeHTML(it.label)}</span>${it.lay || it.pin ? GRIPS.map((g) => `<i class="cb_place_grip" data-g="${g}"></i>`).join('') : ''}</div>`).join(''));
     layer.style.display = 'block';
     setPlaceTouchGuard(true);
+    // A block still in its message moves with the chat, so the outlines follow any scroll, like Page Down in Reader Mode.
+    document.addEventListener('scroll', drawPlace, true);
     drawPlace();
     return true;
   }
@@ -1100,6 +1102,7 @@
     const layer = document.getElementById('cb_place_layer');
     if (layer) layer.style.display = 'none';
     setPlaceTouchGuard(false);
+    document.removeEventListener('scroll', drawPlace, true);
     document.body.classList.remove('ntr_placing');
     syncPins();
     const ov = document.getElementById('cb_modal_overlay');

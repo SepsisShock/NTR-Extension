@@ -1,10 +1,10 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.46.0';
+  const VN_VERSION = '2.47.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, pageHtml, subHead } = A;
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
   const TAG = A.TAG || '';
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
@@ -460,6 +460,7 @@
     if (s.nodeMaps) loadSub('map');
   }
 
+  // Visual Novel's settings, in the Visual Novel part of the Reader Mode page (index.js puts them there).
   function nodeSectionHtml(s) {
     const sl = (id, key, label, unit, min, max, step) => `
       <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_n_${id}val">${s[key]}</span>${unit}</span></div>
@@ -470,7 +471,7 @@
                   <button class="menu_button m_art_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
                   <button class="menu_button m_art_url" data-k="${k}" title="Use a link"><i class="fa-solid fa-link"></i></button>
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button></span>`;
-    return pageHtml('vn', `
+    return `
             ${subHead('vn_guide', 'How to write your card')}
             <div class="cb_collapse_content">
               <div class="cb_hint">Visual Novel Mode reads these tags from messages. Write them in your card's first message or in anything you write yourself. While the mode is on, the AI is told to use them too (see Prompt for your LLM). These examples use your current symbols and names.</div>
@@ -562,7 +563,7 @@
               <textarea id="m_p_text" class="text_pole" readonly rows="4" style="width:100%;resize:vertical;"></textarea>
               <button id="m_p_copy" class="menu_button" style="margin-top:6px;"><i class="fa-solid fa-copy"></i> Copy Prompt</button>
             </div>
-    `, { sw: ['m_n_enable', s.nodeEnabled], legend: true });
+    `;
   }
 
   // A change on the Avatars page (cast.js): redraw, and refresh the open menu's guide and prompt.
@@ -601,8 +602,6 @@
       };
     });
 
-    // Visual Novel Mode is Reader Mode's Visual Novel style: on turns Reader Mode on with it, off turns Reader Mode off.
-    overlay.querySelector('#m_n_enable').onchange = function() { A.setReader(this.checked, this.checked); };
     const chk = (id, key, after) => { const el = overlay.querySelector(id); if (el) el.onchange = function() { s[key] = this.checked; save(); if (after) after(); }; };
     chk('#m_n_user', 'nodeUserMsgs', () => { refreshPrompt(); nodeLoad({ animate: false }); });
     chk('#m_n_tw', 'nodeTypewriter');

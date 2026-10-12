@@ -74,7 +74,7 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       return `chat open (character index ${i})`;
     },
     // Open the NTR menu, go to a page by its icon (`menu fg`) and open folded parts by their data-sec name
-    // (`menu vn vn_tags`). Menus from before the icon column (2.7 and older) expand sections the same way.
+    // (`menu reader rd_vn vn_guide`). Menus from before the icon column (2.7 and older) expand sections the same way.
     async menu(rest) {
       await page.evaluate(() => { window.toastr?.clear(); window.NTR.api.openMenu(); });
       for (const sec of rest.split(/\s+/).filter(Boolean)) {

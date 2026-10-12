@@ -12,7 +12,7 @@ Reader Mode has shipped with three styles: Plain, Book (an open book across the 
 
 ### Send box
 - [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
-- [ ] Show the Visual Novel Mode button (chat bubbles icon) only while VN Mode is on, so it works as a quick way out. VN Mode is switched on from the VN page.
+- [ ] Show the Visual Novel Mode button (chat bubbles icon) only while VN Mode is on, so it works as a quick way out. VN Mode is switched on from the Reader page's Style.
 - [ ] Maybe let the send box stretch across the whole screen, keeping its contents in the center.
 
 ### Reasoning Block and Text Formatting: follow-ups
@@ -177,7 +177,7 @@ Keep the open-world feel, and let a card optionally have endings.
 - [ ] `[[Ending:Name]]` tag: shows an ending title card.
 - [ ] Work out current flags and reached endings by scanning the chat, like locations already work, so swipes, edits and branches stay correct.
 - [ ] Add the current flags to the prompt text the extension already sends, so the model doesn't have to remember them.
-- [ ] Endings gallery in the VN menu with seen/unseen state, saved under a new settings key (existing keys untouched).
+- [ ] Endings gallery in the Visual Novel part of the Reader page, with seen/unseen state, saved under a new settings key (existing keys untouched).
 - [ ] Hide the new tags in the normal chat view, like the other scene tags.
 - [ ] Cards with no flag or ending tags behave exactly as they do now.
 

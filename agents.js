@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.50.0';
+  const AGENTS_VERSION = '2.51.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -218,6 +218,25 @@ Keep every value from your last result that the new messages leave as it was, an
     if (tc && a.repOn) o.repetition_penalty = a.rep;
     return o;
   }
+  // Same as Chat with its own samplers: your chat's APIs that SillyTavern lets extensions change a request for.
+  const OWN_SAMP_API = { openai: 'CHAT_COMPLETION_SETTINGS_READY', textgenerationwebui: 'TEXT_COMPLETION_SETTINGS_READY' };
+  // While a Same as Chat run builds its request, its ticked samplers replace your preset's in that one request. Only
+  // samplers SillyTavern already put in it are replaced, so one your chat's API doesn't take stays out. A reply of yours
+  // started meanwhile keeps your preset's. Returns the function that stops listening.
+  function ownSamplers(a, c) {
+    const ev = OWN_SAMP_API[c.mainApi];
+    const own = { ...samplers(a, c.mainApi === 'textgenerationwebui'), ...(a.effOn && c.mainApi === 'openai' ? { reasoning_effort: a.eff } : {}) };
+    if (!ev || !c.event_types?.[ev] || !Object.keys(own).length) return () => {};
+    const name = c.event_types[ev];
+    let used = false;
+    const hook = (data) => {
+      if (used || chatBusy || !data || typeof data !== 'object') return;
+      used = true;
+      for (const [k, v] of Object.entries(own)) if (k in data) data[k] = v;
+    };
+    c.eventSource.on(name, hook);
+    return () => c.eventSource.removeListener(name, hook);
+  }
 
   // Stop and the time limit end a run right away, even while it waits for your reply or for an answer.
   const abortable = (p, signal) => new Promise((res, rej) => {
@@ -255,6 +274,7 @@ Keep every value from your last result that the new messages leave as it was, an
       // cancels a full-prompt request. Both would also stop a reply being written, so they're only used while no reply is.
       const cancel = () => { if (!chatBusy) { if (full) c.stopGeneration(); else c.eventSource.emit(c.event_types.GENERATION_STOPPED); } };
       signal.addEventListener('abort', cancel, { once: true });
+      const unhook = ownSamplers(a, c);
       try {
         // SillyTavern skips a full-prompt request without a word while your chat has no connection.
         if (full && c.onlineStatus === 'no_connection') throw new Error('Your chat isn\'t connected to an API.');
@@ -272,6 +292,7 @@ Keep every value from your last result that the new messages leave as it was, an
         const chatPart = a.split && !test ? messages.slice(1).map((m) => ({ ...m, name: '' })) : messages[1].content;
         return String(await abortable(c.generateRaw({ prompt: chatPart, systemPrompt: messages[0].content, responseLength: max }), signal) ?? '');
       } finally {
+        unhook();
         signal.removeEventListener('abort', cancel);
       }
     }
@@ -436,9 +457,14 @@ Keep every value from your last result that the new messages leave as it was, an
       ${lab('Instruct Template', `<select class="text_pole m_ag_txt" data-f="tcInstruct" style="width:100%;"><option value="">None (plain format)</option>${opt(instructs.map((n) => [n, n]), a.tcInstruct)}</select>`)}
       <div class="cb_hint">The prompt format your model expects. Only the format: none of your writing settings come along. A saved key for this server type is used if it needs one.</div>
       ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is the same server your chat uses, and it answers one request at a time, so this agent waits until your reply is finished.</div>' : ''}`
-      : '<div class="cb_hint" style="margin-bottom:0;">Uses whatever your chat is connected to, with your chat\'s samplers. It waits until a reply is finished.</div>';
+      : '<div class="cb_hint" style="margin-bottom:0;">Uses whatever your chat is connected to: its API, model and key. It waits until a reply is finished.</div>';
     const past = runs.get(a.id) || [];
     const full = usesFull(a);
+    // Same as Chat's samplers only reach your chat's API on Chat Completion or Text Completion (see ownSamplers).
+    const api = ctx().mainApi;
+    const sampNote = a.kind !== 'chat' ? 'Unticked uses the API\'s own default. An API that doesn\'t use one ignores it. Your Chat Completion presets are never used.'
+      : OWN_SAMP_API[api] ? 'Unticked uses your chat preset\'s value. A sampler your chat\'s API doesn\'t take is left out. Your preset itself never changes.'
+        : 'Your chat isn\'t on Chat Completion or Text Completion, so it uses your chat\'s samplers. Switch your chat\'s API, or this agent\'s connection, to use these.';
     return `
       ${profileHtml(a)}
       ${card('Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list." style="width:100%;margin:0;">${esc(a.job)}</textarea>`)}
@@ -461,11 +487,13 @@ Keep every value from your last result that the new messages leave as it was, an
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
         <div class="cb_hint">Chat Completion is an online API, or a local server with an OpenAI-style link (Custom). Text Completion is a local server like KoboldCpp or llama.cpp. Neither changes your chat's connection or SillyTavern's Connection Profiles.</div>
         ${connBody}
-        ${a.kind === 'chat' ? '' : `<div class="cb_sub">Samplers</div>
+        <div class="cb_sub">Samplers</div>
+        <div class="${a.kind === 'chat' && !OWN_SAMP_API[api] ? 'cb_dim' : ''}">
         ${sampRows}
-        <div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="effOn" ${a.effOn ? 'checked' : ''}><span>Reasoning Effort</span></label>
-          <div class="m_o_body${a.effOn ? '' : ' cb_dim'}" data-for="effOn">${pills('ageff', EFFORT, a.eff)}</div></div>
-        <div class="cb_hint" style="margin-bottom:0;">Unticked uses the API's own default. An API that doesn't use one ignores it. Your Chat Completion presets are never used.</div>`}
+        ${a.kind === 'chat' && api !== 'openai' ? '' : `<div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="effOn" ${a.effOn ? 'checked' : ''}><span>Reasoning Effort</span></label>
+          <div class="m_o_body${a.effOn ? '' : ' cb_dim'}" data-for="effOn">${pills('ageff', EFFORT, a.eff)}</div></div>`}
+        </div>
+        <div class="cb_hint" style="margin-bottom:0;">${sampNote}</div>
         <div class="cb_sub">Reply</div>
         ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}
         <div class="cb_hint" style="margin-bottom:0;">How long its answer may be.</div>`)}

@@ -442,6 +442,8 @@
     const off = name === 'map' && !s.nodeMaps;
     const toggle = name === 'map' ? `<label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Enable maps</span></label>` : '';
     const msg = err ? `${SUB_LABEL[name]} failed to load: ${err}` : off ? 'Its settings appear here once it\'s switched on.' : 'Loading...';
+    // The menu loads it itself, so its settings are there in any Reader Mode style, not only once Visual Novel plays.
+    if (!err && !off && A.isOn()) loadSub(name);
     return `${subHead(sec, title)}<div class="cb_collapse_content" data-ntr-wait="${name}">${toggle}<div class="cb_hint">${escapeHTML(msg)}</div></div>`;
   }
 

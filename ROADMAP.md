@@ -5,19 +5,15 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ## Planned
 
 ### Reader Mode: follow-ups
-Reader Mode has shipped with three styles: Plain, Book (an open book across the screen, with the built-in book or your own picture) and Visual Novel (Visual Novel Mode). Still open:
-
 - [ ] Reader Mode: when Plain or Visual Novel is on, Book settings can still be accessed and changed. When Plain or Book is on, Visual Novel settings can still be accessed and changed. Hide or disable inactive settings, and ensure inactive styles aren't running in the background and wasting energy. Stop inactive timers, observers and processing. Preserve saved settings when switching styles.
 - [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel.
-- [ ] Separate layouts for normal chat and Reader Mode, or per Reader style, if Reader Mode turns out to need its own.
+- [ ] Reader Mode gets its own Layout. Right now the Layout page's positions (chat panel, menu bar, send bar, page bar, banner) are the same in normal chat and in Reader Mode. This would let Reader Mode use different ones, for example the chat panel on the left in normal chat but centered while reading in Plain. Only if that's ever wanted.
 
 ### Send box
 - [ ] Look at how SillyTavern's CSS lays out the Quick Reply buttons in the send box.
 - [ ] Maybe let the send box stretch across the whole screen, keeping its contents in the center.
 
 ### Reasoning Block and Text Formatting: follow-ups
-The sections themselves and the first batch of text effects have shipped. Still open:
-
 - Separate themes for normal chat and Reader Mode's styles, so each can have its own look.
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
 - Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
@@ -46,8 +42,6 @@ Worth doing, but after the planned work. Includes checks for problems that aren'
 - [ ] Gradient fade options, like how far the fade reaches and how soft it is.
 
 ### Agents: follow-ups
-The agents plan has shipped: agents with their own connection and prompt, `/ntr-agent`, results saved on the message and swipe they describe, Agent Results in Pinned Blocks, Delta, Send to Main AI and `{{agent::Name}}`. Still open, for when they turn out to be missed:
-
 - [ ] Character portraits next to the tracked characters.
 - [ ] Highlight what changed since the last result.
 - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
@@ -87,8 +81,6 @@ Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Re
 - Open question: whether the shapes also go on the VN portrait box.
 
 ### Text effects, second batch
-The first batch (Glow, Shadow, Outline) has shipped for Text Formatting.
-
 - [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
 
 ### Scrollbar side-to-side color

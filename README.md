@@ -28,3 +28,6 @@ NTR changes how chats look without touching your own ST settings, except where n
 ### `[ 04 ]` []
 
 ### `[ 05 ]` [Regexes examples]
+
+### `[ 06 ]` ????
+There are zero plans for compatibility with ST's own Visual Novel Mode or built-in extension Character Expressions.

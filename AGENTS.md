@@ -8,7 +8,7 @@ ChatGPT reviews pull requests and submits review comments directly on GitHub, un
 
 ## Writing
 
-- Use plain, literal language. In PR comments, name exact functions, keys, and files; in chat, explain in layman terms.
+- Use plain, literal language.
 - No em dashes. Use a colon or semicolon, or split the sentence.
 
 ## Reviewing a pull request

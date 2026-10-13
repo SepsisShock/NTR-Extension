@@ -36,6 +36,7 @@ Interface Shape (UI Decor, Whole Interface) rounds or squares the chat panel. Ex
 - [ ] Find which of ST's parts set their own corners, and override them only while Interface Shape is ticked; unticked keeps ST's look.
 - [ ] Check that rounded corners don't cut off anything inside them, like drawer edges, menu items or popup buttons.
 - [ ] Messages, the send box and avatars keep their own Shape; the VN box and Reasoning keep theirs too. Scrollbars keep what their Custom CSS sets.
+- [ ] Optional tick, Square Screen Edges: on Rounded, corners touching the screen edge stay square, so no background shows through the curve.
 
 ### Fonts
 Font boxes already take any font installed on the device, or a Google Fonts name.

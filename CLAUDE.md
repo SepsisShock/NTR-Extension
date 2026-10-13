@@ -25,6 +25,7 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 
 ## Writing
 - Everything you write: plain language, no em dashes.
+- Interface text is for any NTR user: describe features in general terms, not with examples from my presets or cards.
 
 ## Audience
 - NTR is unreleased, so I'm its only user. Designing for future users is fine, but nobody else has it installed: don't plan around other people's current NTR setups.

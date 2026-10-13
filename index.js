@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.59.1';
+  const VERSION = '2.59.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -2238,7 +2238,7 @@
           ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
           <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar, send bar, page bar and banner back where they start, in the layout picked above.</div>`)}
         ${card('Pinned Blocks', `
-          <div class="cb_hint">Shows a block from the chat messages, like Coordinates, in its own box on screen, with your regex's look. Pick the block in a message, then move the box with Edit Layout. The box always shows the newest copy; in Reader Mode, the newest up to the page you're on.</div>
+          <div class="cb_hint">Shows a block your regex draws in chat messages, like a tracker or status panel, in its own box on screen. Pick the block in a message, then move the box with Edit Layout. The box always shows the newest copy; in Reader Mode, the newest up to the page you're on.</div>
           <div id="m_pin_list"></div>
           <button type="button" id="m_pin_add" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-plus"></i> Add Pinned Block</button>
           <div class="ntr_soonrow ntr_soondim">
@@ -2617,7 +2617,7 @@
             <div class="cb_hint">Each picked agent's newest result saved in this chat, one under the other. An agent saves results when its Results setting is Saved in the Chat. The Agents page has to be on.</div>` : `
             <div class="cb_plab">Block</div>
             <button type="button" class="menu_button m_pin_pick" style="margin: 0; width: max-content;"><i class="fa-solid fa-hand-pointer"></i> Pick from chat</button>
-            <div class="cb_hint">The menu hides. Click the block in a message, like the Coordinates box. Escape cancels.</div>`}
+            <div class="cb_hint">The menu hides. Click the block in a message. Escape cancels.</div>`}
             <div class="cb_plab">Place</div>
             ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}
             <div class="cb_hint">Floating goes anywhere. ${p.from === 'agents' ? '' : 'It stays in its message until you drag it out with Edit Layout; Reset puts it back there. In Visual Novel Mode it shows in its box. '}Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>

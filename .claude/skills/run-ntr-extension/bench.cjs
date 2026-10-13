@@ -5,7 +5,7 @@
 // counters, frame times from requestAnimationFrame. Results are saved as $NTR_BENCH/<name>.json (default /tmp/ntr-bench).
 // `st.sh bench` sets up SillyTavern for a run and calls this; see SKILL.md.
 //
-//   node .claude/skills/run-ntr-extension/bench.cjs run <name> [--runs N] [--phone] [--vn]
+//   node .claude/skills/run-ntr-extension/bench.cjs run <name> [--runs N] [--phone] [--vn] [--ntr <version>]
 //   node .claude/skills/run-ntr-extension/bench.cjs table <name> [name...]
 const fs = require('fs');
 const path = require('path');
@@ -73,6 +73,8 @@ async function once(chromium, opts) {
   r.loadMs = Date.now() - t;
   await sleep(2500); // extensions finish their first render
   r.ntr = await page.evaluate(() => window.NTR?.api?.VERSION || null);
+  // A run meant for NTR stops here if it didn't load, rather than timing plain SillyTavern under NTR's name.
+  if (opts.ntr && r.ntr !== opts.ntr) throw new Error(`expected NTR ${opts.ntr}, but the page has ${r.ntr || 'no NTR'}`);
 
   if (opts.vn) {
     if (!r.ntr) throw new Error('--vn needs NTR installed');
@@ -156,10 +158,11 @@ async function once(chromium, opts) {
 
 async function run(args) {
   const name = args[0];
-  if (!name || name.startsWith('--')) throw new Error('usage: bench.cjs run <name> [--runs N] [--phone] [--vn]');
+  if (!name || name.startsWith('--')) throw new Error('usage: bench.cjs run <name> [--runs N] [--phone] [--vn] [--ntr <version>]');
   const i = args.indexOf('--runs');
   const runs = i >= 0 ? Math.max(1, +args[i + 1] || 3) : 3;
-  const opts = { phone: args.includes('--phone'), vn: args.includes('--vn') };
+  const v = args.indexOf('--ntr');
+  const opts = { phone: args.includes('--phone'), vn: args.includes('--vn'), ntr: v >= 0 ? args[v + 1] : '' };
   const { chromium } = loadPlaywright();
   fs.mkdirSync(OUT, { recursive: true });
   const results = [];
@@ -213,5 +216,5 @@ const [cmd, ...rest] = process.argv.slice(2);
 (async () => {
   if (cmd === 'run') await run(rest);
   else if (cmd === 'table' && rest.length) table(rest);
-  else { console.error('usage: bench.cjs run <name> [--runs N] [--phone] [--vn] | bench.cjs table <name> [name...]'); process.exit(1); }
+  else { console.error('usage: bench.cjs run <name> [--runs N] [--phone] [--vn] [--ntr <version>] | bench.cjs table <name> [name...]'); process.exit(1); }
 })().catch((e) => { console.error(e.message || e); process.exit(1); });

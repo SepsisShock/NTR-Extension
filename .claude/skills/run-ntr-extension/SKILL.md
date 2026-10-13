@@ -42,7 +42,7 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | command | what it does |
 |---|---|
 | `select [avatar]` | opens that character's chat (default `default_Seraphina.png`) |
-| `menu [page] [part...]` | opens the NTR menu, goes to a page by its icon (`themes`, `reader`, `layout`, `display` (Decor), `text`, `pfp`, `elements`, `fg`, `regex`, `agents`; `vn` for Visual Novel Mode's own page on 2.46 and older, `reasoning` instead of `elements` on 2.30 and older, `banner` on 2.24 and older) and opens folded parts by `data-sec` (`fg_banner`, `el_reasoning`, `el_scroll`, `el_cursor`, `rb_css`, `rd_book`, `rd_vn`, `vn_guide`, `vn_tags`, `vn_prompt`): `menu reader rd_vn vn_guide`. From 2.47, Visual Novel Mode's settings are in the Reader page's `rd_vn` part, which loads them a moment after the menu opens. Other parts (`vn_spk`, `vn_loc`, `vn_map`, ...) are always open, and naming one only checks it's there. On 2.7 and older, where every section folds, it expands them instead |
+| `menu [page] [part...]` | opens the NTR menu, goes to a page by its icon (`themes`, `reader`, `layout`, `display` (Decor), `text`, `pfp`, `elements`, `fg`, `regex`, `agents`; `vn` for Visual Novel Mode's own page on 2.46 and older, `reasoning` instead of `elements` on 2.30 and older, `banner` on 2.24 and older) and opens folded parts by `data-sec` (`fg_banner`, `el_reasoning`, `el_scroll`, `el_cursor`, `el_qr`, `rb_css`, `rd_book`, `rd_vn`, `vn_guide`, `vn_prompt`, and on the Avatars page `av_spk`, `av_tags`): `menu reader rd_vn vn_guide`, `menu pfp av_tags`. From 2.47, Visual Novel Mode's settings are in the Reader page's `rd_vn` part, which loads them a moment after the menu opens. Other parts (`vn_look`, `vn_loc`, `vn_map`, ...) are always open, and naming one only checks it's there. On 2.7 and older, where every section folds, it expands them instead |
 | `close` | closes the menu |
 | `vn on` / `vn off` | Visual Novel Mode, through its toolbar button |
 | `power on` / `power off` | the extension's own power button |
@@ -52,9 +52,9 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | `ok` / `cancel` | presses the main button or Cancel of the question NTR shows under the last button clicked (Delete, Remove, Reset...) |
 | `answer <text>` | types into the open text question and presses its main button. Link buttons ask for a URL: `click` the Link button, then `answer <url>`. Prints `still open:` and the red hint if it wasn't accepted |
 | `eval <expression>` | runs in the page (may use `await`) and prints the result as JSON |
-| `card` | the open chat's NTR data as saved in the character card |
+| `card` | the open chat's NTR data as saved in the card file, read back from the server. If the page's copy is different, it's shown below it: a save still waiting, or NTR's empty defaults, which it doesn't save |
 | `ss [name]` / `shot <name> <css>` | screenshot of the page / of one element |
-| `wait <ms>`, `reload`, `errors` | pause; load the page again; page errors so far, minus SillyTavern's network noise |
+| `wait <ms>`, `reload`, `errors` | pause; load the page again; page errors so far, minus SillyTavern's network noise. `errors` fails the run if there are any, so end with it. A failed load shows its address |
 
 An upload and a link, with the server running:
 
@@ -67,6 +67,7 @@ click #cb_modal_overlay .m_f_up[data-pos="Left"]
 upload #cb_modal_overlay #m_f_file | /tmp/test.png
 click #cb_modal_overlay .m_f_url[data-pos="Center"]
 answer http://127.0.0.1:8000/characters/default_Seraphina.png
+wait 1500
 card
 EOF
 ```
@@ -118,7 +119,7 @@ bash .claude/skills/run-ntr-extension/st.sh bench branch full        # the worki
 bash .claude/skills/run-ntr-extension/st.sh bench table plain main branch
 ```
 
-Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Decor styling, a custom cursor, and Layout with a Pinned Block, through `bench-full.txt`), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen) and `runs=N` (default 3). Each run takes about a minute, and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
+Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Decor styling, a custom cursor, and Layout with a Pinned Block, through `bench-full.txt`, which reloads the page and fails if any of those settings didn't stick), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen) and `runs=N` (default 3). A run with NTR fails if the page doesn't load the version that was installed. Each run takes about a minute, and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
 
 Reading the numbers:
 
@@ -133,10 +134,10 @@ Reading the numbers:
 
 ## Test
 
-There's no test suite. Check that every file parses (as modules, since `index.js` uses `import.meta`); no output means all good:
+There's no test suite. Check that every file parses (as modules, since `index.js` uses `import.meta`); no output means all good, and it exits 1 if any file fails:
 
 ```bash
-for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs || echo "syntax error in $f"; done
+bad=0; for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs || { echo "syntax error in $f"; bad=1; }; done; [ "$bad" = 0 ]
 ```
 
 ## Gotchas
@@ -144,7 +145,7 @@ for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs 
 - **The menu shows one page at a time and some parts are folded**, and Playwright's own `fill` and `waitForSelector` time out on elements that are hidden. Use the driver's `click` and `set`. In raw Playwright, set values through `page.evaluate` and wait with `{ state: 'attached' }`.
 - **Upload buttons open their file input from code**, and a headless page shows no file picker for that; even a forced Playwright click produced no file chooser. `click` the Upload button (it records the slot), then `upload` to the hidden input.
 - **SillyTavern clears every extension prompt when a chat opens, starts or reloads.** That's how NTR's Visual Novel instructions once went missing. Check `extensionPrompts.ntr_vn_tags` after `select` or `reloadCurrentChat()`, never only before.
-- **Card data is written 0.7 s after the last change**, and the driver closes the browser when its commands run out. A change made right before the end never reaches the card. End with `wait 1500` when the next run (or a `reload`) has to see it.
+- **Card data is written 0.7 s after the last change**, and the driver closes the browser when its commands run out. A change made right before the end never reaches the card. End with `wait 1500` when the next run (or a `reload` or `card`) has to see it.
 - **`reset` stops the server.** SillyTavern keeps characters in memory, so the data can't be swapped under it; `start` again afterwards.
 - **SillyTavern's first-run "Welcome" dialog asks for a persona name and holds up loading**: the character list stays empty behind it. `st.sh setup` sets `"firstRun": false` in `data/default-user/settings.json`; do the same if you make SillyTavern data another way.
 - **Lazy loading:** `st.sh lazy on`, then `stop` and `start`. Characters load as shallow copies without their NTR data, and opening a chat loads that one in full. For two cards that share files, duplicate one, which makes `default_Seraphina_1.png`:
@@ -152,7 +153,8 @@ for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs 
 
 ## Troubleshooting
 
-- **`pageerror: Unexpected token 'I', "Internal S"... is not valid JSON`** with a `500` from `/api/horde/text-models`: SillyTavern's AI Horde lookup can't reach the internet. It isn't the extension's; `errors` leaves it out.
+- **`pageerror: Unexpected token 'I', "Internal S"... is not valid JSON`** with a `500` from `/api/horde/text-models`: SillyTavern's AI Horde lookup can't reach the internet. It isn't the extension's; `errors` leaves it out, along with other failed loads from `/api/horde/` and the favicon. Any other failed load counts.
+- **`not kept after reload: <settings>`** from `st.sh bench ... full`: NTR changed or dropped settings `bench-full.txt` sets, usually because a newer version moved them. Update the preset to the current settings.
 - **`SillyTavern or the extension didn't load at http://127.0.0.1:8000/: page.goto: net::ERR_CONNECTION_REFUSED`**: the server isn't running. Run `st.sh start`, and read `/tmp/sillytavern.log` if that fails.
 - **`SillyTavern or the extension didn't load at http://127.0.0.1:8000/: page.waitForFunction: Timeout 60000ms exceeded`**: usually the first-run "Welcome" dialog (see Gotchas). `st.sh reset` puts back data with it turned off.
 - **`page.fill: Timeout 30000ms exceeded`** or **`page.waitForSelector: Timeout`** in your own Playwright script: the element is on another menu page or in a folded part (see Gotchas).

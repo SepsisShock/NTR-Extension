@@ -20,6 +20,7 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Gradient fade options, like how far the fade reaches and how soft it is.
 
 ### Agents: follow-ups
+- [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Character portraits next to the tracked characters.
 - [ ] Highlight what changed since the last result.
 - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
@@ -49,8 +50,8 @@ Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Re
 ### Text effects, second batch
 - [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
 
-### Scrollbar side-to-side color
-A Scrollbar Color that changes from one side of the scrollbar to the other (a horizontal gradient) instead of one flat color.
+### Horizontal Scrollbar color
+- [ ] Default is grey currently.
 
 - [ ] A second color for the right side of the scrollbar, with Scrollbar Color as the left.
 - [ ] Sideways scrollbars (like in wide code blocks) turn it to run top to bottom, so it still goes across the bar.
@@ -75,11 +76,6 @@ Complicated, not urgent.
 Decorative image borders around interface parts, stretched to fit any size.
 
 - Open questions: which parts (VN dialogue box, name tag, choice buttons, map window, NTR menu, SillyTavern's chat messages); built-in, uploaded, or both; one border style for all parts or one per part; saved in themes.
-
-### Folder of pre-generated locations
-
-Complicated, not urgent.
-A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
 
 - Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
 
@@ -176,3 +172,6 @@ In Line looks too bulky next to the text.
 
 ### SillyTavern's top bar icons
 - [ ] Change the icons in SillyTavern's top menu bar.
+
+### Folder of pre-generated locations
+- [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.

@@ -3301,9 +3301,18 @@
     if (kind !== 'default') {
       css += cssRule(A + '::before', symbol ? { content: cssStr(sym), 'font-family': 'var(--mainFontFamily)', 'font-weight': 'normal' } : { content: 'none' });
     }
-    // ST leaves room on the button's right for one arrow at its own size. A bigger arrow or a longer symbol needs more.
+    // ST leaves room on the button's right for one arrow at its own size. A bigger arrow or a longer symbol needs more,
+    // and Quarter Turn stands a long symbol on end, so the button is made tall enough for it too.
     const wide = 0.7 * k * (symbol ? graphemes(sym) * 1.2 : 1);
-    if (wide !== 0.7) css += cssRule('.mes_reasoning_header', { 'padding-right': `calc(var(--mainFontSize) * ${+wide.toFixed(3)} + 14px)` });
+    const high = 0.7 * k * (symbol ? 1.2 : 1);
+    const tall = s.rbArrowTurn === 'quarter' ? Math.max(wide, high) : high;
+    if (wide !== 0.7) {
+      css += cssRule('.mes_reasoning_header', {
+        'padding-right': `calc(var(--mainFontSize) * ${+wide.toFixed(3)} + 14px)`,
+        'min-height': `calc(var(--mainFontSize) * ${+tall.toFixed(3)} + 8px)`,
+        'align-items': 'center',
+      });
+    }
     const [open, closed] = RB_TURN[s.rbArrowTurn] || RB_TURN.flip;
     css += `\n      #chat ${A} { transform: none; translate: 0 -50%; rotate: ${open}; }`;
     css += `\n      #chat .mes_reasoning_details:not([open]) .mes_reasoning_arrow { rotate: ${closed}; }`;

@@ -29,5 +29,8 @@ NTR changes how chats look without touching your own ST settings, except where n
 
 ### `[ 05 ]` [Regexes examples]
 
-### `[ 06 ]` ????
-There are zero plans for compatibility with ST's own Visual Novel Mode or built-in extension Character Expressions.
+### `[ 06 ]` COMPATIBILITY
+I have zero interest in integrating NTR with...
+- SillyTavern's own Visual Novel Mode or built-in extension Character Expressions.
+- Interfaces other than SillyTavern, including ST forks
+Feel free to do so if you want.

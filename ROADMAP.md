@@ -4,12 +4,8 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-### Reader Mode: follow-ups
-- Left out on purpose: a separate Layout and separate themes for Reader Mode. Normal chat and Reader Mode share the same positions and themes.
-
 ### Reasoning Block and Text Formatting: follow-ups
 - Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
-- Left out for now: line height, letter spacing, background color per Text Formatting part. The reasoning block has Box Color, and its Custom CSS covers the rest.
 
 ### Message details
 Find out how to make these movable and designable, and which details SillyTavern makes available.
@@ -20,8 +16,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 
 ## Misc (Low Priority)
-
-Worth doing, but after the planned work. Includes checks for problems that aren't confirmed yet.
 
 ### Background Pattern: Fade
 - [ ] Fade isn't working correctly yet. Find what's wrong and fix it.

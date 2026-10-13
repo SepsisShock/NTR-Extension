@@ -29,10 +29,19 @@ NTR changes how chats look without touching your own ST settings, except where n
 
 ### `[ 05 ]` [Regexes examples]
 
-### `[ 06 ]` COMPATIBILITY
-I have zero interest in integrating NTR with...
-- SillyTavern's own Visual Novel Mode or built-in extension Character Expressions.
-- Consistent upkeep of Quick Reply UI.
-- Interfaces other than SillyTavern, including ST forks.
+### `[ 06 ]` COMPATIBILITY & SUPPORT
+`I have zero interest in integrating NTR with:`
+1. SillyTavern's own Visual Novel Mode or built-in extension Character Expressions.
+3. Maintaining UI upkeep of Quick Reply. Basics were included as an initial courtesy. Might be removed entirely in the future.
+4. Interfaces other than SillyTavern, including ST forks.
+  - Shouldn't have to say this, but this is **not** meant to work on Janitor.
 
-Feel free to do so if you want; the project is open source.
+`Zero interest in making NTR its own interface.`
+Too much upkeep and work for one person and I don't want to deal with 10x more bug reports nor moderate.
+
+`Testing`
+Testing is done on PC desktops using Chrome. Everything else is done in simulators.
+
+However, feel free to do the above if you want; the project is open source.
+
+### `[ 06 ]` SPECIAL THANKS

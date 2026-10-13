@@ -25,8 +25,9 @@ const { chromium } = loadPlaywright();
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const SHOTS = process.env.NTR_SHOTS || '/tmp/ntr-shots';
-// Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's.
-const NOISE = /Internal S.*not valid JSON|Failed to load resource|favicon/i;
+// Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's. A failed load
+// only counts as noise by its address, so a missing NTR image still shows up.
+const NOISE = /Internal S.*not valid JSON|\/api\/horde\/|favicon/i;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : [s.slice(0, i).trim(), s.slice(i + 3).trim()]; };
 
@@ -37,7 +38,12 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    // "Failed to load resource" doesn't say which one; the address comes with the message.
+    const url = m.text().startsWith('Failed to load resource') ? m.location()?.url : '';
+    errors.push('console: ' + m.text() + (url ? ' (' + url + ')' : ''));
+  });
   // NTR asks its questions in the menu (see `ok`, `cancel` and `answer`). A browser dialog from anywhere else is accepted.
   page.on('dialog', (d) => d.accept());
 
@@ -163,9 +169,23 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       }, code);
       return r;
     },
-    // The open chat's NTR data, as saved in the character card.
+    // The open chat's NTR data as the server has it in the card file. When the page's copy is different, it's shown
+    // below: a save still waiting (they go 0.7 s after the last change), or NTR's empty defaults, which it doesn't save.
+    // A save the server turns down logs an error, which `errors` reports.
     async card() {
-      return page.evaluate(() => { const c = SillyTavern.getContext(); return JSON.stringify(c.characters[c.characterId]?.data?.extensions?.ntr ?? null); });
+      const r = await page.evaluate(async () => {
+        const c = SillyTavern.getContext(), ch = c.characters[c.characterId];
+        if (!ch) return { err: 'no chat open' };
+        const res = await fetch('/api/characters/get', { method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ avatar_url: ch.avatar }) });
+        if (!res.ok) return { err: `reading the card failed: ${res.status}` };
+        // Keys sorted, so the same data saved in another order still matches.
+        const sorted = (v) => JSON.stringify(v ?? null, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)
+          ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, x[key]])) : x));
+        const file = (await res.json())?.data?.extensions?.ntr;
+        return { file: JSON.stringify(file ?? null), same: sorted(file) === sorted(ch.data?.extensions?.ntr), page: JSON.stringify(ch.data?.extensions?.ntr ?? null) };
+      });
+      if (r.err) throw new Error(r.err);
+      return r.same ? r.file : r.file + '\n  the page has: ' + r.page;
     },
     async ss(rest) {
       const file = path.join(SHOTS, (rest || 'page') + '.png');
@@ -181,9 +201,12 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
     },
     async wait(rest) { await sleep(Number(rest) || 1000); return 'waited'; },
     async reload() { await ready(); return 'reloaded'; },
+    // Fails if there are any, so a run that ends with `errors` exits 1 on them.
     async errors() {
       const real = errors.filter((e) => !NOISE.test(e));
-      return real.length ? real.join('\n    ') : `none (${errors.length - real.length} SillyTavern network errors ignored)`;
+      if (!real.length) return `none (${errors.length} SillyTavern network errors ignored)`;
+      console.log('  ' + real.join('\n  '));
+      throw new Error(real.length + (real.length === 1 ? ' page error' : ' page errors'));
     },
   };
 

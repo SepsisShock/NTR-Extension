@@ -1,7 +1,8 @@
 # Driver commands that turn on most of NTR for `st.sh bench <name> [ref] full`. st.sh replaces @BANNERS@ with three
 # banner images and @IMG@ with the folder of test images. The banner and foreground images go through the menu;
-# the other settings are set directly, then the page reloads to check they were saved. The Pinned Block matches nothing,
-# so it looks through every message each time the chat changes: the most work it can do.
+# the other settings are set directly, then the page reloads to check each one was saved and kept. The Pinned Block matches nothing,
+# so it looks through every message each time the chat changes: the most work it can do. NTR adds its own defaults to
+# what's set (the Pinned Block's other fields), so the check after the reload only looks at the values set here.
 select default_Seraphina.png
 menu
 click #cb_modal_overlay #m_b_enable
@@ -18,9 +19,9 @@ click #cb_modal_overlay .m_f_up[data-pos="Right"]
 upload #cb_modal_overlay #m_f_file | @IMG@/fg.png
 wait 1500
 close
-eval (() => { const A = NTR.api, cur = A.store().fg.Left; Object.assign(A.settings(), { bannerRotateSec: 3, ovAvatarOn: true, ovAvatar: 'rounded', rbBtnColorOn: true, rbBtnColor: '#7a3cff', rbBtnFx: 'glow', rbEdgeFx: 'glow', rbBoxColorOn: true, rbBoxColor: '#20103a', rbBoxAlphaOn: true, rbBoxOpacity: 70, rbBorderStyleOn: true, rbBorderStyle: 'solid', rbPat: 'notebook', rbPatV: true, rbTyping: 'both', tfNameFxOn: true, tfAiFxOn: true, tfUserFxOn: true, tfAiMainOn: true, tfAiMain: '#e8d8ff', tfAiQuoteOn: true, tfAiQuote: '#ffb3e6', tfNameFontOn: true, tfNameFont: 'Georgia', ovWidthOn: true, ovWidth: 60, ovBlurOn: true, ovBlur: 10, ovShadowOn: true, ovShadow: 3, ovShapeOn: true, ovShape: 'rounded', ovRound: 16, ovPanelBg: 'color', ovPanelBgColor: '#140a24', ovPanelBgOpacity: 60, ovPanelBorderOn: true, ovMesGapOn: true, ovMesGap: 12, ovSendPosOn: true, ovScrollColorOn: true, ovScrollColor: '#7a3cff', ovCursorOn: true, ovCursorImg: cur, ovCursorPtrImg: cur, ovCursorSize: 32, layEnabled: true, layPins: [{ id: 'pin_bench', name: 'Bench', tag: 'div', classes: ['custom-bench'], desk: { x: 72, y: 12, w: 24, h: 40 }, phone: { x: 5, y: 12, w: 90, h: 35 } }] }); A.save(); return 'settings saved'; })()
+eval (() => { const A = NTR.api, cur = A.store().fg.Left, want = { bannerRotateSec: 3, rbBtnColorOn: true, rbBtnColor: '#7a3cff', rbBtnFx: 'glow', rbEdgeFx: 'glow', rbBoxColorOn: true, rbBoxColor: '#20103a', rbBoxAlphaOn: true, rbBoxOpacity: 70, rbBorderStyleOn: true, rbBorderStyle: 'dashed', rbPat: 'notebook', rbPatV: true, rbTyping: 'both', tfNameFxOn: true, tfAiFxOn: true, tfUserFxOn: true, tfAiMainOn: true, tfAiMain: '#e8d8ff', tfAiQuoteOn: true, tfAiQuote: '#ffb3e6', tfNameFontOn: true, tfNameFont: 'Georgia', ovWidthOn: true, ovWidth: 60, ovBlurOn: true, ovBlur: 10, ovShadowOn: true, ovShadow: 3, ovShapeOn: true, ovShape: 'rounded', ovRound: 16, ovPanelBg: 'color', ovPanelBgColor: '#140a24', ovPanelBgOpacity: 60, ovPanelBorderOn: true, ovMesGapOn: true, ovMesGap: 12, ovSendPosOn: true, ovScrollColorOn: true, ovScrollColor: '#7a3cff', ovCursorOn: true, ovCursorImg: cur, ovCursorPtrImg: cur, ovCursorSize: 32, layEnabled: true, layPins: [{ id: 'pin_bench', name: 'Bench', tag: 'div', classes: ['custom-bench'], desk: { x: 72, y: 12, w: 24, h: 40 }, phone: { x: 5, y: 12, w: 90, h: 35 } }] }; Object.assign(A.settings(), want); A.save(); localStorage.ntrBenchWant = JSON.stringify(want); return 'settings saved'; })()
 wait 3000
 reload
 select default_Seraphina.png
-eval (() => { const s = NTR.api.settings(); return { banner: !!NTR.api.bannerImage(), bannerOn: s.bannerOn, fgEnabled: s.fgEnabled, rbPat: s.rbPat, ovCursorOn: s.ovCursorOn }; })()
+eval (() => { const s = NTR.api.settings(), want = JSON.parse(localStorage.ntrBenchWant), has = (v, w) => (w && typeof w === 'object' ? !!v && typeof v === 'object' && Object.keys(w).every((k) => has(v[k], w[k])) : v === w), lost = Object.keys(want).filter((k) => !has(s[k], want[k])); if (lost.length) throw new Error('not kept after reload: ' + lost.join(', ')); return { banner: !!NTR.api.bannerImage(), bannerOn: s.bannerOn, bannerRotate: s.bannerRotate, fgEnabled: s.fgEnabled, fgImages: ['Left', 'Center', 'Right'].filter((p) => NTR.api.store().fg[p]).length, rbEnabled: s.rbEnabled, ovEnabled: s.ovEnabled, settingsKept: Object.keys(want).length }; })()
 errors

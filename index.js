@@ -2969,7 +2969,8 @@
     css += cssRule('#qr--bar > .qr--buttons', {
       'flex-wrap': on('ovQrWrap') ? (scroll ? 'nowrap' : 'wrap') : '',
       gap: on('ovQrGap') ? `${rangeNum(s, 'ovQrGap')}px` : '',
-      'justify-content': on('ovQrAlign') ? QR_ALIGN[s.ovQrAlign] : '',
+      // ST centers the buttons, which in one row would push the first ones out of reach: centered safely instead.
+      'justify-content': on('ovQrAlign') ? QR_ALIGN[s.ovQrAlign] : scroll ? QR_ALIGN.center : '',
     });
     css += cssRule('#qr--bar', { opacity: on('ovQrOpacity') ? rangeNum(s, 'ovQrOpacity') / 100 : '' });
     return css ? css + '\n' : '';

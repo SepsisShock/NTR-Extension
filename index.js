@@ -2749,15 +2749,16 @@
     '#extensionsMenu', '#options .options-content', '.list-group', '.draggable', '.select2-dropdown',
     '#cb_modal_overlay .cb_popup_content', '#ntr_pin_layer .ntr_pin_panel', '#ntr_map .ntr_map_panel'];
   const UI_INNER = ['#user-settings-block h4', '.standoutHeader', '.standoutHeader ~ .inline-drawer-content', '.settingsSectionWrap', '.extensions_info .extension_block',
-    '#cb_modal_overlay .ntr_page .ntr_card', '#cb_modal_overlay .ntr_glab + .cb_collapse_content', '#cb_modal_overlay .ntr_fold'];
+    '#cb_modal_overlay .ntr_page .ntr_card', '#cb_modal_overlay .ntr_glab + .cb_collapse_content', '#cb_modal_overlay .ntr_fold', '#ntr_map .ntr_map_pop'];
   // Folded parts: the header's top corners while open, and the part under it the bottom ones.
   const UI_INNER_TOP = ['#cb_modal_overlay .ntr_fold.ntr_open', '#cb_modal_overlay .rx_open .ntr_fold.rx_fhead', '#cb_modal_overlay .ntr_fold.rx_uhead'];
   const UI_INNER_BOTTOM = ['#cb_modal_overlay .ntr_fold + .cb_collapse_content', '#cb_modal_overlay .ntr_page .ntr_card.rx_fbody', '#cb_modal_overlay .ntr_page .ntr_card.rx_loose'];
-  // Small controls go square only inside these, so the send box, Quick Replies and the chat keep theirs. NTR's switches
-  // stay round.
-  const UI_HOLDERS = ':is(#top-settings-holder, #character_popup, .popup, #dialogue_popup, #movingDivs, #cb_modal_overlay)';
+  // Small controls go square only inside these, so the send box, Quick Replies and the chat keep theirs. In a pinned block
+  // only Agent Results count, since other blocks show copies of the chat. NTR's switches stay round.
+  const UI_HOLDERS = ':is(#top-settings-holder, #character_popup, .popup, #dialogue_popup, #movingDivs, #cb_modal_overlay, #ntr_pin_layer .ntr_agres, #ntr_map)';
   const UI_CONTROLS = `:is(.menu_button, .text_pole, textarea, select, input[type="checkbox"]:not(${SWITCHES.map((x) => x.split(' ').pop()).join(', ')}),
-    .select2-selection, .range-block-counter input, .neo-range-input, .neo-range-slider, input[type="range"], .ui-slider, .ui-slider-handle)`;
+    .select2-selection, .range-block-counter input, .neo-range-input, .neo-range-slider, input[type="range"], .ui-slider, .ui-slider-handle,
+    .cb_hbtn, .cb_close_btn, .ntr_map_hb, .ntr_agres_btn)`;
 
   function uiShapeCss(s) {
     if (!s.ovShapeOn) return '';

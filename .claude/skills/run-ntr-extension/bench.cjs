@@ -12,8 +12,9 @@ const path = require('path');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const OUT = process.env.NTR_BENCH || '/tmp/ntr-bench';
-// Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's.
-const NOISE = /Internal S.*not valid JSON|Failed to load resource|favicon/i;
+// Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's. A failed load
+// only counts as noise by its address, so a missing NTR image still shows up.
+const NOISE = /Internal S.*not valid JSON|\/api\/horde\/|favicon/i;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function loadPlaywright() {
@@ -61,7 +62,13 @@ async function once(chromium, opts) {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => { if (!NOISE.test(e.message)) errors.push('pageerror: ' + e.message); });
-  page.on('console', (m) => { if (m.type() === 'error' && !NOISE.test(m.text())) errors.push('console: ' + m.text()); });
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    // "Failed to load resource" doesn't say which one; the address comes with the message.
+    const url = m.text().startsWith('Failed to load resource') ? m.location()?.url : '';
+    const e = 'console: ' + m.text() + (url ? ' (' + url + ')' : '');
+    if (!NOISE.test(e)) errors.push(e);
+  });
   page.on('dialog', (d) => d.accept());
   const cdp = await context.newCDPSession(page);
   await cdp.send('Performance.enable');

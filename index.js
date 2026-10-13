@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.55.0';
+  const VERSION = '2.56.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -925,7 +925,7 @@
       + `<div id="cb_place_pill">
           <span class="cb_place_name"></span>
           <label class="cb_place_snap" title="Hold Alt while dragging to move freely for one move"><input type="checkbox" id="cb_place_snap"><span>Snap to Grid</span></label>
-          <span class="cb_place_gridset"><input type="range" id="cb_place_grid" ${rangeAttrs('placeGrid')} value="${rangeNum(s, 'placeGrid')}" title="Grid spacing"><span><span id="cb_place_gridval">${rangeNum(s, 'placeGrid')}</span>${NUM_RANGE.placeGrid[3]}</span></span>
+          <span class="cb_place_gridset"><input type="range" id="cb_place_grid" ${rangeAttrs('placeGrid')} value="${rangeNum(s, 'placeGrid')}" title="Grid spacing"><span><span id="cb_place_gridval" class="ntr_slval">${rangeNum(s, 'placeGrid')}</span>${NUM_RANGE.placeGrid[3]}</span></span>
           <button type="button" id="cb_place_undo" title="Undo the last move"><i class="fa-solid fa-rotate-left"></i> Undo</button>
           <button type="button" id="cb_place_reset" title="Put the picked item back where it starts">Reset</button>
           <button type="button" id="cb_place_done" class="cb_place_main">Done</button>
@@ -1595,7 +1595,7 @@
     const scaleOff = style !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
 
     const slider = (id, key, label) => `
-      <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val">${rangeNum(s, prefix + key)}</span>${NUM_RANGE[prefix + key][3]}</span></div>
+      <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val" class="ntr_slval">${rangeNum(s, prefix + key)}</span>${NUM_RANGE[prefix + key][3]}</span></div>
       <input type="range" id="m_${prefix}_${id}" ${rangeAttrs(prefix + key)} value="${rangeNum(s, prefix + key)}">`;
     // A group shows for the styles it lists (data-only, space-separated).
     const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${only.split(' ').includes(style) ? 'flex' : 'none'};">${inner}</div>`;
@@ -1628,7 +1628,7 @@
 
         ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
           + fadeGrid(prefix, s, fadeCur)
-          + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
+          + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval" class="ntr_slval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
           <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">
           <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
           + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the avatar as it shows, so they keep their look at any Image Scale. Clear Fades sets all eight to 0.</div>')}
@@ -3083,10 +3083,52 @@
         <div class="m_o_body ${s[onKey] ? '' : 'cb_dim'}" data-for="${onKey}">${inner}</div>
       </div>`;
   }
+  // Typing a slider's value: the number beside a slider (class ntr_slval) turns into a box when clicked. Enter or
+  // clicking away applies it, Esc keeps the old one. The slider keeps it to its own range and step, and its own input
+  // and change handlers save and apply it, as if it was dragged. data-scale turns the shown number into the saved one.
+  // The number sits in the slider's row, or in the row just above it.
+  function slFor(el) {
+    const row = el.closest('.cb_row, .cb_place_gridset');
+    const next = row?.nextElementSibling;
+    return row?.querySelector('input[type="range"]') || (next?.matches('input[type="range"]') ? next : null);
+  }
+  function typeSlider(e) {
+    const el = e.target.closest?.('.ntr_slval');
+    const sl = el && slFor(el);
+    if (!sl || sl.disabled || el.hidden) return;
+    const box = document.createElement('input');
+    box.type = 'text';
+    box.className = 'text_pole ntr_slbox';
+    box.inputMode = Number(sl.min) < 0 ? 'text' : 'decimal'; // phone number pads may have no minus key
+    box.value = el.textContent;
+    el.hidden = true;
+    el.after(box);
+    let done = false;
+    const end = (apply) => {
+      if (done) return;
+      done = true;
+      const v = parseFloat(box.value.replace(',', '.'));
+      box.remove();
+      el.hidden = false;
+      if (!apply || !Number.isFinite(v)) return;
+      const old = sl.value;
+      sl.value = String(v * (Number(el.dataset.scale) || 1));
+      if (sl.value === old) return;
+      sl.dispatchEvent(new Event('input', { bubbles: true }));
+      sl.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    box.onkeydown = (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); end(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); end(false); }
+    };
+    box.onblur = () => end(true);
+    box.focus();
+    box.select();
+  }
   function ovSlider(s, key, unit, min, max, step) {
     const v = rangeNum(s, key);
     return `
-      <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_o_${key}val">${v}</span>${unit}</span></div>`;
+      <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_o_${key}val" class="ntr_slval">${v}</span>${unit}</span></div>`;
   }
   function ovColor(s, key) {
     return customElements.get('toolcool-color-picker')
@@ -5413,6 +5455,11 @@
     registerMacro();
     document.addEventListener('pointerover', onCursorOver, true);
     document.addEventListener('pointerdown', onCursorDown, true);
+    document.addEventListener('click', typeSlider);
+    document.addEventListener('pointerover', (e) => {
+      const el = e.target.closest?.('.ntr_slval');
+      if (el && !el.title) el.title = 'Click to type a value';
+    });
     document.addEventListener('load', (e) => {
       if (!(e.target instanceof HTMLImageElement) || !e.target.matches('#chat .mes .avatar img')) return;
       setAvatarRatio(e.target);

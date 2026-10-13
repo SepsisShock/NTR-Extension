@@ -314,6 +314,10 @@
   gap: 10px;
 }
 
+/* A slider's number: click it to type a value (see typeSlider in index.js). */
+.ntr_slval { cursor: text; text-decoration: underline dotted; text-underline-offset: 3px; }
+input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; height: auto; margin: 0; padding: 0 4px; text-align: right; font-size: inherit; }
+
 .cb_actions { display: flex; gap: 8px; }
 .cb_actions button { flex: 1; }
 /* SillyTavern's buttons are flex boxes, which drop the space between an icon and its label, so the gap does it. */

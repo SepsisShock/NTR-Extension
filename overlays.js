@@ -4,7 +4,7 @@
 // The header banner above the chat (images that can rotate, a YouTube loop or a video) and the foreground images beside
 // the chat panel, with their page in the menu. Their settings, card data and Edit Placement stay in index.js.
 (() => {
-  const OVERLAYS_VERSION = '2.55.0';
+  const OVERLAYS_VERSION = '2.56.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange, cNum,
@@ -562,14 +562,14 @@
               <div class="cb_thumbs">${src.images.map((im, i) => `<img class="cb_thumb${i === src.idx ? ' active' : ''}" data-i="${i}" src="${escapeHTML(media(im.url))}" alt="">`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No images yet</div>`}
 
               ${curImg ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_pval">${cardNum(curImg.pos, 'bannerPos', 45)}</span>${numRange('bannerPos')[3]}</span></div>
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_pval" class="ntr_slval">${cardNum(curImg.pos, 'bannerPos', 45)}</span>${numRange('bannerPos')[3]}</span></div>
               <input type="range" id="m_b_p" ${rangeAttrs('bannerPos')} value="${cardNum(curImg.pos, 'bannerPos', 45)}">
               ` : ''}`)}
 
               ${card('Rotation' + (ownKind ? ' ' + TAG : ''), `
                 <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate through images</span></label>
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
-                  <div class="cb_row" style="margin-top: 8px;"><label>Every:</label><span><span id="m_b_rot_val">${ro.rotateSec}</span>${numRange('bannerRotateSec')[3]}</span></div>
+                  <div class="cb_row" style="margin-top: 8px;"><label>Every:</label><span><span id="m_b_rot_val" class="ntr_slval">${ro.rotateSec}</span>${numRange('bannerRotateSec')[3]}</span></div>
                   <input type="range" id="m_b_rot_sec" ${rangeAttrs('bannerRotateSec')} value="${ro.rotateSec}">
                   <div style="margin-top: 8px;"><strong>Change:</strong>${pills('brfx', [['fade', 'Crossfade'], ['swap', 'Instant']], ro.rotateFx)}</div>
                   <div style="margin-top: 8px;"><strong>Order:</strong>${pills('brord', [['order', 'In order'], ['shuffle', 'Shuffled']], ro.rotateOrder)}</div>
@@ -598,7 +598,7 @@
               </div>
               <input type="file" id="m_b_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
               ${src.video ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_vpval">${cardNum(src.videoPos, 'bannerVideoPos', 50)}</span>${numRange('bannerVideoPos')[3]}</span></div>
+              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_vpval" class="ntr_slval">${cardNum(src.videoPos, 'bannerVideoPos', 50)}</span>${numRange('bannerVideoPos')[3]}</span></div>
               <input type="range" id="m_b_vp" ${rangeAttrs('bannerVideoPos')} value="${cardNum(src.videoPos, 'bannerVideoPos', 50)}">` : ''}
               <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>`)}
             </div>
@@ -613,17 +613,17 @@
                 <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
               </label>
 
-            <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:${btag}</label><span><span id="m_b_hval">${bl.height}</span>${numRange('bannerHeight')[3]}</span></div>
+            <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:${btag}</label><span><span id="m_b_hval" class="ntr_slval">${bl.height}</span>${numRange('bannerHeight')[3]}</span></div>
             <input type="range" id="m_b_h" ${rangeAttrs('bannerHeight')} value="${bl.height}">
             <div id="m_b_guide" class="cb_hint" style="margin-top: 4px;">${escapeHTML(bannerGuideText())}</div>
 
             <div id="m_b_gap_wrapper" style="${r.overlap ? 'opacity: 0.5; pointer-events: none;' : ''}">
-              <div class="cb_row" style="margin-top: 10px;"><label>Gap Below Banner:${btag}</label><span><span id="m_b_gapval">${bl.gap}</span>${numRange('bannerGap')[3]}</span></div>
+              <div class="cb_row" style="margin-top: 10px;"><label>Gap Below Banner:${btag}</label><span><span id="m_b_gapval" class="ntr_slval">${bl.gap}</span>${numRange('bannerGap')[3]}</span></div>
               <input type="range" id="m_b_gap" ${rangeAttrs('bannerGap')} value="${bl.gap}">
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
-              <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval">${cardNum(r.overlapOffset, 'bannerOffset', 0)}</span>${numRange('bannerOffset')[3]}</span></div>
+              <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval" class="ntr_slval">${cardNum(r.overlapOffset, 'bannerOffset', 0)}</span>${numRange('bannerOffset')[3]}</span></div>
               <input type="range" id="m_b_offset" ${rangeAttrs('bannerOffset')} value="${cardNum(r.overlapOffset, 'bannerOffset', 0)}" ${!key ? 'disabled' : ''}>
             </div>
             </div>
@@ -634,7 +634,7 @@
 
           ${pagePart('Foreground Images', ['m_f_enable', s.fgEnabled], '', `
             ${card('', `
-            <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval">${rangeNum(s, 'fgOpacity')}</span>${numRange('fgOpacity')[3]}</span></div>
+            <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval" class="ntr_slval">${rangeNum(s, 'fgOpacity')}</span>${numRange('fgOpacity')[3]}</span></div>
             <input type="range" id="m_f_o" ${rangeAttrs('fgOpacity')} value="${rangeNum(s, 'fgOpacity')}">
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>
             <button type="button" id="m_f_place" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
@@ -655,10 +655,10 @@
                     <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
                     <button class="menu_button danger_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Clear ${pos} image" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
                   </div>
-                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val">${cardNum(F[pos + 'Scale'], 'fgScale', 100)}</span>${numRange('fgScale')[3]}</span></div>
+                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val" class="ntr_slval">${cardNum(F[pos + 'Scale'], 'fgScale', 100)}</span>${numRange('fgScale')[3]}</span></div>
                   <input type="range" class="m_f_scale" data-pos="${pos}" ${rangeAttrs('fgScale')} value="${cardNum(F[pos + 'Scale'], 'fgScale', 100)}" style="width:100%;">
                   ${[['X', 'Left/Right'], ['Y', 'Up/Down']].map(([ax, name]) => `
-                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>${name}:</label><span><span id="m_f_${ax}_${pos}val">${cardNum(F[pos + ax], 'fg' + ax, 0)}</span>${numRange('fg' + ax)[3]}</span></div>
+                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>${name}:</label><span><span id="m_f_${ax}_${pos}val" class="ntr_slval">${cardNum(F[pos + ax], 'fg' + ax, 0)}</span>${numRange('fg' + ax)[3]}</span></div>
                   <input type="range" id="m_f_${ax}_${pos}" class="m_f_move" data-pos="${pos}" data-ax="${ax}" ${rangeAttrs('fg' + ax)} value="${cardNum(F[pos + ax], 'fg' + ax, 0)}" style="width:100%;">`).join('')}
                   <div style="width:100%; margin-top:6px; text-align:left;"><small>In Visual Novel Mode, sit:</small>${pills('fgl' + pos, [['behind', 'Behind sprites'], ['front', 'In front']], F[pos + 'Layer'])}</div>
                 </div>

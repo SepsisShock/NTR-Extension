@@ -3,7 +3,7 @@
 // Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
 // If this file breaks, the rest of the extension keeps working.
 (() => {
-  const CAST_VERSION = '2.55.0';
+  const CAST_VERSION = '2.56.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
@@ -559,7 +559,7 @@
     const sl = (key, label) => {
       const [, , , unit] = A.numRange(key);
       const v = A.rangeNum(s, key);
-      return `<div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_emo_${key}val">${v}</span>${unit}</span></div>
+      return `<div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_emo_${key}val" class="ntr_slval">${v}</span>${unit}</span></div>
           <input type="range" class="m_emo_sl" data-key="${key}" ${A.rangeAttrs(key)} value="${v}">`;
     };
     const df = (key, label) => `<label class="cb_dfield"><span>${label}</span><input type="text" class="text_pole m_d_in" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="16"></label>`;

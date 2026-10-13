@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.55.0';
+  const OP_VERSION = '2.56.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -548,7 +548,7 @@
     }
     const o = op();
     const sl = (id, key, label, unit, min, max, step, shown) => `
-      <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_op_${id}val">${shown}</span>${unit}</span></div>
+      <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_op_${id}val" class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>
       <input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}">`;
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
     const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';

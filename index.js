@@ -3307,8 +3307,8 @@
     // room for those too.
     const wide = 0.7 * k * (symbol ? graphemes(sym) * 1.2 : 1);
     const high = 0.7 * k * (symbol ? 1.2 : 1);
-    const tall = s.rbArrowAnim === 'spin' ? Math.hypot(wide, high) : s.rbArrowTurn === 'quarter' ? Math.max(wide, high)
-      : s.rbArrowAnim === 'bounce' ? high + 2 * 0.35 * 0.7 * k : high;
+    const tall = (s.rbArrowAnim === 'spin' ? Math.hypot(wide, high) : s.rbArrowTurn === 'quarter' ? Math.max(wide, high) : high)
+      + (s.rbArrowAnim === 'bounce' ? 2 * 0.35 * 0.7 * k : 0);
     if (wide !== 0.7) {
       css += cssRule('.mes_reasoning_header', {
         'padding-right': `calc(var(--mainFontSize) * ${+(s.rbArrowAnim === 'spin' ? tall : wide).toFixed(3)} + 14px)`,

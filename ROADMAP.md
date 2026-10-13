@@ -5,7 +5,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ## Planned
 
 ### Reader Mode: follow-ups
-- [ ] A "Phone" style: a texting look inside a phone frame, next to Plain, Book and Visual Novel. Build it on Speech Bubbles (UI Decor), so it only adds the frame, a contact header and a status bar. On a real phone it fills the screen without the frame.
 - Left out on purpose: a separate Layout and separate themes for Reader Mode. Normal chat and Reader Mode share the same positions and themes.
 
 ### Reasoning Block and Text Formatting: follow-ups

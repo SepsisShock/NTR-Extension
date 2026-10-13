@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.59.0';
+  const VN_VERSION = '2.59.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -846,11 +846,11 @@
         <div class="cb_n_arrow"></div>
         <div class="cb_n_ctrl">
           <button type="button" data-a="map" class="cb_n_mapbtn" title="Map" style="display:none;"><i class="fa-solid fa-map"></i></button>
-          <button type="button" data-a="older" title="Older message"><i class="fa-solid fa-angles-left"></i></button>
+          <button type="button" data-a="older" title="Older message (Page Up)"><i class="fa-solid fa-angles-left"></i></button>
           <button type="button" data-a="prev" title="Previous line"><i class="fa-solid fa-angle-left"></i></button>
-          <span class="cb_n_count" role="button" tabindex="0" title="Go to message"></span>
+          <span class="cb_n_count" role="button" tabindex="0" title="Click to type a message number"></span>
           <button type="button" data-a="next" title="Next line"><i class="fa-solid fa-angle-right"></i></button>
-          <button type="button" data-a="newer" title="Newer message"><i class="fa-solid fa-angles-right"></i></button>
+          <button type="button" data-a="newer" title="Newer message (Page Down)"><i class="fa-solid fa-angles-right"></i></button>
         </div>
       </div>`;
     document.body.appendChild(ov);

@@ -2,12 +2,12 @@
 // Loaded on demand by index.js, once Reader Mode is switched on. If this file breaks, the rest of the extension keeps working.
 // Shows the chat a page at a time. The messages are SillyTavern's own, so swipes, editing and the "..." menu keep working.
 // Messages on other pages are only hidden on screen, like Visual Novel Mode does: they stay in the prompt.
-// Three styles: Plain (a page scrolls when it's long), Book (an open book across the screen, the text flowing over both
+// Three styles: Standard (a page scrolls when it's long), Book (an open book across the screen, the text flowing over both
 // pages and on to the next two pages) and Phone (the whole chat as texting in a phone frame; it scrolls, with no pages).
 // The fourth, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside for it, and it uses the saved page
 // and the page number box from here.
 (() => {
-  const READER_VERSION = '2.59.0';
+  const READER_VERSION = '2.59.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -70,14 +70,14 @@
   const INK = { rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e' };
   const COLOR_OK = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i;
 
-  // Plain or Book: the chat a page at a time. Phone has no pages.
+  // Standard or Book: the chat a page at a time. Phone has no pages.
   const live = () => isOn() && !!settings().rdEnabled && !settings().nodeEnabled && settings().rdStyle !== 'phone';
   const phoneNow = () => isOn() && !!settings().rdEnabled && !settings().nodeEnabled && settings().rdStyle === 'phone';
   // A screen wider than 1000px gets the phone frame. On a real phone, the screen is the phone.
   const framed = () => phoneNow() && window.innerWidth > 1000;
   // Visual Novel, Reader Mode's third style.
   const vnNow = () => isOn() && !!settings().rdEnabled && !!settings().nodeEnabled;
-  // Book on a computer, and on a phone held sideways. An upright phone is too narrow for two pages, so it shows Plain.
+  // Book on a computer, and on a phone held sideways. An upright phone is too narrow for two pages, so it shows Standard.
   const bookNow = () => live() && settings().rdStyle === 'book' && (window.innerWidth > 1000 || window.innerWidth > window.innerHeight);
   // Each page is [first, last] message number (mesid).
   let pages = [];
@@ -157,7 +157,7 @@
       bar.innerHTML = `
         <button type="button" data-go="first" title="First page"><i class="fa-solid fa-angles-left"></i></button>
         <button type="button" data-go="prev" title="Previous page (Page Up)"><i class="fa-solid fa-angle-left"></i></button>
-        <span class="ntr_rd_num" title="Go to page"></span>
+        <span class="ntr_rd_num" title="Click to type a page number"></span>
         <button type="button" data-go="next" title="Next page (Page Down)"><i class="fa-solid fa-angle-right"></i></button>
         <button type="button" data-go="last" title="Last page"><i class="fa-solid fa-angles-right"></i></button>`;
       bar.addEventListener('click', (e) => {
@@ -540,7 +540,7 @@
     textObs.observe(last, { childList: true, subtree: true, characterData: true });
   }
 
-  // Editing a message shows it like Plain until you're done, so the edit box has room.
+  // Editing a message shows it like Standard until you're done, so the edit box has room.
   function syncEdit() {
     const on = !!geom && !!document.querySelector('#chat .edit_textarea');
     if (on === editing()) return;
@@ -615,7 +615,7 @@
     if (turned) {
       // Runs of bubbles from one speaker are marked again.
       A.refreshPins?.();
-      // Turning Phone on starts at the newest message, like a messaging app. Coming from Plain or Book, refresh then
+      // Turning Phone on starts at the newest message, like a messaging app. Coming from Standard or Book, refresh then
       // shows the page that was being read.
       const chat = chatEl();
       if (on && chat) chat.scrollTop = chat.scrollHeight;
@@ -700,7 +700,7 @@
   // After a setting or the screen size changed: the book again, at the same spread.
   function relayout() {
     flipEnd?.();
-    // Switching between Phone and Plain or Book turns the pages on or off.
+    // Switching between Phone and Standard or Book turns the pages on or off.
     if (live() !== wasLive) { refresh(); return; }
     layoutPhone();
     if (!live()) return;

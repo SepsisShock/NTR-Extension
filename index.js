@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.59.0';
+  const VERSION = '2.59.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -63,7 +63,7 @@
 
     // Reader Mode (reader.js): the chat a page at a time. Per Page is 'pair' (your message and the replies after it) or 'one'.
     rdEnabled: false, rdPer: 'pair',
-    // Its look, in themes: Plain, Book or Phone. An empty picture is the built-in book, and the page areas start as its own:
+    // Its look, in themes: Standard, Book or Phone. An empty picture is the built-in book, and the page areas start as its own:
     // where the text sits on the picture, as a % of its height (Top, Bottom) or width (Outer edge, Spine gap).
     rdStyle: 'plain', rdBook: 'brown', rdBookImg: '', rdBookW: 90, rdBookTop: 13, rdBookBottom: 15, rdBookOuter: 11, rdBookSpine: 11,
     rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '', rdFlip: true,
@@ -733,7 +733,7 @@
   }
 
   // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar, page bar and
-  // banner only while they're Free, since Attached they follow the chat panel. The page bar is there in Reader Mode's Plain
+  // banner only while they're Free, since Attached they follow the chat panel. The page bar is there in Reader Mode's Standard
   // and Book, the banner while the open chat shows one.
   function layRect(it) {
     const s = settings();
@@ -2230,7 +2230,7 @@
           <div class="cb_hint" style="margin-bottom: 0;">Attached sits under the chat panel, like SillyTavern, and Send Box Position above still applies. Free goes anywhere on the screen and grows upward as you type more lines.</div>`)}
         ${card('Page Bar', `
           ${pills('lpage', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Page')])}
-          <div class="cb_hint" style="margin-bottom: 0;">Reader Mode's page bar, in Plain and Book. Attached sits between the chat and the send box. Free goes anywhere on the screen: move it and change its width with Edit Layout while Reader Mode is on.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Reader Mode's page bar, in Standard and Book. Attached sits between the chat and the send box. Free goes anywhere on the screen: move it and change its width with Edit Layout while Reader Mode is on.</div>`)}
         ${card('Banner', `
           ${pills('lban', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Ban')])}
           <div class="cb_hint" style="margin-bottom: 0;">The header banner (Overlays). Attached sits at the top of the chat panel, with Lock to top and Overlap. Free goes anywhere on the screen, at the same place for every character: move it and resize it from its edges and corners with Edit Layout while a chat with a banner is open. Free, its height comes from Edit Layout instead of Banner Height.</div>`)}
@@ -4574,7 +4574,7 @@
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
-    reader: { label: 'Reader Mode look (Plain, Book or Phone, book picture, page areas, ink, font, page flip, phone frame)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip', 'rdPhoneFrame', 'rdPhoneNotch'] },
+    reader: { label: 'Reader Mode look (Standard, Book or Phone, book picture, page areas, ink, font, page flip, phone frame)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip', 'rdPhoneFrame', 'rdPhoneNotch'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
@@ -5374,7 +5374,7 @@
     const b = document.createElement('div');
     b.id = 'cb_node_toggle';
     b.className = 'fa-solid fa-comments interactable';
-    b.title = 'Visual Novel mode';
+    b.title = 'Visual Novel Mode (turns Reader Mode on)';
     b.tabIndex = 0;
     b.onclick = toggleVN;
     lsf.appendChild(b);
@@ -5382,10 +5382,11 @@
   }
 
   // ===== Reader Mode (the paging itself lives in reader.js) =====
-  // Visual Novel Mode is one of Reader Mode's styles (Visual Novel), next to Plain, Book and Phone (rdStyle). It keeps its
-  // own switch (nodeEnabled), which is on only while Reader Mode is, so Plain, Book or Phone is still picked for when it's off.
+  // Visual Novel Mode is one of Reader Mode's styles (Visual Novel), next to Standard, Book and Phone (rdStyle). It keeps its
+  // own switch (nodeEnabled), which is on only while Reader Mode is, so Standard, Book or Phone is still picked for when it's off.
+  // Standard is saved as 'plain'.
   const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : ['book', 'phone'].includes(s.rdStyle) ? s.rdStyle : 'plain');
-  // Only the style in use shows its part of the page: Book, Phone or Visual Novel, while Reader Mode is on. Plain has none.
+  // Only the style in use shows its part of the page: Book, Phone or Visual Novel, while Reader Mode is on. Standard has none.
   const readerPart = (s) => (s.rdEnabled ? readerStyle(s) : 'off');
   // The page's Book, Phone and Visual Novel parts fold; the picked style's part opens, the others fold.
   function openStyleGroup(s) {
@@ -5398,15 +5399,12 @@
     const err = modError.reader ? `<div class="cb_hint ntr_pnote">Reader Mode failed to load: ${escapeHTML(modError.reader)}</div>` : '';
     const part = readerPart(s);
     return pageHtml('reader', `
-        <div class="cb_hint" data-rd-part="${part}">Read the chat a page at a time instead of scrolling. Messages on other pages are only hidden on screen: they're still sent with the prompt. Each chat opens on the page you left it on.</div>
-        ${part === 'vn' || part === 'phone' ? '' : card('Per Page', `
-          ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
-          <div class="cb_hint" style="margin-bottom: 0;">Your Message and the Reply starts a page at each of your messages; the opening message gets page 1. One Message gives every message its own page.</div>`)}
-        ${part === 'phone' ? '' : card('Turning Pages', `
-          <div class="cb_hint" style="margin: 0;">Use the page bar under the chat, or Page Up and Page Down. A page taller than the chat scrolls first; in the book, Next and Page Down go to the next two pages of a long reply first. Sending a message goes to the last page. The Left and Right arrow keys still swipe, on the last page only. Turning back past the messages SillyTavern has shown loads the older ones. Click the page number to type a page to go to. The page bar can be moved on the Layout page (Page Bar). In Visual Novel, the dialogue box has its own buttons: click its counter to type a message number, and Page Up and Page Down go to the older or newer message.</div>`)}
+        <div class="cb_hint" data-rd-part="${part}">Other ways to show the chat. Messages hidden on screen are still sent with the prompt. Each chat opens where you left it.</div>
         ${card('Style', `
-          ${pills('rdstyle', [['plain', 'Plain'], ['book', 'Book'], ['phone', 'Phone'], ['vn', 'Visual Novel']], readerStyle(s))}
-          <div class="cb_hint" style="margin-bottom: 0;">Plain shows the messages as usual, and a long page scrolls. Book shows an open book across the screen: your message at the top of the left page, and the reply running down both pages and on to the next two. A phone held upright shows Plain; turn it sideways for the book. Phone shows the chat as texting on a phone: Speech Bubbles inside a phone frame, with a contact header and a status bar. It scrolls like a messaging app instead of turning pages. On a screen 1000px wide or less, like a real phone, it fills the screen without the frame. Visual Novel is Visual Novel Mode; picking it turns Reader Mode on, and so does the chat bubbles button next to the send box. Book, Phone and Visual Novel have their own settings, shown below while that style is on.</div>`)}
+          ${pills('rdstyle', [['plain', 'Standard'], ['book', 'Book'], ['phone', 'Phone'], ['vn', 'Visual Novel']], readerStyle(s))}`)}
+        ${part === 'vn' || part === 'phone' ? '' : card('Each Page', `
+          ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
+          <div class="cb_hint" style="margin-bottom: 0;">The opening message is page 1.</div>`)}
         ${part !== 'book' ? '' : `${subHead('rd_book', 'Book')}
         <div class="cb_collapse_content">
         ${card('Book', `
@@ -5421,7 +5419,7 @@
           <div class="cb_hint">The dots pick the built-in book's cover color. Picking one also sets the page areas to fit it.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
-          <div class="cb_hint">How much of the screen's width the book takes. It keeps the picture's shape, so it gets narrower when the screen is too short.</div>
+          <div class="cb_hint">How much of the screen's width the book takes. It keeps the picture's shape, so it gets narrower when the screen is too short. A phone held upright shows Standard; turn it sideways for the book.</div>
           ${ovRow(s, 'rdFlip', 'Page Flip', '<div class="cb_hint" style="margin: 0;">Next, Previous, Page Up and Page Down turn the page over the spine. First, Last and a typed page number go straight there. Off with SillyTavern\'s Reduced Motion.</div>')}`)}
         ${card('Page Areas', `
           ${ovLabel('Top', rangeSlider(s, 'rdBookTop'))}
@@ -5441,7 +5439,7 @@
         ${card('Phone', `
           ${ovLabel('Frame Color', ovColor(s, 'rdPhoneFrame'))}
           ${ovLabel('Notch', pills('rdnotch', [['none', 'None'], ['notch', 'Notch'], ['pill', 'Pill']], s.rdPhoneNotch))}
-          <div class="cb_hint" style="margin-bottom: 0;">Notch is a cutout hanging from the top edge; Pill is a rounded cutout just below it. The bubbles use the Speech Bubbles settings in UI Decor, even while Speech Bubbles is off. The chat background shows inside the screen. A Free send bar (Layout) goes back under the chat inside the frame.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">On a screen 1000px wide or less, like a real phone, it fills the screen without the frame. Notch is a cutout hanging from the top edge; Pill is a rounded cutout just below it. The bubbles use the Speech Bubbles settings in UI Decor, even while Speech Bubbles is off. The chat background shows inside the screen. A Free send bar (Layout) goes back under the chat inside the frame.</div>`)}
         </div>`}
         ${part !== 'vn' ? '' : `${subHead('rd_vn', 'Visual Novel')}
         <div class="cb_collapse_content">
@@ -5502,7 +5500,7 @@
     renderPic();
   }
 
-  // Reader Mode on or off, in Plain, Book or Phone (rdStyle) or, with vn, in Visual Novel (Visual Novel Mode).
+  // Reader Mode on or off, in Standard, Book or Phone (rdStyle) or, with vn, in Visual Novel (Visual Novel Mode).
   async function setReader(on, vn = false) {
     const s = settings();
     const wasVN = !!s.nodeEnabled;

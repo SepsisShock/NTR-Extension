@@ -4112,14 +4112,16 @@
         c.saveSettingsDebounced();
       }
       // Like writeExtensionField: the card's JSON copy (and the open character editor's) gets the same data, so saving
-      // the character in its editor doesn't bring old NTR data back.
+      // the character in its editor doesn't bring old NTR data back. The editor is checked now, after the save, in case
+      // another character was opened meanwhile.
       const j = ch.json_data ? JSON.parse(ch.json_data) : null;
       if (isObj(j?.data)) {
         if (!isObj(j.data.extensions)) j.data.extensions = {};
         j.data.extensions.ntr = d;
         ch.json_data = JSON.stringify(j);
+        const now = ctx();
         const box = document.getElementById('character_json_data');
-        if (box && Number(c.characterId) === i) box.value = ch.json_data;
+        if (box && now.characters[now.characterId]?.avatar === key) box.value = ch.json_data;
       }
     } catch (e) {
       console.error('[NTR] Could not save character data to the card', e);

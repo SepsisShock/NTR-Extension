@@ -103,7 +103,14 @@ Keep every value from your last result that the new messages leave as it was, an
   // sanitized.
   const KEY = 'ntr_agents';
   const MAX_SAVED = 20000;
-  const chatId = () => { try { return String(ctx().getCurrentChatId() ?? ''); } catch (e) { return ''; } };
+  // Which chat is open: its file name, with whose chat it is, since a duplicated card starts with the same chat name.
+  const chatId = () => {
+    try {
+      const c = ctx();
+      const id = c.getCurrentChatId();
+      return id == null ? '' : `${c.groupId || c.characters[c.characterId]?.avatar || ''}/${id}`;
+    } catch (e) { return ''; }
+  };
   function savedAt(m, id) {
     const v = m?.extra?.[KEY]?.[id];
     if (!v || typeof v.text !== 'string' || v.date !== m.send_date) return null;

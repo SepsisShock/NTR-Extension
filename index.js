@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.58.0';
+  const VERSION = '2.59.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -120,7 +120,7 @@
     ovEnabled: true,
     ovWidthOn: false, ovWidth: 50, ovFontOn: false, ovFont: 1,
     ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2, ovAvatarOn: false, ovAvatar: 'round',
-    // Interface Shape shapes the chat panel. Empty colors mean SillyTavern's own (see COLOR_FROM).
+    // Interface Shape shapes the chat panel and the rest of the interface (see uiShapeCss). Empty colors mean SillyTavern's own (see COLOR_FROM).
     ovShapeOn: false, ovShape: 'rounded', ovRound: 10,
     ovPanelBgOn: true, ovPanelBg: 'clear', ovPanelBgColor: '', ovPanelBgOpacity: 100,
     ovPanelBorderOn: false, ovPanelBorder: 'line', ovPanelBorderColor: '', ovPanelBorderWidth: 1, ovPanelBorderOpacity: 100,
@@ -2740,6 +2740,40 @@
     }) + cssRule(`${pre}#form_sheld #send_form`, { 'border-radius': sr === null ? '' : separate ? `${sr}px` : `0 0 ${sr}px ${sr}px` });
   }
 
+  // Interface Shape for the rest of the interface: SillyTavern's Menu Bar, drawers, side panels, menus and popups, and NTR's
+  // own windows. Every corner follows it, wherever the part sits, even against the screen edge. Boxes inside them are a
+  // little less round, so their corners sit inside the outer ones. Buttons, text boxes, checkboxes and sliders keep ST's
+  // corners on Rounded and go square on Square. Messages, the send box, avatars, the VN box and Reasoning keep their own
+  // Shape, and scrollbars what their Custom CSS sets.
+  const UI_SHELLS = ['#top-bar', '.drawer-content', '#character_popup', '.popup', '.popup .popper-modal', '#dialogue_popup', '#select_chat_popup',
+    '#extensionsMenu', '#options .options-content', '.list-group', '.draggable', '.select2-dropdown',
+    '#cb_modal_overlay .cb_popup_content', '#ntr_pin_layer .ntr_pin_panel', '#ntr_map .ntr_map_panel'];
+  const UI_INNER = ['#user-settings-block h4', '.standoutHeader', '.standoutHeader ~ .inline-drawer-content', '.settingsSectionWrap', '.extensions_info .extension_block',
+    '#cb_modal_overlay .ntr_page .ntr_card', '#cb_modal_overlay .ntr_glab + .cb_collapse_content', '#cb_modal_overlay .ntr_fold', '#ntr_map .ntr_map_pop'];
+  // Folded parts: the header's top corners while open, and the part under it the bottom ones.
+  const UI_INNER_TOP = ['#cb_modal_overlay .ntr_fold.ntr_open', '#cb_modal_overlay .rx_open .ntr_fold.rx_fhead', '#cb_modal_overlay .ntr_fold.rx_uhead'];
+  const UI_INNER_BOTTOM = ['#cb_modal_overlay .ntr_fold + .cb_collapse_content', '#cb_modal_overlay .ntr_page .ntr_card.rx_fbody', '#cb_modal_overlay .ntr_page .ntr_card.rx_loose'];
+  // Small controls go square only inside these, so the send box, Quick Replies and the chat keep theirs. In a pinned block
+  // only Agent Results count, since other blocks show copies of the chat. NTR's switches stay round.
+  const UI_HOLDERS = ':is(#top-settings-holder, #character_popup, .popup, #dialogue_popup, #movingDivs, #cb_modal_overlay, #ntr_pin_layer .ntr_agres, #ntr_map)';
+  const UI_CONTROLS = `:is(.menu_button, .text_pole, textarea, select, input[type="checkbox"]:not(${SWITCHES.map((x) => x.split(' ').pop()).join(', ')}),
+    .select2-selection, .range-block-counter input, .neo-range-input, .neo-range-slider, input[type="range"], .ui-slider, .ui-slider-handle,
+    .cb_hbtn, .cb_close_btn, .ntr_map_hb, .ntr_agres_btn)`;
+
+  function uiShapeCss(s) {
+    if (!s.ovShapeOn) return '';
+    const square = s.ovShape === 'square';
+    const r = square ? 0 : rangeNum(s, 'ovRound');
+    const ri = Math.max(r - 5, Math.min(r, 2));
+    const rule = (sels, radius) => cssRule(sels.map((x) => `body ${x}`).join(', '), { 'border-radius': radius });
+    let css = rule(UI_SHELLS, `${r}px`) + rule(UI_INNER, `${ri}px`)
+      + rule(UI_INNER_TOP, `${ri}px ${ri}px 0 0`) + rule(UI_INNER_BOTTOM, `0 0 ${ri}px ${ri}px`)
+      // The tab that slides a pinned block out on a phone: its side against the block stays flat.
+      + rule(['#ntr_pin_layer .ntr_pin_left .ntr_pin_tab'], `0 ${r}px ${r}px 0`) + rule(['#ntr_pin_layer .ntr_pin_right .ntr_pin_tab'], `${r}px 0 0 ${r}px`);
+    if (square) css += cssRule(`body ${UI_HOLDERS} ${UI_CONTROLS}`, { 'border-radius': '0' });
+    return css;
+  }
+
   // Send Box Position: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
   const sendSeparate = (s) => s.layEnabled && s.ovSendPosOn && s.ovSendPos === 'separate';
 
@@ -2770,7 +2804,7 @@
       border: on('ovPanelBorder') ? border('Panel') : '',
       'border-top': line ? 'none' : '',
     });
-    css += joinCss(s, separate);
+    css += joinCss(s, separate) + uiShapeCss(s);
 
     // AI and User messages. A message with its own background or border gets the room ST's Bubbles style gives it,
     // unless NTR Avatars lays it out. Speech Bubbles put all of that on the message text instead.
@@ -3939,7 +3973,7 @@
           ${card('Whole Interface', `
           ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
             + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))
-            + '<div class="cb_hint">Rounds the chat panel\'s bottom corners when Layout\'s Send Box Position is Separate, or its send bar is Free. The top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
+            + '<div class="cb_hint">Rounds or squares every corner of SillyTavern\'s Menu Bar, drawers, side panels, menus and popups, and of NTR\'s own windows, wherever they sit. On Square, their buttons, text boxes, checkboxes and sliders go square too. The chat panel\'s bottom corners follow it when Layout\'s Send Box Position is Separate, or its send bar is Free; its top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
           ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + '<div class="cb_hint">The frosted-glass blur behind the chat, menus, drawers and popups.</div>')}
           ${row('ovShadowOn', 'Shadow Width', sl('ovShadow') + '<div class="cb_hint">The dark glow around all text in SillyTavern.</div>')}`)}
           ${card('Chat Panel', `

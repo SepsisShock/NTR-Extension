@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.54.0';
+  const AGENTS_VERSION = '2.54.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -103,7 +103,14 @@ Keep every value from your last result that the new messages leave as it was, an
   // sanitized.
   const KEY = 'ntr_agents';
   const MAX_SAVED = 20000;
-  const chatId = () => { try { return String(ctx().getCurrentChatId() ?? ''); } catch (e) { return ''; } };
+  // Which chat is open: its file name, with whose chat it is, since a duplicated card starts with the same chat name.
+  const chatId = () => {
+    try {
+      const c = ctx();
+      const id = c.getCurrentChatId();
+      return id == null ? '' : `${c.groupId || c.characters[c.characterId]?.avatar || ''}/${id}`;
+    } catch (e) { return ''; }
+  };
   function savedAt(m, id) {
     const v = m?.extra?.[KEY]?.[id];
     if (!v || typeof v.text !== 'string' || v.date !== m.send_date) return null;
@@ -264,8 +271,10 @@ Keep every value from your last result that the new messages leave as it was, an
   };
 
   // The chat is read only after any wait for your reply, so the agent sees that reply finished. That's also when the
-  // message it runs on is noted (o.target), so its answer can be saved there.
+  // message it runs on is noted (o.target), so its answer can be saved there. A run only reads the chat it was started
+  // in (o.chat), so one still waiting its turn when you switch chats is skipped.
   function aim(o) {
+    if (chatId() !== o.chat) throw new Error('Skipped: you switched chats before it could run.');
     const chat = ctx().chat || [];
     const i = o.at ?? chat.length - 1;
     const m = chat[i];
@@ -290,8 +299,8 @@ Keep every value from your last result that the new messages leave as it was, an
         if (full && c.onlineStatus === 'no_connection') throw new Error('Your chat isn\'t connected to an API.');
         // SillyTavern builds your chat's full prompt from the whole chat and adds the instructions at the end.
         if (full) {
-          if (o.at != null && o.at !== (c.chat || []).length - 1) throw new Error('With your chat\'s full prompt, it can only run on the last message.');
           const i = aim(o);
+          if (i !== (c.chat || []).length - 1) throw new Error('With your chat\'s full prompt, it can only run on the last message.');
           fullRun = a.id;
           try {
             return String(await abortable(c.generateQuietPrompt({ quietPrompt: withLast(a, i), responseLength: max }), signal) ?? '');
@@ -359,6 +368,7 @@ Keep every value from your last result that the new messages leave as it was, an
   // auto: a run after a reply, which also needs the agent's own switch on. at: the message to run on (Run Again in a
   // Pinned Block); the last one when null. Resolves with the run's result: { ok, text }.
   function enqueue(id, test = false, auto = false, at = null) {
+    const from = chatId();
     chain = chain.then(async () => {
       const a = byId(id);
       if (!a) return { ok: false, text: 'This agent was deleted.' };
@@ -371,7 +381,7 @@ Keep every value from your last result that the new messages leave as it was, an
       renderActivity();
       refreshBoxes();
       const t0 = performance.now();
-      const o = { test, auto, at, target: null };
+      const o = { test, auto, at, chat: from, target: null };
       try {
         const text = (await call(a, o, ctrl.signal)).trim();
         if (ctrl.signal.aborted) throw new Error(timedOut ? 'Timed out' : 'Stopped');
@@ -381,7 +391,7 @@ Keep every value from your last result that the new messages leave as it was, an
         return { ok: true, text };
       } catch (e) {
         const msg = timedOut ? 'Timed out' : ctrl.signal.aborted ? 'Stopped' : (e?.message || String(e));
-        if (!test) fails.set(id, { chat: o.target?.chat ?? chatId(), text: msg });
+        if (!test) fails.set(id, { chat: o.target?.chat ?? from, text: msg });
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: false, test, text: msg });
         return { ok: false, text: msg };
       } finally {

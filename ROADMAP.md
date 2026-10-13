@@ -4,9 +4,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-### Reasoning Block and Text Formatting: follow-ups
-- Reasoning Block background image (upload or link, Cover or Tile, opacity, auto tint for readability).
-
 ### Message details
 Find out how to make these movable and designable, and which details SillyTavern makes available.
 

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.53.0';
+  const VERSION = '2.54.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -126,6 +126,11 @@
     ovScrollCssOn: false, ovScrollCss: '',
     ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorTextImg: '', ovCursorSize: 32,
     ovCursorCssOn: false, ovCursorCss: '',
+    // Quick Replies restyle SillyTavern's Quick Reply bar. Shape, Background and Border come from BOX_PARTS. ST's hover
+    // color is a plain gray, not one of its theme colors, so it starts filled in like the scrollbar's Track Color.
+    ovQrOn: false, ovQrTextOn: false, ovQrText: '', ovQrHoverOn: false, ovQrHover: 'rgba(77, 77, 77, 1)', ovQrSizeOn: false, ovQrSize: 1,
+    ovQrWrapOn: false, ovQrWrap: 'scroll', ovQrGapOn: false, ovQrGap: 5, ovQrAlignOn: false, ovQrAlign: 'center', ovQrOpacityOn: false, ovQrOpacity: 70,
+    ovQrCssOn: false, ovQrCss: '',
 
     // Menu state
     uiOpen: {},
@@ -163,7 +168,9 @@
   };
   // AI Message, User Message and Send Box each have their own Shape, Background and Border.
   const OV_PARTS = ['Ai', 'Us', 'Send'];
-  for (const p of OV_PARTS) {
+  // Quick Reply buttons (Elements) have the same three.
+  const BOX_PARTS = [...OV_PARTS, 'Qr'];
+  for (const p of BOX_PARTS) {
     Object.assign(DEFAULTS, {
       [`ov${p}ShapeOn`]: false, [`ov${p}Shape`]: 'rounded', [`ov${p}Round`]: 10,
       [`ov${p}BgOn`]: false, [`ov${p}Bg`]: 'color', [`ov${p}BgColor`]: '', [`ov${p}BgOpacity`]: 100,
@@ -1279,7 +1286,7 @@
       .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
 
-    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + textFormatCss(s) + chatLookCss(s);
+    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + qrCss(s) + textFormatCss(s) + chatLookCss(s);
     // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
     // repainted all of it, avatar fades included.
     if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
@@ -1883,7 +1890,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
+  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -2941,6 +2948,33 @@
     return css ? css + '\n' : '';
   }
 
+  // Quick Replies: the buttons in the bar and in its pop-out window, and the bar's own layout. Each setting is
+  // SillyTavern's own look while it's unticked.
+  const qrBtn = (pseudo = '') => `#qr--bar > .qr--buttons .qr--button${pseudo}, #qr--popout > .qr--body > .qr--buttons .qr--button${pseudo}`;
+  function qrCss(s) {
+    if (!s.ovQrOn) return '';
+    const on = (k) => s[k + 'On'];
+    const scroll = on('ovQrWrap') && s.ovQrWrap === 'scroll';
+    let css = cssRule(qrBtn(), {
+      'border-radius': on('ovQrShape') ? `${ovRadius(s, 'Qr')}px` : '',
+      'background-color': !on('ovQrBg') ? '' : s.ovQrBg === 'clear' ? 'transparent' : ovColorVal(s, 'ovQrBgColor', 'ovQrBgOpacity'),
+      border: on('ovQrBorder') ? ovBorderVal(s, 'Qr') : '',
+      color: on('ovQrText') && COLOR_RE.test(s.ovQrText) ? s.ovQrText : '',
+      'font-size': on('ovQrSize') ? `${rangeNum(s, 'ovQrSize')}em` : '',
+      // In one row a button keeps its width and its label stays on one line.
+      ...(scroll ? { 'flex-shrink': '0', 'white-space': 'nowrap' } : {}),
+    });
+    // A Background would cover SillyTavern's hover gray too, so with one ticked the hover gets ST's gray back.
+    if (on('ovQrHover') || on('ovQrBg')) css += cssRule(qrBtn(':hover'), { 'background-color': on('ovQrHover') && COLOR_RE.test(s.ovQrHover) ? s.ovQrHover : DEFAULTS.ovQrHover });
+    css += cssRule('#qr--bar > .qr--buttons', {
+      'flex-wrap': on('ovQrWrap') ? (scroll ? 'nowrap' : 'wrap') : '',
+      gap: on('ovQrGap') ? `${rangeNum(s, 'ovQrGap')}px` : '',
+      'justify-content': on('ovQrAlign') ? QR_ALIGN[s.ovQrAlign] : '',
+    });
+    css += cssRule('#qr--bar', { opacity: on('ovQrOpacity') ? rangeNum(s, 'ovQrOpacity') / 100 : '' });
+    return css ? css + '\n' : '';
+  }
+
   // Custom cursor. A CSS cursor shows its picture at the picture's own size, so each one is redrawn at the Size setting
   // first. Until that's ready, the last size drawn (or the system cursor) shows. A link from a site that doesn't allow
   // redrawing is used as it is.
@@ -3068,6 +3102,8 @@
   // Fade From: the side the shade starts on, on the same 3x3 grid as picture positions. The center glows outward.
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
   const OV_SHAPES = ['rounded', 'square'];
+  // Quick Replies' Alignment. Safe keeps the first buttons in reach when one scrolling row is wider than the bar.
+  const QR_ALIGN = { left: 'flex-start', center: 'safe center', right: 'safe flex-end' };
   const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
@@ -3079,8 +3115,9 @@
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
     rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
     ovBubTail: Object.keys(BUB_TAILS), ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: Object.keys(BUB_INK),
+    ovQrWrap: ['wrap', 'scroll'], ovQrAlign: Object.keys(QR_ALIGN),
   });
-  for (const p of ['Panel', ...OV_PARTS]) {
+  for (const p of ['Panel', ...BOX_PARTS]) {
     Object.assign(PICK_KEYS, { [`ov${p}Bg`]: ['clear', 'color'], [`ov${p}Border`]: ['none', 'line'] });
     if (p !== 'Panel') PICK_KEYS[`ov${p}Shape`] = OV_SHAPES;
   }
@@ -3097,6 +3134,7 @@
     ovScrollColor: '--grey7070a',
     ovPanelBgColor: '--SmartThemeChatTintColor', ovAiBgColor: '--SmartThemeBotMesBlurTintColor', ovUsBgColor: '--SmartThemeUserMesBlurTintColor', ovSendBgColor: '--SmartThemeBlurTintColor',
     ovPanelBorderColor: '--SmartThemeBorderColor', ovAiBorderColor: '--SmartThemeBorderColor', ovUsBorderColor: '--SmartThemeBorderColor', ovSendBorderColor: '--SmartThemeBorderColor',
+    ovQrBgColor: '--grey30', ovQrBorderColor: '--SmartThemeBorderColor', ovQrText: '--SmartThemeBodyColor',
   };
   const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont', 'rdBookFont'];
   // Reader Mode's ink colors. They start from the built-in book's ink, not SillyTavern's own colors.
@@ -3243,6 +3281,7 @@
     cssTag('ntr_rb_css', rbCssText((k) => live && s[k + 'On'] && s[k]));
     cssTag('ntr_scroll_css', isOn() && s.ovScrollOn && s.ovScrollCssOn ? String(s.ovScrollCss || '').slice(0, 2000).trim() : '');
     cssTag('ntr_cursor_css', isOn() && s.ovCursorOn && s.ovCursorCssOn ? String(s.ovCursorCss || '').slice(0, 2000).trim() : '');
+    cssTag('ntr_qr_css', isOn() && s.ovQrOn && s.ovQrCssOn ? String(s.ovQrCss || '').slice(0, 2000).trim() : '');
   }
   function cssTag(id, v) {
     let el = document.getElementById(id);
@@ -3399,7 +3438,7 @@
 
   // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
-    return pageHtml('elements', reasoningPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s));
+    return pageHtml('elements', reasoningPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + qrPartHtml(s));
   }
 
   function reasoningPartHtml(s) {
@@ -3583,15 +3622,20 @@
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
   const ovLabel = (label, inner) => `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${inner}`;
 
+  // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
+  const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
+    + ovWhen(`ov${p}Shape`, 'rounded', ovLabel('Roundness', rangeSlider(s, `ov${p}Round`))));
+  const ovBgRow = (s, p, hint = '') => ovRow(s, `ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
+    + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BgOpacity`))) + hint);
+  const ovBorderRow = (s, p) => ovRow(s, `ov${p}BorderOn`, 'Border', ovPick(s, `ov${p}Border`, [['none', 'None'], ['line', 'Line']])
+    + ovWhen(`ov${p}Border`, 'line', ovLabel('Line Color', ovColor(s, `ov${p}BorderColor`)) + ovLabel('Thickness', rangeSlider(s, `ov${p}BorderWidth`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BorderOpacity`))));
+
   function displaySectionHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key) => rangeSlider(s, key);
-    const shape = (p) => row(`ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
-      + ovWhen(`ov${p}Shape`, 'rounded', ovLabel('Roundness', sl(`ov${p}Round`))));
-    const bg = (p, hint = '') => row(`ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
-      + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', sl(`ov${p}BgOpacity`))) + hint);
-    const border = (p) => row(`ov${p}BorderOn`, 'Border', ovPick(s, `ov${p}Border`, [['none', 'None'], ['line', 'Line']])
-      + ovWhen(`ov${p}Border`, 'line', ovLabel('Line Color', ovColor(s, `ov${p}BorderColor`)) + ovLabel('Thickness', sl(`ov${p}BorderWidth`)) + ovLabel('Opacity', sl(`ov${p}BorderOpacity`))));
+    const shape = (p) => ovShapeRow(s, p);
+    const bg = (p, hint = '') => ovBgRow(s, p, hint);
+    const border = (p) => ovBorderRow(s, p);
     return pageHtml('display', `
           <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           ${card('Whole Interface', `
@@ -3666,8 +3710,34 @@
     `);
   }
 
+  function qrPartHtml(s) {
+    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
+    const hint = (t) => `<div class="cb_hint">${t}</div>`;
+    return pagePart('Quick Replies', ['m_qr_enable', s.ovQrOn], 'el_qr', `
+          ${hint('Changes the buttons of SillyTavern\'s Quick Reply bar, above the send box, and its pop-out window. A set\'s own color from Quick Reply\'s settings still shows behind its buttons.')}
+          ${subHead('ov_qr_btn', 'Buttons')}
+          ${ovShapeRow(s, 'Qr')}
+          ${ovBgRow(s, 'Qr', hint('SillyTavern\'s buttons have no background of their own.'))}
+          ${ovBorderRow(s, 'Qr')}
+          ${row('ovQrTextOn', 'Text Color', ovColor(s, 'ovQrText'))}
+          ${row('ovQrHoverOn', 'Hover Color', ovColor(s, 'ovQrHover') + hint('The background while the mouse is over a button.'))}
+          ${row('ovQrSizeOn', 'Text Size', rangeSlider(s, 'ovQrSize'))}
+          ${subHead('ov_qr_bar', 'Bar')}
+          ${row('ovQrWrapOn', 'Layout', ovPick(s, 'ovQrWrap', [['wrap', 'Wrap into Rows'], ['scroll', 'One Scrolling Row']])
+            + hint('One Scrolling Row keeps the bar one button high; scroll sideways for the rest. SillyTavern wraps them.'))}
+          ${row('ovQrGapOn', 'Gap', rangeSlider(s, 'ovQrGap'))}
+          ${row('ovQrAlignOn', 'Alignment', ovPick(s, 'ovQrAlign', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']]))}
+          ${row('ovQrOpacityOn', 'Bar Opacity', rangeSlider(s, 'ovQrOpacity') + hint('SillyTavern shows the bar at 70%.'))}
+          ${subHead('ov_qr_css', 'Advanced: Custom CSS')}
+          <div class="cb_collapse_content">
+            ${row('ovQrCssOn', 'Quick Replies CSS', customCssBox(s, 'ovQrCss', '#qr--bar .qr--button { font-weight: bold; }&#10;#qr--bar .qr--button:hover { transform: scale(1.05); }')
+              + hint('Whole CSS rules for anything the settings above don\'t cover, like <code>#qr--bar .qr--button { font-weight: bold; }</code>. The bar is <code>#qr--bar</code>, the pop-out window <code>#qr--popout</code> and each button <code>.qr--button</code>. Add <code>!important</code> if a setting doesn\'t take. Works while Quick Replies is on. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.'))}
+          </div>
+    `);
+  }
+
   function bindDisplay(overlay, s) {
-    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn']]) {
+    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_qr_enable', 'ovQrOn']]) {
       overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };
     }
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
@@ -4118,7 +4188,7 @@
   // UI Display keys that sit on other pages now, and go in those pages' theme sections.
   const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap'];
   const NAMES_KEYS = ['ovNamesOn', 'ovNames'];
-  const ELEMENT_OV_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ovScroll') || k.startsWith('ovCursor'));
+  const ELEMENT_OV_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ovScroll') || k.startsWith('ovCursor') || k.startsWith('ovQr'));
   const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...AVATAR_SHAPE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
   // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
@@ -4126,7 +4196,7 @@
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },
-    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')), ...ELEMENT_OV_KEYS] },
+    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor, quick replies)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')), ...ELEMENT_OV_KEYS] },
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
@@ -4187,6 +4257,7 @@
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'], ovBubWidth: [40, 100, 1, '%'],
+    ovQrSize: [0.5, 2, 0.05, 'x'], ovQrGap: [0, 20, 1, 'px'], ovQrOpacity: [10, 100, 1, '%'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     emoStageScale: [30, 200, 5, '%'], emoStageOpacity: [10, 100, 5, '%'],
@@ -4203,7 +4274,7 @@
     for (const name of ['BarLen', 'BanH']) r(name, 5);
     for (const name of ['ChatW', 'ChatH', 'SendW', 'PageW', 'BanW']) r(name, 10);
   }
-  for (const p of ['Panel', ...OV_PARTS]) {
+  for (const p of ['Panel', ...BOX_PARTS]) {
     Object.assign(NUM_RANGE, { [`ov${p}BgOpacity`]: [0, 100, 1, '%'], [`ov${p}BorderWidth`]: [1, 6, 1, 'px'], [`ov${p}BorderOpacity`]: [0, 100, 1, '%'] });
     if (p !== 'Panel') NUM_RANGE[`ov${p}Round`] = NUM_RANGE.ovRound;
   }
@@ -4226,7 +4297,7 @@
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
   const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
-  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, mapGoText: 200 };
+  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;
@@ -4244,7 +4315,7 @@
     // Default art and cursors follow the rules for card images: an uploaded file, a web link or an embedded image.
     if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || (cUrl(v) === v && !v.startsWith('data:video/')));
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
-    if (k === 'ovScrollTrack') return typeof v === 'string' && COLOR_RE.test(v);
+    if (k === 'ovScrollTrack' || k === 'ovQrHover') return typeof v === 'string' && COLOR_RE.test(v);
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (INK_KEYS.includes(k)) return typeof v === 'string' && COLOR_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
@@ -4569,6 +4640,7 @@
       const css = rbCssText((k) => rbPart[k]);
       const scrollCss = String(rbPart.ovScrollCss || '').slice(0, 2000).trim();
       const cursorCssIn = String(rbPart.ovCursorCss || '').slice(0, 2000).trim();
+      const qrCssIn = String(rbPart.ovQrCss || '').slice(0, 2000).trim();
       panel.innerHTML = `
         <div class="ntr_tpanel">
           <strong>Import theme</strong>
@@ -4581,6 +4653,8 @@
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(scrollCss)}</pre>` : ''}
           ${cursorCssIn ? `<div class="cb_hint">This theme includes Custom CSS for the cursor. It's added switched off: after applying the theme, check it under Elements, Cursor, Advanced: Custom CSS, and tick it to use it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(cursorCssIn)}</pre>` : ''}
+          ${qrCssIn ? `<div class="cb_hint">This theme includes Custom CSS for Quick Replies. It's added switched off: after applying the theme, check it under Elements, Quick Replies, Advanced: Custom CSS, and tick it to use it.</div>
+          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(qrCssIn)}</pre>` : ''}
           ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Visual Novel Mode, Tags &amp; Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add theme</button>
@@ -4596,7 +4670,7 @@
         for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
-        for (const k of ['ovScrollCss', 'ovCursorCss']) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
+        for (const k of ['ovScrollCss', 'ovCursorCss', 'ovQrCss']) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s images...', 'Themes');
           const r = await unpackFiles(data);

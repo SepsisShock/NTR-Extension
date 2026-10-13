@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.55.0';
+  const AGENTS_VERSION = '2.56.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -417,7 +417,7 @@ Keep every value from your last result that the new messages leave as it was, an
   };
   const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${(CC.find(([v]) => v === a.ccSource) || [, ''])[1]}${a.ccModel ? ' · ' + a.ccModel : ''}`
     : `${(TC.find(([v]) => v === a.tcType) || [, ''])[1]} (local)`);
-  const slider = (a, f, k) => `<div class="cb_row"><input type="range" class="m_ag_num" data-f="${f}" data-k="${k}" ${A.rangeAttrs(k)} value="${a[f]}" style="flex:1;"><span style="min-width:72px;text-align:right;" id="m_ag_v_${f}">${a[f]}${A.numRange(k)[3] || ''}</span></div>`;
+  const slider = (a, f, k) => `<div class="cb_row"><input type="range" class="m_ag_num" data-f="${f}" data-k="${k}" ${A.rangeAttrs(k)} value="${a[f]}" style="flex:1;"><span style="min-width:72px;text-align:right;"><span id="m_ag_v_${f}" class="ntr_slval">${a[f]}</span>${A.numRange(k)[3] || ''}</span></div>`;
 
   function sectionHtml(s) {
     const note = '<div class="cb_hint ntr_pnote">Agents are separate requests to a model, each doing one job you give it. Each run costs tokens on its connection. Nothing here calls a model while this page is switched off.</div>';
@@ -740,7 +740,7 @@ Keep every value from your last result that the new messages leave as it was, an
       el.oninput = () => {
         const f = el.dataset.f;
         a[f] = num(el.dataset.k, el.value, a[f]);
-        root.querySelector(`#m_ag_v_${f}`).textContent = a[f] + (A.numRange(el.dataset.k)[3] || '');
+        root.querySelector(`#m_ag_v_${f}`).textContent = a[f];
       };
       el.onchange = () => changed(false);
     });

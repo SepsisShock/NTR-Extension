@@ -39,9 +39,6 @@ Worth doing, but after the planned work. Includes checks for problems that aren'
 ### Speech Bubbles: comic dialogue
 - [ ] Only the quoted speech in a bubble, with the narration as plain text, so long replies read like a comic or a visual novel in the normal chat. Means picking apart the message text, so it's a bigger job.
 
-### Typing in slider values
-- [ ] Everywhere in the menu a slider shows a value in % or px, let the value be typed in as well as dragged. Typed values stay within the slider's range.
-
 ### Interface Shape for the rest of SillyTavern
 Interface Shape (UI Decor, Whole Interface) rounds or squares the chat panel. Extend it to SillyTavern's own drawers, menus, popups and top bar, so the whole interface matches.
 

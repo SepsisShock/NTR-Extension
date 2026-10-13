@@ -3178,9 +3178,10 @@
   // Reasoning Arrow Turn: how far it turns while the block is open, and while it's closed.
   const RB_TURN = { flip: ['0deg', '180deg'], quarter: ['90deg', '0deg'], none: ['0deg', '0deg'] };
   // While Thinking: each animation's timing and keyframes. Bounce moves translate, so it goes up even when the arrow is flipped.
+  // Pulse shrinks rather than grows, so it never covers the button text.
   const RB_ANIM = {
     spin: ['1.2s linear infinite', '{ to { transform: rotate(1turn); } }'],
-    pulse: ['1.2s ease-in-out infinite', '{ 50% { transform: scale(1.35); opacity: .6; } }'],
+    pulse: ['1.2s ease-in-out infinite', '{ 50% { transform: scale(.7); opacity: .5; } }'],
     bounce: ['.9s ease-in-out infinite', '{ 50% { translate: 0 calc(-50% - .35em); } }'],
   };
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
@@ -3301,14 +3302,16 @@
     if (kind !== 'default') {
       css += cssRule(A + '::before', symbol ? { content: cssStr(sym), 'font-family': 'var(--mainFontFamily)', 'font-weight': 'normal' } : { content: 'none' });
     }
-    // ST leaves room on the button's right for one arrow at its own size. A bigger arrow or a longer symbol needs more,
-    // and Quarter Turn stands a long symbol on end, so the button is made tall enough for it too.
+    // ST leaves room on the button's right for one arrow at its own size. A bigger arrow or a longer symbol needs more.
+    // Quarter Turn stands a long symbol on end, Spin sweeps its corners round and Bounce lifts it, so the button makes
+    // room for those too.
     const wide = 0.7 * k * (symbol ? graphemes(sym) * 1.2 : 1);
     const high = 0.7 * k * (symbol ? 1.2 : 1);
-    const tall = s.rbArrowTurn === 'quarter' ? Math.max(wide, high) : high;
+    const tall = s.rbArrowAnim === 'spin' ? Math.hypot(wide, high) : s.rbArrowTurn === 'quarter' ? Math.max(wide, high)
+      : s.rbArrowAnim === 'bounce' ? high + 2 * 0.35 * 0.7 * k : high;
     if (wide !== 0.7) {
       css += cssRule('.mes_reasoning_header', {
-        'padding-right': `calc(var(--mainFontSize) * ${+wide.toFixed(3)} + 14px)`,
+        'padding-right': `calc(var(--mainFontSize) * ${+(s.rbArrowAnim === 'spin' ? tall : wide).toFixed(3)} + 14px)`,
         'min-height': `calc(var(--mainFontSize) * ${+tall.toFixed(3)} + 8px)`,
         'align-items': 'center',
       });

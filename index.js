@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.57.0';
+  const VERSION = '2.58.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -103,6 +103,8 @@
     // Reasoning Arrow on the reasoning button. Default is ST's chevron; Flip is ST's turn when the block closes.
     rbArrow: 'default', rbArrowSym: '', rbArrowImg: '', rbArrowColorOn: false, rbArrowColor: '', rbArrowSizeOn: false, rbArrowSize: 1,
     rbArrowTurn: 'flip', rbArrowAnim: 'off', rbArrowCssOn: false, rbArrowCss: '',
+    // Background Image in the reasoning box. Without a picture the box is left as it is.
+    rbBgImg: '', rbBgFit: 'cover', rbBgPos: 'cc', rbBgTile: 128, rbBgOpacity: 100, rbBgTintOn: true, rbBgTint: 40,
 
     // Text Formatting
     tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
@@ -1895,7 +1897,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['rd_book', 'rd_phone', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
+  const FOLDED = new Set(['rd_book', 'rd_phone', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -3188,7 +3190,7 @@
   const OV_SHAPES = ['rounded', 'square'];
   // Quick Replies' Alignment. Safe keeps the first buttons in reach when one scrolling row is wider than the bar.
   const QR_ALIGN = { left: 'flex-start', center: 'safe center', right: 'safe flex-end' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBgFit: ['cover', 'tile'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
@@ -3205,6 +3207,7 @@
     Object.assign(PICK_KEYS, { [`ov${p}Bg`]: ['clear', 'color'], [`ov${p}Border`]: ['none', 'line'] });
     if (p !== 'Panel') PICK_KEYS[`ov${p}Shape`] = OV_SHAPES;
   }
+  PICK_KEYS.rbBgPos = POS_GRID.map(([v]) => v);
   for (const p of ['ai', 'us']) {
     Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v) });
   }
@@ -3273,6 +3276,27 @@
     // Fade: the Box Color itself turns see-through, starting on the Fade From side.
     const dir = RB_FADE[s.rbPatFade] ?? 'to bottom';
     return [dir ? `linear-gradient(${dir}, transparent, ${C})` : `radial-gradient(closest-side, transparent, ${C})`];
+  }
+
+  // Background Image: the picture on a layer behind the text, so Opacity really is see-through, and the Readability Tint
+  // and any drawn pattern on a second layer above it. That one copies the box's padding, so ruled lines still sit under
+  // the text. Both layers stay under the text, and the Box Color stays on the box itself, under the picture.
+  const bgPos = (v) => `${{ l: 'left', c: 'center', r: 'right' }[v[1]] || 'center'} ${{ t: 'top', c: 'center', b: 'bottom' }[v[0]] || 'center'}`;
+  function reasoningBgCss(s, img, pat) {
+    const layer = { content: '""', position: 'absolute', inset: '0', 'z-index': '-1', 'pointer-events': 'none', 'border-radius': 'inherit' };
+    const op = rangeNum(s, 'rbBgOpacity');
+    let css = cssRule('.mes_reasoning::before', {
+      ...layer,
+      background: s.rbBgFit === 'tile' ? `url("${img}") 0 0 / ${rangeNum(s, 'rbBgTile')}px auto repeat`
+        : `url("${img}") ${bgPos(String(s.rbBgPos))} / cover no-repeat`,
+      opacity: op < 100 ? op / 100 : '',
+    });
+    // Readability Tint: black over light reasoning text, white over dark, from the color ST gives the reasoning text.
+    const tint = s.rbBgTintOn ? rangeNum(s, 'rbBgTint') / 100 : 0;
+    const shade = `hsl(from var(--reasoning-body-color) 0 0 clamp(0, (50 - l) * 1000, 100) / ${tint})`;
+    const top = [...pat, tint ? `linear-gradient(${shade}, ${shade})` : ''].filter(Boolean);
+    if (top.length) css += cssRule('.mes_reasoning::after', { ...layer, background: top.join(', '), padding: 'inherit', 'box-sizing': 'border-box' });
+    return css;
   }
 
   // Reasoning Arrow. ST centers it and flips it with one transform, so here the centering is on translate and the turn on
@@ -3347,12 +3371,18 @@
       const boxOp = on('rbBoxAlpha') ? rangeNum(s, 'rbBoxOpacity') : 100;
       const boxFill = col('rbBoxColor') || (boxOp < 100 ? 'var(--SmartThemeBlurTintColor)' : '');
       const boxBg = boxFill && seeThrough(boxFill, boxOp);
-      const pat = boxPattern(s, col, boxBg);
+      const allPat = boxPattern(s, col, boxBg);
+      // With a Background Image, a drawn pattern moves to the layer above the picture (see reasoningBgCss). Fade stays
+      // on the Box Color, under the picture.
+      const img = cUrl(s.rbBgImg);
+      const pat = img && s.rbPat !== 'fade' ? [] : allPat;
       const bs = on('rbBorderStyle') && RB_BOX_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
       css += cssRule('.mes_reasoning', {
         'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
         'background-color': pat.length ? '' : boxBg,
         background: pat.length ? [...pat, s.rbPat === 'fade' ? 'transparent' : boxBg || 'transparent'].join(', ') : '',
+        position: img ? 'relative' : '',
+        isolation: img ? 'isolate' : '',
         'padding-left': s.rbPat === 'notebook' ? '2.1em' : '',
         '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
         'border-left-color': col('rbBorder'),
@@ -3361,6 +3391,7 @@
         'border-left-width': bs === 'double' ? '4px' : '',
         'box-shadow': edgeFx('rbEdgeFx', col('rbBorder') || 'var(--reasoning-body-color)', '-2px', true),
       });
+      if (img) css += reasoningBgCss(s, img, pat === allPat ? [] : allPat);
       // The Reasoning Button above it. ST's has no border and rounded corners.
       const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : '';
       const bc = col('rbBtnBorderColor') || 'currentColor';
@@ -3623,6 +3654,26 @@
           ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')], s.rbBorderStyle))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
           ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}
+          ${subHead('rb_bgimg', 'Background Image')}
+          <div class="cb_collapse_content">
+          <div class="cb_cur_slot">
+            <div class="cb_cur_row">
+              <div class="cb_cur_prev ntr_rd_pic" id="m_rbbg_prev"></div>
+              <span class="cb_cur_name">Picture<small>Shows behind the reasoning text, in every reasoning box.</small></span>
+              <button class="menu_button" id="m_rbbg_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button" id="m_rbbg_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button" id="m_rbbg_clr" title="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+            </div>
+            <input type="file" id="m_rbbg_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          </div>
+          <div class="m_rbbg_rows">
+          ${pickRow('Fit', pills('rbbgfit', [['cover', 'Cover'], ['tile', 'Tile']], s.rbBgFit) + '<div class="cb_hint">Cover fills the box, cropping the picture. Tile repeats it.</div>')}
+          ${pickRow('Position', posGrid('rbbgpos', s.rbBgPos) + '<div class="cb_hint">The part of the picture that stays in view when the box crops it.</div>', ' data-rbbg="cover"')}
+          ${pickRow('Tile Size', rangeSlider(s, 'rbBgTile') + '<div class="cb_hint">The width of each tile.</div>', ' data-rbbg="tile"')}
+          ${pickRow('Opacity', rangeSlider(s, 'rbBgOpacity') + '<div class="cb_hint">Lower lets the chat, or the Box Color, show through the picture. If your Box CSS makes the box scroll, the picture scrolls away with the text.</div>')}
+          ${ovRow(s, 'rbBgTintOn', 'Readability Tint', rangeSlider(s, 'rbBgTint') + '<div class="cb_hint">Darkens the picture behind light reasoning text, or lightens it behind dark text, so the text stays easy to read.</div>')}
+          </div>
+          </div>
           ${subHead('rb_pattern', 'Background Pattern')}
           <div class="cb_collapse_content">
           ${pickRow('Pattern', pills('rbpat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers'], ['fade', 'Fade']], s.rbPat))}
@@ -3760,6 +3811,48 @@
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
     bindCssBoxes(overlay, 'rb');
     bindReasoningArrow(overlay, s);
+    bindReasoningBg(overlay, s);
+  }
+
+  // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
+  function bindReasoningBg(overlay, s) {
+    const syncRows = () => {
+      overlay.querySelector('.m_rbbg_rows').classList.toggle('cb_dim', !s.rbBgImg);
+      overlay.querySelectorAll('[data-rbbg]').forEach((r) => { r.style.display = r.dataset.rbbg === s.rbBgFit ? '' : 'none'; });
+    };
+    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
+    onPills(overlay, 'rbbgfit', (v) => set('rbBgFit', v));
+    onPills(overlay, 'rbbgpos', (v) => set('rbBgPos', v));
+    const prev = overlay.querySelector('#m_rbbg_prev');
+    const render = () => {
+      prev.innerHTML = s.rbBgImg ? `<img src="${escapeHTML(s.rbBgImg)}" alt="">` : '<i class="fa-solid fa-image"></i>';
+      overlay.querySelector('#m_rbbg_clr').disabled = !s.rbBgImg;
+    };
+    const setImg = (url) => {
+      const old = s.rbBgImg;
+      set('rbBgImg', url);
+      render();
+      deleteFileIfUnused(old);
+    };
+    const file = overlay.querySelector('#m_rbbg_file');
+    overlay.querySelector('#m_rbbg_up').onclick = () => file.click();
+    overlay.querySelector('#m_rbbg_url').onclick = async function() {
+      const url = await askImageUrl('Reasoning background', this);
+      if (url) setImg(url);
+    };
+    overlay.querySelector('#m_rbbg_clr').onclick = () => setImg('');
+    file.onchange = async () => {
+      if (!file.files.length) return;
+      try {
+        setImg(await uploadImage(file.files[0], 'rbbg', { maxWidth: 1600 }));
+      } catch (e) {
+        console.error('[NTR reasoning background upload]', e);
+        toastr.error(e.message || 'Upload failed', 'Background Image');
+      }
+      file.value = '';
+    };
+    render();
+    syncRows();
   }
 
   // Reasoning Arrow: show the rows for the picked arrow, and the picture's Upload / Link / Remove.
@@ -4361,7 +4454,7 @@
   }
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
-  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|rbbg|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
   // Resolves to true if the file was deleted. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok).catch(() => false);
@@ -4491,7 +4584,7 @@
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg', 'rbBgImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
@@ -4501,7 +4594,7 @@
     agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'], agSendDepth: [0, 50, 1, ''],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
-    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], rbBgTile: [16, 512, 1, 'px'], rbBgOpacity: [0, 100, 1, '%'], rbBgTint: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'], ovBubWidth: [40, 100, 1, '%'],
     ovQrSize: [0.5, 2, 0.05, 'x'], ovQrGap: [0, 20, 1, 'px'], ovQrOpacity: [10, 100, 1, '%'],

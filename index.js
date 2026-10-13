@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.54.0';
+  const VERSION = '2.54.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -4055,38 +4055,78 @@
     cardTimers.set(key, setTimeout(() => { cardTimers.delete(key); flushCard(key); }, 700));
   }
 
-  async function flushCard(key) {
+  // SillyTavern merges a save into what the card holds, so a key that's gone from NTR data would stay in the card. Each
+  // key removed since the last save goes as SillyTavern's "unset" value instead, which deletes it.
+  function withUnsets(old, now, unset) {
+    const out = { ...now };
+    for (const k of Object.keys(old)) {
+      if (now[k] === undefined) out[k] = unset;
+      else if (isObj(old[k]) && isObj(now[k])) out[k] = withUnsets(old[k], now[k], unset);
+    }
+    return out;
+  }
+
+  // One save per card at a time, in order, so a slow save can't land after a newer one.
+  const cardSaving = new Map();
+  function flushCard(key) {
+    const p = (cardSaving.get(key) || Promise.resolve()).then(() => saveCard(key));
+    cardSaving.set(key, p);
+    p.then(() => { if (cardSaving.get(key) === p) cardSaving.delete(key); });
+    return p;
+  }
+
+  let cardSaveWarned = false;
+  async function saveCard(key) {
     if (wiping) return;
     const c = ctx();
     const i = charIndexByAvatar(key);
-    const d = i >= 0 ? c.characters[i]?.data?.extensions?.ntr : null;
+    const ch = i >= 0 ? c.characters[i] : null;
+    const d = ch?.data?.extensions?.ntr;
     if (!d) return;
     const json = JSON.stringify(d);
     const before = cardSnap.get(key) ?? '';
     if (json === before) return;
     if (before === '' && !legacyMoved.has(key) && cardIsEmpty(d)) return;
     try {
-      // SillyTavern merges a save into what the card holds, and merging into NTR data that isn't an object drops the
-      // save. So a broken card's old value is cleared first, through the bulk save, which says whether it worked (the
-      // single one doesn't). Clearing also drops it from memory, so it's put straight back. Until it works, nothing
-      // counts as saved.
+      // Merging into NTR data that isn't an object drops the save. So a broken card's old value is cleared first,
+      // through the bulk save. Clearing also drops it from memory, so it's put straight back.
       const unset = c.constants?.unset;
       if (cardFix.has(key) && unset && typeof c.writeExtensionFieldBulk === 'function') {
-        const ch = c.characters[i];
         const r = await c.writeExtensionFieldBulk([key], 'ntr', unset);
         ch.data.extensions.ntr = d;
         if (![...(r?.updated || []), ...(r?.skipped || [])].includes(key)) throw new Error('Could not clear the old NTR data in the card');
         cardFix.delete(key);
       }
-      await c.writeExtensionField(i, 'ntr', d);
+      // Saved here rather than with writeExtensionField, which doesn't say when the server turns a save down. Until a
+      // save works, nothing counts as saved, so the next one sends it all again.
+      const ntr = unset && before ? withUnsets(JSON.parse(before), d, unset) : d;
+      const res = await fetch('/api/characters/merge-attributes', {
+        method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ avatar: key, data: { extensions: { ntr } } }),
+      });
+      if (!res.ok) throw new Error(`The server said ${res.status} ${res.statusText}`);
       cardSnap.set(key, json);
+      cardSaveWarned = false;
       if (legacyMoved.has(key)) {
         legacyMoved.delete(key);
         delete settings().chars[key];
         c.saveSettingsDebounced();
       }
+      // Like writeExtensionField: the card's JSON copy (and the open character editor's) gets the same data, so saving
+      // the character in its editor doesn't bring old NTR data back.
+      const j = ch.json_data ? JSON.parse(ch.json_data) : null;
+      if (isObj(j?.data)) {
+        if (!isObj(j.data.extensions)) j.data.extensions = {};
+        j.data.extensions.ntr = d;
+        ch.json_data = JSON.stringify(j);
+        const box = document.getElementById('character_json_data');
+        if (box && Number(c.characterId) === i) box.value = ch.json_data;
+      }
     } catch (e) {
       console.error('[NTR] Could not save character data to the card', e);
+      if (!cardSaveWarned) {
+        cardSaveWarned = true;
+        toastr.error('Could not save NTR changes to the character card. Your next change tries again; reloading before then loses them.', 'NTR');
+      }
     }
   }
 

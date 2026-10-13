@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.56.0';
+  const VERSION = '2.57.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -100,6 +100,9 @@
     rbPat: 'none', rbPatH: true, rbPatV: false, rbPatR: false, rbPatL: false, rbPatFade: 'tc', rbPatShade: 'light',
     rbPatColorOn: false, rbPatColor: '', rbPatThick: 1, rbPatSize: 1,
     rbCssOn: false, rbCss: '', rbBtnCssOn: false, rbBtnCss: '',
+    // Reasoning Arrow on the reasoning button. Default is ST's chevron; Flip is ST's turn when the block closes.
+    rbArrow: 'default', rbArrowSym: '', rbArrowImg: '', rbArrowColorOn: false, rbArrowColor: '', rbArrowSizeOn: false, rbArrowSize: 1,
+    rbArrowTurn: 'flip', rbArrowAnim: 'off', rbArrowCssOn: false, rbArrowCss: '',
 
     // Text Formatting
     tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
@@ -3135,8 +3138,8 @@
       ? `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`
       : `<input type="color" class="m_o_col" data-key="${key}" value="${toHex(s[key])}">`;
   }
-  function ovText(s, key, placeholder = '') {
-    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="100" placeholder="${escapeHTML(placeholder)}" style="width:100%;">`;
+  function ovText(s, key, placeholder = '', max = 100) {
+    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="${max}" placeholder="${escapeHTML(placeholder)}" style="width:100%;">`;
   }
   function ovFx(s, p) {
     return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline']], s[p + 'Fx']) + rangeSlider(s, p + 'FxStr');
@@ -3171,11 +3174,20 @@
   const RB_BOX_SHAPE = { rounded: '10px', extra: '20px' }; // unticked: ST's own 2px
   const RB_PATS = ['none', 'notebook', 'lines', 'dots', 'checkers', 'fade'];
   // Fade From: the side the shade starts on, on the same 3x3 grid as picture positions. The center glows outward.
+  const RB_ARROW = ['default', 'none', 'symbol', 'image'];
+  // Reasoning Arrow Turn: how far it turns while the block is open, and while it's closed.
+  const RB_TURN = { flip: ['0deg', '180deg'], quarter: ['90deg', '0deg'], none: ['0deg', '0deg'] };
+  // While Thinking: each animation's timing and keyframes. Bounce moves translate, so it goes up even when the arrow is flipped.
+  const RB_ANIM = {
+    spin: ['1.2s linear infinite', '{ to { transform: rotate(1turn); } }'],
+    pulse: ['1.2s ease-in-out infinite', '{ 50% { transform: scale(1.35); opacity: .6; } }'],
+    bounce: ['.9s ease-in-out infinite', '{ 50% { translate: 0 calc(-50% - .35em); } }'],
+  };
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
   const OV_SHAPES = ['rounded', 'square'];
   // Quick Replies' Alignment. Safe keeps the first buttons in reach when one scrolling row is wider than the bar.
   const QR_ALIGN = { left: 'flex-start', center: 'safe center', right: 'safe flex-end' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
@@ -3197,7 +3209,7 @@
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
-    rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor', rbBoxColor: '--SmartThemeBlurTintColor', rbPatColor: '--SmartThemeQuoteColor',
+    rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor', rbBoxColor: '--SmartThemeBlurTintColor', rbPatColor: '--SmartThemeQuoteColor', rbArrowColor: '--SmartThemeBodyColor',
     tfNameColor: '--SmartThemeBodyColor',
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
@@ -3262,6 +3274,49 @@
     return [dir ? `linear-gradient(${dir}, transparent, ${C})` : `radial-gradient(closest-side, transparent, ${C})`];
   }
 
+  // Reasoning Arrow. ST centers it and flips it with one transform, so here the centering is on translate and the turn on
+  // rotate, which leaves transform free for the thinking animation. Those rules have no !important (it would stop the
+  // animation), so they start with #chat to outrank ST's.
+  const cssStr = (v) => `"${[...v].map((c) => `\\${c.codePointAt(0).toString(16)} `).join('')}"`;
+  const graphemes = (v) => { try { return [...new Intl.Segmenter().segment(v)].length; } catch (e) { return [...v].length; } };
+  function reasoningArrowCss(s, col) {
+    const A = '.mes_reasoning_details .mes_reasoning_arrow';
+    const sym = String(s.rbArrowSym || '').slice(0, 16).trim();
+    const img = cUrl(s.rbArrowImg);
+    // A Symbol or Image left empty shows ST's arrow.
+    const kind = s.rbArrow === 'none' ? 'none' : s.rbArrow === 'symbol' && sym ? 'symbol' : s.rbArrow === 'image' && img ? 'image' : 'default';
+    if (kind === 'none') return cssRule(A, { display: 'none' }) + cssRule('.mes_reasoning_header', { 'padding-right': '14px' });
+    const k = s.rbArrowSizeOn ? rangeNum(s, 'rbArrowSize') : 1;
+    const size = `calc(var(--mainFontSize) * ${+(0.7 * k).toFixed(3)})`;
+    const symbol = kind === 'symbol';
+    let css = cssRule(A, {
+      color: kind === 'image' ? '' : col('rbArrowColor'),
+      'font-size': k !== 1 ? size : '',
+      width: symbol ? 'auto' : k !== 1 ? size : '',
+      height: symbol ? 'auto' : k !== 1 ? size : '',
+      'line-height': symbol ? '1' : '',
+      'white-space': symbol ? 'nowrap' : '',
+      background: kind === 'image' ? `url("${img}") center / contain no-repeat` : '',
+    });
+    if (kind !== 'default') {
+      css += cssRule(A + '::before', symbol ? { content: cssStr(sym), 'font-family': 'var(--mainFontFamily)', 'font-weight': 'normal' } : { content: 'none' });
+    }
+    // ST leaves room on the button's right for one arrow at its own size. A bigger arrow or a longer symbol needs more.
+    const wide = 0.7 * k * (symbol ? graphemes(sym) * 1.2 : 1);
+    if (wide !== 0.7) css += cssRule('.mes_reasoning_header', { 'padding-right': `calc(var(--mainFontSize) * ${+wide.toFixed(3)} + 14px)` });
+    const [open, closed] = RB_TURN[s.rbArrowTurn] || RB_TURN.flip;
+    css += `\n      #chat ${A} { transform: none; translate: 0 -50%; rotate: ${open}; }`;
+    css += `\n      #chat .mes_reasoning_details:not([open]) .mes_reasoning_arrow { rotate: ${closed}; }`;
+    // The turn and the thinking animation stop with ST's Reduced Motion, which ST also turns on for the device's own setting.
+    css += `\n      body:not(.reduced-motion) #chat ${A} { transition: rotate .2s ease; }`;
+    const anim = RB_ANIM[s.rbArrowAnim];
+    if (anim) {
+      css += `\n      @keyframes ntr_rb_arrow ${anim[1]}`;
+      css += `\n      body:not(.reduced-motion) #chat .mes_reasoning_details[data-state="thinking"] .mes_reasoning_arrow { animation: ntr_rb_arrow ${anim[0]}; }`;
+    }
+    return css;
+  }
+
   function textFormatCss(s) {
     const on = (k) => s[k + 'On'];
     const col = (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : '');
@@ -3306,6 +3361,7 @@
         border: bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
         'box-shadow': edgeFx('rbBtnFx', bc, '0px', false),
       });
+      css += reasoningArrowCss(s, col);
     }
 
     if (!s.tfEnabled) return css ? css + '\n' : '';
@@ -3340,7 +3396,7 @@
 
   // Custom CSS for the reasoning button and box, and for the scrollbar, each in its own style tag so a typo can't break
   // the extension's other styles.
-  const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning']];
+  const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning'], ['rbArrowCss', '.mes_reasoning_details .mes_reasoning_arrow']];
   // The reasoning Custom CSS boxes that `get` gives text for, each inside its part's selector.
   const rbCssText = (get) => RB_CSS.map(([k, sel]) => {
     const c = String(get(k) || '').slice(0, 2000).trim();
@@ -3566,10 +3622,30 @@
           ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">How thick the lines are, or how big the dots are. Checkers doesn't use it.</div>`, ' data-rbpat="drawn"')}
           ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Spacing of the pattern. Notebook and Horizontal lines follow the text lines instead.</div>`, ' data-rbpat="drawn"')}
           </div>`)}
+          ${card('Reasoning Arrow', `
+          ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'SillyTavern\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Image']], s.rbArrow))}
+          ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼', 16) + '<div class="cb_hint">Any character or emoji, or a few of them. Empty shows SillyTavern\'s arrow.</div>', ' data-rbarrow="symbol"')}
+          <div class="cb_cur_slot" data-rbarrow="image">
+            <div class="cb_cur_row">
+              <div class="cb_cur_prev" id="m_rba_prev"></div>
+              <span class="cb_cur_name">Picture<small>Square works best; 64×64 px is plenty. Empty shows SillyTavern's arrow.</small></span>
+              <button class="menu_button" id="m_rba_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button" id="m_rba_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button" id="m_rba_clr" title="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+            </div>
+            <input type="file" id="m_rba_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          </div>
+          <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Without this, the arrow follows the button\'s text color. Color emoji keep their own colors.</div>')}</div>
+          <div data-rbarrow="shown">
+          ${ovRow(s, 'rbArrowSizeOn', 'Arrow Size', rangeSlider(s, 'rbArrowSize') + '<div class="cb_hint">1x is SillyTavern\'s size. The button makes room for it.</div>')}
+          ${pickRow('Turn', pills('rbarrowturn', [['flip', 'Flip', 'SillyTavern\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']], s.rbArrowTurn) + '<div class="cb_hint">How the arrow turns when the block closes. Quarter Turn is for symbols that point right, like ▶: they point down while the block is open.</div>')}
+          ${pickRow('While Thinking', pills('rbarrowanim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']], s.rbArrowAnim) + '<div class="cb_hint">Moves the arrow until the thinking is done. Off with ST Reduced Motion enabled.</div>')}
+          </div>`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbBtnCssOn', 'Button CSS', cssBox('rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;') + '<div class="cb_hint">CSS for the reasoning button, like <code>text-transform: uppercase;</code>.</div>')}
             ${ovRow(s, 'rbCssOn', 'Box CSS', cssBox('rbCss', 'letter-spacing: 1px;&#10;& em { color: gold; }') + '<div class="cb_hint">CSS for the reasoning box, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics.</div>')}
+            ${ovRow(s, 'rbArrowCssOn', 'Arrow CSS', cssBox('rbArrowCss', 'opacity: .7;') + '<div class="cb_hint">CSS for the reasoning arrow, like <code>opacity: .7;</code>. Use <code>&amp;::before { ... }</code> for a Symbol.</div>')}
             <div class="cb_hint">Add <code>!important</code> if a setting doesn't take. To style the rest of SillyTavern, use SillyTavern's own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>
           </div>
     `);
@@ -3635,7 +3711,7 @@
     onPills(overlay, 'rbtyping', (v) => { s.rbTyping = v; save(); syncReasoningLabels(); });
     overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
       el.onchange = () => {
-        s[el.dataset.key] = el.value.slice(0, 100);
+        s[el.dataset.key] = el.value.slice(0, strMax(el.dataset.key));
         save();
         updateAvatarStyle();
       };
@@ -3671,6 +3747,52 @@
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
     bindCssBoxes(overlay, 'rb');
+    bindReasoningArrow(overlay, s);
+  }
+
+  // Reasoning Arrow: show the rows for the picked arrow, and the picture's Upload / Link / Remove.
+  function bindReasoningArrow(overlay, s) {
+    const syncRows = () => {
+      const a = s.rbArrow;
+      overlay.querySelectorAll('[data-rbarrow]').forEach((r) => {
+        const w = r.dataset.rbarrow;
+        r.style.display = w === a || (w === 'shown' && a !== 'none') || (w === 'color' && a !== 'none' && a !== 'image') ? '' : 'none';
+      });
+    };
+    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
+    onPills(overlay, 'rbarrow', (v) => set('rbArrow', v));
+    onPills(overlay, 'rbarrowturn', (v) => set('rbArrowTurn', v));
+    onPills(overlay, 'rbarrowanim', (v) => set('rbArrowAnim', v));
+    const prev = overlay.querySelector('#m_rba_prev');
+    const render = () => {
+      prev.innerHTML = s.rbArrowImg ? `<img src="${escapeHTML(s.rbArrowImg)}" alt="">` : '<i class="fa-solid fa-chevron-up"></i>';
+      overlay.querySelector('#m_rba_clr').disabled = !s.rbArrowImg;
+    };
+    const setImg = (url) => {
+      const old = s.rbArrowImg;
+      set('rbArrowImg', url);
+      render();
+      deleteFileIfUnused(old);
+    };
+    const file = overlay.querySelector('#m_rba_file');
+    overlay.querySelector('#m_rba_up').onclick = () => file.click();
+    overlay.querySelector('#m_rba_url').onclick = async function() {
+      const url = await askImageUrl('Arrow picture', this);
+      if (url) setImg(url);
+    };
+    overlay.querySelector('#m_rba_clr').onclick = () => setImg('');
+    file.onchange = async () => {
+      if (!file.files.length) return;
+      try {
+        setImg(await uploadImage(file.files[0], 'arrow', { max: 128 }));
+      } catch (e) {
+        console.error('[NTR arrow upload]', e);
+        toastr.error(e.message || 'Upload failed', 'Reasoning Arrow');
+      }
+      file.value = '';
+    };
+    render();
+    syncRows();
   }
 
   // One cursor picture: preview, Upload / Link / Remove.
@@ -4227,7 +4349,7 @@
   }
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
-  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
   // Resolves to true if the file was deleted. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok).catch(() => false);
@@ -4357,7 +4479,7 @@
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
@@ -4367,7 +4489,7 @@
     agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'], agSendDepth: [0, 50, 1, ''],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
-    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'], ovBubWidth: [40, 100, 1, '%'],
     ovQrSize: [0.5, 2, 0.05, 'x'], ovQrGap: [0, 20, 1, 'px'], ovQrOpacity: [10, 100, 1, '%'],
@@ -4410,7 +4532,7 @@
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
   const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
-  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbCss: 2000, rbBtnCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, mapGoText: 200 };
+  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbArrowSym: 16, rbCss: 2000, rbBtnCss: 2000, rbArrowCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;

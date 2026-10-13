@@ -46,15 +46,6 @@ Font boxes already take any font installed on the device, or a Google Fonts name
 - [ ] A preset list of Google Fonts, each name shown in its own font.
 - [ ] Uploading font files (like a downloaded .ttf that isn't installed), saved in SillyTavern's files so they work on any device and need no request to Google.
 
-### Reasoning Arrow
-A "Basic Style: Reasoning Arrow" card above Advanced, for the arrow on the reasoning button (`.mes_reasoning_arrow`, which ST flips upside down when the block is closed).
-
-- [ ] Arrow: Default, None, Symbol (any character or emoji) or Image (Upload or Link, square, 64×64 px is plenty). None shrinks the button's right padding.
-- [ ] Arrow Color, Arrow Size (0.5× to 3× of ST's size, so it scales the same on desktop and mobile; the button's padding grows with it), and Flip When Closed.
-- [ ] Saved in themes, with the image following the rules for other theme images.
-- [ ] While Thinking animation: Off, Spin, Pulse or Bounce. Stops when thinking ends; off with ST Reduced Motion.
-- [ ] Arrow CSS as a third box in Advanced: Custom CSS, switched off when it comes from someone else's theme.
-
 ### Avatar Shapes in Visual Novel Mode
 Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Rectangle and Square.
 

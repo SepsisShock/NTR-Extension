@@ -7,7 +7,7 @@
 // The fourth, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside for it, and it uses the saved page
 // and the page number box from here.
 (() => {
-  const READER_VERSION = '2.56.0';
+  const READER_VERSION = '2.57.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -367,6 +367,7 @@
     ${B} #chat .mes .mes_reasoning q :is(i, em) { color: inherit !important; }
     ${B} #chat .mes :is(.mes_reasoning, .mes_reasoning *) { text-shadow: none !important; -webkit-text-stroke: 0 !important; }
     ${B} #chat .mes .mes_reasoning_header { background: rgba(60, 40, 20, .1) !important; color: ${col('rdInk')} !important; border: 1px solid rgba(60, 40, 20, .25) !important; box-shadow: none !important; }
+    ${B} #chat .mes .mes_reasoning_arrow { color: inherit !important; }
     ${B} #chat .mes :is(.mes_text, .mes_media_wrapper) img { max-width: 100%; max-height: ${px(g.h - g.pt - g.pb - 8)}; break-inside: avoid; }
     ${B} #chat .mes :is(.swipe_left, .swipeRightBlock, .swipe_right, .swipes-counter) { color: ${col('rdInk')}; }
     ${B} #chat .mes .swipeRightBlock { position: fixed !important; left: ${px(g.x + g.w - g.po - 50)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }

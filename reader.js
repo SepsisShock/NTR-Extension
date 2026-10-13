@@ -580,7 +580,7 @@
   // and, on a computer, a phone frame with a status bar around SillyTavern's chat column, the send box inside it. Nothing
   // is moved out of the column, so swipes, editing and the "..." menu keep working.
   const PH_RATIO = 9 / 19.5, PH_BEZEL = 10, PH_RADIUS = 44, PH_FRAME = '#1c1c1e';
-  let phoneOn = false, phoneCss = '', clock = 0, typing = false;
+  let phoneOn = false, phoneCss = '', clock = 0, typing = false, genObs = null;
   function layoutPhone() {
     const on = phoneNow(), frame = framed();
     document.body.classList.toggle('ntr_phone', on);
@@ -590,6 +590,13 @@
       phoneOn = on;
       typing = false;
       if (on) window.addEventListener('resize', layoutPhone); else window.removeEventListener('resize', layoutPhone);
+      // SillyTavern marks the page while it writes a reply and clears it when the reply is done, stopped or failed.
+      genObs?.disconnect();
+      genObs = null;
+      if (on && window.MutationObserver) {
+        genObs = new MutationObserver(() => { if (!document.body.dataset.generating) typing = false; syncTyping(); });
+        genObs.observe(document.body, { attributes: true, attributeFilter: ['data-generating'] });
+      }
     }
     syncPhoneParts(on);
     if (frame && !clock) clock = setInterval(tick, 15000);
@@ -685,7 +692,7 @@
   }
   function syncTyping() {
     const sub = document.querySelector('#ntr_ph .ntr_ph_sub');
-    if (sub) sub.textContent = typing ? 'typing...' : '';
+    if (sub) sub.textContent = typing && document.body.dataset.generating ? 'typing...' : '';
   }
 
   // After a setting or the screen size changed: the book again, at the same spread.
@@ -925,16 +932,21 @@
     },
     // Sending a message or starting a reply goes to the last page, so you see the reply arrive.
     // Quiet generations and Impersonate don't add a reply to the chat, so they leave the page alone.
-    // In Phone, the header shows "typing..." until the reply is done.
     genStarted: (type, dryRun) => {
-      if (dryRun || type === 'quiet' || type === 'impersonate') return;
-      if (phoneNow()) { typing = true; syncTyping(); }
-      if (!live() || !pages.length) return;
+      if (dryRun || type === 'quiet' || type === 'impersonate' || !live() || !pages.length) return;
       dropFlip();
       if (cur < pages.length - 1) go(pages.length - 1, 'force');
       follow = true;
     },
-    genEnded: () => { typing = false; syncTyping(); },
+    // In Phone, the header shows "typing..." while a reply is written (see layoutPhone). It starts once SillyTavern has
+    // run any slash commands in the send box, so a send with only commands, which writes no reply, doesn't start it.
+    replyGoes: (type, dryRun) => {
+      if (dryRun || type === 'quiet' || type === 'impersonate' || !phoneNow()) return;
+      typing = true;
+      syncTyping();
+    },
+    // A group's name or members changed.
+    groupUpdated: () => syncHead(),
     // For Visual Novel: the message this chat was left on (null for the last), saving the one it shows, and its number box.
     savedMsg,
     rememberMsg,

@@ -2916,6 +2916,8 @@
         overflow: 'hidden', '-webkit-mask-image': 'none', 'mask-image': 'none', filter: 'none',
       }) + cssRule(`${sel} img`, {
         position: 'static', width: '100%', height: '100%', 'max-width': 'none', 'max-height': 'none', transform: 'none', 'aspect-ratio': 'auto', 'object-fit': 'cover', 'border-radius': '50%',
+        // A Heart or Star Shape masks the picture itself (see stShapeCss).
+        '-webkit-mask': 'none', mask: 'none',
       });
     }
     if (s.ovEnabled && s.ovBubOn) return css;
@@ -5467,18 +5469,22 @@
     // Agents wait for a reply being written. A send with only slash commands (like /ntr-agent typed in the box) writes
     // none and never sends "generation ended", so agents only count a reply once SillyTavern has run the commands.
     const replyGoes = event_types.GENERATION_AFTER_COMMANDS || event_types.GENERATION_STARTED;
-    if (replyGoes) eventSource.on(replyGoes, (type, _opts, dryRun) => window.NTR.agents?.genStarted(type, dryRun));
+    if (replyGoes) {
+      eventSource.on(replyGoes, (type, _opts, dryRun) => {
+        window.NTR.agents?.genStarted(type, dryRun);
+        window.NTR.reader?.replyGoes?.(type, dryRun);
+      });
+    }
+    if (event_types.GROUP_UPDATED) eventSource.on(event_types.GROUP_UPDATED, () => window.NTR.reader?.groupUpdated?.());
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
     // The short delay lets a reply that did arrive go first, so it still gets typed.
     if (event_types.GENERATION_ENDED) {
       eventSource.on(event_types.GENERATION_ENDED, () => {
-        window.NTR.reader?.genEnded?.();
         window.NTR.cast?.genEnded();
         window.NTR.agents?.genEnded();
         if (isOn() && settings().nodeEnabled) setTimeout(() => { if (window.NTR.vn?.endWait?.()) window.NTR.vn.queue(false); }, 300);
       });
     }
-    if (event_types.GENERATION_STOPPED) eventSource.on(event_types.GENERATION_STOPPED, () => window.NTR.reader?.genEnded?.());
     if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); window.NTR.cast?.refresh(); });
     // A renamed preset keeps its regex folders (Regexes page, regex.js), which are saved by preset name.
     if (event_types.PRESET_RENAMED) {

@@ -3111,9 +3111,9 @@
       box.remove();
       el.hidden = false;
       if (!apply || !Number.isFinite(v)) return;
-      const old = sl.value;
+      // Always applied, even when the slider already shows it: the saved value can be one the slider can't show (an
+      // offset dragged past the slider's end, or off its step), and the slider has already moved to its nearest.
       sl.value = String(v * (Number(el.dataset.scale) || 1));
-      if (sl.value === old) return;
       sl.dispatchEvent(new Event('input', { bubbles: true }));
       sl.dispatchEvent(new Event('change', { bubbles: true }));
     };

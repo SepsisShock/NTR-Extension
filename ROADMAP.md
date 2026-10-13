@@ -30,13 +30,10 @@ Find out how to make these movable and designable, and which details SillyTavern
 ### Speech Bubbles: comic dialogue
 - [ ] Only the quoted speech in a bubble, with the narration as plain text, so long replies read like a comic or a visual novel in the normal chat. Means picking apart the message text, so it's a bigger job.
 
-### Interface Shape for the rest of SillyTavern
-Interface Shape (UI Decor, Whole Interface) rounds or squares the chat panel. Extend it to SillyTavern's own drawers, menus, popups and top bar, so the whole interface matches.
+### Interface Shape: Square Screen Edges
+Interface Shape rounds or squares every corner of SillyTavern's and NTR's windows, even against the screen edge.
 
-- [ ] Find which of ST's parts set their own corners, and override them only while Interface Shape is ticked; unticked keeps ST's look.
-- [ ] Check that rounded corners don't cut off anything inside them, like drawer edges, menu items or popup buttons.
-- [ ] Messages, the send box and avatars keep their own Shape; the VN box and Reasoning keep theirs too. Scrollbars keep what their Custom CSS sets.
-- [ ] Optional tick, Square Screen Edges: on Rounded, corners touching the screen edge stay square, so no background shows through the curve.
+- [ ] Optional tick: on Rounded, corners touching the screen edge stay square, so no background shows through the curve. Which corners touch the edge changes with Layout (Menu Bar edge, phone, side panels), so it needs their positions worked out in code.
 
 ### Fonts
 Font boxes already take any font installed on the device, or a Google Fonts name.

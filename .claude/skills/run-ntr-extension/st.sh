@@ -2,6 +2,7 @@
 # A local SillyTavern with this repo installed as an extension, for running and testing it.
 #
 #   st.sh setup          clone SillyTavern, install it, first run, save clean data, install the extension
+#   st.sh hook           for the session start hook: setup in the background, in cloud sessions, if not done yet
 #   st.sh install [ref]  copy the extension into SillyTavern (working tree, or a git ref like origin/main)
 #   st.sh start | stop   start in the background (waits until it answers) | stop
 #   st.sh reset [ref]    stop, put back the clean data, install the extension (start again afterwards)
@@ -11,6 +12,7 @@
 #   st.sh bench table <name> [name...]   compare saved results
 #
 # SillyTavern lives in $ST_DIR (default ~/sillytavern) and answers on http://127.0.0.1:8000. Log: $ST_LOG.
+# The other commands wait while a setup is running.
 set -euo pipefail
 
 ST_DIR="${ST_DIR:-$HOME/sillytavern}"
@@ -20,13 +22,23 @@ USER_DIR="$ST_DIR/data/default-user"
 EXT_DIR="$USER_DIR/extensions/NTR-Extension"
 CLEAN="$ST_DIR/.ntr-clean-data"
 PORT=8000
+SETUP_LOG="${SETUP_LOG:-/tmp/sillytavern-setup.log}"
+LOCK=/tmp/ntr-st-setup.lock
+
+# Waits for a setup that's running (the hook's, in the background) to finish.
+wait_setup() {
+  exec 9>"$LOCK"
+  if ! flock -n 9; then echo "waiting for SillyTavern setup to finish (log: $SETUP_LOG)"; flock 9; fi
+  exec 9>&-
+}
 
 up() { curl -sf -o /dev/null "http://127.0.0.1:$PORT"; }
 
 start() {
   if up; then echo "SillyTavern is already running"; return; fi
   # Its own session, and none of this shell's output: a leftover writer would keep `$(st.sh start)` or a pipe open.
-  (cd "$ST_DIR" && exec setsid nohup node server.js) > "$ST_LOG" 2>&1 < /dev/null &
+  # Not holding setup's lock either, or the next command would wait for the server to stop.
+  (cd "$ST_DIR" && exec setsid nohup node server.js) > "$ST_LOG" 2>&1 < /dev/null 9>&- &
   if ! timeout 120 bash -c "until curl -sf -o /dev/null http://127.0.0.1:$PORT; do sleep 1; done"; then
     echo "SillyTavern didn't start; last lines of $ST_LOG:"; tail -20 "$ST_LOG"; exit 1
   fi
@@ -62,6 +74,10 @@ install_ext() {
 }
 
 setup() {
+  exec 9>"$LOCK"
+  if ! flock -n 9; then echo "waiting for the SillyTavern setup already running (log: $SETUP_LOG)"; flock 9; fi
+  # Done once is enough, and doing it again would stop a running server. Delete $ST_DIR to start over.
+  if [ -d "$CLEAN" ]; then echo "SillyTavern is already set up in $ST_DIR"; return; fi
   if [ ! -d "$ST_DIR/.git" ]; then
     GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 https://github.com/SillyTavern/SillyTavern "$ST_DIR"
   fi
@@ -73,6 +89,12 @@ setup() {
   rm -rf "$CLEAN" && cp -a "$USER_DIR" "$CLEAN"
   install_ext
   echo "setup done: SillyTavern $(node -p "require('$ST_DIR/package.json').version") in $ST_DIR"
+}
+
+# The session start hook (.claude/settings.json). It returns at once, so the session doesn't wait for it.
+hook() {
+  [ "${CLAUDE_CODE_REMOTE:-}" = true ] && [ ! -d "$CLEAN" ] || return 0
+  setsid nohup bash "${BASH_SOURCE[0]}" setup > "$SETUP_LOG" 2>&1 < /dev/null &
 }
 
 reset() {
@@ -119,13 +141,15 @@ bench() {
   stop
 }
 
+case "${1:-}" in setup | hook) ;; *) wait_setup ;; esac
 case "${1:-}" in
   setup) setup ;;
+  hook) hook ;;
   install) install_ext "${2:-}" ;;
   start) start ;;
   stop) stop ;;
   reset) reset "${2:-}" ;;
   lazy) lazy "${2:-}" ;;
   bench) shift; bench "$@" ;;
-  *) sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

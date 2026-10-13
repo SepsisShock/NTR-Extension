@@ -32,5 +32,7 @@ NTR changes how chats look without touching your own ST settings, except where n
 ### `[ 06 ]` COMPATIBILITY
 I have zero interest in integrating NTR with...
 - SillyTavern's own Visual Novel Mode or built-in extension Character Expressions.
-- Interfaces other than SillyTavern, including ST forks
-Feel free to do so if you want.
+- Consistent upkeep of Quick Reply UI.
+- Interfaces other than SillyTavern, including ST forks.
+
+Feel free to do so if you want; the project is open source.

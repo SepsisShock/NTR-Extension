@@ -9,7 +9,6 @@ Find out how to make these movable and designable, and which details SillyTavern
 
 - [ ] Details like message number, time spent thinking (outside the reasoning block), token count and date.
 - [ ] Move the time and date, including inside a speech bubble's bottom corner, like WhatsApp.
-- [ ] Move the character and user names, maybe with a background image or border behind them.
 
 ## Misc (Low Priority)
 

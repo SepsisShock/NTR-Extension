@@ -3415,11 +3415,17 @@
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const m = `body:not(.ntr_book) #chat .mes[is_user="${flag}"]`;
       if (ntrAvatars(s, prefix) && s[prefix + 'Style'] !== 'inline') continue;
+      const one = { 'line-height': '1.3', 'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0' };
+      // NTR Avatars In Line above the text puts the name row under the avatar. There the name leaves its row for the
+      // message's top edge, and the avatar moves down to clear it.
+      const side = String(s[prefix + 'Side']);
+      if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
+        css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)', 'max-width': 'calc(100% - 20px)' });
+        css += cssRule(m, { 'margin-top': `calc(${half} + 2px)`, 'padding-top': `max(10px, calc(${half} + 4px))` });
+        continue;
+      }
       // 10px is SillyTavern's room between the message's top edge and its name row.
-      css += cssRule(`${m} .ch_name .name_text`, {
-        position: 'relative', 'z-index': '2', transform: 'translateY(calc(-50% - 10px))', 'line-height': '1.3',
-        'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0', 'max-width': '100%',
-      });
+      css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'relative', 'z-index': '2', transform: 'translateY(calc(-50% - 10px))', 'max-width': '100%' });
       // The row stays one line and its parts may shrink, so a long name ends in ... instead of pushing the time and buttons away.
       css += cssRule(`${m} .ch_name > .flex1`, { 'min-width': '0' })
         + cssRule(`${m} .ch_name > .flex1 > .flex-container`, { 'min-width': '0', 'flex-wrap': 'nowrap' })

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.60.0';
+  const VERSION = '2.61.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -113,6 +113,9 @@
     tfAiFontOn: false, tfAiFont: '', tfAiSizeOn: false, tfAiSize: 1, tfAiAlignOn: false, tfAiAlign: 'left', tfAiMainOn: false, tfAiMain: '',
     tfAiEmOn: false, tfAiEm: '', tfAiUnderOn: false, tfAiUnder: '', tfAiQuoteOn: false, tfAiQuote: '',
     tfNameFxOn: false, tfNameFx: 'glow', tfNameFxStr: 3, tfNameFxColorOn: false, tfNameFxColor: '',
+    // Nameplate: the box behind the names on chat messages and the Visual Novel name tag (see textFormatCss).
+    tfPlateBgOn: false, tfPlateBg: '', tfPlateImg: '', tfPlateBorderOn: false, tfPlateBorder: '', tfPlateBorderWidth: 1,
+    tfPlateRoundOn: false, tfPlateRound: 8, tfPlatePosOn: false, tfPlatePos: 'edge',
     tfUserFxOn: false, tfUserFx: 'glow', tfUserFxStr: 3, tfUserFxColorOn: false, tfUserFxColor: '',
     tfAiFxOn: false, tfAiFx: 'glow', tfAiFxStr: 3, tfAiFxColorOn: false, tfAiFxColor: '',
 
@@ -3225,7 +3228,7 @@
   const OV_SHAPES = ['rounded', 'square'];
   // Quick Replies' Alignment. Safe keeps the first buttons in reach when one scrolling row is wider than the bar.
   const QR_ALIGN = { left: 'flex-start', center: 'safe center', right: 'safe flex-end' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), tfUserAlign: TEXT_ALIGN, tfAiAlign: TEXT_ALIGN, rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBgFit: ['cover', 'tile'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), tfUserAlign: TEXT_ALIGN, tfAiAlign: TEXT_ALIGN, tfPlatePos: ['row', 'edge'], rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBgFit: ['cover', 'tile'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
@@ -3249,7 +3252,7 @@
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
     rbBorder: '--reasoning-body-color', rbBtnColor: '--grey30', rbBtnText: '--SmartThemeBodyColor', rbBtnBorderColor: '--SmartThemeBodyColor', rbBoxColor: '--SmartThemeBlurTintColor', rbPatColor: '--SmartThemeQuoteColor', rbArrowColor: '--SmartThemeBodyColor',
-    tfNameColor: '--SmartThemeBodyColor',
+    tfNameColor: '--SmartThemeBodyColor', tfPlateBg: '--SmartThemeQuoteColor', tfPlateBorder: '--SmartThemeBorderColor',
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
     tfNameFxColor: '--SmartThemeShadowColor', tfUserFxColor: '--SmartThemeShadowColor', tfAiFxColor: '--SmartThemeShadowColor',
@@ -3388,6 +3391,33 @@
     return css;
   }
 
+  // Nameplate: a color or picture, border and roundness behind the name, on chat messages and the Visual Novel name tag.
+  // The picture covers the color. On the Top Edge sits the name across the top edge of its message's box, like the Visual
+  // Novel name tag, with room above the message for it. NTR Avatars behind the message or popped out clip the message,
+  // so there, and in Reader Mode's Book, the name stays in its row.
+  function nameplateCss(s, on, col, ns) {
+    const img = cUrl(s.tfPlateImg);
+    const border = on('tfPlateBorder') ? `${rangeNum(s, 'tfPlateBorderWidth')}px solid ${col('tfPlateBorder') || 'var(--SmartThemeBorderColor)'}` : '';
+    const plate = {
+      'background-color': col('tfPlateBg'),
+      'background-image': img ? `url("${img}")` : '',
+      'background-size': img ? 'cover' : '',
+      'background-position': img ? 'center' : '',
+      border,
+      'border-radius': on('tfPlateRound') ? `${rangeNum(s, 'tfPlateRound')}px` : '',
+    };
+    const boxed = !!(plate['background-color'] || img || border);
+    let css = cssRule('.mes .name_text', { ...plate, padding: boxed ? '.1em .6em' : '' }) + cssRule('#cb_node .cb_n_name', plate);
+    if (!on('tfPlatePos') || s.tfPlatePos !== 'edge') return css;
+    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+      const m = `body:not(.ntr_book) #chat .mes[is_user="${flag}"]`;
+      if (ntrAvatars(s, prefix) && s[prefix + 'Style'] !== 'inline') continue;
+      css += cssRule(`${m} .ch_name .name_text`, { position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)' });
+      css += cssRule(m, { 'margin-top': `calc(var(--mainFontSize) * ${+(0.9 * (ns || 1)).toFixed(3)})` });
+    }
+    return css;
+  }
+
   function textFormatCss(s) {
     const on = (k) => s[k + 'On'];
     const col = (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : '');
@@ -3454,6 +3484,7 @@
       ...fxProps(s, 'tfName'),
     });
     css += cssRule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
+    css += nameplateCss(s, on, col, ns);
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
     const align = (p) => (on(p + 'Align') && TEXT_ALIGN.includes(s[p + 'Align']) ? s[p + 'Align'] : '');
@@ -3763,7 +3794,7 @@
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
     return pageHtml('text', `
-          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
+          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names and Nameplate for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
           ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', rangeSlider(s, 'ovFont') + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
           ${subHead('tf_names', 'Names')}
           <div class="cb_collapse_content">
@@ -3772,6 +3803,25 @@
             ${ovRow(s, 'tfNameSizeOn', 'Size', rangeSlider(s, 'tfNameSize'))}
             ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'SillyTavern\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
             ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}${fxRows(s, 'tfName')}
+          </div>
+          ${subHead('tf_plate', 'Nameplate')}
+          <div class="cb_collapse_content">
+            <div class="cb_hint">A box behind the name, on chat messages and the Visual Novel name tag.</div>
+            ${ovRow(s, 'tfPlateBgOn', 'Color', ovColor(s, 'tfPlateBg'))}
+            <div class="cb_cur_slot">
+              <div class="cb_cur_row">
+                <div class="cb_cur_prev ntr_rd_pic" id="m_plate_prev"></div>
+                <span class="cb_cur_name">Picture<small>Covers the box, over the Color. A wide picture works best.</small></span>
+                <button class="menu_button" id="m_plate_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
+                <button class="menu_button" id="m_plate_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
+                <button class="menu_button" id="m_plate_clr" title="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+              </div>
+              <input type="file" id="m_plate_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+            </div>
+            ${ovRow(s, 'tfPlateBorderOn', 'Border', ovColor(s, 'tfPlateBorder') + ovLabel('Width', rangeSlider(s, 'tfPlateBorderWidth')))}
+            ${ovRow(s, 'tfPlateRoundOn', 'Roundness', rangeSlider(s, 'tfPlateRound'))}
+            ${ovRow(s, 'tfPlatePosOn', 'Position', pills('tfplatepos', [['row', 'Name Row', 'SillyTavern\'s default'], ['edge', 'On the Top Edge']], s.tfPlatePos)
+              + '<div class="cb_hint">On the Top Edge sits the name across the top edge of its message and adds room above each message. With NTR Avatars behind the message or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
           </div>
           ${subHead('tf_user', 'User Text')}
           <div class="cb_collapse_content">${part('tfUser')}
@@ -3829,6 +3879,8 @@
     }
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     for (const p of ['tfUser', 'tfAi']) onPills(overlay, p.toLowerCase() + 'align', (v) => { s[p + 'Align'] = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'tfplatepos', (v) => { s.tfPlatePos = v; save(); updateAvatarStyle(); });
+    bindNameplatePic(overlay, s);
     onPills(overlay, 'rbboxshape', (v) => { s.rbBoxShape = v; save(); updateAvatarStyle(); });
     // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
     const syncPatRows = () => {
@@ -3853,6 +3905,41 @@
     bindCssBoxes(overlay, 'rb');
     bindReasoningArrow(overlay, s);
     bindReasoningBg(overlay, s);
+  }
+
+  // Nameplate Picture: Upload / Link / Remove.
+  function bindNameplatePic(overlay, s) {
+    const prev = overlay.querySelector('#m_plate_prev');
+    const render = () => {
+      prev.innerHTML = s.tfPlateImg ? `<img src="${escapeHTML(s.tfPlateImg)}" alt="">` : '<i class="fa-solid fa-image"></i>';
+      overlay.querySelector('#m_plate_clr').disabled = !s.tfPlateImg;
+    };
+    const setImg = (url) => {
+      const old = s.tfPlateImg;
+      s.tfPlateImg = url;
+      save();
+      updateAvatarStyle();
+      render();
+      deleteFileIfUnused(old);
+    };
+    const file = overlay.querySelector('#m_plate_file');
+    overlay.querySelector('#m_plate_up').onclick = () => file.click();
+    overlay.querySelector('#m_plate_url').onclick = async function() {
+      const url = await askImageUrl('Nameplate picture', this);
+      if (url) setImg(url);
+    };
+    overlay.querySelector('#m_plate_clr').onclick = () => setImg('');
+    file.onchange = async () => {
+      if (!file.files.length) return;
+      try {
+        setImg(await uploadImage(file.files[0], 'plate', { maxWidth: 800 }));
+      } catch (e) {
+        console.error('[NTR nameplate upload]', e);
+        toastr.error(e.message || 'Upload failed', 'Nameplate');
+      }
+      file.value = '';
+    };
+    render();
   }
 
   // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
@@ -4495,7 +4582,7 @@
   }
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
-  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|rbbg|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|rbbg|plate|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
   // Resolves to true if the file was deleted. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok).catch(() => false);
@@ -4625,7 +4712,7 @@
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg', 'rbBgImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg', 'rbBgImg', 'tfPlateImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
@@ -4635,7 +4722,7 @@
     agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'], agSendDepth: [0, 50, 1, ''],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
-    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], rbBgTile: [16, 512, 1, 'px'], rbBgOpacity: [0, 100, 1, '%'], rbBgTint: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], rbBgTile: [16, 512, 1, 'px'], rbBgOpacity: [0, 100, 1, '%'], rbBgTint: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfPlateBorderWidth: [1, 6, 1, 'px'], tfPlateRound: [0, 30, 1, 'px'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'], ovBubWidth: [40, 100, 1, '%'],
     ovQrSize: [0.5, 2, 0.05, 'x'], ovQrGap: [0, 20, 1, 'px'], ovQrOpacity: [10, 100, 1, '%'],

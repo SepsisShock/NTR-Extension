@@ -3420,8 +3420,12 @@
       // message's top edge, and the avatar moves down to clear it.
       const side = String(s[prefix + 'Side']);
       if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
-        css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)', 'max-width': 'calc(100% - 20px)' });
+        css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)', 'max-width': 'calc(100% - 30px)' });
         css += cssRule(m, { 'margin-top': `calc(${half} + 2px)`, 'padding-top': `max(10px, calc(${half} + 4px))` });
+        // Speech Bubbles (and Reader Mode's Phone, which always has them) put this side's name row on the right: the
+        // name lines up with the row's right end instead of running past the message.
+        const p = prefix === 'ai' ? 'Ai' : 'Us';
+        if (bubRight(s, p)) css += cssRule(`${bubblesOn(s) ? 'body:not(.ntr_book)' : 'body.ntr_phone'} #chat .mes[is_user="${flag}"] .ch_name .name_text`, { left: 'auto', right: '10px' });
         continue;
       }
       // 10px is SillyTavern's room between the message's top edge and its name row.

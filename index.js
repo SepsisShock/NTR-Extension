@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.63.0';
+  const VERSION = '2.63.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1569,18 +1569,27 @@
   }
 
   // Ask for a link instead of an upload, under `anchor` (the Link button). Resolves to a checked http(s) URL that
-  // loaded, or '' if cancelled.
-  const askUrl = (anchor, label, load, failMsg) => askText(anchor, {
-    label,
-    check: async (raw) => {
-      const u = cUrl(raw);
-      if (!/^https?:\/\//i.test(u)) return { error: 'Paste a full link that starts with http:// or https://' };
-      try { await load(u); } catch (e) { return { error: failMsg }; }
-      return { value: u };
-    },
-  }).then((u) => u || '');
-  const askImageUrl = (label = 'Image', anchor = null) => askUrl(anchor, `${label}: paste an image link (https://...)`, loadImg,
-    'That link did not load as an image. Check it and try again.');
+  // loaded, or '' if cancelled. Like uploadHere, a link for the open chat that finishes checking after the chat
+  // changed would land on the wrong character, so '' comes back. `perChat` false skips this for global settings.
+  const askUrl = (anchor, label, load, failMsg, perChat = true) => {
+    const st = store();
+    return askText(anchor, {
+      label,
+      check: async (raw) => {
+        const u = cUrl(raw);
+        if (!/^https?:\/\//i.test(u)) return { error: 'Paste a full link that starts with http:// or https://' };
+        try { await load(u); } catch (e) { return { error: failMsg }; }
+        return { value: u };
+      },
+    }).then((u) => {
+      if (!u) return '';
+      if (!perChat || store() === st) return u;
+      toastr.warning('The chat changed before the link was checked, so it was not saved. Paste it again.', 'Link');
+      return '';
+    });
+  };
+  const askImageUrl = (label = 'Image', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste an image link (https://...)`, loadImg,
+    'That link did not load as an image. Check it and try again.', perChat);
 
   // Ask for a video link (mp4 or webm).
   const loadVideo = (u) => new Promise((res, rej) => {
@@ -1593,8 +1602,8 @@
     v.onerror = () => done(false);
     v.src = u;
   });
-  const askVideoUrl = (label = 'Video', anchor = null) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
-    'That link did not load as a video. Use a direct link to an mp4 or webm file.');
+  const askVideoUrl = (label = 'Video', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
+    'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
 
   // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
   // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
@@ -4194,7 +4203,7 @@
     const file = overlay.querySelector('#m_plate_file');
     overlay.querySelector('#m_plate_up').onclick = () => file.click();
     overlay.querySelector('#m_plate_url').onclick = async function() {
-      const url = await askImageUrl('Nameplate picture', this);
+      const url = await askImageUrl('Nameplate picture', this, false);
       if (url) setImg(url);
     };
     overlay.querySelector('#m_plate_clr').onclick = () => setImg('');
@@ -4260,7 +4269,7 @@
     const file = overlay.querySelector('#m_rbbg_file');
     overlay.querySelector('#m_rbbg_up').onclick = () => file.click();
     overlay.querySelector('#m_rbbg_url').onclick = async function() {
-      const url = await askImageUrl('Reasoning background', this);
+      const url = await askImageUrl('Reasoning background', this, false);
       if (url) setImg(url);
     };
     overlay.querySelector('#m_rbbg_clr').onclick = () => setImg('');
@@ -4305,7 +4314,7 @@
     const file = overlay.querySelector('#m_rba_file');
     overlay.querySelector('#m_rba_up').onclick = () => file.click();
     overlay.querySelector('#m_rba_url').onclick = async function() {
-      const url = await askImageUrl('Arrow picture', this);
+      const url = await askImageUrl('Arrow picture', this, false);
       if (url) setImg(url);
     };
     overlay.querySelector('#m_rba_clr').onclick = () => setImg('');
@@ -4539,7 +4548,7 @@
     overlay.querySelectorAll('.m_cur_up').forEach((b) => { b.onclick = () => { curPending = b.dataset.k; curFile.click(); }; });
     overlay.querySelectorAll('.m_cur_url').forEach((b) => {
       b.onclick = async () => {
-        const url = await askImageUrl(b.dataset.label, b);
+        const url = await askImageUrl(b.dataset.label, b, false);
         if (url) setCursor(b.dataset.k, url);
       };
     });
@@ -5898,7 +5907,7 @@
     };
     overlay.querySelector('#m_rd_up').onclick = () => file.click();
     overlay.querySelector('#m_rd_url').onclick = async function() {
-      const url = await askImageUrl('Book picture', this);
+      const url = await askImageUrl('Book picture', this, false);
       if (url) setPic(url);
     };
     overlay.querySelector('#m_rd_clr').onclick = () => setPic('');

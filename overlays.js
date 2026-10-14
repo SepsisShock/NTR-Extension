@@ -4,7 +4,7 @@
 // The header banner above the chat (images that can rotate, a YouTube loop or a video) and the foreground images beside
 // the chat panel, with their page in the menu. Their settings, card data and Edit Placement stay in index.js.
 (() => {
-  const OVERLAYS_VERSION = '2.63.0';
+  const OVERLAYS_VERSION = '2.63.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange, cNum,
@@ -750,7 +750,7 @@
       }
     };
     overlay.querySelector('#m_b_vurl').onclick = async () => {
-      const url = await askVideoUrl('Banner video', overlay.querySelector('#m_b_vurl'));
+      const url = await askVideoUrl('Banner video', overlay.querySelector('#m_b_vurl'), src !== settings().bannerGlobal);
       if (url) setVideo(url);
     };
     overlay.querySelector('#m_b_vdel').onclick = async function() {
@@ -885,7 +885,7 @@
     const fi = overlay.querySelector('#m_b_file');
     overlay.querySelector('#m_b_up').onclick = () => fi.click();
     overlay.querySelector('#m_b_url').onclick = async () => {
-      const url = await askImageUrl('Banner image', overlay.querySelector('#m_b_url'));
+      const url = await askImageUrl('Banner image', overlay.querySelector('#m_b_url'), src !== settings().bannerGlobal);
       if (!url) return;
       src.images.push({ url, pos: 45 });
       src.idx = src.images.length - 1;

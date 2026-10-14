@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.63.0';
+  const OP_VERSION = '2.63.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -110,7 +110,7 @@
     const s = settings();
     const st = {
       sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',
-      timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false,
+      timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false, ytPlayed: false,
       exit: ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
       cross: s.opTrans === 'cross',
       muted: !!s.opMute,
@@ -304,11 +304,14 @@
       let d = e.data;
       if (typeof d === 'string') { try { d = JSON.parse(d); } catch (err) { return; } }
       if (!d || typeof d !== 'object') return;
-      if (!st.ytReady) { st.ytReady = true; ytCmd('addEventListener', ['onStateChange']); }
+      if (!st.ytReady) { st.ytReady = true; ytCmd('addEventListener', ['onStateChange']); ytCmd('addEventListener', ['onError']); }
+      // Removed, private or not allowed to be embedded: end like a video file that fails.
+      if (d.event === 'onError') { if (st.phase === 'video') ytFail(); return; }
       const info = d.event === 'onStateChange' ? { playerState: d.info } : d.info;
       if (!info || typeof info !== 'object') return;
       if (typeof info.playerState === 'number') {
         st.ytState = info.playerState;
+        if (info.playerState === 1 || info.playerState === 3) st.ytPlayed = true;
         if (info.playerState === 0 && st.phase === 'video') { end(); return; }
       }
       if (typeof info.duration === 'number' && info.duration > 0) st.ytDur = info.duration;
@@ -321,6 +324,12 @@
       ytCmd('mute'); ytCmd('playVideo');
       setSnd(st, true);
     }, 3500);
+    // Never played or buffered (YouTube blocked, or an error that didn't reach us): don't leave the opening waiting.
+    later(() => { if (st.phase === 'video' && !st.ytPlayed) ytFail(); }, 15000);
+  }
+  function ytFail() {
+    toastr.warning('The opening video could not be played.', 'Opening video');
+    end();
   }
 
   function tick(t, dur) {

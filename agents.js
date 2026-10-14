@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.63.0';
+  const AGENTS_VERSION = '2.63.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -64,7 +64,7 @@ Keep every value from your last result that the new messages leave as it was, an
   const asset = (f) => new URL(`./assets/agents/${f}`, import.meta.url).pathname;
   const MARGI_PIC = asset('margi.webp');
   const FULL_PIC = { [MARGI_PIC]: asset('margi-full.webp') };
-  const num = (k, v, d) => { const [min, max] = A.numRange(k); const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+  const num = (k, v, d) => A.cardNum(v, k, d);
   const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const pick = (v, list, d) => (list.some(([x]) => x === v) ? v : d);
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
@@ -695,7 +695,7 @@ Keep every value from your last result that the new messages leave as it was, an
     const setPic = (url) => { const old = a.pic; a.pic = url; changed(true); if (old && old !== url) deleteFileIfUnused(old); };
     const fail = (e) => { console.error('[NTR agent picture]', e); toastr.error(e.message || 'Upload failed', 'Agent picture'); };
     root.querySelector('#m_ag_up').onclick = () => file.click();
-    root.querySelector('#m_ag_url').onclick = async function() { const url = await askImageUrl('Agent picture', this); if (url) setPic(url); };
+    root.querySelector('#m_ag_url').onclick = async function() { const url = await askImageUrl('Agent picture', this, false); if (url) setPic(url); };
     root.querySelector('#m_ag_clr').onclick = () => setPic('');
     root.querySelector('#m_ag_clr').disabled = !a.pic;
     root.querySelector('#m_ag_crop').disabled = !a.pic;

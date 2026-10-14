@@ -3747,7 +3747,7 @@
     // syncMessageDetails), so a last block's own layout, or a Pinned Block hiding it, stays as it is. The text holds the
     // corner when it drops to its own line; no !important, so a rule hiding the text still wins.
     const C = '#chat .mes[data-ntr-md-corner]';
-    css += `\n      ${C} .mes_text { display: flow-root; }`;
+    css += `\n      ${C} .mes_text:not(.inline_media) { display: flow-root; }`;
     css += cssRule(`${C} .mes_text > :nth-last-child(1 of :not(style, script, template)):is(${MD_TEXT_TAGS.join(', ')})::after`, {
       content: v('corner'), float: 'right', margin: '.35em 0 -.25em .8em', 'font-weight': '400', 'white-space': 'nowrap', 'text-indent': '0', ...look(0.7, 0.7),
     });
@@ -3760,10 +3760,13 @@
   }
 
   // The parts of a message's text the corner can sit in. A message ending in anything else, like a table, a picture or an
-  // HTML block, shows its corner details below the message instead.
+  // HTML block, shows its corner details below the message instead. So does a generated picture whose text SillyTavern
+  // hides (inline_media).
   const MD_TEXT_TAGS = ['p', 'ul', 'ol', 'blockquote', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
   const mdEndsInText = (m) => {
-    const kids = m.querySelector('.mes_text')?.children || [];
+    const text = m.querySelector('.mes_text');
+    if (!text || text.classList.contains('inline_media')) return false;
+    const kids = text.children;
     for (let i = kids.length - 1; i >= 0; i--) {
       const tag = kids[i].tagName.toLowerCase();
       if (!['style', 'script', 'template'].includes(tag)) return MD_TEXT_TAGS.includes(tag);

@@ -3,7 +3,7 @@
 // Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
 // If this file breaks, the rest of the extension keeps working.
 (() => {
-  const CAST_VERSION = '2.63.0';
+  const CAST_VERSION = '2.63.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
@@ -105,12 +105,17 @@
     if (!r || r.left < 150) return { left: [0, W / 3], center: [W / 3, W / 3], right: [(2 * W) / 3, W / 3] };
     return { left: [0, r.left], center: [r.left, r.width], right: [r.right, Math.max(0, W - r.right)] };
   }
-  // Gives each speaker on stage a spot and keeps it while they stay. A spot from an Enter tag wins; your persona
-  // prefers the right, everyone else the left.
+  // Gives each speaker on stage a spot and keeps it while they stay. A spot from an Enter tag wins, and when two
+  // ask for the same one, the later Enter (later in `present`) gets it. Your persona prefers the right, everyone else the left.
   function pickSpots(spots, present, wanted) {
     const persona = lc(ctx().name1);
     for (const k of [...spots.keys()]) if (!present.includes(k)) spots.delete(k);
-    for (const [k, sp] of wanted) if (sp && spots.has(k) && spots.get(k) !== sp) spots.delete(k);
+    const claim = new Map();
+    for (const k of present) if (wanted.get(k)) claim.set(wanted.get(k), k);
+    for (const [sp, k] of claim) {
+      for (const [o, v] of spots) if (v === sp && o !== k) spots.delete(o);
+      spots.set(k, sp);
+    }
     const used = new Set(spots.values());
     const personaIn = present.includes(persona);
     for (const k of present) {

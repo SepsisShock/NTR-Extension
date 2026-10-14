@@ -3392,9 +3392,10 @@
   }
 
   // Nameplate: a color or picture, border and roundness behind the name, on chat messages and the Visual Novel name tag.
-  // The picture covers the color. On the Top Edge sits the name across the top edge of its message's box, like the Visual
-  // Novel name tag, with room above the message for it. NTR Avatars behind the message or popped out clip the message,
-  // so there, and in Reader Mode's Book, the name stays in its row.
+  // The picture covers the color. On the Top Edge lifts the name onto the top edge of its message's box, like the Visual
+  // Novel name tag. It keeps its place in the row, so the row stays as tall as the name and nothing in the message goes
+  // under it. It stays on one line (a long name ends in ...), so the room above the message is half its height. NTR
+  // Avatars behind the message or popped out clip the message, so there, and in Reader Mode's Book, the name stays in its row.
   function nameplateCss(s, on, col, ns) {
     const img = cUrl(s.tfPlateImg);
     const border = on('tfPlateBorder') ? `${rangeNum(s, 'tfPlateBorderWidth')}px solid ${col('tfPlateBorder') || 'var(--SmartThemeBorderColor)'}` : '';
@@ -3409,11 +3410,24 @@
     const boxed = !!(plate['background-color'] || img || border);
     let css = cssRule('.mes .name_text', { ...plate, padding: boxed ? '.1em .6em' : '' }) + cssRule('#cb_node .cb_n_name', plate);
     if (!on('tfPlatePos') || s.tfPlatePos !== 'edge') return css;
+    // The plate's height: one line at line-height 1.3, its padding (.1em top and bottom) and its border.
+    const half = `calc((var(--mainFontSize) * ${+((ns || 1) * (boxed ? 1.5 : 1.3)).toFixed(3)} + ${border ? 2 * rangeNum(s, 'tfPlateBorderWidth') : 0}px) / 2)`;
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const m = `body:not(.ntr_book) #chat .mes[is_user="${flag}"]`;
       if (ntrAvatars(s, prefix) && s[prefix + 'Style'] !== 'inline') continue;
-      css += cssRule(`${m} .ch_name .name_text`, { position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)' });
-      css += cssRule(m, { 'margin-top': `calc(var(--mainFontSize) * ${+(0.9 * (ns || 1)).toFixed(3)})` });
+      // 10px is SillyTavern's room between the message's top edge and its name row.
+      css += cssRule(`${m} .ch_name .name_text`, {
+        position: 'relative', 'z-index': '2', transform: 'translateY(calc(-50% - 10px))', 'line-height': '1.3',
+        'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0', 'max-width': '100%',
+      });
+      // The row stays one line and its parts may shrink, so a long name ends in ... instead of pushing the time and buttons away.
+      css += cssRule(`${m} .ch_name > .flex1`, { 'min-width': '0' })
+        + cssRule(`${m} .ch_name > .flex1 > .flex-container`, { 'min-width': '0', 'flex-wrap': 'nowrap' })
+        + cssRule(`${m} .ch_name :is(.timestamp, .timestamp-icon, .mes_ghost)`, { 'flex-shrink': '0' });
+      // SillyTavern cuts off anything above the message's content; sideways it still does. Its overflow also let the
+      // content shrink to the message's width, so that's kept with min-width.
+      css += cssRule(`${m} .mes_block`, { overflow: 'clip visible', 'min-width': '0' });
+      css += cssRule(m, { 'margin-top': `calc(${half} + 2px)` });
     }
     return css;
   }
@@ -3821,7 +3835,7 @@
             ${ovRow(s, 'tfPlateBorderOn', 'Border', ovColor(s, 'tfPlateBorder') + ovLabel('Width', rangeSlider(s, 'tfPlateBorderWidth')))}
             ${ovRow(s, 'tfPlateRoundOn', 'Roundness', rangeSlider(s, 'tfPlateRound'))}
             ${ovRow(s, 'tfPlatePosOn', 'Position', pills('tfplatepos', [['row', 'Name Row', 'SillyTavern\'s default'], ['edge', 'On the Top Edge']], s.tfPlatePos)
-              + '<div class="cb_hint">On the Top Edge sits the name across the top edge of its message and adds room above each message. With NTR Avatars behind the message or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
+              + '<div class="cb_hint">On the Top Edge lifts the name onto the top edge of its message and adds room above each message. A long name ends in ... With NTR Avatars behind the message or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
           </div>
           ${subHead('tf_user', 'User Text')}
           <div class="cb_collapse_content">${part('tfUser')}

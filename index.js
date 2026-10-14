@@ -2453,12 +2453,16 @@
     const scope = `:where(#ntr_pin_layer > .ntr_pin[data-pin="${pin}"]) > .mes_text`;
     const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m))
       .replace(/(^|,)(\s*)\.mes_text(?![\w-])/g, (m, a, sp) => a + sp + scope);
-    return text.replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
+    // Comments go first, so one in front of a selector, like /* Threads */, doesn't hide its .mes_text.
+    return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
   }
 
   function pinFill(body, src, p) {
     const was = { open: [...body.querySelectorAll('details')].map((d) => d.open), checked: [...body.querySelectorAll('input')].map((i) => i.checked) };
     const copy = src.el.cloneNode(true);
+    // A <style> inside the block comes along with the message's other styles below, scoped to the box, so the copy's own
+    // unscoped one goes.
+    copy.querySelectorAll('style').forEach((st) => st.remove());
     const ids = new Map();
     for (const e of [copy, ...copy.querySelectorAll('[id]')]) {
       if (!e.id) continue;
@@ -2481,8 +2485,6 @@
   }
 
   const pinLast = new Map();
-  // Agent Results being edited in a box: the message the box showed up to when the edit began (see syncPins).
-  const pinHold = new Map();
   let pinObs = null, pinTimer = null;
   // The message being read, while a box uses Where You're Reading (see pinReadAt). Scrolling only works it out again; the
   // boxes redraw when it changes.
@@ -2562,10 +2564,10 @@
       let src;
       if (p.from === 'agents') {
         // In Reader Mode, the results up to the page you're on; with Where You're Reading, up to the message you're reading.
-        // While a result is being edited in the box, the box stays on it, so scrolling or turning the page doesn't lose
-        // what's typed.
-        const upTo = body.querySelector('.ntr_agres_edit') && pinHold.has(p.id) ? pinHold.get(p.id) : pinUpTo(p);
-        pinHold.set(p.id, upTo);
+        // While a result is being edited in the box, the box stays on that result's message, so scrolling, turning the
+        // page or a newer result coming in doesn't lose what's typed.
+        const ed = body.querySelector('.ntr_agres_edit')?.closest('.ntr_agres');
+        const upTo = ed && ed.dataset.mes !== '' ? Number(ed.dataset.mes) : pinUpTo(p);
         src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, upTo);
         const key = src ? 'ag:' + src.key : '';
         if (pinLast.get(p.id) !== key) {
@@ -2587,7 +2589,7 @@
       if (!src) body.dataset.name = p.name;
       box.hidden = pinPicking || (vnOn && p.vn === 'hide') || (!src && !place.on);
     }
-    for (const box of layer.querySelectorAll(':scope > .ntr_pin')) if (!keep.has(box.dataset.pin)) { pinLast.delete(box.dataset.pin); pinHold.delete(box.dataset.pin); box.remove(); }
+    for (const box of layer.querySelectorAll(':scope > .ntr_pin')) if (!keep.has(box.dataset.pin)) { pinLast.delete(box.dataset.pin); box.remove(); }
     if (place.on) drawPlace();
   }
 

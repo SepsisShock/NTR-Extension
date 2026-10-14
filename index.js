@@ -3743,10 +3743,12 @@
       content: v('av'), display: 'block', width: 'fit-content', margin: '2px auto 0', 'text-align': 'center', 'white-space': 'pre-line', 'font-weight': '600', ...look(0.9, 0.7),
     });
     css += cssRule(`${M} .ch_name > .flex1 > .flex-container::after`, { content: v('row'), 'margin-left': '.6em', 'font-weight': '400', 'white-space': 'nowrap', ...look(0.7, '') });
-    // The corner sits in the text's last part. A table can't hold it, so a message ending in one has no corner details.
-    const last = `${M} .mes_text > :nth-last-child(1 of :not(style, script, template)):not(table, img, hr)`;
-    css += cssRule(last, { display: 'flow-root' });
-    css += cssRule(`${last}::after`, {
+    // The corner sits in the text's last part, only on messages that have corner details and end in text (see
+    // syncMessageDetails), so a last block's own layout, or a Pinned Block hiding it, stays as it is. The text holds the
+    // corner when it drops to its own line; no !important, so a rule hiding the text still wins.
+    const C = '#chat .mes[data-ntr-md-corner]';
+    css += `\n      ${C} .mes_text { display: flow-root; }`;
+    css += cssRule(`${C} .mes_text > :nth-last-child(1 of :not(style, script, template)):is(${MD_TEXT_TAGS.join(', ')})::after`, {
       content: v('corner'), float: 'right', margin: '.35em 0 -.25em .8em', 'font-weight': '400', 'white-space': 'nowrap', 'text-indent': '0', ...look(0.7, 0.7),
     });
     css += cssRule(`${M} .mes_block::after`, { content: v('below'), display: 'block', width: 'fit-content', 'margin-top': '4px', 'font-weight': '400', ...look(0.75, 0.7) });
@@ -3756,6 +3758,18 @@
     }
     return css;
   }
+
+  // The parts of a message's text the corner can sit in. A message ending in anything else, like a table, a picture or an
+  // HTML block, shows its corner details below the message instead.
+  const MD_TEXT_TAGS = ['p', 'ul', 'ol', 'blockquote', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+  const mdEndsInText = (m) => {
+    const kids = m.querySelector('.mes_text')?.children || [];
+    for (let i = kids.length - 1; i >= 0; i--) {
+      const tag = kids[i].tagName.toLowerCase();
+      if (!['style', 'script', 'template'].includes(tag)) return MD_TEXT_TAGS.includes(tag);
+    }
+    return false;
+  };
 
   // Each detail's text for a message, or '' when it has none (a greeting has no reply time, your messages no model).
   function mdValue(id, mes, mesid, s) {
@@ -3792,6 +3806,11 @@
       const id = Number(m.getAttribute('mesid'));
       const data = on && Number.isInteger(id) ? chat[id] : null;
       const vals = MD_SPOTS.map(([spot, key]) => (data ? mdText(s, data, id, key, spot) : ''));
+      // Corner details on a message that doesn't end in text go to the end of Below.
+      if (vals[2] && !mdEndsInText(m)) {
+        vals[3] = vals[3] ? vals[3] + (MD_SEP[s.mdSep] || MD_SEP.dot) + vals[2] : vals[2];
+        vals[2] = '';
+      }
       const sig = vals.join('\0');
       if (mdLast.get(m) === sig) continue;
       mdLast.set(m, sig);
@@ -3799,6 +3818,7 @@
         if (vals[i]) m.style.setProperty(`--ntr-md-${spot}`, cssStr(vals[i]));
         else m.style.removeProperty(`--ntr-md-${spot}`);
       });
+      m.toggleAttribute('data-ntr-md-corner', !!vals[2]);
     }
   }
 
@@ -4311,7 +4331,7 @@
           ${pickRow('Style', pills('mdpreset', [...Object.entries(MD_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], mdPreset(s))
             + hint('A style sets where each detail goes. SillyTavern puts them where SillyTavern does. Change a tick after that and it shows Custom.'))}
           ${grid}
-          ${hint('Avatar is under the picture. Name Row is after the name. Corner is at the end of the text, on its last line when there\'s room, like a messaging app; with Speech Bubbles it sits inside the bubble. Below is under the message. Tokens only show for messages SillyTavern counted, which it does while its Message Token Count (User Settings) is ticked.')}
+          ${hint('Avatar is under the picture. Name Row is after the name. Corner is at the end of the text, on its last line when there\'s room, like a messaging app; with Speech Bubbles it sits inside the bubble. A message ending in something other than text, like a table or an HTML block, shows its Corner details at the end of Below instead. Below is under the message. Tokens only show for messages SillyTavern counted, which it does while its Message Token Count (User Settings) is ticked.')}
           ${pickRow('Date', pills('mddate', [['long', 'Long'], ['short', 'Short']], s.mdDate))}
           ${pickRow('Separator', pills('mdsep', [['dot', '·'], ['bar', '|'], ['slash', '/'], ['space', 'Space']], s.mdSep) + hint('Between details in the same spot. The Avatar spot puts each on its own line, and date and time stay together.'))}
           ${row('mdSizeOn', 'Size', rangeSlider(s, 'mdSize') + hint('1x is SillyTavern\'s size for each spot.'))}

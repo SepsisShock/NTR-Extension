@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.62.0';
+  const VERSION = '2.63.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -601,7 +601,7 @@
     layer.innerHTML = '<img id="cb_pop_ai" alt="" draggable="false"><img id="cb_pop_us" alt="" draggable="false">';
     document.body.appendChild(layer);
     const chat = document.getElementById('chat');
-    if (chat && window.ResizeObserver) new ResizeObserver(() => layoutPop()).observe(chat);
+    if (chat && window.ResizeObserver) new ResizeObserver(() => { layoutPop(); pinCheckRead(); }).observe(chat);
     layoutPop();
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
@@ -699,7 +699,11 @@
   // from their sides, the menu bar from its two ends.
   // A floating Pinned Block resizes like the chat panel; a docked one only from its inner edge.
   function grips(it) {
-    if (it.pin) { const pl = pinOf(it)?.place; return pl === 'left' ? ['e'] : pl === 'right' ? ['w'] : GRIPS; }
+    if (it.pin) {
+      const p = pinOf(it), pl = p?.place;
+      // A Fit Content box gets its height from what it shows.
+      return pl === 'left' ? ['e'] : pl === 'right' ? ['w'] : p?.height === 'fit' ? ['e', 'w'] : GRIPS;
+    }
     if (it.lay === 'chat' || it.lay === 'ban') return GRIPS;
     if (it.lay === 'bar' && barUpright(settings()[lk(phoneNow(), 'BarEdge')])) return ['n', 's'];
     return it.lay ? ['e', 'w'] : [];
@@ -759,7 +763,7 @@
       return r;
     }
     if (it.pin && !pinBoxed(pinOf(it), phoneNow())) {
-      // Still in its message: the newest copy there, if it's on screen. Pinned Blocks are part of Layout, so none with it off.
+      // Still in its message: the copy it shows there, if it's on screen. Pinned Blocks are part of Layout, so none with it off.
       const r = layOn(settings()) ? pinSource(pinOf(it))?.el.getBoundingClientRect() : null;
       return r && r.width > 0 && r.height > 0 ? r : null;
     }
@@ -851,6 +855,7 @@
 
   // Dragging a Pinned Block. A floating one moves anywhere and resizes from its handles, and dragging one out of its message
   // gives it its own box there; a docked one stays on its edge and only gets wider or narrower. Saved as a % of the screen.
+  // A Fit Content box saves the spot it has on screen, so the edge it grows from stays where it was dropped.
   function dragPin(d, dx, dy, free) {
     const s = settings();
     const p = pinOf(d.it);
@@ -860,7 +865,13 @@
     const [L, R, T, B] = dragBox(d.r0, d.grip, dx, dy, W, H, W * NUM_RANGE.pinW[0] / 100, H * NUM_RANGE.pinH[0] / 100, g);
     const pct = (v, size) => Math.round(v / size * 10000) / 100;
     const r = p[pinPhone(phoneNow())];
-    placeSet(d.it, p.place === 'float' ? { x: pct(L, W), y: pct(T, H), w: pct(R - L, W), h: pct(B - T, H), moved: true } : { ...r, w: pct(R - L, W) });
+    if (p.place !== 'float') return placeSet(d.it, { ...r, w: pct(R - L, W) });
+    let y = pct(T, H);
+    const h = Math.max(pct(B - T, H), NUM_RANGE.pinH[0]);
+    // A Fit Content box can be shorter than the saved height can go, so in the bottom half its bottom edge is kept
+    // instead of its top (see pinCss). Close to the middle, either edge does.
+    if (p.height === 'fit' && y + h / 2 > 50 && pct(B, H) - h / 2 > 50) y = Math.round((pct(B, H) - h) * 100) / 100;
+    placeSet(d.it, { x: pct(L, W), y, w: pct(R - L, W), h, moved: true });
   }
 
   function dragLayout(d, dx, dy, px, py, free) {
@@ -2005,7 +2016,9 @@
   // look. Each has its own settings: the Phone one's names start with layPh (see lk).
   const LAY_EDGES = ['top', 'bottom', 'left', 'right'];
   const LAY_WIDE = window.matchMedia('(width > 1000px)');
-  LAY_WIDE.addEventListener('change', () => syncLayoutPage(document.getElementById('cb_modal_overlay')));
+  // Pinned Blocks redraw too: a block can have its own box in one layout and stay in its message in the other, which
+  // changes whether Where You're Reading watches the scrolling.
+  LAY_WIDE.addEventListener('change', () => { syncLayoutPage(document.getElementById('cb_modal_overlay')); syncPins(); });
   // A layout setting's name: lk(false, 'ChatX') is layChatX, lk(true, 'ChatX') is layPhChatX.
   const lk = (phone, name) => (phone ? 'layPh' : 'lay') + name;
   // The layout this page uses now.
@@ -2250,7 +2263,7 @@
           ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
           <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar, send bar, page bar and banner back where they start, in the layout picked above.</div>`)}
         ${card('Pinned Blocks', `
-          <div class="cb_hint">Shows a block your regex draws in chat messages, like a tracker or status panel, in its own box on screen. Pick the block in a message, then move the box with Edit Layout. The box always shows the newest copy; in Reader Mode, the newest up to the page you're on.</div>
+          <div class="cb_hint">Shows a block your regex draws in chat messages, like a tracker or status panel, in its own box on screen. Pick the block in a message, then move the box with Edit Layout. The box shows the copy from the message you're reading, or the newest one, as its Show setting says.</div>
           <div id="m_pin_list"></div>
           <button type="button" id="m_pin_add" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-plus"></i> Add Pinned Block</button>
           <div class="ntr_soonrow ntr_soondim">
@@ -2324,7 +2337,9 @@
   // in the chat, never as typed-in CSS, so a theme from someone else can't slip CSS in through it.
   // A block can show agents' saved results instead (Agent Results; agents.js draws them).
   // Each block has a place on screen for Desktop and one for Phone, as a % of the screen: Floating anywhere, or Docked
-  // to the left or right edge at full height. On a phone a docked block slides out from its edge.
+  // to the left or right edge at full height. On a phone a docked block slides out from its edge. A Floating box is the
+  // height set in Edit Layout (Fixed), or as tall as what it shows (Fit Content).
+  // Blocks saved before Where You're Reading and Fit Content came in keep Always and Fixed; new ones start on them.
   // A Floating block from the chat stays in its message until it's dragged out with Edit Layout (moved, kept for Desktop
   // and Phone apart); Reset puts it back there.
   const PIN_START = { desk: { x: 72, y: 12, w: 24, h: 40 }, phone: { x: 5, y: 12, w: 90, h: 35 } };
@@ -2349,7 +2364,8 @@
         tag: typeof p.tag === 'string' && PIN_TAG.test(p.tag) ? p.tag : '',
         classes: (Array.isArray(p.classes) ? p.classes : []).filter((c) => typeof c === 'string' && PIN_CLASS.test(c)).slice(0, 5),
         place: cPick(p.place, ['float', 'left', 'right']),
-        show: cPick(p.show, ['always', 'newest']),
+        show: cPick(p.show, ['always', 'newest', 'reading']),
+        height: cPick(p.height, ['fixed', 'fit']),
         frame: cPick(p.frame, ['none', 'panel']),
         hide: cBool(p.hide, true),
         vn: cPick(p.vn, ['show', 'hide']),
@@ -2375,36 +2391,79 @@
     return { ...d, moved: p.from === 'agents' ? p[k].moved : false };
   }
 
-  // The newest message with the block: any message, or only the newest reply. Its <style> tags come along, since a
-  // regex often puts the block's look there.
+  // Where You're Reading: the message crossing a line a third of the way down the chat, or null at the bottom of the
+  // chat, for the newest. Only while the chat scrolls freely: Reader Mode's pages and Visual Novel Mode pick the
+  // message themselves (window.NTR.reader.upTo). Messages Reader Mode hides have no height and are skipped.
+  function pinReadAt() {
+    const chat = document.getElementById('chat');
+    if (!chat || settings().nodeEnabled || window.NTR.reader?.page()) return null;
+    if (chat.scrollHeight - chat.scrollTop - chat.clientHeight <= 4) return null;
+    const r = chat.getBoundingClientRect();
+    const line = r.top + r.height / 3;
+    // From the newest up, so near the bottom only a few are measured. Above every message, the oldest one.
+    const all = chat.querySelectorAll(':scope > .mes');
+    let m = null;
+    for (let i = all.length - 1; i >= 0; i--) {
+      if (!all[i].offsetHeight) continue;
+      m = all[i];
+      if (m.getBoundingClientRect().top <= line) break;
+    }
+    return m ? Number(m.getAttribute('mesid')) : null;
+  }
+  // The message a block shows up to: the page you're on in Reader Mode, and with Where You're Reading, the message
+  // you're reading too. Null for the newest.
+  function pinUpTo(p) {
+    const page = window.NTR.reader?.upTo() ?? null;
+    const read = p.show === 'reading' ? pinRead : null;
+    return page == null ? read : read == null ? page : Math.min(page, read);
+  }
+
+  // The newest message with the block, up to pinUpTo: any message, or only the newest reply. Its <style> tags come along,
+  // since a regex often puts the block's look there.
   function pinSource(p) {
     const sel = pinSel(p);
     if (!sel) return null;
-    // In Reader Mode, the newest one up to the page you're on.
-    const upTo = window.NTR.reader?.upTo();
-    const all = [...document.querySelectorAll('#chat > .mes')].filter((m) => upTo == null || Number(m.getAttribute('mesid')) <= upTo).reverse();
+    const upTo = pinUpTo(p);
+    const mes = [...document.querySelectorAll('#chat > .mes')];
+    const all = mes.filter((m) => upTo == null || Number(m.getAttribute('mesid')) <= upTo).reverse();
     const reply = all.find((m) => m.getAttribute('is_user') === 'false' && m.getAttribute('is_system') !== 'true');
-    for (const m of p.show === 'newest' ? [reply].filter(Boolean) : all) {
-      const text = m.querySelector('.mes_text');
-      const el = text?.querySelector(sel);
-      if (el) return { el, styles: [...text.querySelectorAll('style')] };
-    }
-    return null;
+    const find = (list) => {
+      for (const m of list) {
+        const text = m.querySelector('.mes_text');
+        const el = text?.querySelector(sel);
+        if (el) return { el, styles: [...text.querySelectorAll('style')] };
+      }
+      return null;
+    };
+    if (p.show === 'newest') return find([reply].filter(Boolean));
+    // Scrolled up past the oldest loaded message with the block, Where You're Reading keeps to the oldest one there is.
+    // Never past a Reader Mode page, though: that would show what happens later.
+    const above = p.show === 'reading' && pinRead != null && upTo === pinRead;
+    return find(all) || (above ? find(mes.filter((m) => Number(m.getAttribute('mesid')) > upTo)) : null);
   }
 
   // The copy in the box. Ids get the block's own ending, with labels pointing at the new ones, so a label that opens
   // something (the checkbox trick) opens the copy and not the hidden original.
   // The copied <style> rules point at the copy's ids, like #threads-toggle:checked ~ .list. Only selectors change (the
   // text before each {), so a color like #add inside a rule stays as it is.
-  function pinStyleIds(text, ids) {
-    if (!ids.size) return text;
-    const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m));
-    return text.replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
+  // They also reach only the copy. SillyTavern starts every selector in a message's styles with .mes_text, which matches
+  // every message, so the copied styles of an older message would restyle the newer ones in the chat too. :where() keeps
+  // each rule exactly as strong as before.
+  function pinStyle(text, ids, pin) {
+    const scope = `:where(#ntr_pin_layer > .ntr_pin[data-pin="${pin}"]) > .mes_text`;
+    const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m))
+      .replace(/(^|,)(\s*)\.mes_text(?![\w-])/g, (m, a, sp) => a + sp + scope);
+    // Comments go first, so one in front of a selector, like /* Threads */, doesn't hide its .mes_text. Quoted text,
+    // like content: "/* a label */", stays as it is.
+    return text.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\/\*[\s\S]*?\*\//g, (m, str) => str || '').replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
   }
 
   function pinFill(body, src, p) {
     const was = { open: [...body.querySelectorAll('details')].map((d) => d.open), checked: [...body.querySelectorAll('input')].map((i) => i.checked) };
     const copy = src.el.cloneNode(true);
+    // A <style> inside the block comes along with the message's other styles below, scoped to the box, so the copy's own
+    // unscoped one goes.
+    copy.querySelectorAll('style').forEach((st) => st.remove());
     const ids = new Map();
     for (const e of [copy, ...copy.querySelectorAll('[id]')]) {
       if (!e.id) continue;
@@ -2416,7 +2475,7 @@
     for (const r of [copy, ...copy.querySelectorAll('input[name]')]) if (r.tagName === 'INPUT' && r.name) r.name = `${r.name}--ntr-${p.id}`;
     const styles = src.styles.map((st) => {
       const c = st.cloneNode(true);
-      c.textContent = pinStyleIds(c.textContent, ids);
+      c.textContent = pinStyle(c.textContent, ids, p.id);
       return c;
     });
     body.replaceChildren(...styles, copy);
@@ -2428,6 +2487,26 @@
 
   const pinLast = new Map();
   let pinObs = null, pinTimer = null;
+  // The message being read, while a box uses Where You're Reading (see pinReadAt). Scrolling only works it out again; the
+  // boxes redraw when it changes.
+  let pinRead = null, pinReadOn = false, pinReadFrame = 0;
+  // The chat changing size (a phone's keyboard, a resized window) can bring another message to the line without a scroll.
+  function onPinScroll(e) {
+    if (e.target.id === 'chat') pinCheckRead();
+  }
+  function pinCheckRead() {
+    if (!pinReadOn || pinReadFrame) return;
+    pinReadFrame = requestAnimationFrame(() => {
+      pinReadFrame = 0;
+      const at = pinReadAt();
+      if (at !== pinRead) { pinRead = at; syncPins(); }
+    });
+  }
+  function watchRead(on) {
+    if (on === pinReadOn) return;
+    pinReadOn = on;
+    document[on ? 'addEventListener' : 'removeEventListener']('scroll', onPinScroll, { capture: true, passive: true });
+  }
   function queuePins() {
     if (pinTimer) return;
     pinTimer = setTimeout(() => { pinTimer = null; syncPins(); }, 200);
@@ -2450,6 +2529,10 @@
     const s = settings();
     const live = pinsLive(s);
     watchPins(live);
+    // Only boxes count: a Floating block still in its message is read in place.
+    const reading = live && s.layPins.some((p) => pinHas(p) && p.show === 'reading' && pinBoxed(p, phoneNow()));
+    watchRead(reading);
+    pinRead = reading ? pinReadAt() : null;
     cssTag('ntr_pin_css', live && !pinPicking ? pinCss(s) : '');
     let layer = document.getElementById('ntr_pin_layer');
     if (!live) { layer?.remove(); pinLast.clear(); return; }
@@ -2474,15 +2557,19 @@
         box.innerHTML = '<button type="button" class="ntr_pin_tab"><i class="fa-solid fa-thumbtack"></i></button><div class="ntr_pin_body mes_text"></div>';
         layer.appendChild(box);
       }
-      box.className = `ntr_pin ntr_pin_${p.place} ntr_pin_${p.frame}${box.classList.contains('ntr_open') ? ' ntr_open' : ''}`;
+      box.className = `ntr_pin ntr_pin_${p.place} ntr_pin_${p.frame}${p.place === 'float' && p.height === 'fit' ? ' ntr_pin_fit' : ''}${box.classList.contains('ntr_open') ? ' ntr_open' : ''}`;
       const tab = box.querySelector('.ntr_pin_tab');
       tab.title = `Show or hide ${p.name}`;
       tab.setAttribute('aria-label', tab.title);
       const body = box.querySelector('.ntr_pin_body');
       let src;
       if (p.from === 'agents') {
-        // In Reader Mode, the results up to the page you're on.
-        src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, window.NTR.reader?.upTo() ?? null);
+        // In Reader Mode, the results up to the page you're on; with Where You're Reading, up to the message you're reading.
+        // While a result is being edited in the box, the box stays on that result's message, so scrolling, turning the
+        // page or a newer result coming in doesn't lose what's typed.
+        const ed = body.querySelector('.ntr_agres_edit')?.closest('.ntr_agres');
+        const upTo = ed && ed.dataset.mes !== '' ? Number(ed.dataset.mes) : pinUpTo(p);
+        src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, upTo);
         const key = src ? 'ag:' + src.key : '';
         if (pinLast.get(p.id) !== key) {
           pinLast.set(p.id, key);
@@ -2519,6 +2606,17 @@
         let props;
         if (!boxed) {
           props = { display: 'none' };
+        } else if (p.place === 'float' && p.height === 'fit') {
+          // Fit Content: as tall as what it shows, up to the edge of the screen. It keeps the edge of its spot nearer the
+          // top or bottom of the screen, so a box in the bottom half grows up.
+          const left = `min(${r.x}vw, ${100 - r.w}vw)`, width = `${r.w}vw`;
+          if (r.y + r.h / 2 <= 50) {
+            const top = `min(${r.y}dvh, ${100 - r.h}dvh)`;
+            props = { left, top, bottom: 'auto', width, height: 'auto', 'max-height': `calc(100dvh - ${top})` };
+          } else {
+            const bottom = `${Math.round(Math.max(0, 100 - r.y - r.h) * 100) / 100}dvh`;
+            props = { left, top: 'auto', bottom, width, height: 'auto', 'max-height': `calc(100dvh - ${bottom})` };
+          }
         } else if (p.place === 'float') {
           props = { left: `min(${r.x}vw, ${100 - r.w}vw)`, top: `min(${r.y}dvh, ${100 - r.h}dvh)`, width: `${r.w}vw`, height: `${r.h}dvh` };
         } else {
@@ -2633,9 +2731,14 @@
             <div class="cb_plab">Place</div>
             ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}
             <div class="cb_hint">Floating goes anywhere. ${p.from === 'agents' ? '' : 'It stays in its message until you drag it out with Edit Layout; Reset puts it back there. In Visual Novel Mode it shows in its box. '}Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
-            ${p.from === 'agents' ? '' : `<div class="cb_plab">Show</div>
-            ${pick(p, 'show', [['always', 'Always'], ['newest', 'Newest Reply Only']], p.show)}
-            <div class="cb_hint">Always shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it.</div>`}
+            ${p.place === 'float' ? `<div class="cb_plab">Height</div>
+            ${pick(p, 'height', [['fit', 'Fit Content'], ['fixed', 'Fixed']], p.height)}
+            <div class="cb_hint">Fit Content grows and shrinks with what it shows, up to the edge of the screen: down from a box in the top half, up from one in the bottom half. Edit Layout moves it and changes its width. Fixed keeps the height set in Edit Layout and scrolls what doesn't fit.</div>` : ''}
+            <div class="cb_plab">Show</div>
+            ${p.from === 'agents' ? `${pick(p, 'show', [['reading', 'Where You\'re Reading'], ['always', 'Newest']], p.show === 'reading' ? 'reading' : 'always')}
+            <div class="cb_hint">Where You're Reading shows the results saved up to the message you're reading in the chat. Newest shows the newest ones. Both follow the page in Reader Mode and the message on screen in Visual Novel Mode.</div>` : `
+            ${pick(p, 'show', [['reading', 'Where You\'re Reading'], ['always', 'Newest'], ['newest', 'Newest Reply Only']], p.show)}
+            <div class="cb_hint">Where You're Reading shows the block from the message you're reading in the chat, or the nearest one before it that has it; at the bottom of the chat, the newest. Newest shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it. All three follow the page in Reader Mode and the message on screen in Visual Novel Mode.</div>`}
             <div class="cb_plab">Frame</div>
             ${pick(p, 'frame', [['none', 'None'], ['panel', 'Panel']], p.frame)}
             <div class="cb_hint">${p.from === 'agents' ? 'None shows the results with no background. Panel puts them' : 'None shows only what your regex draws. Panel puts it'} on SillyTavern's panel look.</div>
@@ -2657,7 +2760,7 @@
       if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Pinned Blocks'); return; }
       // Each new box starts a little lower than the last, so they don't land on top of each other.
       const n = s.layPins.length;
-      const [p] = cleanPins([{ name: `Pinned Block ${n + 1}`, desk: { ...PIN_START.desk, y: PIN_START.desk.y + (n % 6) * 8, moved: false }, phone: { ...PIN_START.phone, y: PIN_START.phone.y + (n % 6) * 8, moved: false } }]);
+      const [p] = cleanPins([{ name: `Pinned Block ${n + 1}`, show: 'reading', height: 'fit', desk: { ...PIN_START.desk, y: PIN_START.desk.y + (n % 6) * 8, moved: false }, phone: { ...PIN_START.phone, y: PIN_START.phone.y + (n % 6) * 8, moved: false } }]);
       s.layPins.push(p);
       pinOpen = p.id;
       changed();
@@ -2696,8 +2799,13 @@
         render();
         return;
       }
-      const m = /^cbr_pin(place|show|frame|vn|from)-/.exec(t.name || '');
-      if (m && t.checked) { p[m[1]] = t.value; changed(); if (m[1] === 'from') render(); }
+      const m = /^cbr_pin(place|show|frame|vn|from|height)-/.exec(t.name || '');
+      if (!m || !t.checked) return;
+      p[m[1]] = t.value;
+      // Each kind starts on its own Show: the message you're reading for a block, the newest for Agent Results.
+      if (m[1] === 'from') p.show = t.value === 'agents' ? 'always' : 'reading';
+      changed();
+      if (m[1] === 'from' || m[1] === 'place') render();
     });
   }
 
@@ -3578,7 +3686,8 @@
     let el = document.getElementById(id);
     if (!v) { el?.remove(); return; }
     if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-    el.textContent = v;
+    // Rewriting the same text still makes the browser redo the page's styles, and some tags are set many times a second.
+    if (el.textContent !== v) el.textContent = v;
   }
 
   // Google Fonts load only for font boxes that are ticked and filled in. One link per font, so a name Google

@@ -601,7 +601,7 @@
     layer.innerHTML = '<img id="cb_pop_ai" alt="" draggable="false"><img id="cb_pop_us" alt="" draggable="false">';
     document.body.appendChild(layer);
     const chat = document.getElementById('chat');
-    if (chat && window.ResizeObserver) new ResizeObserver(() => layoutPop()).observe(chat);
+    if (chat && window.ResizeObserver) new ResizeObserver(() => { layoutPop(); pinCheckRead(); }).observe(chat);
     layoutPop();
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
@@ -2446,9 +2446,13 @@
   // something (the checkbox trick) opens the copy and not the hidden original.
   // The copied <style> rules point at the copy's ids, like #threads-toggle:checked ~ .list. Only selectors change (the
   // text before each {), so a color like #add inside a rule stays as it is.
-  function pinStyleIds(text, ids) {
-    if (!ids.size) return text;
-    const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m));
+  // They also reach only the copy. SillyTavern starts every selector in a message's styles with .mes_text, which matches
+  // every message, so the copied styles of an older message would restyle the newer ones in the chat too. :where() keeps
+  // each rule exactly as strong as before.
+  function pinStyle(text, ids, pin) {
+    const scope = `:where(#ntr_pin_layer > .ntr_pin[data-pin="${pin}"]) > .mes_text`;
+    const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m))
+      .replace(/(^|,)(\s*)\.mes_text(?![\w-])/g, (m, a, sp) => a + sp + scope);
     return text.replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
   }
 
@@ -2466,7 +2470,7 @@
     for (const r of [copy, ...copy.querySelectorAll('input[name]')]) if (r.tagName === 'INPUT' && r.name) r.name = `${r.name}--ntr-${p.id}`;
     const styles = src.styles.map((st) => {
       const c = st.cloneNode(true);
-      c.textContent = pinStyleIds(c.textContent, ids);
+      c.textContent = pinStyle(c.textContent, ids, p.id);
       return c;
     });
     body.replaceChildren(...styles, copy);
@@ -2477,12 +2481,18 @@
   }
 
   const pinLast = new Map();
+  // Agent Results being edited in a box: the message the box showed up to when the edit began (see syncPins).
+  const pinHold = new Map();
   let pinObs = null, pinTimer = null;
   // The message being read, while a box uses Where You're Reading (see pinReadAt). Scrolling only works it out again; the
   // boxes redraw when it changes.
   let pinRead = null, pinReadOn = false, pinReadFrame = 0;
+  // The chat changing size (a phone's keyboard, a resized window) can bring another message to the line without a scroll.
   function onPinScroll(e) {
-    if (e.target.id !== 'chat' || pinReadFrame) return;
+    if (e.target.id === 'chat') pinCheckRead();
+  }
+  function pinCheckRead() {
+    if (!pinReadOn || pinReadFrame) return;
     pinReadFrame = requestAnimationFrame(() => {
       pinReadFrame = 0;
       const at = pinReadAt();
@@ -2552,7 +2562,11 @@
       let src;
       if (p.from === 'agents') {
         // In Reader Mode, the results up to the page you're on; with Where You're Reading, up to the message you're reading.
-        src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, pinUpTo(p));
+        // While a result is being edited in the box, the box stays on it, so scrolling or turning the page doesn't lose
+        // what's typed.
+        const upTo = body.querySelector('.ntr_agres_edit') && pinHold.has(p.id) ? pinHold.get(p.id) : pinUpTo(p);
+        pinHold.set(p.id, upTo);
+        src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, upTo);
         const key = src ? 'ag:' + src.key : '';
         if (pinLast.get(p.id) !== key) {
           pinLast.set(p.id, key);
@@ -2573,7 +2587,7 @@
       if (!src) body.dataset.name = p.name;
       box.hidden = pinPicking || (vnOn && p.vn === 'hide') || (!src && !place.on);
     }
-    for (const box of layer.querySelectorAll(':scope > .ntr_pin')) if (!keep.has(box.dataset.pin)) { pinLast.delete(box.dataset.pin); box.remove(); }
+    for (const box of layer.querySelectorAll(':scope > .ntr_pin')) if (!keep.has(box.dataset.pin)) { pinLast.delete(box.dataset.pin); pinHold.delete(box.dataset.pin); box.remove(); }
     if (place.on) drawPlace();
   }
 

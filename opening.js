@@ -311,7 +311,7 @@
       if (!info || typeof info !== 'object') return;
       if (typeof info.playerState === 'number') {
         st.ytState = info.playerState;
-        if (info.playerState === 1 || info.playerState === 3) st.ytPlayed = true;
+        if (info.playerState === 1) st.ytPlayed = true;
         if (info.playerState === 0 && st.phase === 'video') { end(); return; }
       }
       if (typeof info.duration === 'number' && info.duration > 0) st.ytDur = info.duration;
@@ -324,7 +324,8 @@
       ytCmd('mute'); ytCmd('playVideo');
       setSnd(st, true);
     }, 3500);
-    // Never played or buffered (YouTube blocked, or an error that didn't reach us): don't leave the opening waiting.
+    // Never started playing (YouTube blocked, the video stuck buffering, or an error that didn't reach us): don't leave
+    // the opening waiting.
     later(() => { if (st.phase === 'video' && !st.ytPlayed) ytFail(); }, 15000);
   }
   function ytFail() {

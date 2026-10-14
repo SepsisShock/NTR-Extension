@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.61.0';
+  const VERSION = '2.62.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -138,6 +138,10 @@
     ovCursorCssOn: false, ovCursorCss: '',
     // Quick Replies restyle SillyTavern's Quick Reply bar. Shape, Background and Border come from BOX_PARTS. ST's hover
     // color is a plain gray, not one of its theme colors, so it starts filled in like the scrollbar's Track Color.
+    // Message Details (Elements): which details show in each spot, and their look (see messageDetailsCss). The spots start
+    // where SillyTavern puts them.
+    mdOn: false, mdAv: ['num', 'gen', 'tok'], mdRow: ['date', 'time'], mdCorner: [], mdBelow: [], mdDate: 'long', mdSep: 'dot',
+    mdSizeOn: false, mdSize: 1, mdColorOn: false, mdColor: '', mdOpacityOn: false, mdOpacity: 70, mdPillOn: false, mdPill: '',
     ovQrOn: false, ovQrTextOn: false, ovQrText: '', ovQrHoverOn: false, ovQrHover: 'rgba(77, 77, 77, 1)', ovQrSizeOn: false, ovQrSize: 1,
     ovQrWrapOn: false, ovQrWrap: 'scroll', ovQrGapOn: false, ovQrGap: 5, ovQrAlignOn: false, ovQrAlign: 'center', ovQrOpacityOn: false, ovQrOpacity: 70,
     ovQrCssOn: false, ovQrCss: '',
@@ -1283,6 +1287,10 @@
       .cb_emo_label { font-size: .8em; text-align: center; word-break: break-word; }
       .cb_emo_row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
       .cb_dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+      .ntr_mdgrid { display: grid; grid-template-columns: minmax(0, 1.7fr) repeat(4, minmax(0, 1fr)); gap: 2px 4px; align-items: center; margin: 8px 0; font-size: .9em; }
+      .ntr_mdgrid .ntr_mdh { font-size: .8em; opacity: .7; text-align: center; line-height: 1.2; }
+      .ntr_mdgrid label { display: flex; justify-content: center; margin: 0; cursor: pointer; }
+      .ntr_mdgrid input { margin: 0; }
       .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
       .cb_dfield input { margin: 0; font-family: monospace; }
       .ntr_rd_books { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
@@ -1296,7 +1304,7 @@
       .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
 
-    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + qrCss(s) + textFormatCss(s) + chatLookCss(s);
+    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + qrCss(s) + messageDetailsCss(s) + textFormatCss(s) + chatLookCss(s);
     // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
     // repainted all of it, avatar fades included.
     if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
@@ -1330,6 +1338,7 @@
     syncCustomCss();
     watchReasoningLabels();
     syncReasoningLabels();
+    syncMessageDetails();
     syncPopouts();
     syncPins();
     markBubbleRuns();
@@ -1698,7 +1707,7 @@
 
         ${pageHtml('pfp', `
             ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
-              + '<div class="cb_hint">Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.</div>'))}
+              + '<div class="cb_hint">Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included. With Message Details (Elements) on, its details show wherever they\'re ticked, except under the avatar.</div>'))}
             <div class="ntr_cols">
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
@@ -3226,6 +3235,23 @@
   };
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
   const OV_SHAPES = ['rounded', 'square'];
+  // Message Details: the details in the order they show, and the spots, each with its settings key and menu column.
+  const MD_ITEMS = [['num', 'Message Number'], ['date', 'Date'], ['time', 'Time'], ['gen', 'Reply Time'], ['think', 'Thinking Time'],
+    ['tok', 'Tokens'], ['tps', 'Tokens per Second'], ['model', 'Model']];
+  const MD_ITEM_IDS = MD_ITEMS.map(([i]) => i);
+  const MD_SPOTS = [['av', 'mdAv', 'Avatar'], ['row', 'mdRow', 'Name Row'], ['corner', 'mdCorner', 'Corner'], ['below', 'mdBelow', 'Below']];
+  const MD_SEP = { dot: ' · ', bar: ' | ', slash: ' / ', space: '   ' };
+  // Styles set where each detail goes. SillyTavern is where it puts them itself.
+  const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
+  const MD_PRESETS = {
+    st: ['SillyTavern', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
+    messenger: ['Messenger', mdSpots([], [], ['time'], [])],
+    row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
+    footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],
+  };
+  const mdList = (s, k) => (Array.isArray(s[k]) ? MD_ITEM_IDS.filter((i) => s[k].includes(i)) : []);
+  const mdPreset = (s) => Object.keys(MD_PRESETS).find((k) => Object.entries(MD_PRESETS[k][1]).every(([key, v]) => mdList(s, key).join() === v.join())) || 'custom';
+
   // Quick Replies' Alignment. Safe keeps the first buttons in reach when one scrolling row is wider than the bar.
   const QR_ALIGN = { left: 'flex-start', center: 'safe center', right: 'safe flex-end' };
   const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), tfUserAlign: TEXT_ALIGN, tfAiAlign: TEXT_ALIGN, tfPlatePos: ['row', 'edge'], rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBgFit: ['cover', 'tile'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
@@ -3240,6 +3266,7 @@
     rdStyle: ['plain', 'book', 'phone'], rdPhoneNotch: ['none', 'notch', 'pill'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
     ovBubTail: Object.keys(BUB_TAILS), ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: Object.keys(BUB_INK),
     ovQrWrap: ['wrap', 'scroll'], ovQrAlign: Object.keys(QR_ALIGN),
+    mdDate: ['long', 'short'], mdSep: Object.keys(MD_SEP),
   });
   for (const p of ['Panel', ...BOX_PARTS]) {
     Object.assign(PICK_KEYS, { [`ov${p}Bg`]: ['clear', 'color'], [`ov${p}Border`]: ['none', 'line'] });
@@ -3260,6 +3287,7 @@
     ovPanelBgColor: '--SmartThemeChatTintColor', ovAiBgColor: '--SmartThemeBotMesBlurTintColor', ovUsBgColor: '--SmartThemeUserMesBlurTintColor', ovSendBgColor: '--SmartThemeBlurTintColor',
     ovPanelBorderColor: '--SmartThemeBorderColor', ovAiBorderColor: '--SmartThemeBorderColor', ovUsBorderColor: '--SmartThemeBorderColor', ovSendBorderColor: '--SmartThemeBorderColor',
     ovQrBgColor: '--grey30', ovQrBorderColor: '--SmartThemeBorderColor', ovQrText: '--SmartThemeBodyColor',
+    mdColor: '--SmartThemeBodyColor', mdPill: '--SmartThemeBlurTintColor',
   };
   const FONT_KEYS = ['rbFont', 'tfNameFont', 'tfUserFont', 'tfAiFont', 'rdBookFont'];
   // Reader Mode's ink colors. They start from the built-in book's ink, not SillyTavern's own colors.
@@ -3684,9 +3712,94 @@
         const mes = [...rbQueued].filter((m) => chat.contains(m));
         rbQueued = null;
         syncReasoningLabels(mes);
+        syncMessageDetails(mes);
       });
     });
     rbObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
+  }
+
+  // ===== Message Details =====
+  // NTR draws each spot's details itself with ::after, from a CSS variable per spot on the message (see
+  // syncMessageDetails), so nothing is added inside the message and SillyTavern's rewrites while streaming or editing
+  // can't remove it. SillyTavern's own number, timer, token count and timestamp are hidden meanwhile.
+  // Avatar: under the picture, like SillyTavern's. Name Row: after the name. Corner: at the end of the text's last line
+  // when there's room, or on its own line, like a messaging app. Below: under the message.
+  function messageDetailsCss(s) {
+    if (!s.mdOn) return '';
+    const M = '#chat .mes';
+    const k = s.mdSizeOn ? rangeNum(s, 'mdSize') : 1;
+    const pill = s.mdPillOn ? (COLOR_RE.test(s.mdPill) ? s.mdPill : 'var(--SmartThemeBlurTintColor)') : '';
+    // Size and opacity start at SillyTavern's for that spot.
+    const look = (size, opacity) => ({
+      'font-size': `calc(var(--mainFontSize) * ${+(size * k).toFixed(3)})`,
+      opacity: s.mdOpacityOn ? rangeNum(s, 'mdOpacity') / 100 : opacity,
+      color: s.mdColorOn && COLOR_RE.test(s.mdColor) ? s.mdColor : '',
+      'font-family': 'var(--mainFontFamily)', 'font-style': 'normal', 'line-height': '1.4',
+      'background-color': pill, 'border-radius': pill ? '999px' : '', padding: pill ? '.05em .6em' : '',
+    });
+    const v = (spot) => `var(--ntr-md-${spot}, none)`;
+    let css = cssRule(`${M} :is(.mesIDDisplay, .mes_timer, .tokenCounterDisplay), ${M} .ch_name .timestamp`, { display: 'none' });
+    css += cssRule(`${M} .mesAvatarWrapper::after`, {
+      content: v('av'), display: 'block', width: 'fit-content', margin: '2px auto 0', 'text-align': 'center', 'white-space': 'pre-line', 'font-weight': '600', ...look(0.9, 0.7),
+    });
+    css += cssRule(`${M} .ch_name > .flex1 > .flex-container::after`, { content: v('row'), 'margin-left': '.6em', 'font-weight': '400', 'white-space': 'nowrap', ...look(0.7, '') });
+    // The corner sits in the text's last part. A table can't hold it, so a message ending in one has no corner details.
+    const last = `${M} .mes_text > :nth-last-child(1 of :not(style, script, template)):not(table, img, hr)`;
+    css += cssRule(last, { display: 'flow-root' });
+    css += cssRule(`${last}::after`, {
+      content: v('corner'), float: 'right', margin: '.35em 0 -.25em .8em', 'font-weight': '400', 'white-space': 'nowrap', 'text-indent': '0', ...look(0.7, 0.7),
+    });
+    css += cssRule(`${M} .mes_block::after`, { content: v('below'), display: 'block', width: 'fit-content', 'margin-top': '4px', 'font-weight': '400', ...look(0.75, 0.7) });
+    // Speech Bubbles (and Reader Mode's Phone, which always has them) put a side's messages on the right: Below follows.
+    for (const [p, flag] of [['Ai', 'false'], ['Us', 'true']]) {
+      if (bubRight(s, p)) css += cssRule(`${bubblesOn(s) ? 'body:not(.ntr_book)' : 'body.ntr_phone'} #chat .mes[is_user="${flag}"] .mes_block::after`, { 'margin-left': 'auto' });
+    }
+    return css;
+  }
+
+  // Each detail's text for a message, or '' when it has none (a greeting has no reply time, your messages no model).
+  function mdValue(id, mes, mesid, s) {
+    const x = mes.extra || {};
+    const secs = mes.gen_started && mes.gen_finished ? (new Date(mes.gen_finished) - new Date(mes.gen_started)) / 1000 : NaN;
+    const when = () => { try { const m = ctx().timestampToMoment?.(mes.send_date); return m && m.isValid() ? m : null; } catch (e) { return null; } };
+    switch (id) {
+      case 'num': return `#${mesid}`;
+      case 'date': { const m = when(); return m ? m.format(s.mdDate === 'short' ? 'L' : 'LL') : ''; }
+      case 'time': { const m = when(); return m ? m.format('LT') : ''; }
+      case 'gen': return secs >= 0 ? `${secs.toFixed(1)}s` : '';
+      case 'think': return x.reasoning_duration > 0 ? `${(x.reasoning_duration / 1000).toFixed(1)}s thinking` : '';
+      case 'tok': return x.token_count > 0 ? `${x.token_count}t` : '';
+      case 'tps': return x.token_count > 0 && secs > 0 ? `${(x.token_count / secs).toFixed(1)} t/s` : '';
+      case 'model': return typeof x.model === 'string' ? x.model.slice(0, 80) : '';
+    }
+    return '';
+  }
+  // One spot's text. Date and time next to each other read as one timestamp, so a space joins them. The Avatar spot
+  // stacks its details, like SillyTavern's.
+  function mdText(s, mes, mesid, key, spot) {
+    const parts = mdList(s, key).map((id) => [id, mdValue(id, mes, mesid, s)]).filter(([, v]) => v);
+    const sep = spot === 'av' ? '\n' : MD_SEP[s.mdSep] || MD_SEP.dot;
+    return parts.map(([id, v], i) => (i ? (id === 'time' && parts[i - 1][0] === 'date' && spot !== 'av' ? ' ' : sep) : '') + v).join('');
+  }
+  // Writes each spot's text on the given messages, or every one in the chat. Called when a message changes (see
+  // watchReasoningLabels), so the reply time counts up while streaming and the numbers follow a deleted message.
+  const mdLast = new WeakMap();
+  function syncMessageDetails(mes) {
+    const s = settings();
+    const on = isOn() && s.mdOn;
+    const chat = ctx().chat || [];
+    for (const m of mes || document.querySelectorAll('#chat .mes')) {
+      const id = Number(m.getAttribute('mesid'));
+      const data = on && Number.isInteger(id) ? chat[id] : null;
+      const vals = MD_SPOTS.map(([spot, key]) => (data ? mdText(s, data, id, key, spot) : ''));
+      const sig = vals.join('\0');
+      if (mdLast.get(m) === sig) continue;
+      mdLast.set(m, sig);
+      MD_SPOTS.forEach(([spot], i) => {
+        if (vals[i]) m.style.setProperty(`--ntr-md-${spot}`, cssStr(vals[i]));
+        else m.style.removeProperty(`--ntr-md-${spot}`);
+      });
+    }
   }
 
   const FONT_NOTE = 'Use a font on your device, or any font from Google Fonts by its name or a link to it. Google fonts load on their own while you\'re online. Type the name exactly as it\'s written.';
@@ -3701,7 +3814,7 @@
 
   // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
-    return pageHtml('elements', reasoningPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + qrPartHtml(s));
+    return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + qrPartHtml(s));
   }
 
   function reasoningPartHtml(s) {
@@ -3967,6 +4080,32 @@
   }
 
   // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
+  // Message Details: a tick adds or removes a detail from a spot, and a Style sets all of them. Either may change the
+  // Style shown.
+  function bindMessageDetails(overlay, s) {
+    const cells = [...overlay.querySelectorAll('.m_md_cell')];
+    const sync = () => {
+      cells.forEach((c) => { c.checked = mdList(s, c.dataset.key).includes(c.dataset.item); });
+      const r = overlay.querySelector(`input[name="cbr_mdpreset"][value="${mdPreset(s)}"]`);
+      if (r) r.checked = true;
+    };
+    const apply = () => { save(); updateAvatarStyle(); sync(); };
+    cells.forEach((c) => {
+      c.onchange = () => {
+        const list = mdList(s, c.dataset.key).filter((i) => i !== c.dataset.item);
+        s[c.dataset.key] = MD_ITEM_IDS.filter((i) => (i === c.dataset.item ? c.checked : list.includes(i)));
+        apply();
+      };
+    });
+    onPills(overlay, 'mdpreset', (v) => {
+      if (!MD_PRESETS[v]) { sync(); return; }
+      for (const [k, list] of Object.entries(MD_PRESETS[v][1])) s[k] = [...list];
+      apply();
+    });
+    onPills(overlay, 'mddate', (v) => { s.mdDate = v; apply(); });
+    onPills(overlay, 'mdsep', (v) => { s.mdSep = v; apply(); });
+  }
+
   function bindReasoningBg(overlay, s) {
     const syncRows = () => {
       overlay.querySelector('.m_rbbg_rows').classList.toggle('cb_dim', !s.rbBgImg);
@@ -4160,6 +4299,28 @@
     `);
   }
 
+  function mdPartHtml(s) {
+    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
+    const hint = (t) => `<div class="cb_hint">${t}</div>`;
+    const pickRow = (title, inner) => `<div class="cb_ovrow"><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
+    // A tick for each detail in each spot. A detail can show in more than one.
+    const grid = `<div class="ntr_mdgrid"><span></span>${MD_SPOTS.map(([, , label]) => `<span class="ntr_mdh">${label}</span>`).join('')}
+      ${MD_ITEMS.map(([id, label]) => `<span>${label}</span>${MD_SPOTS.map(([, key, spot]) => `<label title="${label}: ${spot}"><input type="checkbox" class="m_md_cell" data-key="${key}" data-item="${id}" ${mdList(s, key).includes(id) ? 'checked' : ''}></label>`).join('')}`).join('')}</div>`;
+    return pagePart('Message Details', ['m_md_enable', s.mdOn], 'el_md', `
+          ${hint('Moves and restyles the details on each message, like its number, time and token count. While this is on, the ticks below decide which details show, in place of SillyTavern\'s Message Timer, Timestamps, Message IDs and Message Token Count.')}
+          ${pickRow('Style', pills('mdpreset', [...Object.entries(MD_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], mdPreset(s))
+            + hint('A style sets where each detail goes. SillyTavern puts them where SillyTavern does. Change a tick after that and it shows Custom.'))}
+          ${grid}
+          ${hint('Avatar is under the picture. Name Row is after the name. Corner is at the end of the text, on its last line when there\'s room, like a messaging app; with Speech Bubbles it sits inside the bubble. Below is under the message. Tokens only show for messages SillyTavern counted, which it does while its Message Token Count (User Settings) is ticked.')}
+          ${pickRow('Date', pills('mddate', [['long', 'Long'], ['short', 'Short']], s.mdDate))}
+          ${pickRow('Separator', pills('mdsep', [['dot', '·'], ['bar', '|'], ['slash', '/'], ['space', 'Space']], s.mdSep) + hint('Between details in the same spot. The Avatar spot puts each on its own line, and date and time stay together.'))}
+          ${row('mdSizeOn', 'Size', rangeSlider(s, 'mdSize') + hint('1x is SillyTavern\'s size for each spot.'))}
+          ${row('mdColorOn', 'Color', ovColor(s, 'mdColor'))}
+          ${row('mdOpacityOn', 'Opacity', rangeSlider(s, 'mdOpacity') + hint('SillyTavern shows its details at 70%.'))}
+          ${row('mdPillOn', 'Background', ovColor(s, 'mdPill') + hint('A rounded background behind the details, so they stay easy to read over pictures.'))}
+    `);
+  }
+
   function qrPartHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const hint = (t) => `<div class="cb_hint">${t}</div>`;
@@ -4187,7 +4348,7 @@
   }
 
   function bindDisplay(overlay, s) {
-    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_qr_enable', 'ovQrOn']]) {
+    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_qr_enable', 'ovQrOn'], ['m_md_enable', 'mdOn']]) {
       overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };
     }
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
@@ -4212,6 +4373,8 @@
     }
     syncWhen();
     bindCssBoxes(overlay, 'ov');
+
+    bindMessageDetails(overlay, s);
 
     // Bubble Style: picking one sets its values and redraws the menu. Any other change on the page may make it Custom.
     const page = overlay.querySelector('.ntr_page[data-page="display"]');
@@ -4688,7 +4851,7 @@
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },
-    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor, quick replies)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb')), ...ELEMENT_OV_KEYS] },
+    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor, quick replies, message details)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb') || k.startsWith('md')), ...ELEMENT_OV_KEYS] },
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
@@ -4750,6 +4913,7 @@
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'], ovBubWidth: [40, 100, 1, '%'],
     ovQrSize: [0.5, 2, 0.05, 'x'], ovQrGap: [0, 20, 1, 'px'], ovQrOpacity: [10, 100, 1, '%'],
+    mdSize: [0.5, 2, 0.05, 'x'], mdOpacity: [10, 100, 5, '%'],
     nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
     nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
     emoStageScale: [30, 200, 5, '%'], emoStageOpacity: [10, 100, 5, '%'],
@@ -4813,6 +4977,7 @@
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
     if (k === 'bannerGlobal') return isObj(v);
     if (k === 'layPins') return Array.isArray(v);
+    if (MD_SPOTS.some(([, key]) => key === k)) return Array.isArray(v) && v.every((i) => MD_ITEM_IDS.includes(i));
     if (k === 'emotions') return validEmotions(v);
     if (k === 'emoDefault') return !!cRef(v);
     if (k === 'opTransColor') return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
@@ -4828,6 +4993,7 @@
     if (NUM_RANGE[k]) return Math.min(NUM_RANGE[k][1], Math.max(NUM_RANGE[k][0], v));
     if (k === 'emotions') return v.map((e) => ({ id: e.id, name: e.name.trim() }));
     if (k === 'layPins') return cleanPins(v);
+    if (MD_SPOTS.some(([, key]) => key === k)) return MD_ITEM_IDS.filter((i) => v.includes(i));
     if (TAG_KEYS.includes(k)) return v.trim(); // as the menu's Apply saves them
     return structuredClone(v);
   }

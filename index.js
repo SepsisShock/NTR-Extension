@@ -2016,7 +2016,9 @@
   // look. Each has its own settings: the Phone one's names start with layPh (see lk).
   const LAY_EDGES = ['top', 'bottom', 'left', 'right'];
   const LAY_WIDE = window.matchMedia('(width > 1000px)');
-  LAY_WIDE.addEventListener('change', () => syncLayoutPage(document.getElementById('cb_modal_overlay')));
+  // Pinned Blocks redraw too: a block can have its own box in one layout and stay in its message in the other, which
+  // changes whether Where You're Reading watches the scrolling.
+  LAY_WIDE.addEventListener('change', () => { syncLayoutPage(document.getElementById('cb_modal_overlay')); syncPins(); });
   // A layout setting's name: lk(false, 'ChatX') is layChatX, lk(true, 'ChatX') is layPhChatX.
   const lk = (phone, name) => (phone ? 'layPh' : 'lay') + name;
   // The layout this page uses now.

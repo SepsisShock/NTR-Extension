@@ -8,7 +8,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 Find out how to make these movable and designable, and which details SillyTavern makes available.
 
 - [ ] Details like message number, time spent thinking (outside the reasoning block), token count and date.
-- [ ] Text alignment for chat messages: left, right, center or justified.
 - [ ] Move the time and date, including inside a speech bubble's bottom corner, like WhatsApp.
 - [ ] Move the character and user names, maybe with a background image or border behind them.
 

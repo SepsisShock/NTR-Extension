@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.59.2';
+  const VERSION = '2.60.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -108,9 +108,9 @@
 
     // Text Formatting
     tfEnabled: true, tfNameColorOn: false, tfNameColor: '', tfNameFontOn: false, tfNameFont: '', tfNameSizeOn: false, tfNameSize: 1, tfNameWeightOn: false, tfNameWeight: 'bold',
-    tfUserFontOn: false, tfUserFont: '', tfUserSizeOn: false, tfUserSize: 1, tfUserMainOn: false, tfUserMain: '',
+    tfUserFontOn: false, tfUserFont: '', tfUserSizeOn: false, tfUserSize: 1, tfUserAlignOn: false, tfUserAlign: 'left', tfUserMainOn: false, tfUserMain: '',
     tfUserEmOn: false, tfUserEm: '', tfUserUnderOn: false, tfUserUnder: '', tfUserQuoteOn: false, tfUserQuote: '',
-    tfAiFontOn: false, tfAiFont: '', tfAiSizeOn: false, tfAiSize: 1, tfAiMainOn: false, tfAiMain: '',
+    tfAiFontOn: false, tfAiFont: '', tfAiSizeOn: false, tfAiSize: 1, tfAiAlignOn: false, tfAiAlign: 'left', tfAiMainOn: false, tfAiMain: '',
     tfAiEmOn: false, tfAiEm: '', tfAiUnderOn: false, tfAiUnder: '', tfAiQuoteOn: false, tfAiQuote: '',
     tfNameFxOn: false, tfNameFx: 'glow', tfNameFxStr: 3, tfNameFxColorOn: false, tfNameFxColor: '',
     tfUserFxOn: false, tfUserFx: 'glow', tfUserFxStr: 3, tfUserFxColorOn: false, tfUserFxColor: '',
@@ -3201,6 +3201,7 @@
     try { return cleanFont(decodeURIComponent(name)); } catch (e) { return cleanFont(name); }
   }
   const NAME_WEIGHT = { normal: 400, bold: 700, extra: 800 };
+  const TEXT_ALIGN = ['left', 'right', 'center', 'justify'];
   const FX = ['glow', 'shadow', 'outline'];
   const FX_PARTS = ['tfName', 'tfUser', 'tfAi'];
   const RB_BORDERS = ['solid', 'dashed', 'dotted', 'double']; // the button's: unticked is ST's, which has none
@@ -3224,7 +3225,7 @@
   const OV_SHAPES = ['rounded', 'square'];
   // Quick Replies' Alignment. Safe keeps the first buttons in reach when one scrolling row is wider than the bar.
   const QR_ALIGN = { left: 'flex-start', center: 'safe center', right: 'safe flex-end' };
-  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBgFit: ['cover', 'tile'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
+  const PICK_KEYS = { tfNameWeight: Object.keys(NAME_WEIGHT), tfUserAlign: TEXT_ALIGN, tfAiAlign: TEXT_ALIGN, rbBorderStyle: RB_BOX_BORDERS, rbBtnBorder: RB_BORDERS, rbBtnShape: Object.keys(RB_SHAPE), rbBoxShape: Object.keys(RB_BOX_SHAPE), rbPat: RB_PATS, rbPatFade: Object.keys(RB_FADE), rbPatShade: ['light', 'dark'], rbTyping: ['off', 'think', 'both'], rbArrow: RB_ARROW, rbArrowTurn: Object.keys(RB_TURN), rbArrowAnim: ['off', ...Object.keys(RB_ANIM)], rbBgFit: ['cover', 'tile'], rbBtnFx: RB_FX, rbEdgeFx: RB_FX, bannerRotateFx: ['fade', 'swap'], bannerRotateOrder: ['order', 'shuffle'] };
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
@@ -3455,16 +3456,19 @@
     css += cssRule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
+    const align = (p) => (on(p + 'Align') && TEXT_ALIGN.includes(s[p + 'Align']) ? s[p + 'Align'] : '');
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
-      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', ...fxProps(s, p) });
+      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fxProps(s, p) });
+      // Lists, tables, code blocks and the edit box keep SillyTavern's alignment: bullets, columns and code don't center or justify well.
+      if (align(p)) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
       css += cssRule(`${m} i, ${m} em`, { color: col(p + 'Em') });
       css += cssRule(`${m} u`, { color: col(p + 'Under') });
       css += cssRule(`${m} q`, { color: col(p + 'Quote') });
       if (col(p + 'Em')) css += cssRule(`${m} q i, ${m} q em`, { color: 'inherit' });
     }
-    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), ...fxProps(s, 'tfAi') });
+    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fxProps(s, 'tfAi') });
     css += cssRule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
     css += cssRule('#cb_node .cb_q', { color: col('tfAiQuote') });
     if (col('tfAiEm')) css += cssRule('#cb_node .cb_q em', { color: 'inherit' });
@@ -3752,6 +3756,8 @@
     const part = (p) => `
           ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
           ${ovRow(s, p + 'SizeOn', 'Size', rangeSlider(s, p + 'Size'))}
+          ${ovRow(s, p + 'AlignOn', 'Alignment', pills(p.toLowerCase() + 'align', [['left', 'Left', 'SillyTavern\'s default'], ['right', 'Right'], ['center', 'Center'], ['justify', 'Justify']], s[p + 'Align'])
+            + '<div class="cb_hint">Lists, tables and code blocks stay as they are. Justify can leave wide gaps between words in narrow messages.</div>')}
           ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
@@ -3822,6 +3828,7 @@
       });
     }
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
+    for (const p of ['tfUser', 'tfAi']) onPills(overlay, p.toLowerCase() + 'align', (v) => { s[p + 'Align'] = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rbboxshape', (v) => { s.rbBoxShape = v; save(); updateAvatarStyle(); });
     // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
     const syncPatRows = () => {

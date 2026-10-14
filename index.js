@@ -2453,8 +2453,9 @@
     const scope = `:where(#ntr_pin_layer > .ntr_pin[data-pin="${pin}"]) > .mes_text`;
     const swap = (sel) => sel.replace(/#((?:[\w-]|\\.)+)/g, (m, id) => (ids.has(id) ? '#' + CSS.escape(ids.get(id)) : m))
       .replace(/(^|,)(\s*)\.mes_text(?![\w-])/g, (m, a, sp) => a + sp + scope);
-    // Comments go first, so one in front of a selector, like /* Threads */, doesn't hide its .mes_text.
-    return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
+    // Comments go first, so one in front of a selector, like /* Threads */, doesn't hide its .mes_text. Quoted text,
+    // like content: "/* a label */", stays as it is.
+    return text.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\/\*[\s\S]*?\*\//g, (m, str) => str || '').replace(/(^|[{}])([^{}]*)(?=\{)/g, (m, a, sel) => a + swap(sel));
   }
 
   function pinFill(body, src, p) {

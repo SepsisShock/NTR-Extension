@@ -4,12 +4,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-### Message details
-Find out how to make these movable and designable, and which details SillyTavern makes available.
-
-- [ ] Details like message number, time spent thinking (outside the reasoning block), token count and date.
-- [ ] Move the time and date, including inside a speech bubble's bottom corner, like WhatsApp.
-
 ## Misc (Low Priority)
 
 ### Background Pattern: Fade

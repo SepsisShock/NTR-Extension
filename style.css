@@ -362,6 +362,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #ntr_pin_layer .ntr_pin_empty { background: rgba(0, 0, 0, 0.35); border: 1px dashed rgba(255, 255, 255, 0.4); }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body { display: flex; align-items: center; justify-content: center; text-align: center; opacity: 0.8; }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body::before { content: attr(data-name); }
+#ntr_pin_layer .ntr_pin_fit.ntr_pin_empty { min-height: 48px; }
 /* The tab that slides a docked block out on a phone. */
 #ntr_pin_layer .ntr_pin_tab { display: none; position: absolute; top: 50%; width: 28px; height: 56px; margin: -28px 0 0; padding: 0; border: 1px solid var(--SmartThemeBorderColor); background: var(--SmartThemeBlurTintColor); color: var(--SmartThemeBodyColor); cursor: pointer; }
 #ntr_pin_layer .ntr_pin_left .ntr_pin_tab { left: 100%; border-left: 0; border-radius: 0 10px 10px 0; }

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.63.1';
+  const VERSION = '2.63.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -63,12 +63,10 @@
 
     // Reader Mode (reader.js): the chat a page at a time. Per Page is 'pair' (your message and the replies after it) or 'one'.
     rdEnabled: false, rdPer: 'pair',
-    // Its look, in themes: Standard, Book or Phone. An empty picture is the built-in book, and the page areas start as its own:
+    // Its look, in themes: Standard or Book. An empty picture is the built-in book, and the page areas start as its own:
     // where the text sits on the picture, as a % of its height (Top, Bottom) or width (Outer edge, Spine gap).
     rdStyle: 'plain', rdBook: 'brown', rdBookImg: '', rdBookW: 90, rdBookTop: 13, rdBookBottom: 15, rdBookOuter: 11, rdBookSpine: 11,
     rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '', rdFlip: true,
-    // Phone: the frame's color and the cutout at the top of its screen ('none', 'notch' or 'pill').
-    rdPhoneFrame: '#1c1c1e', rdPhoneNotch: 'pill',
 
     // Agents page (agents.js): your agents (each with its own job, connection, samplers and limits; see clean in agents.js)
     // and the one picked in the menu. Not in themes.
@@ -1929,7 +1927,7 @@
   // A group of settings: a small label, then the settings in a soft card.
   const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['rd_book', 'rd_phone', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
+  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   function subHead(sec, title) {
     if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
     return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
@@ -2914,7 +2912,6 @@
     if (namesHidden(s)) {
       css += cssRule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
     }
-    css += phoneBubbleCss(s);
     if (!s.ovEnabled) return css ? css + '\n' : '';
     const on = (k) => s[k + 'On'];
     const color = (k, opacity) => ovColorVal(s, k, opacity);
@@ -2966,7 +2963,7 @@
 
   // ----- Speech Bubbles -----
   // The bubble is the message text, so the avatar, name, buttons and reasoning block stay outside it. Reader Mode's
-  // Book has its own pages, so it keeps the plain messages. Reader Mode's Phone always has bubbles (see phoneBubbleCss).
+  // Book has its own pages, so it keeps the plain messages.
   const circle = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0Z`;
   // Thought's circles grow by a border's width (in the 100 x 100 box) for its line.
   const thoughtMask = (grow = 0) => svgMask(circle(62, 38, 17 + grow) + circle(24, 76, 10 + grow));
@@ -2991,9 +2988,9 @@
     return ntrAvatars(s, prefix) && (s[prefix + 'Style'] !== 'inline' || String(s[prefix + 'Side'])[1] === 'c');
   }
 
-  function bubbleCss(s, p, scope = 'body:not(.ntr_book)') {
+  function bubbleCss(s, p) {
     const on = (k) => s[k + 'On'];
-    const sel = `${scope} ${MES_SEL[p]}`;
+    const sel = `body:not(.ntr_book) ${MES_SEL[p]}`;
     const right = bubRight(s, p);
     const top = s.ovBubTailPos === 'top';
     const placed = avatarPlaced(s, p);
@@ -3068,31 +3065,6 @@
     return css;
   }
 
-  // Reader Mode's Phone (reader.js puts ntr_phone on the page) shows bubbles even with Speech Bubbles off, using the bubble
-  // settings. With UI Decor off, they take SillyTavern's message colors, like a bubble whose Color is unticked. Avatars
-  // beside the bubbles are small circles, like a messaging app's; NTR Avatars placed behind, popped out, above or below
-  // the text stay as they are.
-  const PHONE_AV = 36;
-  function phoneBubbleCss(s) {
-    if (s.rdStyle !== 'phone') return '';
-    let css = '';
-    for (const p of ['Ai', 'Us']) {
-      if (avatarPlaced(s, p)) continue;
-      const sel = `body.ntr_phone ${MES_SEL[p]} .mesAvatarWrapper .avatar`;
-      css += cssRule(sel, {
-        width: `${PHONE_AV}px`, height: `${PHONE_AV}px`, 'min-height': '0', 'aspect-ratio': '1', 'max-width': 'none', 'border-radius': '50%',
-        overflow: 'hidden', '-webkit-mask-image': 'none', 'mask-image': 'none', filter: 'none',
-      }) + cssRule(`${sel} img`, {
-        position: 'static', width: '100%', height: '100%', 'max-width': 'none', 'max-height': 'none', transform: 'none', 'aspect-ratio': 'auto', 'object-fit': 'cover', 'border-radius': '50%',
-        // A Heart or Star Shape masks the picture itself (see stShapeCss).
-        '-webkit-mask': 'none', mask: 'none',
-      });
-    }
-    if (s.ovEnabled && s.ovBubOn) return css;
-    const look = s.ovEnabled ? s : { ...s, ...Object.fromEntries(['Ai', 'Us'].flatMap((p) => ['Bg', 'Border', 'Shape'].map((k) => [`ov${p}${k}On`, false]))) };
-    return css + bubbleCss(look, 'Ai', 'body.ntr_phone') + bubbleCss(look, 'Us', 'body.ntr_phone');
-  }
-
   // Marks each message by whether the one before it (ntr_bub_prev) or after it (ntr_bub_next) is from the same speaker.
   // By name, so two characters in a group chat stay apart. In Reader Mode, only the messages on the page on screen
   // count, so each page's runs keep their tail and avatar (Reader Mode calls refreshPins on every page change).
@@ -3100,7 +3072,7 @@
     const chat = document.getElementById('chat');
     if (!chat) return;
     const s = settings();
-    const on = (bubblesOn(s) || document.body.classList.contains('ntr_phone')) && s.ovBubGroup === 'group';
+    const on = bubblesOn(s) && s.ovBubGroup === 'group';
     const page = window.NTR.reader?.page?.();
     const shown = (m) => !page || (Number(m.getAttribute('mesid')) >= page[0] && Number(m.getAttribute('mesid')) <= page[1]);
     let prev = null;
@@ -3380,7 +3352,7 @@
     layPage: ['attached', 'free'], layPhPage: ['attached', 'free'], layBan: ['attached', 'free'], layPhBan: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
-    rdStyle: ['plain', 'book', 'phone'], rdPhoneNotch: ['none', 'notch', 'pill'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
+    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
     ovBubTail: Object.keys(BUB_TAILS), ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: Object.keys(BUB_INK),
     ovQrWrap: ['wrap', 'scroll'], ovQrAlign: Object.keys(QR_ALIGN),
     mdDate: ['long', 'short'], mdSep: Object.keys(MD_SEP),
@@ -3567,10 +3539,10 @@
       if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
         css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)', 'max-width': 'calc(100% - 30px)' });
         css += cssRule(m, { 'margin-top': `calc(${half} + 2px)`, 'padding-top': `max(10px, calc(${half} + 4px))` });
-        // Speech Bubbles (and Reader Mode's Phone, which always has them) put this side's name row on the right: the
-        // name lines up with the row's right end instead of running past the message.
+        // Speech Bubbles put this side's name row on the right: the name lines up with the row's right end instead of
+        // running past the message.
         const p = prefix === 'ai' ? 'Ai' : 'Us';
-        if (bubRight(s, p)) css += cssRule(`${bubblesOn(s) ? 'body:not(.ntr_book)' : 'body.ntr_phone'} #chat .mes[is_user="${flag}"] .ch_name .name_text`, { left: 'auto', right: '10px' });
+        if (bubblesOn(s) && bubRight(s, p)) css += cssRule(`body:not(.ntr_book) #chat .mes[is_user="${flag}"] .ch_name .name_text`, { left: 'auto', right: '10px' });
         continue;
       }
       // 10px is SillyTavern's room between the message's top edge and its name row.
@@ -3870,9 +3842,9 @@
       content: v('corner'), float: 'right', margin: '.35em 0 -.25em .8em', 'font-weight': '400', 'white-space': 'nowrap', 'text-indent': '0', ...look(0.7, 0.7),
     });
     css += cssRule(`${M} .mes_block::after`, { content: v('below'), display: 'block', width: 'fit-content', 'margin-top': '4px', 'font-weight': '400', ...look(0.75, 0.7) });
-    // Speech Bubbles (and Reader Mode's Phone, which always has them) put a side's messages on the right: Below follows.
+    // Speech Bubbles put a side's messages on the right: Below follows.
     for (const [p, flag] of [['Ai', 'false'], ['Us', 'true']]) {
-      if (bubRight(s, p)) css += cssRule(`${bubblesOn(s) ? 'body:not(.ntr_book)' : 'body.ntr_phone'} #chat .mes[is_user="${flag}"] .mes_block::after`, { 'margin-left': 'auto' });
+      if (bubblesOn(s) && bubRight(s, p)) css += cssRule(`body:not(.ntr_book) #chat .mes[is_user="${flag}"] .mes_block::after`, { 'margin-left': 'auto' });
     }
     return css;
   }
@@ -4388,7 +4360,7 @@
     const pick = (k, opts) => ovPick(s, k, opts);
     const hint = (t) => `<div class="cb_hint">${t}</div>`;
     return ovRow(s, 'ovBubOn', 'Speech Bubbles',
-      hint('Turns AI and User messages into chat bubbles around the message text. Avatars, names, buttons and the reasoning block stay outside the bubble. Its color, roundness and border come from AI Message and User Message. Reader Mode\'s Book keeps plain messages; Reader Mode\'s Phone always shows bubbles, with these settings.')
+      hint('Turns AI and User messages into chat bubbles around the message text. Avatars, names, buttons and the reasoning block stay outside the bubble. Its color, roundness and border come from AI Message and User Message. Reader Mode\'s Book keeps plain messages.')
       + ovLabel('Style', pills('obubpreset', [...Object.entries(BUB_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], bubPreset(s)))
       + hint('A style sets everything here except Tail Position, plus the AI and User Message cards. Change anything after that and it shows Custom. Comic suits a comic font, like Comic Neue or Bangers, in Text Formatting.')
       + ovLabel('Tail', pick('ovBubTail', [['none', 'None'], ['pointed', 'Pointed'], ['curved', 'Curved'], ['thought', 'Thought']]))
@@ -4996,7 +4968,7 @@
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
-    reader: { label: 'Reader Mode look (Standard, Book or Phone, book picture, page areas, ink, font, page flip, phone frame)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip', 'rdPhoneFrame', 'rdPhoneNotch'] },
+    reader: { label: 'Reader Mode look (Standard or Book, book picture, page areas, ink, font, page flip)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip'] },
     vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
@@ -5112,7 +5084,7 @@
     // Default art and cursors follow the rules for card images: an uploaded file, a web link or an embedded image.
     if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || (cUrl(v) === v && !v.startsWith('data:video/')));
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
-    if (k === 'ovScrollTrack' || k === 'ovQrHover' || k === 'rdPhoneFrame') return typeof v === 'string' && COLOR_RE.test(v);
+    if (k === 'ovScrollTrack' || k === 'ovQrHover') return typeof v === 'string' && COLOR_RE.test(v);
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
     if (INK_KEYS.includes(k)) return typeof v === 'string' && COLOR_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
@@ -5807,17 +5779,16 @@
   }
 
   // ===== Reader Mode (the paging itself lives in reader.js) =====
-  // Visual Novel Mode is one of Reader Mode's styles (Visual Novel), next to Standard, Book and Phone (rdStyle). It keeps its
-  // own switch (nodeEnabled), which is on only while Reader Mode is, so Standard, Book or Phone is still picked for when it's off.
+  // Visual Novel Mode is Reader Mode's third style (Visual Novel), next to Standard and Book (rdStyle). It keeps its own
+  // switch (nodeEnabled), which is on only while Reader Mode is, so Standard or Book is still picked for when it's off.
   // Standard is saved as 'plain'.
-  const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : ['book', 'phone'].includes(s.rdStyle) ? s.rdStyle : 'plain');
-  // Only the style in use shows its part of the page: Book, Phone or Visual Novel, while Reader Mode is on. Standard has none.
+  const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : s.rdStyle === 'book' ? 'book' : 'plain');
+  // Only the style in use shows its part of the page: Book or Visual Novel, while Reader Mode is on. Standard has none.
   const readerPart = (s) => (s.rdEnabled ? readerStyle(s) : 'off');
-  // The page's Book, Phone and Visual Novel parts fold; the picked style's part opens, the others fold.
+  // The page's Book and Visual Novel parts fold; the picked style's part opens, the other folds.
   function openStyleGroup(s) {
     const st = readerStyle(s);
     s.uiOpen.rd_book = st === 'book';
-    s.uiOpen.rd_phone = st === 'phone';
     s.uiOpen.rd_vn = st === 'vn';
   }
   function readerSectionHtml(s) {
@@ -5826,8 +5797,8 @@
     return pageHtml('reader', `
         <div class="cb_hint" data-rd-part="${part}">Other ways to show the chat. Messages hidden on screen are still sent with the prompt. Each chat opens where you left it.</div>
         ${card('Style', `
-          ${pills('rdstyle', [['plain', 'Standard'], ['book', 'Book'], ['phone', 'Phone'], ['vn', 'Visual Novel']], readerStyle(s))}`)}
-        ${part === 'vn' || part === 'phone' ? '' : card('Each Page', `
+          ${pills('rdstyle', [['plain', 'Standard'], ['book', 'Book'], ['vn', 'Visual Novel']], readerStyle(s))}`)}
+        ${part === 'vn' ? '' : card('Each Page', `
           ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
           <div class="cb_hint" style="margin-bottom: 0;">The opening message is page 1.</div>`)}
         ${part !== 'book' ? '' : `${subHead('rd_book', 'Book')}
@@ -5859,13 +5830,6 @@
           ${ovRow(s, 'rdBookFontOn', 'Book Font', ovFont(s, 'rdBookFont'))}
           <div class="cb_hint" style="margin-bottom: 0;">In the book, these take the place of SillyTavern's colors, Text Formatting's colors and text effects, and the reasoning block's look, which are made for a dark background. The reasoning text uses the Italics color. Text Formatting's sizes still apply.</div>`)}
         </div>`}
-        ${part !== 'phone' ? '' : `${subHead('rd_phone', 'Phone')}
-        <div class="cb_collapse_content">
-        ${card('Phone', `
-          ${ovLabel('Frame Color', ovColor(s, 'rdPhoneFrame'))}
-          ${ovLabel('Notch', pills('rdnotch', [['none', 'None'], ['notch', 'Notch'], ['pill', 'Pill']], s.rdPhoneNotch))}
-          <div class="cb_hint" style="margin-bottom: 0;">On a screen 1000px wide or less, like a real phone, it fills the screen without the frame. Notch is a cutout hanging from the top edge; Pill is a rounded cutout just below it. The bubbles use the Speech Bubbles settings in UI Decor, even while Speech Bubbles is off. The chat background shows inside the screen. A Free send bar (Layout) goes back under the chat inside the frame.</div>`)}
-        </div>`}
         ${part !== 'vn' ? '' : `${subHead('rd_vn', 'Visual Novel')}
         <div class="cb_collapse_content">
         ${vnSectionHtml(s)}
@@ -5876,7 +5840,6 @@
   function bindReader(overlay, s) {
     overlay.querySelector('#m_rd_enable').onchange = function() { setReader(this.checked); };
     onPills(overlay, 'rdper', (v) => { s.rdPer = v; save(); window.NTR.reader?.refresh(); });
-    onPills(overlay, 'rdnotch', (v) => { s.rdPhoneNotch = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'rdstyle', async (v) => {
       if (v !== 'vn') s.rdStyle = v;
       if (v === 'vn' || s.nodeEnabled) await setReader(s.rdEnabled || v === 'vn', v === 'vn');
@@ -5925,7 +5888,7 @@
     renderPic();
   }
 
-  // Reader Mode on or off, in Standard, Book or Phone (rdStyle) or, with vn, in Visual Novel (Visual Novel Mode).
+  // Reader Mode on or off, in Standard or Book (rdStyle) or, with vn, in Visual Novel (Visual Novel Mode).
   async function setReader(on, vn = false) {
     const s = settings();
     const wasVN = !!s.nodeEnabled;
@@ -6203,10 +6166,8 @@
     if (replyGoes) {
       eventSource.on(replyGoes, (type, _opts, dryRun) => {
         window.NTR.agents?.genStarted(type, dryRun);
-        window.NTR.reader?.replyGoes?.(type, dryRun);
       });
     }
-    if (event_types.GROUP_UPDATED) eventSource.on(event_types.GROUP_UPDATED, () => window.NTR.reader?.groupUpdated?.());
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
     // The short delay lets a reply that did arrive go first, so it still gets typed.
     if (event_types.GENERATION_ENDED) {

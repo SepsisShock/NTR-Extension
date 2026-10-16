@@ -4,7 +4,18 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-## Misc (Low Priority)
+### In Line avatar: spacing and look
+In Line looks too bulky next to the text.
+
+- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
+
+### SillyTavern's top bar icons
+- [ ] Change the icons in SillyTavern's top menu bar.
+
+### Independent, customizable "favorites" bar
+
+### Folder of pre-generated locations
+- [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
 
 ### Agents: follow-ups
 - [ ] Options for being able to drag agent order or alphabetical.
@@ -70,6 +81,8 @@ Decorative image borders around interface parts, stretched to fit any size.
 Optional: revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now.
 
 - Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
+
+## Misc (Low Priority)
 
 ### Replace the once-a-second check with events
 `injectExtensionMenuButton` in `index.js` runs a check every second to put back its buttons and the wand menu entry and to keep Visual Novel Mode running. In a sandbox test it was most of NTR's idle cost: about 0.8% CPU with everything on, which no user would notice. Users would see no difference, so this is tidying, not a fix.
@@ -151,14 +164,3 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Maps: pins and popups near the screen edge.
 - [ ] Opening video and banner video: autoplay, sound button, YouTube.
 - [ ] Reader Mode: Book on a phone held sideways, the page flip, and dragging a Free page bar and banner by touch.
-
-### In Line avatar: spacing and look
-In Line looks too bulky next to the text.
-
-- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
-
-### SillyTavern's top bar icons
-- [ ] Change the icons in SillyTavern's top menu bar.
-
-### Folder of pre-generated locations
-- [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.

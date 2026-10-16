@@ -6,11 +6,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Misc (Low Priority)
 
-### Background Pattern: Fade
-- [ ] Fade isn't working correctly yet. Find what's wrong and fix it.
-- [ ] Give Fade its own section in Background Pattern (Reasoning Box), so a fade can be combined with Notebook, Lines, Dots or Checkers.
-- [ ] Gradient fade options, like how far the fade reaches and how soft it is.
-
 ### Agents: follow-ups
 - [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Character portraits next to the tracked characters.

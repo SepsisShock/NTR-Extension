@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.63.3';
+  const VERSION = '2.64.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -96,6 +96,7 @@
     rbFontOn: false, rbFont: '', rbSatOn: false, rbSat: 50, rbBoxShapeOn: false, rbBoxShape: 'rounded', rbBorderStyleOn: false, rbBorderStyle: 'none', rbBorderOn: false, rbBorder: '', rbEdgeFx: 'none', rbEdgeFxSize: 8,
     rbBoxColorOn: false, rbBoxColor: '', rbBoxAlphaOn: false, rbBoxOpacity: 100,
     rbPat: 'none', rbPatH: true, rbPatV: false, rbPatR: false, rbPatL: false, rbPatFade: 'tc', rbPatShade: 'light',
+    rbPatFadeOn: false, rbPatFadeReach: 4, rbPatFadeSoft: 100,
     rbPatColorOn: false, rbPatColor: '', rbPatThick: 1, rbPatSize: 1,
     rbCssOn: false, rbCss: '', rbBtnCssOn: false, rbBtnCss: '',
     // Reasoning Arrow on the reasoning button. Default is ST's chevron; Flip is ST's turn when the block closes.
@@ -313,6 +314,10 @@
       o.rbBorderStyle = 'none';
       o.rbBorderStyleOn = false;
     }
+    // Fade was one of the Background Patterns; it's its own switch now, so it can go with a pattern. A theme from before
+    // that had another pattern turns Fade off.
+    if ('rbPat' in o && !('rbPatFadeOn' in o)) o.rbPatFadeOn = o.rbPat === 'fade';
+    if (o.rbPat === 'fade') o.rbPat = 'none';
     // The button's Border Style had None, which is ST's own look: unticked.
     if (o.rbBtnBorder === 'none') { o.rbBtnBorder = DEFAULTS.rbBtnBorder; o.rbBtnBorderOn = false; }
     // UI Display's switch used to cover Chat Width, Space Between Messages, Send Box Position, the scrollbar and the
@@ -390,6 +395,8 @@
     if (!s.themeLookV3) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV3 = true; }
     // Saved themes move the settings that changed pages (Chat Width to Layout, Scrollbar to Elements and so on) to their new sections.
     if (!s.themeLookV4) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV4 = true; }
+    // Saved themes with Fade as their pattern move it to its own switch.
+    if (!s.themeLookV5) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV5 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
@@ -3310,8 +3317,7 @@
   const RB_FX = ['none', 'glow', 'shadow'];
   const RB_SHAPE = { square: '0', rounded: '5px', pill: '999px' };
   const RB_BOX_SHAPE = { rounded: '10px', extra: '20px' }; // unticked: ST's own 2px
-  const RB_PATS = ['none', 'notebook', 'lines', 'dots', 'checkers', 'fade'];
-  // Fade From: the side the shade starts on, on the same 3x3 grid as picture positions. The center glows outward.
+  const RB_PATS = ['none', 'notebook', 'lines', 'dots', 'checkers'];
   const RB_ARROW = ['default', 'none', 'symbol', 'image'];
   // Reasoning Arrow Turn: how far it turns while the block is open, and while it's closed.
   const RB_TURN = { flip: ['0deg', '180deg'], quarter: ['90deg', '0deg'], none: ['0deg', '0deg'] };
@@ -3322,6 +3328,7 @@
     pulse: ['1.2s ease-in-out infinite', '{ 50% { transform: scale(.7); opacity: .5; } }'],
     bounce: ['.9s ease-in-out infinite', '{ 50% { translate: 0 calc(-50% - .35em); } }'],
   };
+  // Fade From: the side that turns see-through, on the same 3x3 grid as picture positions. The center fades from the middle out.
   const RB_FADE = { tl: 'to bottom right', tc: 'to bottom', tr: 'to bottom left', cl: 'to right', cc: '', cr: 'to left', bl: 'to top right', bc: 'to top', br: 'to top left' };
   const OV_SHAPES = ['rounded', 'square'];
   // Message Details: the details in the order they show, and the spots, each with its settings key and menu column.
@@ -3424,30 +3431,38 @@
       const r = Math.min(45, 10 + w * 5); // Thickness makes the dots bigger
       return [`radial-gradient(${P} ${r}%, transparent ${r + 2}%) 0 0 / ${u}em ${u}em`];
     }
-    if (kind === 'checkers') {
-      const q = `${+(1.6 * u).toFixed(2)}em`;
-      return [`conic-gradient(${P} 25%, transparent 0 50%, ${P} 0 75%, transparent 0) 0 0 / ${q} ${q}`];
-    }
-    // Fade: the Box Color itself turns see-through, starting on the Fade From side.
+    // Checkers
+    const q = `${+(1.6 * u).toFixed(2)}em`;
+    return [`conic-gradient(${P} 25%, transparent 0 50%, ${P} 0 75%, transparent 0) 0 0 / ${q} ${q}`];
+  }
+
+  // Fade: see-through on the Fade From side, turning solid by Reach (in text lines, at most the whole box). Softness is
+  // the part of Reach that blends; the rest stays see-through, so 0 is a hard edge. The Box Color fades in color c, and
+  // the picture and pattern layers with the same gradient as a mask in black.
+  function fadeLayer(s, c) {
+    const reach = `min(${rangeNum(s, 'rbPatFadeReach')}lh, 100%)`;
+    const clear = rangeNum(s, 'rbPatFadeSoft') < 100 ? `calc(${reach} * ${+(1 - rangeNum(s, 'rbPatFadeSoft') / 100).toFixed(2)})` : '0%';
     const dir = RB_FADE[s.rbPatFade] ?? 'to bottom';
-    return [dir ? `linear-gradient(${dir}, transparent, ${C})` : `radial-gradient(closest-side, transparent, ${C})`];
+    return `${dir ? `linear-gradient(${dir}` : 'radial-gradient(circle'}, transparent ${clear}, ${c} ${reach})`;
   }
 
   // Background Image: the picture on a layer behind the text, so Opacity really is see-through, and the Readability Tint
   // and any drawn pattern on a second layer above it. That one copies the box's padding, so ruled lines still sit under
-  // the text. Both layers stay under the text, and the Box Color stays on the box itself, under the picture.
+  // the text. Both layers stay under the text, and the Box Color stays on the box itself, under the picture. With Fade,
+  // both layers fade like the Box Color, and a pattern gets the second layer even without a picture.
   const bgPos = (v) => `${{ l: 'left', c: 'center', r: 'right' }[v[1]] || 'center'} ${{ t: 'top', c: 'center', b: 'bottom' }[v[0]] || 'center'}`;
-  function reasoningBgCss(s, img, pat) {
-    const layer = { content: '""', position: 'absolute', inset: '0', 'z-index': '-1', 'pointer-events': 'none', 'border-radius': 'inherit' };
+  function reasoningBgCss(s, img, pat, fade) {
+    const mask = fade ? fadeLayer(s, '#000') : '';
+    const layer = { content: '""', position: 'absolute', inset: '0', 'z-index': '-1', 'pointer-events': 'none', 'border-radius': 'inherit', '-webkit-mask-image': mask, 'mask-image': mask };
     const op = rangeNum(s, 'rbBgOpacity');
-    let css = cssRule('.mes_reasoning::before', {
+    let css = !img ? '' : cssRule('.mes_reasoning::before', {
       ...layer,
       background: s.rbBgFit === 'tile' ? `url("${img}") 0 0 / ${rangeNum(s, 'rbBgTile')}px auto repeat`
         : `url("${img}") ${bgPos(String(s.rbBgPos))} / cover no-repeat`,
       opacity: op < 100 ? op / 100 : '',
     });
     // Readability Tint: black over light reasoning text, white over dark, from the color ST gives the reasoning text.
-    const tint = s.rbBgTintOn ? rangeNum(s, 'rbBgTint') / 100 : 0;
+    const tint = img && s.rbBgTintOn ? rangeNum(s, 'rbBgTint') / 100 : 0;
     const shade = `hsl(from var(--reasoning-body-color) 0 0 clamp(0, (50 - l) * 1000, 100) / ${tint})`;
     const top = [...pat, tint ? `linear-gradient(${shade}, ${shade})` : ''].filter(Boolean);
     if (top.length) css += cssRule('.mes_reasoning::after', { ...layer, background: top.join(', '), padding: 'inherit', 'box-sizing': 'border-box' });
@@ -3578,17 +3593,20 @@
       const boxFill = col('rbBoxColor') || (boxOp < 100 ? 'var(--SmartThemeBlurTintColor)' : '');
       const boxBg = boxFill && seeThrough(boxFill, boxOp);
       const allPat = boxPattern(s, col, boxBg);
-      // With a Background Image, a drawn pattern moves to the layer above the picture (see reasoningBgCss). Fade stays
-      // on the Box Color, under the picture.
+      // With a Background Image or Fade, a drawn pattern moves to the layer above the picture (see reasoningBgCss), so
+      // Fade can reach it through a mask. The Box Color fades on the box itself.
       const img = cUrl(s.rbBgImg);
-      const pat = img && s.rbPat !== 'fade' ? [] : allPat;
+      const fade = !!s.rbPatFadeOn;
+      const layered = !!img || (fade && allPat.length > 0);
+      const pat = layered ? [] : allPat;
+      const bg = fade ? (boxBg ? [fadeLayer(s, boxBg)] : []) : pat.length ? [...pat, boxBg || 'transparent'] : [];
       const bs = on('rbBorderStyle') && RB_BOX_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
       css += cssRule('.mes_reasoning', {
         'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
-        'background-color': pat.length ? '' : boxBg,
-        background: pat.length ? [...pat, s.rbPat === 'fade' ? 'transparent' : boxBg || 'transparent'].join(', ') : '',
-        position: img ? 'relative' : '',
-        isolation: img ? 'isolate' : '',
+        'background-color': bg.length || fade ? '' : boxBg,
+        background: bg.join(', '),
+        position: layered ? 'relative' : '',
+        isolation: layered ? 'isolate' : '',
         'padding-left': s.rbPat === 'notebook' ? '2.1em' : '',
         '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
         'border-left-color': col('rbBorder'),
@@ -3597,7 +3615,7 @@
         'border-left-width': bs === 'double' ? '4px' : '',
         'box-shadow': edgeFx('rbEdgeFx', col('rbBorder') || 'var(--reasoning-body-color)', '-2px', true),
       });
-      if (img) css += reasoningBgCss(s, img, pat === allPat ? [] : allPat);
+      if (layered) css += reasoningBgCss(s, img, allPat, fade);
       // The Reasoning Button above it. ST's has no border and rounded corners.
       const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : '';
       const bc = col('rbBtnBorderColor') || 'currentColor';
@@ -3995,14 +4013,19 @@
           </div>
           ${subHead('rb_pattern', 'Background Pattern')}
           <div class="cb_collapse_content">
-          ${pickRow('Pattern', pills('rbpat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers'], ['fade', 'Fade']], s.rbPat))}
+          ${pickRow('Pattern', pills('rbpat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers']], s.rbPat))}
           ${pickRow('Lines', `<div class="ntr_rbpat_lines">${patLine('rbPatH', 'Horizontal')}${patLine('rbPatV', 'Vertical')}${patLine('rbPatR', 'Diagonal /')}${patLine('rbPatL', 'Diagonal \\')}</div>`
             + '<button class="menu_button" id="m_rb_patreset" style="margin:6px 0 0;">Reset</button><div class="cb_hint">Mix them: Horizontal and Vertical make a grid, both diagonals make diamonds. Horizontal follows the text lines.</div>', ' data-rbpat="lines"')}
-          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">The Box Color fades to see-through from this side. The center fades from the middle out. Needs a Box Color.</div>', ' data-rbpat="fade"')}
           ${pickRow('Pattern Shade', pills('rbpatshade', [['light', 'Lighter'], ['dark', 'Darker']], s.rbPatShade) + '<div class="cb_hint">Darker flips it: dark dots or squares on the box color.</div>', ' data-rbpat="drawn"')}
           <div data-rbpat="drawn">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor') + '<div class="cb_hint">Without this, the pattern is a shade of the Box Color.</div>')}</div>
           ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">How thick the lines are, or how big the dots are. Checkers doesn't use it.</div>`, ' data-rbpat="drawn"')}
           ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Spacing of the pattern. Notebook and Horizontal lines follow the text lines instead.</div>`, ' data-rbpat="drawn"')}
+          ${ovRow(s, 'rbPatFadeOn', 'Fade', '<div class="cb_hint">The box\'s background turns see-through on one side: the Box Color, the pattern and the Background Image. The text stays.</div><div class="cb_hint m_rb_fadeneed">Nothing to fade yet. Pick a Box Color, a pattern or a Background Image.</div>')}
+          <div class="m_rb_fade ${s.rbPatFadeOn ? '' : 'cb_dim'}">
+          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">The side that turns see-through. The center fades from the middle out.</div>')}
+          ${pickRow('Reach', rangeSlider(s, 'rbPatFadeReach') + '<div class="cb_hint">How far into the box the fade goes, in lines of text. Past it, the background is solid. A small box fades across its whole size.</div>')}
+          ${pickRow('Softness', rangeSlider(s, 'rbPatFadeSoft') + '<div class="cb_hint">How much of the Reach blends. Lower stays see-through longer, then turns solid with a sharper edge.</div>')}
+          </div>
           </div>`)}
           ${card('Reasoning Arrow', `
           ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'SillyTavern\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Image']], s.rbArrow))}
@@ -4135,7 +4158,7 @@
     // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
     const syncPatRows = () => {
       const p = s.rbPat;
-      overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'drawn' && p !== 'none' && p !== 'fade') ? '' : 'none'; });
+      overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'drawn' && p !== 'none') ? '' : 'none'; });
       const onlyH = p === 'lines' && s.rbPatH && !s.rbPatV && !s.rbPatR && !s.rbPatL;
       overlay.querySelector('.m_rb_patdim[data-for="thick"]').classList.toggle('cb_dim', p === 'checkers');
       overlay.querySelector('.m_rb_patdim[data-for="size"]').classList.toggle('cb_dim', p === 'notebook' || onlyH);
@@ -4150,11 +4173,22 @@
       patSet('rbPatH', false);
     };
     syncPatRows();
+    // Fade: its rows dim while it's off, and a note shows while the box has nothing to fade.
+    const fadeRows = overlay.querySelector('.m_rb_fade');
+    const syncFade = () => {
+      const fill = (s.rbBoxColorOn && COLOR_RE.test(s.rbBoxColor)) || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
+      const pat = s.rbPat !== 'none' && (s.rbPat !== 'lines' || s.rbPatH || s.rbPatV || s.rbPatR || s.rbPatL);
+      fadeRows.classList.toggle('cb_dim', !s.rbPatFadeOn);
+      overlay.querySelector('.m_rb_fadeneed').hidden = !s.rbPatFadeOn || fill || pat || !!s.rbBgImg;
+    };
+    const part = fadeRows.closest('.ntr_part');
+    for (const ev of ['input', 'change', 'click']) part.addEventListener(ev, () => setTimeout(syncFade), true);
+    syncFade();
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
     bindCssBoxes(overlay, 'rb');
     bindReasoningArrow(overlay, s);
-    bindReasoningBg(overlay, s);
+    bindReasoningBg(overlay, s, syncFade);
   }
 
   // Nameplate Picture: Upload / Link / Remove.
@@ -4219,8 +4253,9 @@
     onPills(overlay, 'mdsep', (v) => { s.mdSep = v; apply(); });
   }
 
-  function bindReasoningBg(overlay, s) {
+  function bindReasoningBg(overlay, s, onChange) {
     const syncRows = () => {
+      onChange();
       overlay.querySelector('.m_rbbg_rows').classList.toggle('cb_dim', !s.rbBgImg);
       overlay.querySelectorAll('[data-rbbg]').forEach((r) => { r.style.display = r.dataset.rbbg === s.rbBgFit ? '' : 'none'; });
     };
@@ -5022,7 +5057,7 @@
     agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'], agSendDepth: [0, 50, 1, ''],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
-    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], rbBgTile: [16, 512, 1, 'px'], rbBgOpacity: [0, 100, 1, '%'], rbBgTint: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfPlateBorderWidth: [1, 6, 1, 'px'], tfPlateRound: [0, 30, 1, 'px'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
+    rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbPatFadeReach: [1, 20, 0.5, ' lines'], rbPatFadeSoft: [0, 100, 1, '%'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], rbBgTile: [16, 512, 1, 'px'], rbBgOpacity: [0, 100, 1, '%'], rbBgTint: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfPlateBorderWidth: [1, 6, 1, 'px'], tfPlateRound: [0, 30, 1, 'px'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],
     ovWidth: [25, 100, 1, 'vw'], ovBlur: [0, 30, 1, ''], ovShadow: [0, 5, 1, ''], ovCursorSize: [16, 128, 1, 'px'],
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'], ovBubWidth: [40, 100, 1, '%'],
     ovQrSize: [0.5, 2, 0.05, 'x'], ovQrGap: [0, 20, 1, 'px'], ovQrOpacity: [10, 100, 1, '%'],

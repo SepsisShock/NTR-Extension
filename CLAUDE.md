@@ -2,6 +2,7 @@
 Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 
 ## Workflow
+- Ignore `README.md` or `LICENSE*` unless explicitly requested or necessary for the task.
 - Work on a new branch per task; open a PR when done.
 - For anything beyond a small fix, propose a plan and wait for approval before writing code.
 - Keep changes scoped to the task. Ask before deleting or renaming files.
@@ -9,9 +10,9 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 - Summarize every PR: what changed, why, how to test it in SillyTavern.
 - When a change touches `.js` or `.css` files, test it with `/run-ntr-extension` before opening the PR, comparing `main` with the branch.
 
-## Docs and version
+## Docs and Version
 - When a feature ships, remove it from `ROADMAP.md`. Update the `manifest.json` description only when a new top-level area ships, and add it in a few words.
-- For `README.md` and `CLAUDE.md`, show the proposed wording first; commit it only after approval.
+- For changes to `.md` or `.json` files, show the proposed wording or diff and get approval before committing those changes.
 - Bump the version in every PR that changes `.js` or `.css` with `node scripts/version.cjs bump patch` (or `minor`); the script holds the list of places and CI checks it. Last number for fixes, middle for new features, first only with approval. No bump for docs-only changes.
 
 ## Code
@@ -28,5 +29,5 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 - Interface text is for any NTR user: describe features in general terms, not with examples from my presets or cards.
 
 ## Audience
-- NTR is unreleased, so I'm its only user. Designing for future users is fine, but nobody else has it installed: don't plan around other people's current NTR setups.
+- NTR is unreleased, so I'm its only user. Designing for future users is fine, but nobody else has it installed right now: don't plan around other people's current NTR setups.
 - Follow the settings-key and card-cleaning rules quietly, as code rules, not as talking points.

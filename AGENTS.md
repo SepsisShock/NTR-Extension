@@ -4,7 +4,7 @@ Nitwit Tavern Redesign (NTR) is a SillyTavern extension.
 
 By default, Claude Code handles implementation, branches, opening pull requests, testing, and version numbers. Its instructions are in `CLAUDE.md`.
 
-ChatGPT reviews pull requests and submits review comments directly on GitHub, unless the user explicitly requests a different task or a private review.
+ChatGPT reviews pull requests and submits review comments directly on GitHub, unless the user explicitly requests a different task.
 
 ## Writing
 
@@ -18,7 +18,7 @@ ChatGPT reviews pull requests and submits review comments directly on GitHub, un
 - Post only on the requested PR in `SepsisShock/NTR-Extension`. Verify the repository and PR number first; if the intended PR is unclear, ask. Posting anywhere else requires explicit authorization for that specific PR; access alone is not authorization.
 - Keep individual findings on the PR. In chat, give a short summary and a link to the submitted review.
 - If the user requests a private review or draft, show it in chat instead.
-- If posting fails or access is unavailable, explain the problem and show the unposted findings in chat.
+- If posting fails or access is unavailable, stop and explain the problem and show the unposted findings in chat.
 
 ### Before reviewing
 
@@ -36,9 +36,7 @@ ChatGPT reviews pull requests and submits review comments directly on GitHub, un
   - `ChatGPT review: Verify:` for a specific suspected failure that needs testing. State the trigger, possible consequence, and a concrete test.
 - Begin other review comments, including replies and overall comments, with `ChatGPT review:`.
 - In the overall review comment, state whether runtime behavior was tested in SillyTavern. Code inspection can establish a bug, but do not claim it was reproduced unless it was actually tested.
-- Keep comments short.
-
-Claude Code reads the comments, tests each finding in SillyTavern, fixes what is real, and replies on the thread.
+- Keep comments concise.
 
 ### What to check
 

@@ -2,12 +2,11 @@
 // Loaded on demand by index.js, once Reader Mode is switched on. If this file breaks, the rest of the extension keeps working.
 // Shows the chat a page at a time. The messages are SillyTavern's own, so swipes, editing and the "..." menu keep working.
 // Messages on other pages are only hidden on screen, like Visual Novel Mode does: they stay in the prompt.
-// Three styles: Standard (a page scrolls when it's long), Book (an open book across the screen, the text flowing over both
-// pages and on to the next two pages) and Phone (the whole chat as texting in a phone frame; it scrolls, with no pages).
-// The fourth, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside for it, and it uses the saved page
-// and the page number box from here.
+// Two styles: Standard (a page scrolls when it's long) and Book (an open book across the screen, the text flowing over both
+// pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
+// for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.63.1';
+  const READER_VERSION = '2.63.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -39,28 +38,6 @@
     @keyframes ntr_flip_next { to { transform: rotateY(-180deg); } }
     @keyframes ntr_flip_prev { to { transform: rotateY(180deg); } }
     @keyframes ntr_flip_shade { 50% { opacity: .3; } }
-    #ntr_ph { flex: 0 0 auto; position: relative; z-index: 31; color: var(--SmartThemeBodyColor);
-      background-color: var(--SmartThemeBlurTintColor); backdrop-filter: blur(var(--SmartThemeBlurStrength)); -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
-      border-bottom: 1px solid var(--SmartThemeBorderColor); }
-    #ntr_ph .ntr_ph_bar { position: relative; display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 26px;
-      font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    body:not(.ntr_phone_frame) #ntr_ph .ntr_ph_bar { display: none; }
-    #ntr_ph .ntr_ph_icons { display: flex; gap: 6px; font-size: 11px; }
-    #ntr_ph .ntr_ph_cut { position: absolute; left: 50%; transform: translateX(-50%); background: var(--ntr-ph-frame); }
-    #ntr_ph[data-notch="notch"] .ntr_ph_cut { top: 0; width: 38%; height: 26px; border-radius: 0 0 16px 16px; }
-    #ntr_ph[data-notch="pill"] .ntr_ph_cut { top: 7px; width: 30%; height: 22px; border-radius: 11px; background: #000; }
-    #ntr_ph[data-notch="none"] .ntr_ph_cut { display: none; }
-    #ntr_ph .ntr_ph_head { display: flex; align-items: center; gap: 10px; padding: 6px 14px 8px; min-width: 0; }
-    #ntr_ph .ntr_ph_head[hidden] { display: none; }
-    #ntr_ph .ntr_ph_pics { display: flex; flex: 0 0 auto; }
-    #ntr_ph .ntr_ph_pics img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid var(--SmartThemeBlurTintColor); box-sizing: border-box; }
-    #ntr_ph .ntr_ph_pics img + img { margin-left: -14px; }
-    #ntr_ph .ntr_ph_who { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-    #ntr_ph .ntr_ph_name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #ntr_ph .ntr_ph_sub { font-size: .8em; opacity: .7; min-height: 1.2em; }
-    #ntr_ph_home { flex: 0 0 auto; display: none; padding: 6px 0 8px; background-color: var(--SmartThemeBlurTintColor); }
-    #ntr_ph_home::after { content: ''; display: block; width: 36%; height: 5px; margin: 0 auto; border-radius: 3px; background: var(--SmartThemeBodyColor); opacity: .6; }
-    body.ntr_phone_frame #ntr_ph_home { display: block; }
   `;
 
   // The built-in books (assets/books) are one photo of an open book in seven cover colors, 3:2. Their page areas are where
@@ -70,11 +47,7 @@
   const INK = { rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e' };
   const COLOR_OK = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i;
 
-  // Standard or Book: the chat a page at a time. Phone has no pages.
-  const live = () => isOn() && !!settings().rdEnabled && !settings().nodeEnabled && settings().rdStyle !== 'phone';
-  const phoneNow = () => isOn() && !!settings().rdEnabled && !settings().nodeEnabled && settings().rdStyle === 'phone';
-  // A screen wider than 1000px gets the phone frame. On a real phone, the screen is the phone.
-  const framed = () => phoneNow() && window.innerWidth > 1000;
+  const live = () => isOn() && !!settings().rdEnabled && !settings().nodeEnabled;
   // Visual Novel, Reader Mode's third style.
   const vnNow = () => isOn() && !!settings().rdEnabled && !!settings().nodeEnabled;
   // Book on a computer, and on a phone held sideways. An upright phone is too narrow for two pages, so it shows Standard.
@@ -136,16 +109,13 @@
     watchText();
   }
 
-  function addStyle() {
-    if (document.getElementById('ntr_rd_style')) return;
-    const st = document.createElement('style');
-    st.id = 'ntr_rd_style';
-    st.textContent = CSS;
-    document.head.appendChild(st);
-  }
-
   function syncBar() {
-    addStyle();
+    if (!document.getElementById('ntr_rd_style')) {
+      const st = document.createElement('style');
+      st.id = 'ntr_rd_style';
+      st.textContent = CSS;
+      document.head.appendChild(st);
+    }
     let bar = document.getElementById('ntr_rd_bar');
     const form = document.getElementById('form_sheld');
     if (!live() || !form) { bar?.remove(); return; }
@@ -577,132 +547,9 @@
     bookChat = chat;
   }
 
-  // ----- Phone -----
-  // The whole chat as texting on a phone: Speech Bubbles (index.js draws them while ntr_phone is on), a contact header
-  // and, on a computer, a phone frame with a status bar around SillyTavern's chat column, the send box inside it. Nothing
-  // is moved out of the column, so swipes, editing and the "..." menu keep working.
-  const PH_RATIO = 9 / 19.5, PH_BEZEL = 10, PH_RADIUS = 44, PH_FRAME = '#1c1c1e';
-  let phoneOn = false, phoneCss = '', clock = 0, typing = false, genObs = null;
-  function layoutPhone() {
-    const on = phoneNow(), frame = framed();
-    document.body.classList.toggle('ntr_phone', on);
-    document.body.classList.toggle('ntr_phone_frame', frame);
-    const turned = on !== phoneOn;
-    if (turned) {
-      phoneOn = on;
-      typing = false;
-      if (on) window.addEventListener('resize', layoutPhone); else window.removeEventListener('resize', layoutPhone);
-      // SillyTavern marks the page while it writes a reply and clears it when the reply is done, stopped or failed.
-      genObs?.disconnect();
-      genObs = null;
-      if (on && window.MutationObserver) {
-        genObs = new MutationObserver(() => { if (!document.body.dataset.generating) typing = false; syncTyping(); });
-        genObs.observe(document.body, { attributes: true, attributeFilter: ['data-generating'] });
-      }
-    }
-    syncPhoneParts(on);
-    if (frame && !clock) clock = setInterval(tick, 15000);
-    else if (!frame && clock) { clearInterval(clock); clock = 0; }
-    const css = frame ? frameCss() : '';
-    if (css !== phoneCss) {
-      let el = document.getElementById('ntr_ph_css');
-      if (css && !el) { el = document.createElement('style'); el.id = 'ntr_ph_css'; document.head.appendChild(el); }
-      if (css) el.textContent = css; else el?.remove();
-      phoneCss = css;
-      // A Free send bar back inside the frame needs no room at the bottom of the chat.
-      A.syncSendRoom?.();
-    }
-    if (turned) {
-      // Runs of bubbles from one speaker are marked again.
-      A.refreshPins?.();
-      // Turning Phone on starts at the newest message, like a messaging app. Coming from Standard or Book, refresh then
-      // shows the page that was being read.
-      const chat = chatEl();
-      if (on && chat) chat.scrollTop = chat.scrollHeight;
-    }
-  }
-
-  // The frame: centered in the screen beside SillyTavern's menu bar, as tall as there's room for, in a phone's shape.
-  function frameCss() {
-    const s = settings();
-    const { left, right, top, bottom } = screenRoom();
-    const rw = right - left, rh = bottom - top;
-    const h = Math.max(320, rh - 24), w = Math.max(240, Math.min(h * PH_RATIO, rw - 24));
-    const px = (v) => `${Math.round(v * 10) / 10}px`;
-    const color = COLOR_OK.test(s.rdPhoneFrame) ? s.rdPhoneFrame : PH_FRAME;
-    const P = 'html body.ntr_phone_frame';
-    return `
-    ${P} { --ntr-ph-frame: ${color}; }
-    ${P} #sheld { position: fixed !important; left: ${px(left + (rw - w) / 2)} !important; top: ${px(top + (rh - h) / 2)} !important; width: ${px(w)} !important;
-      height: ${px(h)} !important; max-height: none !important; right: auto !important; bottom: auto !important; margin: 0 !important; resize: none !important;
-      box-sizing: border-box !important; border: ${PH_BEZEL}px solid ${color} !important; border-radius: ${PH_RADIUS}px !important; overflow: hidden !important;
-      box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 24px 70px rgba(0,0,0,.6) !important; }
-    ${P} #sheld > #sheldheader { display: none !important; }
-    ${P} #chat { flex: 1 1 auto !important; min-height: 0 !important; max-height: none !important; border: none !important; border-radius: 0 !important; padding-bottom: 0 !important; }
-    ${P} #form_sheld { position: relative !important; left: auto !important; top: auto !important; bottom: auto !important; width: 100% !important; margin: 0 !important; }
-    ${P} #form_sheld #send_form { border-radius: 0 !important; border-width: 1px 0 0 !important; }
-    `;
-  }
-
-  // The status bar and contact header at the top of the chat column, and the home bar under the send box.
-  function syncPhoneParts(on) {
-    let el = document.getElementById('ntr_ph'), home = document.getElementById('ntr_ph_home');
-    const sheld = document.getElementById('sheld');
-    if (!on || !sheld) { el?.remove(); home?.remove(); return; }
-    addStyle();
-    const made = !el;
-    if (made) {
-      el = document.createElement('div');
-      el.id = 'ntr_ph';
-      el.innerHTML = `
-        <div class="ntr_ph_bar" aria-hidden="true"><span class="ntr_ph_time"></span><span class="ntr_ph_cut"></span>
-          <span class="ntr_ph_icons"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></span></div>
-        <div class="ntr_ph_head"><span class="ntr_ph_pics"></span><span class="ntr_ph_who"><span class="ntr_ph_name"></span><span class="ntr_ph_sub" aria-live="polite"></span></span></div>`;
-    }
-    if (sheld.firstElementChild !== el) sheld.prepend(el);
-    if (!home) { home = document.createElement('div'); home.id = 'ntr_ph_home'; }
-    if (sheld.lastElementChild !== home) sheld.append(home);
-    const notch = settings().rdPhoneNotch;
-    el.dataset.notch = ['none', 'notch', 'pill'].includes(notch) ? notch : 'pill';
-    if (made) { tick(); syncHead(); }
-  }
-
-  const tick = () => {
-    const t = document.querySelector('#ntr_ph .ntr_ph_time');
-    if (t) t.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  // The character's picture and name, or the group's name and its first three members' pictures.
-  function syncHead() {
-    const head = document.querySelector('#ntr_ph .ntr_ph_head');
-    if (!head) return;
-    const c = ctx();
-    const group = c.groupId ? c.groups?.find((g) => g.id === c.groupId) : null;
-    const ch = group ? null : c.characters?.[c.characterId];
-    const name = group ? group.name : ch?.name;
-    const off = group?.disabled_members || [];
-    const files = group ? (group.members || []).filter((m) => !off.includes(m)).slice(0, 3) : ch?.avatar ? [ch.avatar] : [];
-    head.hidden = !name;
-    head.querySelector('.ntr_ph_name').textContent = name || '';
-    head.querySelector('.ntr_ph_pics').replaceChildren(...files.map((f) => {
-      const img = new Image();
-      img.alt = '';
-      img.src = c.getThumbnailUrl ? c.getThumbnailUrl('avatar', f) : `/characters/${encodeURIComponent(f)}`;
-      return img;
-    }));
-    syncTyping();
-  }
-  function syncTyping() {
-    const sub = document.querySelector('#ntr_ph .ntr_ph_sub');
-    if (sub) sub.textContent = typing && document.body.dataset.generating ? 'typing...' : '';
-  }
-
   // After a setting or the screen size changed: the book again, at the same spread.
   function relayout() {
     flipEnd?.();
-    // Switching between Phone and Standard or Book turns the pages on or off.
-    if (live() !== wasLive) { refresh(); return; }
-    layoutPhone();
     if (!live()) return;
     const was = !!geom;
     layoutBook();
@@ -890,7 +737,6 @@
   // Switched on: the page this chat was left on, or the last page. Switched off: the chat stays at the page you were reading.
   function refresh() {
     dropFlip();
-    layoutPhone();
     const on = live();
     watch(on);
     // The page bar goes in first, so the book is sized with it under it.
@@ -927,11 +773,7 @@
     // A Book setting changed (index.js calls this whenever the menu's look settings do).
     relayout,
     // A chat opens on the page it was left on, or its last page.
-    chatChanged: () => {
-      if (live()) openSaved();
-      typing = false;
-      syncHead();
-    },
+    chatChanged: () => { if (live()) openSaved(); },
     // Sending a message or starting a reply goes to the last page, so you see the reply arrive.
     // Quiet generations and Impersonate don't add a reply to the chat, so they leave the page alone.
     genStarted: (type, dryRun) => {
@@ -940,15 +782,6 @@
       if (cur < pages.length - 1) go(pages.length - 1, 'force');
       follow = true;
     },
-    // In Phone, the header shows "typing..." while a reply is written (see layoutPhone). It starts once SillyTavern has
-    // run any slash commands in the send box, so a send with only commands, which writes no reply, doesn't start it.
-    replyGoes: (type, dryRun) => {
-      if (dryRun || type === 'quiet' || type === 'impersonate' || !phoneNow()) return;
-      typing = true;
-      syncTyping();
-    },
-    // A group's name or members changed.
-    groupUpdated: () => syncHead(),
     // For Visual Novel: the message this chat was left on (null for the last), saving the one it shows, and its number box.
     savedMsg,
     rememberMsg,

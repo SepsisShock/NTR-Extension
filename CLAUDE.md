@@ -12,7 +12,7 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 ## Docs and version
 - When a feature ships, remove it from `ROADMAP.md`. Update the `manifest.json` description only when a new top-level area ships, and add it in a few words.
 - For `README.md` and `CLAUDE.md`, show the proposed wording first; commit it only after approval.
-- Bump the version in every PR that changes `.js` or `.css`, in all 10 places: `manifest.json`, `index.js`, `cast.js`, `vn.js`, `map.js`, `opening.js`, `overlays.js`, `regex.js`, `reader.js`, `agents.js`. If a new module gets a version string, add it here. Last number for fixes, middle for new features, first only with approval. No bump for docs-only changes.
+- Bump the version in every PR that changes `.js` or `.css` with `node scripts/version.cjs bump patch` (or `minor`); the script holds the list of places and CI checks it. Last number for fixes, middle for new features, first only with approval. No bump for docs-only changes.
 
 ## Code
 - Match existing style and file structure.

@@ -136,7 +136,9 @@ Reading the numbers:
 
 ## Test
 
-There's no test suite. Check that every file parses (as modules, since `index.js` uses `import.meta`); no output means all good, and it exits 1 if any file fails:
+`node --test tests/*.test.mjs` runs the tests: every file loads in Node and registers with the core's version, and card data gets cleaned on the way in. They stub out the browser, so anything on screen still needs a run here. `node scripts/version.cjs check` checks the version matches everywhere, and `bump patch` (or `minor`) bumps it.
+
+Check that every file parses (as modules, since `index.js` uses `import.meta`); no output means all good, and it exits 1 if any file fails:
 
 ```bash
 bad=0; for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs || { echo "syntax error in $f"; bad=1; }; done; [ "$bad" = 0 ]

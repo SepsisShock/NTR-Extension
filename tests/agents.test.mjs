@@ -15,13 +15,17 @@ test('agent fields are cleaned', () => {
       { id: 'f1', kind: 'heading', name: '' },
       'junk',
       { type: 'bogus', hint: 'x'.repeat(500), listShow: 'chips', numShow: 'pie' },
+      { name: 'HP_Max_' }, { name: '- **Goal**' }, { name: '1. Step `one`' }, { name: '1.5 Speed' },
     ],
   }];
   window.NTR.agents.answer('ag_t'); // reading an agent cleans the saved list
   const [a] = api.settings().agents;
   assert.equal(a.keep, 'chat', 'Fields always saves in the chat');
-  assert.equal(a.fields.length, 3, 'entries that are not objects are dropped');
-  const [num, head, text] = a.fields;
+  assert.equal(a.fields.length, 7, 'entries that are not objects are dropped');
+  const [num, head, text, ...names] = a.fields;
+  // Names are read back from the agent's answer, so they lose what reading would strip: Markdown marks, list markers
+  // in front and underscores at the end. An underscore inside stays.
+  assert.deepEqual(names.map((f) => f.name), ['HP_Max', 'Goal', 'Step one', '1.5 Speed']);
   assert.equal(num.name, 'Na me X', 'a name loses colons and line breaks');
   assert.deepEqual([num.min, num.max, num.start], [5, 6, 6], 'max stays above min, and start between them');
   assert.equal(num.step, R.agFieldStep[0]);

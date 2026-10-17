@@ -72,10 +72,15 @@
   const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const pick = (v, list, d) => (list.some(([x]) => x === v) ? v : d);
   // Answer: Fields. Each field is a named value the agent keeps; a heading groups the fields under it in a Dashboard.
-  // A field's name is how the answer is read, so it can't hold a colon or a line break.
+  // A field's name is how the answer is read, so it can't hold a colon, a line break or Markdown marks, start like a
+  // list item or end in an underscore. Names in an answer go through the same cleaning, so every name kept reads back.
   const FIELD_MAX = 40;
   const FTYPES = [['text', 'Text'], ['num', 'Number'], ['list', 'List']];
-  const fieldName = (v, d) => (typeof v === 'string' ? v.replace(/[:\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) : '') || d;
+  function nameText(v) {
+    const t = String(v).replace(/[:\r\n*`]+/g, ' ').replace(/\s+/g, ' ').replace(/^(?:[\s\-+•#>_]|\d+[.)](?=\s))+/, '');
+    return t.slice(0, 40).replace(/[\s_]+$/, '');
+  }
+  const fieldName = (v, d) => (typeof v === 'string' ? nameText(v) : '') || d;
   function cleanField(f) {
     const id = typeof f?.id === 'string' && /^[\w-]{1,40}$/.test(f.id) ? f.id : newId('fd');
     if (f?.kind === 'heading') return { id, kind: 'heading', name: fieldName(f.name, 'Heading') };
@@ -137,6 +142,8 @@
   // sanitized.
   const KEY = 'ntr_agents';
   const MAX_SAVED = 20000;
+  // Longer than that, a result isn't saved at all, so a Fields result never loses its last fields to the cut.
+  const OVER = `over ${MAX_SAVED.toLocaleString('en-US')} characters`;
   // Which chat is open: its file name, with whose chat it is, since a duplicated card starts with the same chat name.
   const chatId = () => {
     try {
@@ -191,7 +198,7 @@
     return v;
   }
   const ITEM = /^\s*(?:[-*•+]|\d+[.)])\s+(.*)$/;
-  const NAMED = /^[\s*_#>`]*([^:*_`]+?)[\s*_`]*:[\s*_`]*(.*?)[\s*_`]*$/;
+  const NAMED = /^([^:]*?):(.*)$/;
   // name -> raw value (text) or items (list), for the names it knows. A name given twice counts the last time.
   function readFields(a, text) {
     const by = new Map(fieldsOf(a).map((f) => [f.name.toLowerCase(), f]));
@@ -201,12 +208,12 @@
       if (!raw.trim()) continue;
       const item = ITEM.exec(raw);
       const named = NAMED.exec(item ? item[1] : raw);
-      const f = named && by.get(named[1].trim().toLowerCase());
+      const f = named && by.get(nameText(named[1]).toLowerCase());
       // An item under a list, unless it names another field, like "- Location: the docks" after the list.
       if (item && list && !(f && f !== list)) { got[list.name].push(item[1].trim()); continue; }
       list = null;
       if (!f) continue;
-      const v = named[2].trim();
+      const v = named[2].replace(/^[\s*_`]+|[\s*_`]+$/g, '');
       if (f.type !== 'list') { got[f.name] = v; continue; }
       // A list can also come on one line: items split by semicolons, or by commas for chips.
       got[f.name] = !v || /^(none|nothing|empty|n\/a)\.?$/i.test(v) ? [] : v.split(v.includes(';') ? ';' : f.listShow === 'chips' ? ',' : '\n');
@@ -486,6 +493,7 @@
       const vals = mergeFields(a, valuesBefore(a, t.i), text, true);
       if (!vals) return 'Nothing saved: the answer named none of its fields.';
       text = writeFields(a, vals);
+      if (text.length > MAX_SAVED) return `Not saved: all its values together are ${OVER}. Lower Max Items, or ask for shorter values.`;
     }
     const old = savedAt(m, a.id);
     saveAt(m, a.id, { text: text.slice(0, MAX_SAVED), at: Date.now(), ...(old ? { prev: old.text } : {}) });
@@ -1201,16 +1209,17 @@
       fieldEdit = null;
     } else if (act === 'cancel') editing = null;
     else if (act === 'save') {
-      let text = String(box.querySelector('.ntr_agres_edit')?.value ?? '').trim().slice(0, MAX_SAVED);
+      let text = String(box.querySelector('.ntr_agres_edit')?.value ?? '').trim();
       // Fields reads the text the way it reads an answer, laid over the values it had; names it doesn't know are dropped.
       if (same(editing) && text && usesFields(a)) {
         const vals = mergeFields(a, valuesOf(a, r.text), text, false);
         if (vals) text = writeFields(a, vals);
         else { toastr.warning('None of its fields were found, so nothing changed.', a.name); text = r.text; }
       }
-      if (!same(editing)) toastr.warning('The message changed, so the edit wasn\'t saved.', a.name);
-      else if (text && text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text });
-      editing = null;
+      // Too long, the edit box stays open, so what was typed can be shortened.
+      if (!same(editing)) { toastr.warning('The message changed, so the edit wasn\'t saved.', a.name); editing = null; }
+      else if (text.length > MAX_SAVED) toastr.warning(`Not saved: ${usesFields(a) ? 'all its values together are' : 'it\'s'} ${OVER}.`, a.name);
+      else { if (text && text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text }); editing = null; }
     } else if (act === 'undo' && r?.prev != null) saveAt(m, a.id, { text: r.prev, at: r.at });
     else if (act === 'fedit' && r) {
       const name = b.closest('[data-field]')?.dataset.field;
@@ -1226,7 +1235,8 @@
         const vals = valuesOf(a, r.text);
         vals[f.name] = fieldValue(f, box.querySelector('.ntr_agf_input')?.value ?? '', vals[f.name], false);
         const text = writeFields(a, vals);
-        if (text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text });
+        if (text.length > MAX_SAVED) toastr.warning(`Not saved: all its values together would be ${OVER}.`, a.name);
+        else if (text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text });
       }
       fieldEdit = null;
     }

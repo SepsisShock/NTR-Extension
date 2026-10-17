@@ -127,7 +127,7 @@ Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI
 
 ## Visual Novel Mode (Low Priority)
 
-Will be worked on when the main part is done, unless there are bugs or issues to take care of.
+Will be worked on when the main part is done, unless there are bugs or issues to take care of. Needs updating as there have been many changes since this was written and may be out of date.
 
 ### Flags and endings
 Keep the open-world feel, and let a card optionally have endings.
@@ -165,6 +165,7 @@ Start this work only when the repository owner, SepsisShock, says release is app
 ### Mobile compatibility testing
 Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.
 
+- [ ] Desktop vs Phone selection, where to put, how to go about it.
 - [ ] Android (Chrome).
 - [ ] iOS (Safari).
 - [ ] NTR menu as a full-screen sheet.

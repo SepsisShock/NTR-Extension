@@ -304,11 +304,18 @@
   mask: url('icon.svg') center / contain no-repeat;
 }
 
-/* Extensions page bar */
-#ntr_ext_bar .ntr_ext_head { cursor: pointer; }
+/* Extensions page drawer */
 #ntr_ext_bar .ntr_ext_icon { color: #c4485e; margin-right: 2px; }
-#ntr_power { cursor: pointer; padding: 4px 6px; opacity: 0.45; transition: opacity 0.15s, color 0.15s; }
-#ntr_power.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
+#ntr_ext_off { margin-left: 4px; font-size: 0.85em; opacity: 0.45; }
+#ntr_ext_off[hidden] { display: none; }
+#ntr_ext_bar .menu_button { gap: 6px; white-space: nowrap; }
+#ntr_ext_bar .ntr_ext_row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+#ntr_ext_bar .ntr_ext_row .menu_button { margin: 0; padding: 5px 10px; }
+#ntr_power i { opacity: 0.45; }
+#ntr_power.on i { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
+#ntr_ext_bar .ntr_ext_fold { margin-bottom: 6px; }
+#ntr_ext_bar .ntr_ext_fold > .inline-drawer-content { padding: 4px 2px; }
+#ntr_ext_bar .ntr_ext_fold .checkbox_label { margin: 6px 0; }
 
 .cb_row {
   display: flex;

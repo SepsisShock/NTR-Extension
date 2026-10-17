@@ -14,9 +14,6 @@ In Line looks too bulky next to the text.
 
 ### Independent, customizable "favorites" bar
 
-### Folder of pre-generated locations
-- [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
-
 ### Agents: follow-ups
 - [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Show each agent's picture on the pages it tracks.
@@ -94,6 +91,9 @@ Optional: revisit if group chats become useful to me or are requested. The share
 - Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
 
 ## Misc (Low Priority)
+
+### Folder of pre-generated locations
+- [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
 
 ### Replace the once-a-second check with events
 `injectExtensionMenuButton` in `index.js` runs a check every second to put back its buttons and the wand menu entry and to keep Visual Novel Mode running. In a sandbox test it was most of NTR's idle cost: about 0.8% CPU with everything on, which no user would notice. Users would see no difference, so this is tidying, not a fix.

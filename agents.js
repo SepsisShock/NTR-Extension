@@ -8,7 +8,7 @@
 // Block set to Agent Results, index.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.66.1';
+  const AGENTS_VERSION = '2.66.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -400,12 +400,14 @@
 
   // The chat is read only after any wait for your reply, so the agent sees that reply finished. That's also when the
   // message it runs on is noted (o.target), so its answer can be saved there. A run only reads the chat it was started
-  // in (o.chat), so one still waiting its turn when you switch chats is skipped.
+  // in (o.chat), so one still waiting its turn when you switch chats is skipped. A run for a given message (o.at) checks
+  // it's still that message (o.date), in case a swipe or a deleted message moved things while it waited.
   function aim(o) {
     if (chatId() !== o.chat) throw new Error('Skipped: you switched chats before it could run.');
     const chat = ctx().chat || [];
     const i = o.at ?? chat.length - 1;
     const m = chat[i];
+    if (o.at != null && m?.send_date !== o.date) throw new Error('Skipped: the message it was for changed before it could run.');
     o.target = m ? { chat: chatId(), i, swipe: m.swipe_id, date: m.send_date, mes: m.mes } : null;
     return i;
   }
@@ -499,10 +501,12 @@
     saveAt(m, a.id, { text: text.slice(0, MAX_SAVED), at: Date.now(), ...(old ? { prev: old.text } : {}) });
     return '';
   }
-  // auto: a run after a reply, which also needs the agent's own switch on. at: the message to run on (Run Again in a
-  // Pinned Block); the last one when null. Resolves with the run's result: { ok, text }.
+  // auto: a run after a reply, which also needs the agent's own switch on. at: the message to run on (the reply that
+  // set off a run after a reply, or Run Again in a Pinned Block); the last one when null. Resolves with the run's
+  // result: { ok, text }.
   function enqueue(id, test = false, auto = false, at = null) {
     const from = chatId();
+    const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
     chain = chain.then(async () => {
       const a = byId(id);
       if (!a) return { ok: false, text: 'This agent was deleted.' };
@@ -515,7 +519,7 @@
       renderActivity();
       refreshBoxes();
       const t0 = performance.now();
-      const o = { test, auto, at, chat: from, target: null };
+      const o = { test, auto, at, date, chat: from, target: null };
       try {
         const text = (await call(a, o, ctrl.signal)).trim();
         if (ctrl.signal.aborted) throw new Error(timedOut ? 'Timed out' : 'Stopped');
@@ -1251,11 +1255,13 @@
     version: AGENTS_VERSION,
     sectionHtml,
     bind,
-    // Your chat's reply: agents set to After Every Reply run, one after another, once it's in. A Continue only adds to
-    // a reply they already ran on, so it doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
-    replied: (type) => {
+    // Your chat's reply (message id): agents set to After Every Reply run, one after another, once it's in, each on that
+    // reply even if more messages come in before its turn. A Continue only adds to a reply they already ran on, so it
+    // doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
+    replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
-      for (const a of list()) if (a.on && a.runs === 'reply' && (a.job.trim() || usesFields(a))) enqueue(a.id, false, true);
+      const at = Number.isInteger(id) && id >= 0 ? id : null;
+      for (const a of list()) if (a.on && a.runs === 'reply' && (a.job.trim() || usesFields(a))) enqueue(a.id, false, true, at);
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
     genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type, dryRun); },

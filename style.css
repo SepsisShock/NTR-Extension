@@ -235,10 +235,6 @@
 .ntr_part.ntr_off .ntr_parttitle { opacity: 0.45; }
 .ntr_part.ntr_off .ntr_partbody { opacity: 0.38; filter: grayscale(1); pointer-events: none; transition: opacity 0.15s; }
 
-/* A planned feature on a page that does nothing yet (Agents). */
-.ntr_soonrow { display: flex; align-items: center; gap: 10px; }
-.ntr_soonrow > i { font-size: 1.3em; opacity: 0.7; }
-
 .ntr_glab {
   margin: 18px 4px 6px;
   font-size: 0.72em;
@@ -370,12 +366,62 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #ntr_pin_layer .ntr_agres_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ntr_pin_layer .ntr_agres_btns { display: flex; gap: 2px; flex: none; }
 #ntr_pin_layer .ntr_agres_btn { background: none; border: 0; padding: 2px 4px; color: inherit; opacity: 0.55; cursor: pointer; border-radius: 4px; }
-#ntr_pin_layer .ntr_agres_btn:hover, #ntr_pin_layer .ntr_agres_btn:focus-visible { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+#ntr_pin_layer .ntr_agres_btn:hover, #ntr_pin_layer .ntr_agres_btn:focus-visible { opacity: 1; background: color-mix(in srgb, currentColor 12%, transparent); }
 #ntr_pin_layer .ntr_agres_note { opacity: 0.7; font-size: 0.9em; margin-top: 4px; }
 #ntr_pin_layer .ntr_agres_fail { color: #e88; opacity: 1; }
 #ntr_pin_layer .ntr_agres_edit { width: 100%; box-sizing: border-box; resize: vertical; }
 #ntr_pin_layer .ntr_agres_editbtns { display: flex; gap: 6px; margin-top: 4px; }
 #ntr_pin_layer .ntr_agres_editbtns .menu_button { margin: 0; width: max-content; }
+/* Folding, tabs and Fields in Agent Results (agents.js). Colors come from the theme: the accent is the quote color, and
+   tracks and hovers are a little of the text color, so they read on light and dark themes alike. Nothing animates, so
+   nothing moves while a reply streams. */
+#ntr_pin_layer .ntr_agres_fold, #ntr_pin_layer .ntr_agf_sechead, #ntr_pin_layer .ntr_agf_val, #ntr_pin_layer .ntr_agres_tab { all: unset; box-sizing: border-box; cursor: pointer; }
+#ntr_pin_layer .ntr_agres_fold { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; min-height: 28px; }
+#ntr_pin_layer .ntr_agres_fold .ntr_agres_name { flex: 0 1 auto; }
+#ntr_pin_layer .ntr_agres_chev, #ntr_pin_layer .ntr_agf_sechead > i { font-size: 0.7em; opacity: 0.6; }
+#ntr_pin_layer .ntr_agres_title { font-weight: normal; opacity: 0.65; font-size: 0.9em; }
+#ntr_pin_layer .ntr_agres_busy { opacity: 1; cursor: default; color: var(--SmartThemeQuoteColor); }
+#ntr_pin_layer :is(.ntr_agres_fold, .ntr_agf_sechead, .ntr_agf_val, .ntr_agres_tab):focus-visible { outline: 2px solid var(--SmartThemeQuoteColor); outline-offset: 2px; border-radius: 4px; }
+#ntr_pin_layer .ntr_agres_tabs { display: flex; gap: 2px; margin: 0 0 8px; overflow-x: auto; border-bottom: 1px solid var(--SmartThemeBorderColor); }
+#ntr_pin_layer .ntr_agres_tab { display: flex; align-items: center; gap: 6px; flex: none; min-height: 36px; padding: 0 10px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-weight: 600; opacity: 0.65; }
+#ntr_pin_layer .ntr_agres_tab[aria-selected="true"] { opacity: 1; border-bottom-color: var(--SmartThemeQuoteColor); }
+#ntr_pin_layer .ntr_agres_asof { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 0; }
+#ntr_pin_layer .ntr_agres_asof .menu_button { margin: 0; width: max-content; }
+#ntr_pin_layer .ntr_agf_dot { color: var(--SmartThemeQuoteColor); font-size: 0.8em; line-height: 1; }
+#ntr_pin_layer .ntr_agf_sechead { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; margin-top: 4px; font-size: 0.75em; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; opacity: 0.75; }
+#ntr_pin_layer .ntr_agf_secbody { padding-left: 16px; }
+#ntr_pin_layer .ntr_agf_row { display: grid; grid-template-columns: minmax(60px, 30%) minmax(0, 1fr); align-items: center; gap: 8px; min-height: 30px; }
+#ntr_pin_layer .ntr_agf_lab { opacity: 0.7; overflow-wrap: anywhere; }
+#ntr_pin_layer .ntr_agf_val { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 28px; cursor: text; }
+#ntr_pin_layer .ntr_agf_text { text-decoration: underline dotted; text-underline-offset: 3px; overflow-wrap: anywhere; }
+#ntr_pin_layer .ntr_agf_n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+#ntr_pin_layer .ntr_agf_bar { flex: 1; min-width: 40px; height: 6px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, currentColor 15%, transparent); }
+#ntr_pin_layer .ntr_agf_bar > span { display: block; height: 100%; border-radius: 3px; background: var(--SmartThemeQuoteColor); }
+#ntr_pin_layer .ntr_agf_delta { min-width: 2.2em; font-size: 0.85em; font-weight: 700; }
+#ntr_pin_layer .ntr_agf_editrow { display: flex; align-items: center; gap: 2px; min-width: 0; }
+#ntr_pin_layer .ntr_agf_input { flex: 1; min-width: 0; margin: 0; }
+#ntr_pin_layer .ntr_agf_list { padding: 4px 0; }
+#ntr_pin_layer .ntr_agf_list > .ntr_agf_lab { margin-bottom: 2px; }
+#ntr_pin_layer .ntr_agf_lines { margin: 0; padding: 0; list-style: none; }
+#ntr_pin_layer .ntr_agf_lines > li { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; }
+#ntr_pin_layer .ntr_agf_lines > li::before { content: ''; flex: none; width: 5px; height: 5px; border-radius: 50%; transform: translateY(-2px); background: color-mix(in srgb, currentColor 35%, transparent); }
+#ntr_pin_layer .ntr_agf_lines > li > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#ntr_pin_layer .ntr_agf_lines > li:is(.ntr_agf_new, .ntr_agf_chg)::before { background: var(--SmartThemeQuoteColor); }
+#ntr_pin_layer .ntr_agf_gone { opacity: 0.55; text-decoration: line-through; }
+#ntr_pin_layer .ntr_agf_tag { flex: none; font-size: 0.7em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--SmartThemeQuoteColor); }
+#ntr_pin_layer .ntr_agf_chips { display: flex; flex-wrap: wrap; gap: 5px; }
+#ntr_pin_layer .ntr_agf_chip { padding: 1px 9px; border-radius: 999px; font-size: 0.9em; background: color-mix(in srgb, currentColor 7%, transparent); border: 1px solid color-mix(in srgb, currentColor 22%, transparent); }
+#ntr_pin_layer .ntr_agf_chip.ntr_agf_new { border-color: var(--SmartThemeQuoteColor); }
+#ntr_pin_layer .ntr_agf_chip.ntr_agf_gone { border-style: dashed; }
+#ntr_pin_layer .ntr_agf_none { opacity: 0.55; font-size: 0.9em; }
+/* Phones: buttons and rows big enough to tap. */
+@media (width <= 1000px) {
+  #ntr_pin_layer .ntr_agres_btn { min-width: 40px; min-height: 40px; }
+  #ntr_pin_layer :is(.ntr_agf_row, .ntr_agf_sechead, .ntr_agres_fold) { min-height: 38px; }
+  #ntr_pin_layer .ntr_agres_tab { min-height: 44px; }
+}
+/* Read out by screen readers only, like "changed" next to a marker. */
+.ntr_sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 #ntr_pin_layer .ntr_pin_empty { background: rgba(0, 0, 0, 0.35); border: 1px dashed rgba(255, 255, 255, 0.4); }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body { display: flex; align-items: center; justify-content: center; text-align: center; opacity: 0.8; }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body::before { content: attr(data-name); }
@@ -404,8 +450,21 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .ntr_pinedit { margin: 0 0 8px; }
 .ntr_pinedit .cb_plab { margin-top: 4px; font-weight: 600; }
 .ntr_pinedit .cb_hint { margin: 0; }
-/* A planned feature shown greyed in a working page (the Agentic Tracker Panel on Layout). */
-.ntr_soondim { margin-top: 12px; opacity: 0.45; filter: grayscale(1); }
+/* The Answer card's field list on the Agents page, laid out like the Pinned Blocks list. */
+.ntr_agfl .ntr_agfl_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.ntr_agfl .ntr_agfl_row + .ntr_agfl_row, .ntr_agfl .ntr_agfl_edit + .ntr_agfl_row { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ntr_agfl .ntr_agfl_row > i { opacity: 0.7; }
+.ntr_agfl .ntr_agfl_row .menu_button { margin: 0; padding: 4px 8px; }
+.ntr_agfl .m_agf_edit.on { outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }
+.ntr_agfl_name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ntr_agfl_name small { display: block; opacity: 0.6; font-size: 0.85em; }
+.ntr_agfl_hrow .ntr_agfl_nm { font-size: 0.8em; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+.ntr_agfl_edit { margin: 0 0 8px; }
+.ntr_agfl_edit .cb_plab { margin-top: 4px; font-weight: 600; }
+.ntr_agfl_edit .cb_hint { margin: 0; }
+.ntr_agfl_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+.ntr_agfl_grid input { width: 100%; box-sizing: border-box; margin: 4px 0 0; }
+.ntr_agfl_edit .cb_actions .menu_button { margin: 0; width: max-content; }
 
 /* Pick from chat: the bar at the top and the outline of the block that a click would pick. */
 #ntr_pick_hl { position: fixed; z-index: 9995; display: none; pointer-events: none; outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); }

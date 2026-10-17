@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.66.1';
+  const VERSION = '2.66.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -6236,7 +6236,7 @@
         if ((type === 'continue' || type === 'appendFinal') && vn?.continued) vn.continued(Number(id));
         else vn?.queue(true);
         window.NTR.cast?.sync();
-        window.NTR.agents?.replied(type);
+        window.NTR.agents?.replied(type, Number(id));
       });
     }
     if (event_types.GENERATION_STARTED) {

@@ -20,8 +20,9 @@ In Line looks too bulky next to the text.
 ### Agents: follow-ups
 - [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Show each agent's picture on the pages it tracks.
+- [ ] Every N Replies as a Runs choice, so an agent like a summarizer or tracker doesn't have to run after every reply.
 - To explore: import and export, request batching, parallel runs.
-- Open question: whether agents should also be able to run before a reply, not only after it.
+- Open question: whether agents should also be able to run before a reply, not only after it. It matters once an agent's answer is needed for the reply to your own message, like a director, or Story Memory picking memories that fit what you just wrote.
 
 ### Dashboard: follow-ups
 - [ ] Group field type: a small card per character with its own fields, for when List lines aren't enough.

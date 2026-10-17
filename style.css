@@ -305,7 +305,7 @@
 
 /* Extensions page drawer */
 #ntr_ext_bar .ntr_ext_icon { color: #c4485e; margin-right: 2px; }
-#ntr_ext_off { margin-left: 4px; font-size: 0.85em; opacity: 0.45; }
+#ntr_ext_off { margin-left: 6px; padding: 1px 6px; border: 1px solid currentColor; border-radius: 8px; font-size: 0.75em; font-weight: normal; opacity: 0.8; }
 #ntr_ext_off[hidden] { display: none; }
 #ntr_ext_bar .menu_button { gap: 6px; white-space: nowrap; }
 #ntr_ext_bar .ntr_ext_row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
@@ -313,7 +313,9 @@
 #ntr_power i { opacity: 0.45; }
 #ntr_power.on i { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
 #ntr_ext_bar .ntr_ext_fold { margin-bottom: 6px; }
+#ntr_ext_bar .ntr_ext_fold > .inline-drawer-header { background: none; border: 0; border-top: 1px solid var(--SmartThemeBorderColor, #555); border-radius: 0; margin: 4px 0 0; padding: 8px 2px 4px; font-size: 0.95em; }
 #ntr_ext_bar .ntr_ext_fold > .inline-drawer-content { padding: 4px 2px; }
+#ntr_ext_bar .ntr_rm_note { display: block; margin-top: 2px; font-size: 0.9em; opacity: 0.7; }
 #ntr_ext_bar .ntr_ext_fold .checkbox_label { margin: 6px 0; }
 #ntr_ext_bar .ntr_rm_foot { margin-top: 8px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
 #ntr_ext_bar .ntr_rm_foot .menu_button { margin: 0; padding: 6px 10px; }
@@ -330,6 +332,9 @@
 .ntr_slval { cursor: text; text-decoration: underline dotted; text-underline-offset: 3px; }
 input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; height: auto; margin: 0; padding: 0 4px; text-align: right; font-size: inherit; }
 
+/* SillyTavern's own red, as on its red_button */
+.danger_button { background-color: var(--crimson70a, rgba(100, 0, 0, 0.7)) !important; }
+.danger_button:hover:not(:disabled) { background-color: var(--fullred, red) !important; }
 .cb_actions { display: flex; gap: 8px; }
 .cb_actions button { flex: 1; }
 /* SillyTavern's buttons are flex boxes, which drop the space between an icon and its label, so the gap does it. */

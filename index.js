@@ -5496,10 +5496,10 @@
 
   // ===== Remove and uninstall (in the Extensions page drawer) =====
   const removeHtml = () => `
-    <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Want to keep your themes? Export them first, on the Themes page of the menu. Tick what to do, then press Continue.</div>
-    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.</span></label>
-    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_chars"><span><strong>Uploaded files and character data</strong>: banners, foreground images, Visual Novel art, maps and opening videos, plus the NTR data saved in each character card.</span></label>
-    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_ext"><span><strong>Uninstall NTR</strong>: removes the extension itself.</span></label>
+    <div class="cb_hint">Choose what to remove. Nothing happens until you confirm.</div>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.<small class="ntr_rm_note">To keep a theme, export it first on the Themes page of the menu.</small></span></label>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_chars"><span><strong>Uploaded files and character data</strong>: images, videos and maps uploaded through NTR, and the NTR data saved in each character card.</span></label>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_ext"><span><strong>Uninstall NTR</strong>: removes the extension.<small class="ntr_rm_note">Anything not ticked above stays, so a reinstall picks up where you left off.</small></span></label>
     <div class="cb_actions ntr_rm_foot"><button class="menu_button" id="ntr_rm_go" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button></div>`;
 
   // SillyTavern's own extension tools, with this folder's name. Throws when this user can't uninstall it.
@@ -5521,6 +5521,8 @@
     const sync = () => {
       const p = picked();
       go.disabled = !(p.look || p.chars || p.ext);
+      // A question still open was asked about the old ticks.
+      root.querySelector('.ntr_ask')?.ntrCancel?.();
     };
     root.querySelectorAll('input[type=checkbox]').forEach((c) => { c.onchange = sync; });
     go.onclick = async () => {
@@ -5530,7 +5532,12 @@
       const text = what
         ? `This removes ${what}${p.ext ? ', then uninstalls NTR' : ''}. This can't be undone.`
         : 'This uninstalls NTR. Your NTR data stays, so a reinstall picks up where you left off.';
-      if (!(await askYes(go, text, label(p), { danger: true }))) return;
+      // The question goes under the button's row, so the row hides once it's placed.
+      const asking = askYes(go, text, label(p), { danger: true });
+      go.parentElement.style.display = 'none';
+      const yes = await asking;
+      go.parentElement.style.display = '';
+      if (!yes) return;
       go.disabled = true;
       go.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${p.ext ? 'Uninstalling...' : 'Removing...'}`;
       const fail = (e, title) => {
@@ -6026,7 +6033,7 @@
     wrap.className = 'inline-drawer';
     wrap.innerHTML = `
       <div class="inline-drawer-toggle inline-drawer-header">
-        <b><span class="ntr_icon ntr_ext_icon"></span> Nitwit Tavern Redesign <i id="ntr_ext_off" class="fa-solid fa-power-off" title="Switched off" hidden></i></b>
+        <b><span class="ntr_icon ntr_ext_icon"></span> Nitwit Tavern Redesign <small id="ntr_ext_off" title="Nitwit Tavern Redesign is switched off" hidden>Off</small></b>
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">

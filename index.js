@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.65.0';
+  const VERSION = '2.66.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -2268,13 +2268,10 @@
           <div class="cb_hint" style="margin-bottom: 0;">The header banner from Overlays. Free keeps one place for every character.</div>`)}
         ${card('', btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout'))}
         ${card('Pinned Blocks', `
-          <div class="cb_hint">Shows a block your regex draws, like a tracker, in its own box. Settings are shared; place and size are kept per layout.</div>
+          <div class="cb_hint">Shows a block your regex draws, or your agents' results, in its own box. Settings are shared; place and size are kept per layout.</div>
           <div id="m_pin_list"></div>
-          <button type="button" id="m_pin_add" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-plus"></i> Add Pinned Block</button>
-          <div class="ntr_soonrow ntr_soondim">
-            <i class="fa-solid fa-fw fa-robot"></i>
-            <div><strong>Agentic Tracker Panel</strong><div class="cb_hint" style="margin: 2px 0 0;">Filled in by an agent. Coming later.</div></div>
-          </div>`)}
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0;">${btn('m_pin_add', 'fa-plus', 'Add Pinned Block')}${btn('m_pin_dash', 'fa-gauge-high', 'Add Dashboard')}</div>
+          <div class="cb_hint" style="margin-bottom: 0;">Add Dashboard makes a box for your agents' results, docked right, with every agent that saves in the chat ticked.</div>`)}
     `, { sw: ['m_l_enable', s.layEnabled] });
   }
 
@@ -2338,7 +2335,8 @@
   // newest message that has it, so SillyTavern's own message stays as it is, and can hide it in the messages. Pinned
   // Blocks are part of Layout, so Layout's switch counts. A block is remembered by the tag and classes of what was picked
   // in the chat, never as typed-in CSS, so a theme from someone else can't slip CSS in through it.
-  // A block can show agents' saved results instead (Agent Results; agents.js draws them).
+  // A block can show agents' saved results instead (Agent Results; agents.js draws them), Stacked or in Tabs. Add
+  // Dashboard makes one set up for that.
   // Each block has a place on screen for Desktop and one for Phone, as a % of the screen: Floating anywhere, or Docked
   // to the left or right edge at full height. On a phone a docked block slides out from its edge. A Floating box is the
   // height set in Edit Layout (Fixed), or as tall as what it shows (Fit Content).
@@ -2369,6 +2367,7 @@
         place: cPick(p.place, ['float', 'left', 'right']),
         show: cPick(p.show, ['always', 'newest', 'reading']),
         height: cPick(p.height, ['fixed', 'fit']),
+        view: cPick(p.view, ['stacked', 'tabs']),
         frame: cPick(p.frame, ['none', 'panel']),
         hide: cBool(p.hide, true),
         vn: cPick(p.vn, ['show', 'hide']),
@@ -2570,9 +2569,11 @@
         // In Reader Mode, the results up to the page you're on; with Where You're Reading, up to the message you're reading.
         // While a result is being edited in the box, the box stays on that result's message, so scrolling, turning the
         // page or a newer result coming in doesn't lose what's typed.
-        const ed = body.querySelector('.ntr_agres_edit')?.closest('.ntr_agres');
+        const ed = body.querySelector('.ntr_agres_edit, .ntr_agf_input')?.closest('.ntr_agres');
         const upTo = ed && ed.dataset.mes !== '' ? Number(ed.dataset.mes) : pinUpTo(p);
-        src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, upTo);
+        // As of: the message you're reading, while it isn't the newest (pinRead stays null in Reader Mode and Visual
+        // Novel Mode, which pick the message themselves).
+        src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, upTo, { pin: p.id, view: p.view, asOf: !ed && p.show === 'reading' ? pinRead : null });
         const key = src ? 'ag:' + src.key : '';
         if (pinLast.get(p.id) !== key) {
           pinLast.set(p.id, key);
@@ -2712,7 +2713,7 @@
         : sel ? `${p.tag}.${p.classes.join('.')}` : 'Nothing picked yet';
       const row = `
           <div class="ntr_pinrow" data-pin="${p.id}">
-            <i class="fa-solid fa-fw fa-thumbtack"></i>
+            <i class="fa-solid fa-fw ${p.from === 'agents' ? 'fa-gauge-high' : 'fa-thumbtack'}"></i>
             <span class="ntr_pinname">${escapeHTML(p.name)}<small>${escapeHTML(what)}</small></span>
             <button type="button" class="menu_button m_pin_edit${pinOpen === p.id ? ' on' : ''}" title="Settings"><i class="fa-solid fa-gear"></i></button>
             <button type="button" class="menu_button m_pin_move" title="Move with Edit Layout"><i class="fa-solid fa-up-down-left-right"></i></button>
@@ -2727,7 +2728,10 @@
             ${p.from === 'agents' ? `
             <div class="cb_plab">Agents</div>
             ${(Array.isArray(s.agents) ? s.agents : []).map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
-            <div class="cb_hint">Needs the Agents page on and each agent's Results set to Saved in the Chat.</div>` : `
+            <div class="cb_hint">Needs the Agents page on and each agent's Results set to Saved in the Chat. They show in the Agents page's order.</div>
+            <div class="cb_plab">Show Agents</div>
+            ${pick(p, 'view', [['stacked', 'Stacked'], ['tabs', 'Tabs']], p.view)}
+            <div class="cb_hint">Stacked shows every agent, each folding open and closed. Tabs shows one at a time. ▲ ▼ and ◆ mark what changed since the agent's previous result.</div>` : `
             <div class="cb_plab">Block</div>
             <button type="button" class="menu_button m_pin_pick" style="margin: 0; width: max-content;"><i class="fa-solid fa-hand-pointer"></i> Pick from chat</button>
             <div class="cb_hint">Click the block in a message. Escape cancels.</div>`}
@@ -2767,6 +2771,20 @@
       changed();
       render();
     };
+    // A Dashboard: Agent Results docked right, with every agent that saves in the chat, starting on the message you're
+    // reading.
+    overlay.querySelector('#m_pin_dash').onclick = () => {
+      if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Dashboard'); return; }
+      const agents = (Array.isArray(s.agents) ? s.agents : []).filter((a) => a?.keep === 'chat').map((a) => a.id);
+      if (!agents.length) { toastr.info('Make an agent with Results set to Saved in the Chat on the Agents page first.', 'Dashboard'); return; }
+      const n = s.layPins.filter((x) => x.name === 'Dashboard' || x.name.startsWith('Dashboard ')).length;
+      const [p] = cleanPins([{ name: n ? `Dashboard ${n + 1}` : 'Dashboard', from: 'agents', agents, place: 'right', frame: 'panel', show: 'reading', view: 'stacked', height: 'fit' }]);
+      s.layPins.push(p);
+      pinOpen = p.id;
+      changed();
+      render();
+      if (!layOn(s)) toastr.info('Turn Layout on to see it.', 'Dashboard');
+    };
     list.addEventListener('click', async (e) => {
       const b = e.target.closest('button');
       const p = b && pinAt(b);
@@ -2800,7 +2818,7 @@
         render();
         return;
       }
-      const m = /^cbr_pin(place|show|frame|vn|from|height)-/.exec(t.name || '');
+      const m = /^cbr_pin(place|show|frame|vn|from|height|view)-/.exec(t.name || '');
       if (!m || !t.checked) return;
       p[m[1]] = t.value;
       // Each kind starts on its own Show: the message you're reading for a block, the newest for Agent Results.
@@ -5053,6 +5071,7 @@
   const NUM_RANGE = {
     agTemp: [0, 2, 0.05, ''], agTopP: [0, 1, 0.01, ''], agTopK: [0, 200, 1, ''], agMinP: [0, 1, 0.01, ''], agFreq: [-2, 2, 0.05, ''], agPres: [-2, 2, 0.05, ''], agRep: [1, 2, 0.01, ''],
     agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'], agSendDepth: [0, 50, 1, ''],
+    agFieldNum: [-1000000, 1000000, 1, ''], agFieldStep: [0, 1000000, 1, ''], agFieldCap: [1, 50, 1, ''],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],
     rbSat: [0, 100, 1, '%'], rbBtnOpacity: [0, 100, 1, '%'], rbBoxOpacity: [0, 100, 1, '%'], rbPatThick: [1, 8, 1, 'px'], rbPatSize: [0.5, 3, 0.05, 'x'], rbPatFadeReach: [1, 20, 0.5, ' lines'], rbPatFadeSoft: [0, 100, 1, '%'], rbEdgeFxSize: [2, 30, 1, 'px'], rbBtnFxSize: [2, 30, 1, 'px'], rbArrowSize: [0.5, 3, 0.05, 'x'], rbBgTile: [16, 512, 1, 'px'], rbBgOpacity: [0, 100, 1, '%'], rbBgTint: [0, 100, 1, '%'], ovFont: [0.5, 2, 0.05, 'x'], tfNameSize: [0.5, 2, 0.05, 'x'], tfPlateBorderWidth: [1, 6, 1, 'px'], tfPlateRound: [0, 30, 1, 'px'], tfUserSize: [0.5, 2, 0.05, 'x'], tfAiSize: [0.5, 2, 0.05, 'x'],

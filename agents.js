@@ -5,9 +5,10 @@
 // its own request through SillyTavern (Chat Completion or Text Completion), or uses your chat's connection (Same as Chat).
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
-// its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
+// its answers in the chat, and a Dashboard (a Pinned Block set to Agent Results, index.js) shows them on screen. With
+// Answer set to Fields, it keeps named values instead of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.65.0';
+  const AGENTS_VERSION = '2.66.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -43,6 +44,7 @@
     freqOn: false, freq: 0, presOn: false, pres: 0, repOn: false, rep: 1, effOn: false, eff: 'auto',
     maxTokens: 600, context: 6, split: false, full: false, keep: 'off', last: false,
     send: false, sendWhere: 'chat', sendDepth: 1, sendRole: 'system', sendScan: false,
+    answer: 'text', fields: [],
   });
   // Send to Main AI: where in your chat's prompt (SillyTavern's extension prompt places and roles).
   const WHERE = [['chat', 'In Chat', 1], ['before', 'Before Main Prompt', 2], ['after', 'After Main Prompt', 0]];
@@ -50,23 +52,57 @@
   // Margi, the example tracker: an ordinary agent, made by its button, to edit or delete like any other. Her button
   // shows while no agent made by it is left (example marks it; Duplicate doesn't copy that). Her picture comes with
   // NTR, cropped, and Crop starts from the full one. Saved as a path from the site's root, so it works from any address.
-  const MARGI_JOB = `You are Margi, a story state tracker. Read your last result and the latest chat messages, then write the updated state.
-
-Format, in Markdown:
-**Time:** time of day, and the date if known
-**Location:** where the scene takes place
-**Weather:** current weather
-**Characters:** one line each: name, what they wear, what they carry, injuries
-**Relationships:** one line per pair, with where it stands now
-**Objectives:** active goals, one per line
-
-Keep every value from your last result that the new messages leave as it was, and change only what the new messages change. Write "Unknown" for anything the story hasn't said yet. Answer with the state only.`;
+  // She answers in Fields, so a Dashboard shows her state as soon as she's made.
+  const MARGI_JOB = 'You are Margi, a story state tracker. Read the latest chat messages and update the story\'s state. Write "Unknown" for anything the story hasn\'t said yet.';
+  const MARGI_FIELDS = [
+    { kind: 'heading', name: 'Scene' },
+    { name: 'Time', hint: 'time of day, and the date if known' },
+    { name: 'Location', hint: 'where the scene takes place' },
+    { name: 'Weather', hint: 'current weather' },
+    { kind: 'heading', name: 'People' },
+    { name: 'Characters', type: 'list', hint: 'one line each, as name: what they wear, what they carry, any injuries' },
+    { name: 'Relationships', type: 'list', hint: 'one line per pair, as names: where it stands now' },
+    { kind: 'heading', name: 'Goals' },
+    { name: 'Objectives', type: 'list', hint: 'active goals' },
+  ];
   const asset = (f) => new URL(`./assets/agents/${f}`, import.meta.url).pathname;
   const MARGI_PIC = asset('margi.webp');
   const FULL_PIC = { [MARGI_PIC]: asset('margi-full.webp') };
   const num = (k, v, d) => A.cardNum(v, k, d);
   const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const pick = (v, list, d) => (list.some(([x]) => x === v) ? v : d);
+  // Answer: Fields. Each field is a named value the agent keeps; a heading groups the fields under it in a Dashboard.
+  // A field's name is how the answer is read, so it can't hold a colon, a line break or Markdown marks, start like a
+  // list item or end in an underscore. Names in an answer go through the same cleaning, so every name kept reads back.
+  const FIELD_MAX = 40;
+  const FTYPES = [['text', 'Text'], ['num', 'Number'], ['list', 'List']];
+  function nameText(v) {
+    const t = String(v).replace(/[:\r\n*`]+/g, ' ').replace(/\s+/g, ' ').replace(/^(?:[\s\-+•#>_]|\d+[.)](?=\s))+/, '');
+    return t.slice(0, 40).replace(/[\s_]+$/, '');
+  }
+  const fieldName = (v, d) => (typeof v === 'string' ? nameText(v) : '') || d;
+  function cleanField(f) {
+    const id = typeof f?.id === 'string' && /^[\w-]{1,40}$/.test(f.id) ? f.id : newId('fd');
+    if (f?.kind === 'heading') return { id, kind: 'heading', name: fieldName(f.name, 'Heading') };
+    const top = A.numRange('agFieldNum')[1];
+    const min = Math.min(num('agFieldNum', f?.min, 0), top - 1);
+    let max = num('agFieldNum', f?.max, 10);
+    if (max <= min) max = min + 1;
+    return {
+      id, kind: 'field', name: fieldName(f?.name, 'Field'), type: pick(f?.type, FTYPES, 'text'), hint: str(f?.hint, 200).trim(),
+      min, max, start: Math.min(max, Math.max(min, num('agFieldNum', f?.start, min))), step: num('agFieldStep', f?.step, 0),
+      numShow: f?.numShow === 'number' ? 'number' : 'bar', listShow: f?.listShow === 'chips' ? 'chips' : 'lines', cap: num('agFieldCap', f?.cap, 10),
+    };
+  }
+  function cleanFields(v) {
+    const ids = new Set();
+    return (Array.isArray(v) ? v : []).filter((f) => f && typeof f === 'object').slice(0, FIELD_MAX).map((f) => {
+      const o = cleanField(f);
+      if (ids.has(o.id)) o.id = newId('fd');
+      ids.add(o.id);
+      return o;
+    });
+  }
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
   function clean(a) {
     const d = fresh('Agent');
@@ -80,8 +116,11 @@ Keep every value from your last result that the new messages leave as it was, an
       maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context),
       split: a?.split === true, full: a?.full === true, keep: a?.keep === 'chat' ? 'chat' : 'off', last: a?.last === true,
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
-      sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true };
+      sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
+      answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields) };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
+    // Fields keeps its values on the messages, so it always saves in the chat.
+    if (o.answer === 'fields') o.keep = 'chat';
     return o;
   }
   const checked = new WeakSet();
@@ -103,6 +142,8 @@ Keep every value from your last result that the new messages leave as it was, an
   // sanitized.
   const KEY = 'ntr_agents';
   const MAX_SAVED = 20000;
+  // Longer than that, a result isn't saved at all, so a Fields result never loses its last fields to the cut.
+  const OVER = `over ${MAX_SAVED.toLocaleString('en-US')} characters`;
   // Which chat is open: its file name, with whose chat it is, since a duplicated card starts with the same chat name.
   const chatId = () => {
     try {
@@ -137,14 +178,101 @@ Keep every value from your last result that the new messages leave as it was, an
     }
     return null;
   }
+
+  // ----- Fields -----
+  // With Answer set to Fields, NTR writes the format part of the agent's prompt from its fields and reads its answer:
+  // Name: value lines, and a list as its name on a line of its own with "- item" lines under it. Only names it knows
+  // count, the answer is laid over the last values so it only needs the ones that changed, and numbers keep to their
+  // field's rules. What's saved is the full set written out the same way, so Send to Main AI, {{agent::Name}}, Edit
+  // and Undo work as for any other result. Saved text can come from someone else's chat file, so whatever is read
+  // from it is kept to each field's limits too.
+  // Its fields, one per name (the first, if two share one).
+  function fieldsOf(a) {
+    const seen = new Set();
+    return a.fields.filter((f) => f.kind === 'field' && !seen.has(f.name.toLowerCase()) && seen.add(f.name.toLowerCase()));
+  }
+  const usesFields = (a) => a.answer === 'fields' && fieldsOf(a).length > 0;
+  function startValues(a) {
+    const v = {};
+    for (const f of fieldsOf(a)) v[f.name] = f.type === 'num' ? f.start : f.type === 'list' ? [] : 'Unknown';
+    return v;
+  }
+  const ITEM = /^\s*(?:[-*•+]|\d+[.)])\s+(.*)$/;
+  const NAMED = /^([^:]*?):(.*)$/;
+  // name -> raw value (text) or items (list), for the names it knows. A name given twice counts the last time.
+  function readFields(a, text) {
+    const by = new Map(fieldsOf(a).map((f) => [f.name.toLowerCase(), f]));
+    const got = {};
+    let list = null;
+    for (const raw of String(text ?? '').split('\n')) {
+      if (!raw.trim()) continue;
+      const item = ITEM.exec(raw);
+      const named = NAMED.exec(item ? item[1] : raw);
+      const f = named && by.get(nameText(named[1]).toLowerCase());
+      // An item under a list, unless it names another field, like "- Location: the docks" after the list.
+      if (item && list && !(f && f !== list)) { got[list.name].push(item[1].trim()); continue; }
+      list = null;
+      if (!f) continue;
+      const v = named[2].replace(/^[\s*_`]+|[\s*_`]+$/g, '');
+      if (f.type !== 'list') { got[f.name] = v; continue; }
+      // A list can also come on one line: items split by semicolons, or by commas for chips.
+      got[f.name] = !v || /^(none|nothing|empty|n\/a)\.?$/i.test(v) ? [] : v.split(v.includes(';') ? ';' : f.listShow === 'chips' ? ',' : '\n');
+      list = f;
+    }
+    return got;
+  }
+  // One field's value from what was read. rules: Max Change applies (to the agent's answers, not to your own edits).
+  function fieldValue(f, v, old, rules) {
+    if (f.type === 'list') return (Array.isArray(v) ? v : [v]).map((x) => String(x).replace(/\s+/g, ' ').trim().slice(0, 200)).filter(Boolean).slice(0, f.cap);
+    if (f.type === 'num') {
+      const m = /-?\d+(?:\.\d+)?/.exec(String(v));
+      if (!m) return old;
+      const was = typeof old === 'number' ? old : f.start;
+      let n = Number(m[0]);
+      if (rules && f.step > 0) n = Math.min(was + f.step, Math.max(was - f.step, n));
+      return Math.round(Math.min(f.max, Math.max(f.min, n)) * 100) / 100;
+    }
+    return String(v).replace(/\s+/g, ' ').trim().slice(0, 200) || old;
+  }
+  // `text` laid over `prev`. Null when it names none of the fields.
+  function mergeFields(a, prev, text, rules) {
+    const got = readFields(a, text);
+    if (!Object.keys(got).length) return null;
+    const out = { ...prev };
+    for (const f of fieldsOf(a)) if (f.name in got) out[f.name] = fieldValue(f, got[f.name], prev[f.name], rules);
+    return out;
+  }
+  // The values in a saved result, with any it doesn't have at their start.
+  const valuesOf = (a, text) => mergeFields(a, startValues(a), text, false) || startValues(a);
+  function writeFields(a, vals) {
+    return fieldsOf(a).flatMap((f) => (f.type === 'list' ? [`${f.name}:`, ...(vals[f.name] || []).map((x) => `- ${x}`)] : [`${f.name}: ${vals[f.name]}`])).join('\n');
+  }
+  // The values before message `at`: the newest saved before it, or the start values.
+  function valuesBefore(a, at) {
+    const prev = latest(a.id, at - 1);
+    return prev ? valuesOf(a, prev.text) : startValues(a);
+  }
+  // The format part of the prompt. The hints can hold macros, so this goes with the instructions; the current values
+  // come after, as saved.
+  function fieldRules(a) {
+    const lines = fieldsOf(a).map((f) => {
+      const rule = f.type === 'num' ? `a number from ${f.min} to ${f.max}${f.step ? `, changing by at most ${f.step}` : ''}` : f.type === 'list' ? `a list of up to ${f.cap}` : 'one line';
+      return `${f.name}: ${f.hint ? `${f.hint} (${rule})` : rule}`;
+    });
+    return ['Answer only with the fields that changed, one per line, as Name: value. Write a list as its name on a line of its own, then one "- item" line for each of its items, all of them. Leave out anything that stayed the same.', '', 'Fields:', ...lines].join('\n');
+  }
+
   // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}, {{agent::Name}}...), and with Include Its
-  // Last Result, the newest result saved before message `at`. A saved result is left as it is. {{agent::Name}} looks
-  // only up to message `at` meanwhile (macroAt), so Run Again on an older message doesn't see later results.
+  // Last Result, the newest result saved before message `at`. With Fields, the format part and the current values
+  // instead. A saved result is left as it is. {{agent::Name}} looks only up to message `at` meanwhile (macroAt), so Run
+  // Again on an older message doesn't see later results.
   let macroAt = null;
   function withLast(a, at) {
-    let job = a.job;
+    const fields = usesFields(a);
+    let job = fields ? [a.job.trim(), fieldRules(a)].filter(Boolean).join('\n\n') : a.job;
     macroAt = at;
     try { job = ctx().substituteParams(job); } catch (e) { /* as typed */ } finally { macroAt = null; }
+    if (fields) return `${job}\n\nCurrent values:\n${writeFields(a, valuesBefore(a, at))}`;
     const prev = a.keep === 'chat' && a.last ? latest(a.id, at - 1) : null;
     return prev ? `${job}\n\nYour last result:\n${prev.text}` : job;
   }
@@ -361,6 +489,12 @@ Keep every value from your last result that the new messages leave as it was, an
     const m = (ctx().chat || [])[t.i];
     if (chatId() !== t.chat || !m || m.swipe_id !== t.swipe || m.send_date !== t.date) return 'Not saved: the chat changed while it ran.';
     if (m.mes !== t.mes) return 'Not saved: the message was edited while it ran.';
+    if (usesFields(a)) {
+      const vals = mergeFields(a, valuesBefore(a, t.i), text, true);
+      if (!vals) return 'Nothing saved: the answer named none of its fields.';
+      text = writeFields(a, vals);
+      if (text.length > MAX_SAVED) return `Not saved: all its values together are ${OVER}. Lower Max Items, or ask for shorter values.`;
+    }
     const old = savedAt(m, a.id);
     saveAt(m, a.id, { text: text.slice(0, MAX_SAVED), at: Date.now(), ...(old ? { prev: old.text } : {}) });
     return '';
@@ -372,7 +506,7 @@ Keep every value from your last result that the new messages leave as it was, an
     chain = chain.then(async () => {
       const a = byId(id);
       if (!a) return { ok: false, text: 'This agent was deleted.' };
-      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : auto && !a.on ? '' : !test && !a.job.trim() ? 'Write its instructions first.' : null;
+      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : auto && !a.on ? '' : !test && !a.job.trim() && !usesFields(a) ? 'Write its instructions first.' : null;
       if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return { ok: false, text: skip || 'Skipped' }; }
       const ctrl = new AbortController();
       let timedOut = false;
@@ -388,7 +522,9 @@ Keep every value from your last result that the new messages leave as it was, an
         const note = test || !byId(id) ? '' : keep(a, o.target, text);
         if (!test && byId(id)) { answers.set(id, text); fails.delete(id); }
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: true, test, text: text || '(empty answer)', note });
-        return { ok: true, text };
+        // With Fields, /ntr-agent gets the full set it saved, not only the fields the answer changed.
+        const saved = !test && !note && usesFields(a) && o.target ? latest(a.id, o.target.i)?.text : null;
+        return { ok: true, text: saved ?? text };
       } catch (e) {
         const msg = timedOut ? 'Timed out' : ctrl.signal.aborted ? 'Stopped' : (e?.message || String(e));
         if (!test) fails.set(id, { chat: o.target?.chat ?? from, text: msg });
@@ -456,8 +592,62 @@ Keep every value from your last result that the new messages leave as it was, an
     </div>`;
   }
 
+  // Answer: Free Text, or Fields with its list of fields and headings, like the Pinned Blocks list on the Layout page.
+  // One row's settings are open at a time.
+  let fieldOpen = null;
+  function answerHtml(a) {
+    const fields = a.answer === 'fields';
+    const rows = fields ? a.fields.map((f, i) => fieldRowHtml(f, i, a.fields.length)).join('') : '';
+    return card('Answer', `
+      ${pills('aganswer', [['text', 'Free Text'], ['fields', 'Fields']], a.answer)}
+      <div class="cb_hint"${fields ? '' : ' style="margin-bottom:0;"'}>${fields
+        ? 'Named values NTR checks and keeps, shown as bars, lines and chips in a Dashboard. Headings group them there.'
+        : 'The answer as the agent writes it, shown with Markdown.'}</div>
+      ${fields ? `<div class="ntr_agfl">${rows || '<div class="cb_hint">No fields yet. Until it has one, it answers as Free Text.</div>'}</div>
+      <div class="cb_actions" style="margin:8px 0 0;">${btn('m_agf_add', 'fa-plus', 'Add Field')}${btn('m_agf_head', 'fa-heading', 'Add Heading')}</div>` : ''}`);
+  }
+  const fieldWhat = (f) => (f.kind === 'heading' ? 'Heading'
+    : f.type === 'num' ? `Number · ${f.min} to ${f.max}, starts at ${f.start}, ${f.step ? `±${f.step} per update` : 'no change limit'}${f.numShow === 'number' ? ', as a number' : ''}`
+      : f.type === 'list' ? `List · ${f.listShow === 'chips' ? 'Chips' : 'Lines'}, up to ${f.cap}` : 'Text') + (f.hint ? ` · ${f.hint}` : '');
+  function fieldRowHtml(f, i, n) {
+    const head = f.kind === 'heading';
+    const open = fieldOpen === f.id;
+    const icon = head ? 'fa-heading' : f.type === 'num' ? 'fa-chart-simple' : f.type === 'list' ? 'fa-list-ul' : 'fa-font';
+    const row = `
+      <div class="ntr_agfl_row${head ? ' ntr_agfl_hrow' : ''}" data-fd="${f.id}">
+        <i class="fa-solid fa-fw ${icon}"></i>
+        <span class="ntr_agfl_name"><span class="ntr_agfl_nm">${esc(f.name)}</span><small>${esc(fieldWhat(f))}</small></span>
+        <button type="button" class="menu_button m_agf_edit${open ? ' on' : ''}" title="Settings" aria-label="Settings for ${esc(f.name)}" aria-expanded="${open}"><i class="fa-solid fa-gear"></i></button>
+        <button type="button" class="menu_button danger_button m_agf_del" title="Delete" aria-label="Delete ${esc(f.name)}"><i class="fa-solid fa-trash"></i></button>
+      </div>`;
+    if (!open) return row;
+    const pick = (k, opts) => pills(`agf${k}-${f.id}`, opts, f[k]);
+    const numIn = (k, label, r) => `<label>${label}<input type="number" class="text_pole m_agf_num" data-k="${k}" data-r="${r}" ${A.rangeAttrs(r)} value="${f[k]}"></label>`;
+    const move = (cls, icon2, label, off) => `<button type="button" class="menu_button ${cls}"${off ? ' disabled' : ''}><i class="fa-solid ${icon2}"></i>${label}</button>`;
+    const body = head ? '<div class="cb_hint">A heading groups the fields under it in a Dashboard. The agent never sees it.</div>' : `
+        <label>Hint for the Agent <input type="text" class="text_pole m_agf_txt" data-k="hint" maxlength="200" value="${esc(f.hint)}" placeholder="What goes here, like: where the scene takes place"></label>
+        <div class="cb_plab">Type</div>
+        ${pick('type', FTYPES)}
+        ${f.type === 'num' ? `<div class="ntr_agfl_grid">${numIn('min', 'Min', 'agFieldNum')}${numIn('max', 'Max', 'agFieldNum')}${numIn('start', 'Start', 'agFieldNum')}${numIn('step', 'Max Change', 'agFieldStep')}</div>
+        <div class="cb_hint">Max Change is how far it can move in one update; 0 means no limit. Whatever the agent answers, it stays between Min and Max.</div>
+        <div class="cb_plab">Show As</div>
+        ${pick('numShow', [['bar', 'Bar'], ['number', 'Number']])}`
+    : f.type === 'list' ? `<div class="cb_plab">Show As</div>
+        ${pick('listShow', [['lines', 'Lines'], ['chips', 'Chips']])}
+        <div class="ntr_agfl_grid">${numIn('cap', 'Max Items', 'agFieldCap')}</div>
+        <div class="cb_hint">In Lines, the text before the first colon names the line, like a character's name, so a change shows on that line.</div>`
+      : '<div class="cb_hint">One line of text.</div>'}`;
+    return row + `
+      <div class="ntr_tpanel ntr_agfl_edit" data-fd="${f.id}">
+        <label>Name <input type="text" class="text_pole m_agf_txt" data-k="name" maxlength="40" value="${esc(f.name)}"></label>
+        ${body}
+        <div class="cb_actions" style="margin:4px 0 0;">${move('m_agf_up', 'fa-arrow-up', 'Move Up', i === 0)}${move('m_agf_down', 'fa-arrow-down', 'Move Down', i === n - 1)}</div>
+      </div>`;
+  }
+
   function editorHtml(a) {
     if (!a) return '';
+    const fields = a.answer === 'fields';
     const sampRows = SAMP.map(([f, label, k]) => `
       <div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="${f}On" ${a[f + 'On'] ? 'checked' : ''}><span>${label}</span></label>
         <div class="m_o_body${a[f + 'On'] ? '' : ' cb_dim'}" data-for="${f}On">${slider(a, f, k)}</div></div>`).join('');
@@ -486,12 +676,15 @@ Keep every value from your last result that the new messages leave as it was, an
         : 'Your chat isn\'t on Chat Completion or Text Completion, so it uses your chat\'s samplers. Switch your chat\'s API, or this agent\'s connection, to use these.';
     return `
       ${profileHtml(a)}
-      ${card('Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list." style="width:100%;margin:0;">${esc(a.job)}</textarea>`)}
+      ${card('Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="${fields ? 'What to track and any rules, like: only count injuries that happen on screen.' : 'What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list.'}" style="width:100%;margin:0;">${esc(a.job)}</textarea>
+        ${fields ? '<div class="cb_hint" style="margin-bottom:0;">Say what to track and any rules. NTR adds the answer format from your fields.</div>' : ''}`)}
+      ${answerHtml(a)}
       ${card('When It Runs', `
         ${lab('Runs', pills('agruns', [['reply', 'After Every Reply'], ['button', 'On the Button Only']], a.runs))}
         ${lab('Results', pills('agkeep', [['off', 'Activity Only'], ['chat', 'Saved in the Chat']], a.keep))}
-        <div class="cb_hint"${a.keep === 'chat' ? '' : ' style="margin-bottom:0;"'}>Activity Only shows its answers under Activity at the bottom until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Pinned Block on the Layout page and set it to Agent Results.</div>
-        ${a.keep === 'chat' ? `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" data-redraw="1" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
+        ${fields ? '<div class="cb_hint">Fields keeps its values in the chat, so it always saves there.</div>' : ''}
+        <div class="cb_hint"${a.keep === 'chat' && !fields ? '' : ' style="margin-bottom:0;"'}>Activity Only shows its answers under Activity at the bottom until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Dashboard on the Layout page.</div>
+        ${a.keep === 'chat' && !fields ? `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" data-redraw="1" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">Adds its newest saved answer from before the message it runs on to its prompt, so it updates what it had instead of starting over.</div>` : ''}`)}
       ${a.keep === 'chat' ? card('Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
@@ -636,11 +829,11 @@ Keep every value from your last result that the new messages leave as it was, an
     const ex = root.querySelector('#m_ag_ex');
     if (ex) ex.onclick = () => {
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
-      const x = { ...fresh('Margi'), title: 'Story Tracker', example: true, pic: MARGI_PIC, on: true, job: MARGI_JOB, runs: 'reply', keep: 'chat', last: true };
+      const x = { ...fresh('Margi'), title: 'Story Tracker', example: true, pic: MARGI_PIC, on: true, job: MARGI_JOB, runs: 'reply', keep: 'chat', answer: 'fields', fields: cleanFields(MARGI_FIELDS) };
       list().push(x);
       s.agPick = x.id;
       changed(true);
-      toastr.info('Margi runs after every reply. To see her on screen, add a Pinned Block on the Layout page and set it to Agent Results.', 'Agents');
+      toastr.info('Margi runs after every reply. To see her on screen, add a Dashboard on the Layout page.', 'Agents');
     };
     if (!a) return;
     root.querySelector('#m_ag_dup').onclick = () => {
@@ -717,6 +910,12 @@ Keep every value from your last result that the new messages leave as it was, an
     onPills(root, 'agfull', (v) => { a.full = v === 'full'; changed(true); });
     onPills(root, 'agsplit', (v) => { a.split = v === 'split'; changed(true); });
     onPills(root, 'agkeep', (v) => { a.keep = v; changed(true); refreshBoxes(); });
+    onPills(root, 'aganswer', (v) => { a.answer = v; if (v === 'fields') a.keep = 'chat'; changed(true); refreshBoxes(); });
+    if (a.answer === 'fields') {
+      const off = root.querySelector('input[name="cbr_agkeep"][value="off"]');
+      if (off) { off.disabled = true; off.closest('.cb_pill')?.classList.add('cb_dim'); }
+    }
+    bindFields(a, changed);
     onPills(root, 'agwhere', (v) => { a.sendWhere = v; changed(true); });
     onPills(root, 'agrole', (v) => { a.sendRole = v; changed(false); });
     onPills(root, 'ageff', (v) => { a.eff = v; changed(false); });
@@ -754,6 +953,89 @@ Keep every value from your last result that the new messages leave as it was, an
     root.querySelector('#m_ag_stop').onclick = () => current?.ctrl.abort();
   }
 
+  // The Answer card's field list. Typing a name, hint or number only updates its row, like the name at the top: a
+  // redraw when the box loses focus would swallow a click on another button.
+  function bindFields(a, changed) {
+    const box = root.querySelector('.ntr_agfl');
+    const add = (f) => {
+      if (a.fields.length >= FIELD_MAX) { toastr.info(`Up to ${FIELD_MAX} fields and headings.`, 'Agents'); return; }
+      const o = cleanField(f);
+      a.fields.push(o);
+      fieldOpen = o.id;
+      changed(true);
+      refreshBoxes();
+    };
+    const freeName = (base) => {
+      const used = new Set(a.fields.map((f) => f.name.toLowerCase()));
+      let n = 1;
+      while (used.has((n > 1 ? `${base} ${n}` : base).toLowerCase())) n++;
+      return n > 1 ? `${base} ${n}` : base;
+    };
+    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field') }));
+    root.querySelector('#m_agf_head')?.addEventListener('click', () => add({ kind: 'heading', name: 'New Heading' }));
+    if (!box) return;
+    const at = (el) => a.fields.find((f) => f.id === el.closest('[data-fd]')?.dataset.fd);
+    const sync = (f) => {
+      const row = box.querySelector(`.ntr_agfl_row[data-fd="${f.id}"]`);
+      if (!row) return;
+      row.querySelector('.ntr_agfl_nm').textContent = f.name;
+      row.querySelector('small').textContent = fieldWhat(f);
+      row.querySelector('.m_agf_edit').setAttribute('aria-label', `Settings for ${f.name}`);
+      row.querySelector('.m_agf_del').setAttribute('aria-label', `Delete ${f.name}`);
+    };
+    box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.m_agf_txt, .m_agf_num')) e.target.blur(); });
+    box.addEventListener('click', async (e) => {
+      const b = e.target.closest('button');
+      const f = b && at(b);
+      if (!f) return;
+      if (b.classList.contains('m_agf_edit')) { fieldOpen = fieldOpen === f.id ? null : f.id; render(); return; }
+      if (b.classList.contains('m_agf_del')) {
+        if (!(await askYes(b, `Delete "${f.name}"?`, 'Delete', { danger: true }))) return;
+        a.fields = a.fields.filter((x) => x !== f);
+        if (fieldOpen === f.id) fieldOpen = null;
+        changed(true);
+        refreshBoxes();
+        return;
+      }
+      const d = b.classList.contains('m_agf_up') ? -1 : b.classList.contains('m_agf_down') ? 1 : 0;
+      const i = a.fields.indexOf(f);
+      if (!d || i + d < 0 || i + d >= a.fields.length) return;
+      a.fields.splice(i, 1);
+      a.fields.splice(i + d, 0, f);
+      changed(true);
+      refreshBoxes();
+    });
+    box.addEventListener('change', (e) => {
+      const t = e.target;
+      const f = at(t);
+      if (!f) return;
+      if (t.classList.contains('m_agf_txt')) {
+        if (t.dataset.k === 'name') {
+          f.name = fieldName(t.value, f.name);
+          if (f.kind === 'field' && a.fields.some((x) => x !== f && x.kind === 'field' && x.name.toLowerCase() === f.name.toLowerCase())) {
+            toastr.warning(`Another field is already called "${f.name}". Only the first one gets values.`, 'Agents');
+          }
+        } else f.hint = t.value.trim().slice(0, 200);
+        t.value = f[t.dataset.k];
+      } else if (t.classList.contains('m_agf_num')) {
+        f[t.dataset.k] = num(t.dataset.r, t.value, f[t.dataset.k]);
+        // Min, Max and Start keep each other in order.
+        Object.assign(f, cleanField(f));
+        t.closest('.ntr_agfl_edit').querySelectorAll('.m_agf_num').forEach((el) => { el.value = f[el.dataset.k]; });
+      } else {
+        const m = /^cbr_agf(type|numShow|listShow)-/.exec(t.name || '');
+        if (!m || !t.checked) return;
+        f[m[1]] = t.value;
+        changed(true);
+        refreshBoxes();
+        return;
+      }
+      sync(f);
+      changed(false);
+      refreshBoxes();
+    });
+  }
+
   function bind(overlay, s) {
     root = overlay.querySelector('#m_ag_root');
     // Switching the page off also stops a run in progress; runs still waiting are skipped.
@@ -762,75 +1044,209 @@ Keep every value from your last result that the new messages leave as it was, an
   }
 
   // ----- In a Pinned Block (Agent Results) -----
-  // Each picked agent's newest saved result up to message upTo (Reader Mode's page, or the last message), formatted
-  // like a message: Markdown and your regexes, sanitized by SillyTavern. Edit, Run Again (on that message) and Undo
-  // sit next to its name. editing: the result being edited, by agent, chat, message and swipe date.
+  // Each picked agent's newest saved result up to message upTo (Reader Mode's page, or the last message). Free Text is
+  // formatted like a message: Markdown and your regexes, sanitized by SillyTavern. Fields is drawn as rows under its
+  // headings, with what changed since the agent's result on an earlier message marked, and a click on a value edits
+  // it. Run Again (on that message), Edit Saved Text and Undo sit next to its name. Stacked shows every agent, each
+  // folding open and closed; Tabs shows one. Folds and tabs are kept for each box until you reload.
+  // editing: the saved text being edited; fieldEdit: the one value being edited. Both by agent, chat, message and swipe
+  // date, so a redraw keeps them only on the result they were started on.
   let editing = null;
-  const iconBtn = (act, icon, title) => `<button type="button" class="ntr_agres_btn" data-act="${act}" title="${esc(title)}" aria-label="${esc(title)}"><i class="fa-solid fa-fw ${icon}"></i></button>`;
+  let fieldEdit = null;
+  let focusEdit = false;
+  const folds = new Set();
+  const tabs = new Map();
+  const iconBtn = (act, icon, title, extra = '') => `<button type="button" class="ntr_agres_btn" data-act="${act}"${extra} title="${esc(title)}" aria-label="${esc(title)}"><i class="fa-solid fa-fw ${icon}"></i></button>`;
+  const sr = (t) => `<span class="ntr_sr">${esc(t)}</span>`;
+  const DOT = '<span class="ntr_agf_dot" aria-hidden="true">◆</span>';
+  // In Lines, the text before the first colon names the line, so a changed line is matched to what it was.
+  const lineName = (x) => { const i = x.indexOf(':'); return (i > 0 ? x.slice(0, i) : x).trim().toLowerCase(); };
   function formatted(a, r) {
     try { return ctx().messageFormatting(r.text, a.name, false, false, r.mes); } catch (e) { return esc(r.text).replace(/\n/g, '<br>'); }
   }
-  function pinPart({ a, r, run, fail, edit }, last) {
+
+  // One field's rows, against its value in the agent's earlier result (was: undefined when there's none). edit: the
+  // edit key while this value is being edited.
+  function fieldHtml(f, v, was, edit) {
+    if (f.type === 'list') {
+      let items;
+      if (f.listShow === 'chips') {
+        items = v.map((x) => ({ x, add: was !== undefined && !was.includes(x) }))
+          .concat(was === undefined ? [] : was.filter((x) => !v.includes(x)).map((x) => ({ x, gone: true })));
+        const chips = items.map((i) => `<span class="ntr_agf_chip${i.add ? ' ntr_agf_new' : i.gone ? ' ntr_agf_gone' : ''}">${i.add ? '+ ' : ''}${esc(i.x)}${i.add ? sr(', new') : i.gone ? sr(', removed') : ''}</span>`).join('');
+        return { changed: items.some((i) => i.add || i.gone), html: `<div class="ntr_agf_list"><div class="ntr_agf_lab">${esc(f.name)}</div><div class="ntr_agf_chips">${chips || '<span class="ntr_agf_none">None</span>'}</div></div>` };
+      }
+      const before = new Map((was || []).map((x) => [lineName(x), x]));
+      const names = new Set(v.map(lineName));
+      items = v.map((x) => {
+        const p = was === undefined ? x : before.get(lineName(x));
+        return { x, add: p === undefined, chg: p !== undefined && p !== x };
+      }).concat(was === undefined ? [] : was.filter((x) => !names.has(lineName(x))).map((x) => ({ x, gone: true })));
+      const text = (x) => { const c = x.indexOf(':'); return c > 0 ? `<b>${esc(x.slice(0, c + 1))}</b>${esc(x.slice(c + 1))}` : esc(x); };
+      const lines = items.map((i) => `<li class="${i.add ? 'ntr_agf_new' : i.chg ? 'ntr_agf_chg' : i.gone ? 'ntr_agf_gone' : ''}"><span>${text(i.x)}</span>${i.add ? '<span class="ntr_agf_tag">New</span>' : i.chg ? DOT + sr(', changed') : i.gone ? sr(', removed') : ''}</li>`).join('');
+      return { changed: items.some((i) => i.add || i.chg || i.gone), html: `<div class="ntr_agf_list"><div class="ntr_agf_lab">${esc(f.name)}</div>${lines ? `<ul class="ntr_agf_lines">${lines}</ul>` : '<span class="ntr_agf_none">None</span>'}</div>` };
+    }
+    const d = f.type === 'num' && was !== undefined ? Math.round((v - was) * 100) / 100 : 0;
+    const changed = f.type === 'num' ? d !== 0 : was !== undefined && was !== v;
+    const row = (inner) => `<div class="ntr_agf_row" data-field="${esc(f.name)}"><span class="ntr_agf_lab">${esc(f.name)}</span>${inner}</div>`;
+    if (edit) {
+      return { changed, html: row(`<span class="ntr_agf_editrow"><input type="text" class="text_pole ntr_agf_input" data-for="${esc(edit)}" inputmode="${f.type === 'num' ? 'decimal' : 'text'}" value="${esc(String(v))}" aria-label="${esc(f.name)}">${iconBtn('fsave', 'fa-check', 'Save')}${iconBtn('fcancel', 'fa-xmark', 'Cancel')}</span>`) };
+    }
+    if (f.type === 'num') {
+      const pct = Math.round(Math.min(100, Math.max(0, (v - f.min) / (f.max - f.min) * 100)));
+      const label = `Edit ${f.name}, ${v} of ${f.max}${d > 0 ? `, up ${d}` : d < 0 ? `, down ${-d}` : ''}`;
+      return { changed, html: row(`<button type="button" class="ntr_agf_val" data-act="fedit" aria-label="${esc(label)}">${f.numShow === 'bar' ? `<span class="ntr_agf_bar"><span style="width:${pct}%"></span></span>` : ''}<span class="ntr_agf_text ntr_agf_n">${v}${f.numShow === 'bar' ? `/${f.max}` : ''}</span><span class="ntr_agf_delta">${d > 0 ? `▲${d}` : d < 0 ? `▼${-d}` : ''}</span></button>`) };
+    }
+    return { changed, html: row(`<button type="button" class="ntr_agf_val" data-act="fedit" aria-label="${esc(`Edit ${f.name}, ${v}${changed ? ', changed' : ''}`)}"><span class="ntr_agf_text">${esc(v)}</span>${changed ? DOT : ''}</button>`) };
+  }
+  // A Fields result: its fields under their headings, each heading folding open and closed.
+  function fieldsHtml(a, r, prev, pin, edit) {
+    const now = valuesOf(a, r.text);
+    const was = prev ? valuesOf(a, prev.text) : null;
+    const known = new Set(fieldsOf(a));
+    const secs = [{ id: '', name: '', rows: [] }];
+    for (const f of a.fields) {
+      if (f.kind === 'heading') secs.push({ id: f.id, name: f.name, rows: [] });
+      else if (known.has(f)) secs[secs.length - 1].rows.push(fieldHtml(f, now[f.name], was ? was[f.name] : undefined, edit && edit.endsWith(`:${f.name}`) ? edit : ''));
+    }
+    let changed = false;
+    const html = secs.map((sec) => {
+      const ch = sec.rows.some((x) => x.changed);
+      changed = changed || ch;
+      const rows = sec.rows.map((x) => x.html).join('');
+      if (!sec.id) return rows;
+      const key = `${pin}:${a.id}:${sec.id}`;
+      const open = !folds.has(key);
+      return `<div class="ntr_agf_sec"><button type="button" class="ntr_agf_sechead" data-act="fold" data-fold="${esc(key)}" aria-expanded="${open}"><i class="fa-solid fa-fw fa-chevron-${open ? 'down' : 'right'}"></i><span>${esc(sec.name)}</span>${!open && ch ? DOT + sr(', changed') : ''}</button>${open ? `<div class="ntr_agf_secbody">${rows}</div>` : ''}</div>`;
+    }).join('');
+    return { changed, html: `<div class="ntr_agf">${html}</div>` };
+  }
+  function pinPart(x, last, pin, isTabs) {
+    const { a, r, run, fail, edit, fv } = x;
+    const key = `${pin}:${a.id}`;
+    const open = isTabs || !folds.has(key);
     const again = !r || r.mes === last ? 'Run again' : `Run again on message ${r.mes}`;
-    const btns = (r ? iconBtn('edit', 'fa-pen', 'Edit') : '') + iconBtn('run', 'fa-rotate', r ? again : 'Run') + (r?.prev != null ? iconBtn('undo', 'fa-rotate-left', 'Undo') : '');
-    const body = edit ? `<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
+    const btns = (run ? '<span class="ntr_agres_btn ntr_agres_busy" role="img" title="Updating" aria-label="Updating"><i class="fa-solid fa-fw fa-spinner fa-spin"></i></span>' : iconBtn('run', 'fa-rotate', r ? again : 'Run'))
+      + (r ? iconBtn('edit', 'fa-pen', 'Edit Saved Text', ` aria-pressed="${!!edit}"`) : '') + (r?.prev != null ? iconBtn('undo', 'fa-rotate-left', 'Undo') : '');
+    const head = isTabs ? `<span class="ntr_agres_name ntr_agres_title">${esc(a.title)}</span>`
+      : `<button type="button" class="ntr_agres_fold" data-act="fold" data-fold="${esc(key)}" aria-expanded="${open}"><i class="fa-solid fa-fw fa-chevron-${open ? 'down' : 'right'} ntr_agres_chev"></i>${picHtml(a, 18)}<span class="ntr_agres_name">${esc(a.name)}</span>${!open && fv?.changed ? DOT + sr(', changed') : ''}</button>`;
+    const body = edit ? `${fv ? '<div class="ntr_agres_note">Saved as plain text, in the same format the agent answers in. Lists are edited here.</div>' : ''}<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
       <div class="ntr_agres_editbtns"><button type="button" class="menu_button" data-act="save"><i class="fa-solid fa-check"></i> Save</button><button type="button" class="menu_button" data-act="cancel">Cancel</button></div>`
-      : r ? `<div class="ntr_agres_text">${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
+      : fv ? fv.html : r ? `<div class="ntr_agres_text">${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
     return `<div class="ntr_agres" data-ag="${esc(a.id)}" data-mes="${r ? r.mes : ''}">
-      <div class="ntr_agres_head">${picHtml(a, 18)}<span class="ntr_agres_name">${esc(a.name)}</span><span class="ntr_agres_btns">${btns}</span></div>
-      ${body}
-      ${run ? '<div class="ntr_agres_note"><i class="fa-solid fa-spinner fa-spin"></i> Updating...</div>' : ''}
+      <div class="ntr_agres_head">${head}<span class="ntr_agres_btns">${btns}</span></div>
+      ${open ? body : ''}
       ${fail ? `<div class="ntr_agres_note ntr_agres_fail">Last run failed: ${esc(fail)}</div>` : ''}
     </div>`;
   }
-  function pinView(ids, upTo) {
+  // o.pin: the box's id, for its folds and tab. o.view: 'stacked' or 'tabs'. o.asOf: the message shown with Where
+  // You're Reading while it isn't the newest, or null.
+  function pinView(ids, upTo, o = {}) {
     if (!pageOn()) return null;
+    const agents = ids.map(byId).filter(Boolean);
+    if (!agents.length) return null;
+    const pin = o.pin || '';
     const cid = chatId();
-    const last = (ctx().chat || []).length - 1;
     const chat = ctx().chat || [];
-    const parts = ids.map(byId).filter(Boolean).map((a) => {
+    const last = chat.length - 1;
+    const isTabs = o.view === 'tabs' && agents.length > 1;
+    const tab = agents.some((a) => a.id === tabs.get(pin)) ? tabs.get(pin) : agents[0].id;
+    const asOf = o.asOf ?? null;
+    const parts = agents.map((a) => {
       const r = latest(a.id, upTo);
       const f = fails.get(a.id);
-      const mine = r && editing && editing.id === a.id && editing.mes === r.mes && editing.chat === cid && editing.date === chat[r.mes]?.send_date;
-      return { a, r, run: current?.id === a.id, fail: f && f.chat === cid ? f.text : '', edit: mine ? editing.key : '' };
+      const here = (e) => !!(r && e && e.id === a.id && e.mes === r.mes && e.chat === cid && e.date === chat[r.mes]?.send_date);
+      return {
+        a, r, prev: r && usesFields(a) ? latest(a.id, r.mes - 1) : null, run: current?.id === a.id, fail: f && f.chat === cid ? f.text : '',
+        edit: here(editing) ? editing.key : '', fedit: here(fieldEdit) ? fieldEdit.key : '',
+      };
     });
-    if (!parts.some((x) => x.r || x.run || x.fail)) return null;
-    const key = JSON.stringify(parts.map(({ a, r, run, fail, edit }) => [a.id, a.name, a.pic, r?.mes, r?.at, r?.text, r?.prev != null, run, fail, edit, last]));
+    const folded = [...folds].filter((k) => k.startsWith(`${pin}:`)).sort();
+    const key = JSON.stringify([parts.map(({ a, r, prev, run, fail, edit, fedit }) => [a.id, a.name, a.title, a.pic, a.answer, usesFields(a) ? a.fields : 0,
+      r?.mes, r?.at, r?.text, prev?.text, r?.prev != null, run, fail, edit, fedit]), last, isTabs, isTabs ? tab : '', folded, asOf]);
     return {
       key,
       fill: (body) => {
-        // Text being typed in an edit box survives a redraw, in the box for the same result only.
-        const old = body.querySelector('.ntr_agres_edit');
-        const typed = old ? [old.dataset.for, old.value] : null;
-        body.innerHTML = parts.map((x) => pinPart(x, last)).join('');
-        const ed = body.querySelector('.ntr_agres_edit');
-        if (ed && typed && typed[0] === ed.dataset.for) ed.value = typed[1];
+        // Text being typed in an edit box survives a redraw, in the box for the same result or value only.
+        const kept = [...body.querySelectorAll('.ntr_agres_edit, .ntr_agf_input')].map((el) => [el.dataset.for, el.value]);
+        for (const x of parts) x.fv = x.r && usesFields(x.a) && !x.edit ? fieldsHtml(x.a, x.r, x.prev, pin, x.fedit) : null;
+        const tabBar = isTabs ? `<div class="ntr_agres_tabs" role="tablist">${parts.map(({ a, fv }) => {
+          const sel = a.id === tab;
+          return `<button type="button" role="tab" class="ntr_agres_tab" data-act="tab" data-ag="${esc(a.id)}" aria-selected="${sel}">${picHtml(a, 18)}<span>${esc(a.name)}</span>${!sel && fv?.changed ? DOT + sr(', changed') : ''}</button>`;
+        }).join('')}</div>` : '';
+        const shown = isTabs ? parts.filter((x) => x.a.id === tab) : parts;
+        body.innerHTML = tabBar + shown.map((x) => pinPart(x, last, pin, isTabs)).join('')
+          + (asOf != null ? `<div class="ntr_agres_asof cb_hint"><span>As of message #${asOf}</span><button type="button" class="menu_button" data-act="newest">Newest</button></div>` : '');
+        for (const [k, v] of kept) {
+          const el = [...body.querySelectorAll('.ntr_agres_edit, .ntr_agf_input')].find((x) => x.dataset.for === k);
+          if (el) el.value = v;
+        }
+        const inp = body.querySelector('.ntr_agf_input');
+        if (inp && focusEdit) { inp.focus(); inp.select(); }
+        focusEdit = false;
       },
     };
   }
   // The buttons in Pinned Blocks. The boxes are redrawn often, so one listener on the page handles them all.
   document.addEventListener('click', (e) => {
-    const b = e.target.closest('#ntr_pin_layer .ntr_agres [data-act]');
+    const b = e.target.closest('#ntr_pin_layer :is(.ntr_agres, .ntr_agres_tabs, .ntr_agres_asof) [data-act]');
     if (!b) return;
+    const act = b.dataset.act;
+    if (act === 'fold') { const k = b.dataset.fold; if (folds.has(k)) folds.delete(k); else folds.add(k); refreshBoxes(); return; }
+    if (act === 'tab') { tabs.set(b.closest('.ntr_pin')?.dataset.pin || '', b.dataset.ag); refreshBoxes(); return; }
+    if (act === 'newest') { const c = document.getElementById('chat'); if (c) c.scrollTop = c.scrollHeight; return; }
     const box = b.closest('.ntr_agres');
-    const a = byId(box.dataset.ag);
+    const a = box && byId(box.dataset.ag);
     if (!a) return;
     const mes = box.dataset.mes === '' ? null : Number(box.dataset.mes);
     const m = mes == null ? null : (ctx().chat || [])[mes];
     const r = m ? savedAt(m, a.id) : null;
-    const act = b.dataset.act;
+    // An edit is saved only onto the result it was started on, in case the message or swipe changed meanwhile.
+    const same = (ed) => r && ed && ed.id === a.id && ed.mes === mes && ed.chat === chatId() && ed.date === m.send_date;
     if (act === 'run') { enqueue(a.id, false, false, mes === (ctx().chat || []).length - 1 ? null : mes); return; }
-    if (act === 'edit' && r) editing = { id: a.id, mes, chat: chatId(), date: m.send_date, key: `${a.id}:${mes}:${m.send_date}` };
-    else if (act === 'cancel') editing = null;
+    if (act === 'edit' && r) {
+      editing = editing && same(editing) ? null : { id: a.id, mes, chat: chatId(), date: m.send_date, key: `${a.id}:${mes}:${m.send_date}` };
+      fieldEdit = null;
+    } else if (act === 'cancel') editing = null;
     else if (act === 'save') {
-      // Only onto the result the edit was started on, in case the message or swipe changed meanwhile.
-      const same = r && editing && editing.id === a.id && editing.mes === mes && editing.chat === chatId() && editing.date === m.send_date;
-      const text = String(box.querySelector('.ntr_agres_edit')?.value ?? '').trim().slice(0, MAX_SAVED);
-      if (!same) toastr.warning('The message changed, so the edit wasn\'t saved.', a.name);
-      else if (text && text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text });
-      editing = null;
+      let text = String(box.querySelector('.ntr_agres_edit')?.value ?? '').trim();
+      // Fields reads the text the way it reads an answer, laid over the values it had; names it doesn't know are dropped.
+      if (same(editing) && text && usesFields(a)) {
+        const vals = mergeFields(a, valuesOf(a, r.text), text, false);
+        if (vals) text = writeFields(a, vals);
+        else { toastr.warning('None of its fields were found, so nothing changed.', a.name); text = r.text; }
+      }
+      // Too long, the edit box stays open, so what was typed can be shortened.
+      if (!same(editing)) { toastr.warning('The message changed, so the edit wasn\'t saved.', a.name); editing = null; }
+      else if (text.length > MAX_SAVED) toastr.warning(`Not saved: ${usesFields(a) ? 'all its values together are' : 'it\'s'} ${OVER}.`, a.name);
+      else { if (text && text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text }); editing = null; }
     } else if (act === 'undo' && r?.prev != null) saveAt(m, a.id, { text: r.prev, at: r.at });
+    else if (act === 'fedit' && r) {
+      const name = b.closest('[data-field]')?.dataset.field;
+      if (!name) return;
+      fieldEdit = { id: a.id, mes, chat: chatId(), date: m.send_date, field: name, key: `${a.id}:${mes}:${m.send_date}:${name}` };
+      focusEdit = true;
+      editing = null;
+    } else if (act === 'fcancel') fieldEdit = null;
+    else if (act === 'fsave') {
+      const f = fieldsOf(a).find((x) => x.name === fieldEdit?.field);
+      if (!same(fieldEdit) || !f) toastr.warning('The message changed, so the edit wasn\'t saved.', a.name);
+      else {
+        const vals = valuesOf(a, r.text);
+        vals[f.name] = fieldValue(f, box.querySelector('.ntr_agf_input')?.value ?? '', vals[f.name], false);
+        const text = writeFields(a, vals);
+        if (text.length > MAX_SAVED) toastr.warning(`Not saved: all its values together would be ${OVER}.`, a.name);
+        else if (text !== r.text) saveAt(m, a.id, { text, at: r.at, prev: r.text });
+      }
+      fieldEdit = null;
+    }
     refreshBoxes();
+  });
+  // In a value's edit box, Enter saves and Escape cancels.
+  document.addEventListener('keydown', (e) => {
+    if (!e.target.matches?.('#ntr_pin_layer .ntr_agf_input') || (e.key !== 'Enter' && e.key !== 'Escape')) return;
+    e.preventDefault();
+    e.target.closest('.ntr_agf_row')?.querySelector(`[data-act="${e.key === 'Enter' ? 'fsave' : 'fcancel'}"]`)?.click();
   });
 
   window.NTR.agents = {
@@ -841,7 +1257,7 @@ Keep every value from your last result that the new messages leave as it was, an
     // a reply they already ran on, so it doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
     replied: (type) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
-      for (const a of list()) if (a.on && a.runs === 'reply' && a.job.trim()) enqueue(a.id, false, true);
+      for (const a of list()) if (a.on && a.runs === 'reply' && (a.job.trim() || usesFields(a))) enqueue(a.id, false, true);
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
     genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type, dryRun); },

@@ -85,15 +85,13 @@ Decorative image borders around interface parts, stretched to fit any size.
 
 - Open questions: where the images come from and their license; how many, since every install downloads them; how they're picked (a gallery in the Locations menu); whether a picked image is copied into the user's own files or used from the extension folder (a card that uses the extension folder breaks if someone installed the extension under a different folder name).
 
-### Banners in group chats
-Optional: revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now.
-
-- Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
-
 ## Misc (Low Priority)
 
 ### Folder of pre-generated locations
 - [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
+
+### Group chats
+- [ ] Reisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
 
 ### Replace the once-a-second check with events
 `injectExtensionMenuButton` in `index.js` runs a check every second to put back its buttons and the wand menu entry and to keep Visual Novel Mode running. In a sandbox test it was most of NTR's idle cost: about 0.8% CPU with everything on, which no user would notice. Users would see no difference, so this is tidying, not a fix.
@@ -161,6 +159,8 @@ Keep the open-world feel, and let a card optionally have endings.
 ## Release Preparation (Low Priority)
 
 Start this work only when the repository owner, SepsisShock, says release is approaching.
+
+- Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
 
 ### Mobile compatibility testing
 Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.

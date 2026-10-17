@@ -5500,7 +5500,7 @@
     <label class="checkbox_label"><input type="checkbox" id="ntr_rm_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.</span></label>
     <label class="checkbox_label"><input type="checkbox" id="ntr_rm_chars"><span><strong>Uploaded files and character data</strong>: banners, foreground images, Visual Novel art, maps and opening videos, plus the NTR data saved in each character card.</span></label>
     <label class="checkbox_label"><input type="checkbox" id="ntr_rm_ext"><span><strong>Uninstall NTR</strong>: removes the extension itself.</span></label>
-    <div class="ntr_rm_foot"><button class="menu_button ntr_dbtn" id="ntr_rm_go" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button></div>`;
+    <div class="cb_actions ntr_rm_foot"><button class="menu_button" id="ntr_rm_go" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button></div>`;
 
   // SillyTavern's own extension tools, with this folder's name. Throws when this user can't uninstall it.
   async function uninstallTarget() {

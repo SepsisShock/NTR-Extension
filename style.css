@@ -279,7 +279,6 @@
 .ntr_tsel { width: 100%; margin: 8px 0 0; }
 .ntr_terr { color: var(--warning, #e57373); font-size: 0.85em; }
 .ntr_terr:empty { display: none; }
-.ntr_dbtn { width: fit-content; white-space: nowrap; margin: 8px 0; }
 .ntr_tbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ntr_tbar .menu_button { margin: 0; padding: 5px 10px; }
 .ntr_tpanel {
@@ -316,8 +315,8 @@
 #ntr_ext_bar .ntr_ext_fold { margin-bottom: 6px; }
 #ntr_ext_bar .ntr_ext_fold > .inline-drawer-content { padding: 4px 2px; }
 #ntr_ext_bar .ntr_ext_fold .checkbox_label { margin: 6px 0; }
-#ntr_ext_bar .ntr_rm_foot { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
-#ntr_ext_bar .ntr_rm_foot .ntr_dbtn { margin: 0; }
+#ntr_ext_bar .ntr_rm_foot { margin-top: 8px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
+#ntr_ext_bar .ntr_rm_foot .menu_button { margin: 0; padding: 6px 10px; }
 #ntr_rm_go:disabled { opacity: 0.4; cursor: default; }
 
 .cb_row {

@@ -20,7 +20,6 @@ In Line looks too bulky next to the text.
 ### Agents: follow-ups
 - [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Character portraits next to the tracked characters.
-- [ ] Highlight what changed since the last result.
 - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
 - [ ] Decide whether `/sendas` should count as a reply for After Every Reply agents. It does now, so a Quick Reply that uses it also runs them.
 - Left out on purpose: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup. Triggers come from Quick Replies through `/ntr-agent`.

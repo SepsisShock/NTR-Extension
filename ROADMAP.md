@@ -106,7 +106,7 @@ Optional: revisit if group chats become useful to me or are requested. The share
 Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.
 
 - [ ] Add editable scene summaries: what happened, important facts and promises, unresolved matters, and links to source messages.
-- [ ] Start with manual scene marking. Reuse NTR's agents for optional automatic tracking and summarizing, after replies or through Quick Replies.
+- [ ] Start with manual scene marking. Reuse NTR's agents for optional automatic tracking and summarizing, after replies or on their Run buttons.
 - [ ] Optionally send pinned facts and relevant scene memories with the prompt, within a configurable token budget. The current state already goes through Send to Main AI; reuse its placement settings where practical.
 - [ ] Provide separate switches for tracking, summarizing and recall, so users can combine NTR with other tools.
 - [ ] Handle edits, swipes, deletions and branches so saved and recalled information stays correct, the way saved agent results already do.

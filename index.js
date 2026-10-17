@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.66.0';
+  const VERSION = '2.66.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -6124,23 +6124,6 @@
       callback: () => { openCombinedModal(); return ''; },
       helpString: 'Opens the Nitwit Tavern Redesign menu.',
     }));
-    // /ntr-agent Name: runs that agent (Agents page, agents.js) and gives its answer to Quick Replies and STscript.
-    const { SlashCommandArgument, SlashCommandEnumValue, ARGUMENT_TYPE } = ctx();
-    if (!SlashCommandArgument || !SlashCommandEnumValue || !ARGUMENT_TYPE) return;
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
-      name: 'ntr-agent',
-      callback: async (_args, name) => {
-        if (!isOn() || !settings().agEnabled) { toastr.warning('Turn the Agents page on first.', 'Agents'); return ''; }
-        const ag = await loadModule('agents');
-        return ag ? ag.runByName(name) : '';
-      },
-      returns: 'the agent\'s answer',
-      unnamedArgumentList: [SlashCommandArgument.fromProps({
-        description: 'agent name', typeList: [ARGUMENT_TYPE.STRING], isRequired: true,
-        enumProvider: () => (Array.isArray(settings().agents) ? settings().agents : []).map((a) => new SlashCommandEnumValue(String(a?.name ?? ''))),
-      })],
-      helpString: 'Runs an NTR agent by its name, whether its switch is on or off, and waits for its answer. Example: <code>/ntr-agent Tracker | /echo</code>',
-    }));
   }
 
   // {{agent::Name}}: an agent's current saved result (agents.js), anywhere SillyTavern reads macros. Registered here so
@@ -6263,8 +6246,8 @@
         window.NTR.reader?.genStarted(type, dryRun);
       });
     }
-    // Agents wait for a reply being written. A send with only slash commands (like /ntr-agent typed in the box) writes
-    // none and never sends "generation ended", so agents only count a reply once SillyTavern has run the commands.
+    // Agents wait for a reply being written. A send with only slash commands (like /ntr typed in the box) writes none
+    // and never sends "generation ended", so agents only count a reply once SillyTavern has run the commands.
     const replyGoes = event_types.GENERATION_AFTER_COMMANDS || event_types.GENERATION_STARTED;
     if (replyGoes) {
       eventSource.on(replyGoes, (type, _opts, dryRun) => {

@@ -4,11 +4,11 @@
 // samplers and limits. Its connection never changes your chat's connection or SillyTavern's Connection Profiles: it sends
 // its own request through SillyTavern (Chat Completion or Text Completion), or uses your chat's connection (Same as Chat).
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
-// An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
-// its answers in the chat, and a Dashboard (a Pinned Block set to Agent Results, index.js) shows them on screen. With
-// Answer set to Fields, it keeps named values instead of free text (see Fields below).
+// An agent's answer shows in its activity. An agent can also save its answers in the chat, and a Dashboard (a Pinned
+// Block set to Agent Results, index.js) shows them on screen. With Answer set to Fields, it keeps named values instead
+// of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.66.0';
+  const AGENTS_VERSION = '2.66.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -522,9 +522,7 @@
         const note = test || !byId(id) ? '' : keep(a, o.target, text);
         if (!test && byId(id)) { answers.set(id, text); fails.delete(id); }
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: true, test, text: text || '(empty answer)', note });
-        // With Fields, /ntr-agent gets the full set it saved, not only the fields the answer changed.
-        const saved = !test && !note && usesFields(a) && o.target ? latest(a.id, o.target.i)?.text : null;
-        return { ok: true, text: saved ?? text };
+        return { ok: true, text };
       } catch (e) {
         const msg = timedOut ? 'Timed out' : ctrl.signal.aborted ? 'Stopped' : (e?.message || String(e));
         if (!test) fails.set(id, { chat: o.target?.chat ?? from, text: msg });
@@ -1267,15 +1265,6 @@
       const want = String(name ?? '').trim().toLowerCase();
       const a = list().find((x) => x.name.toLowerCase() === want);
       return a && a.keep === 'chat' ? latest(a.id, macroAt ?? sendUpTo())?.text ?? '' : '';
-    },
-    // /ntr-agent (index.js): runs an agent by name, on or off, and gives back its answer, or '' with a message if it fails.
-    runByName: async (name) => {
-      const want = String(name ?? '').trim().toLowerCase();
-      const a = list().find((x) => x.name.toLowerCase() === want);
-      if (!a) { toastr.warning(`No agent named "${String(name ?? '').trim()}".`, 'Agents'); return ''; }
-      const r = await enqueue(a.id);
-      if (!r.ok) { toastr.warning(r.text, a.name); return ''; }
-      return r.text;
     },
     // For Pinned Blocks set to Agent Results (index.js).
     pinView,

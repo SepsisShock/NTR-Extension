@@ -125,6 +125,7 @@
 .cb_hbtn.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
 
 .ntr_tag { font-size: 0.75em; opacity: 0.6; margin-left: 4px; }
+.ntr_scope { font-size: 0.7em; opacity: 0.75; margin-left: 6px; padding: 1px 6px; border: 1px solid var(--SmartThemeBorderColor, #555); border-radius: 8px; white-space: nowrap; vertical-align: middle; }
 .ntr_offnote {
   margin: 10px 12px 0;
   padding: 8px 10px;
@@ -260,6 +261,8 @@
 .ntr_glab + .cb_collapse_content { margin-top: 0; }
 .ntr_card > .cb_ovrow:last-child,
 .cb_collapse_content > .cb_ovrow:last-child { border-bottom: 0; }
+/* Attached Style ends the Send Bar card; only a note can follow it. */
+.ntr_card > .m_l_over[data-lay="send"] > .cb_ovrow { border-bottom: 0; padding-bottom: 0; }
 
 /* Long reference parts: one row that opens into the rest of its card. */
 .ntr_fold { margin-top: 14px; padding: 11px 12px; gap: 10px; font-weight: 600; }

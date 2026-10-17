@@ -4905,9 +4905,9 @@
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
   const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|rbbg|plate|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
-  // Resolves to true if the file was deleted. Never throws.
+  // Resolves to true if the file was deleted or was already gone. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
-    .then((res) => res.ok).catch(() => false);
+    .then((res) => res.ok || res.status === 404).catch(() => false);
 
   // ===== Removing NTR data =====
   // `look`: settings and themes (the whole extension settings). `chars`: the NTR data in every character card, plus the
@@ -4915,12 +4915,16 @@
   // that stays still uses them. Cards that aren't loaded yet (lazy loading) are loaded first when `chars` is set;
   // without it, their files can't be checked, so no file is deleted.
   const CHAR_SETTINGS = ['chars', 'charData', 'groupData', 'legacyBackup'];
+  // Files a removal couldn't delete. Kept in SillyTavern's account storage, which outlives NTR's settings, so the
+  // next removal tries them again.
+  const LEFTOVER = 'ntr_leftover_files';
+  const leftovers = () => { try { const v = JSON.parse(ctx().accountStorage?.getItem(LEFTOVER) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
   async function removeData(opts) {
     wiping = true;
     for (const tm of cardTimers.values()) clearTimeout(tm);
     cardTimers.clear();
     try {
-      await removeNow(opts);
+      return await removeNow(opts);
     } catch (e) {
       // Nothing was removed, so saving goes back on, and any card edit that was waiting to save gets saved.
       wiping = false;
@@ -4928,10 +4932,12 @@
       throw e;
     }
   }
+  // Resolves to how many files couldn't be deleted.
   async function removeNow({ look = false, chars = false } = {}) {
     const c = ctx();
     const s = settings();
-    const gone = new Set();
+    const gone = new Set(leftovers());
+    let left = [];
     if (chars) {
       for (let i = 0; i < c.characters.length; i++) {
         if (c.characters[i]?.shallow && typeof c.unshallowCharacter === 'function') await c.unshallowCharacter(i);
@@ -4960,9 +4966,14 @@
     if (!cs.some((ch) => ch && ch.shallow)) {
       const keep = look ? new Set() : collectFileRefs(s);
       for (const ch of cs) collectFileRefs(ch?.data?.extensions?.ntr, keep);
-      await Promise.all([...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p)).map(deleteFile));
+      const todo = [...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p));
+      const ok = await Promise.all(todo.map(deleteFile));
+      left = todo.filter((_, i) => !ok[i]);
+      if (left.length) c.accountStorage?.setItem(LEFTOVER, JSON.stringify(left));
+      else c.accountStorage?.removeItem(LEFTOVER);
     }
     c.saveSettingsDebounced(); // the page reloads next, so `wiping` stays on until then
+    return left.length;
   }
 
   async function deleteFileIfUnused(path) {
@@ -5552,9 +5563,16 @@
         if (p.ext) uninstall = await uninstallTarget();
       } catch (e) { fail(e, 'Uninstall NTR'); return; }
       if (p.look || p.chars) {
+        let left;
         try {
-          await removeData({ look: p.look, chars: p.chars });
+          left = await removeData({ look: p.look, chars: p.chars });
         } catch (e) { fail(e, 'Remove NTR data'); return; }
+        // Uninstalling now would leave those files with nothing to find them again.
+        if (left) {
+          toastr.warning(`${left} uploaded file${left === 1 ? '' : 's'} could not be deleted${p.ext ? ', so NTR stayed installed' : ''}. Try again from Remove and uninstall after the reload.`, 'Remove NTR data', { timeOut: 10000 });
+          setTimeout(() => location.reload(), 4000);
+          return;
+        }
       }
       // SillyTavern saves its settings and reloads the page once it's done.
       if (uninstall) { await uninstall(); return; }
@@ -6268,7 +6286,9 @@
 })();
 
 // SillyTavern's "Clean extension data" button and "Also clean up extension data" option when deleting the extension
-// (the manifest's clean hook): removes everything, like ticking both data boxes in NTR's own Remove and uninstall.
+// (the manifest's clean hook): removes settings and themes, and the uploaded files no character card still uses.
+// Character cards stay as they are: SillyTavern stops waiting for a hook after 5 seconds, and going through every card
+// can take longer. Remove and uninstall in NTR's own drawer removes those too.
 export async function onClean() {
-  await window.NTR?.api?.removeData({ look: true, chars: true });
+  await window.NTR?.api?.removeData({ look: true });
 }

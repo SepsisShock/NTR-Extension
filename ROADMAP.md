@@ -19,11 +19,10 @@ In Line looks too bulky next to the text.
 
 ### Agents: follow-ups
 - [ ] Options for being able to drag agent order or alphabetical.
-- [ ] Character portraits next to the tracked characters.
+- [ ] Show each agent's picture on the pages it tracks.
 - [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
-- [ ] Decide whether `/sendas` should count as a reply for After Every Reply agents. It does now, so a Quick Reply that uses it also runs them.
-- Left out on purpose: import and export, request batching, parallel runs, time-based cooldowns, running on SillyTavern startup. Triggers come from Quick Replies through `/ntr-agent`.
-- Agents run after the AI's reply. Running before a reply only matters for a director reacting to your message; leave it until a director is wanted.
+- To explore: import and export, request batching, parallel runs.
+- Open question: whether agents should also be able to run before a reply, not only after it.
 
 ### Speech Bubbles: comic dialogue
 - [ ] Only the quoted speech in a bubble, with the narration as plain text, so long replies read like a comic or a visual novel in the normal chat. Means picking apart the message text, so it's a bigger job.

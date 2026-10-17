@@ -20,9 +20,13 @@ In Line looks too bulky next to the text.
 ### Agents: follow-ups
 - [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Show each agent's picture on the pages it tracks.
-- [ ] Set fields and values (like scores with rules) instead of free text from the instructions.
 - To explore: import and export, request batching, parallel runs.
 - Open question: whether agents should also be able to run before a reply, not only after it.
+
+### Dashboard: follow-ups
+- [ ] Group field type: a small card per character with its own fields, for when List lines aren't enough.
+- [ ] `{{agent::Name::Field}}` for one field's value.
+- Open question: whether field values should feed other parts of NTR, like Emotions or Visual Novel flags, and whether a card can come with its own fields.
 
 ### Speech Bubbles: comic dialogue
 - [ ] Only the quoted speech in a bubble, with the narration as plain text, so long replies read like a comic or a visual novel in the normal chat. Means picking apart the message text, so it's a bigger job.

@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.64.1';
+  const VERSION = '2.65.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1721,7 +1721,7 @@
             <button class="cb_close_btn" title="Close">&times;</button>
           </span>
         </div>
-        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. Use the power button on its bar in the Extensions panel to turn it back on.</div>'}
+        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. To turn it back on, open its bar on the Extensions page and press Switch on.</div>'}
         <div class="ntr_main">
         <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
         <div class="ntr_shade"></div>
@@ -1778,7 +1778,6 @@
     bindThemes(overlay, s);
     bindLayout(overlay, s);
     bindWand(overlay, s);
-    bindData(overlay);
     bindVNSection(overlay, s);
     bindReader(overlay, s);
     overlay.querySelector('#m_rx_enable').onchange = function() { s.rxEnabled = this.checked; save(); openCombinedModal(); };
@@ -4906,9 +4905,9 @@
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
   const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|rbbg|plate|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
-  // Resolves to true if the file was deleted. Never throws.
+  // Resolves to true if the file was deleted or was already gone. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
-    .then((res) => res.ok).catch(() => false);
+    .then((res) => res.ok || res.status === 404).catch(() => false);
 
   // ===== Removing NTR data =====
   // `look`: settings and themes (the whole extension settings). `chars`: the NTR data in every character card, plus the
@@ -4916,12 +4915,16 @@
   // that stays still uses them. Cards that aren't loaded yet (lazy loading) are loaded first when `chars` is set;
   // without it, their files can't be checked, so no file is deleted.
   const CHAR_SETTINGS = ['chars', 'charData', 'groupData', 'legacyBackup'];
+  // Files a removal couldn't delete. Kept in SillyTavern's account storage, which outlives NTR's settings, so the
+  // next removal tries them again.
+  const LEFTOVER = 'ntr_leftover_files';
+  const leftovers = () => { try { const v = JSON.parse(ctx().accountStorage?.getItem(LEFTOVER) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
   async function removeData(opts) {
     wiping = true;
     for (const tm of cardTimers.values()) clearTimeout(tm);
     cardTimers.clear();
     try {
-      await removeNow(opts);
+      return await removeNow(opts);
     } catch (e) {
       // Nothing was removed, so saving goes back on, and any card edit that was waiting to save gets saved.
       wiping = false;
@@ -4929,10 +4932,12 @@
       throw e;
     }
   }
+  // Resolves to how many files couldn't be deleted.
   async function removeNow({ look = false, chars = false } = {}) {
     const c = ctx();
     const s = settings();
-    const gone = new Set();
+    const gone = new Set(leftovers());
+    let left = [];
     if (chars) {
       for (let i = 0; i < c.characters.length; i++) {
         if (c.characters[i]?.shallow && typeof c.unshallowCharacter === 'function') await c.unshallowCharacter(i);
@@ -4961,9 +4966,14 @@
     if (!cs.some((ch) => ch && ch.shallow)) {
       const keep = look ? new Set() : collectFileRefs(s);
       for (const ch of cs) collectFileRefs(ch?.data?.extensions?.ntr, keep);
-      await Promise.all([...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p)).map(deleteFile));
+      const todo = [...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p));
+      const ok = await Promise.all(todo.map(deleteFile));
+      left = todo.filter((_, i) => !ok[i]);
+      if (left.length) c.accountStorage?.setItem(LEFTOVER, JSON.stringify(left));
+      else c.accountStorage?.removeItem(LEFTOVER);
     }
     c.saveSettingsDebounced(); // the page reloads next, so `wiping` stays on until then
+    return left.length;
   }
 
   async function deleteFileIfUnused(path) {
@@ -5267,10 +5277,6 @@
           </div>
           <div id="m_t_panel"></div>
           <input type="file" id="m_t_file" accept=".json,application/json" hidden>`)}
-        ${card('Data', `
-          <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Use this to remove it for good.</div>
-          <button id="m_d_rm" class="menu_button danger_button ntr_dbtn"><i class="fa-solid fa-trash"></i> Remove NTR data</button>
-          <div id="m_d_panel"></div>`)}
     `);
   }
 
@@ -5499,41 +5505,85 @@
     };
   }
 
-  function bindData(overlay) {
-    const panel = overlay.querySelector('#m_d_panel');
-    overlay.querySelector('#m_d_rm').onclick = () => {
-      panel.innerHTML = `
-        <div class="ntr_tpanel">
-          <div><strong>This can't be undone.</strong> Pick what to remove:</div>
-          <label class="checkbox_label"><input type="checkbox" id="m_d_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.</span></label>
-          <label class="checkbox_label"><input type="checkbox" id="m_d_chars"><span><strong>Uploaded files and character data</strong>: banners, foreground images, Visual Novel art, maps and opening videos, plus the NTR data saved in each character card.</span></label>
-          <div class="cb_hint">Want to keep your themes? Export them first, above.</div>
-          <div class="cb_actions">
-            <button class="menu_button danger_button" id="m_d_go"><i class="fa-solid fa-trash"></i> Remove</button>
-            <button class="menu_button" id="m_d_cancel">Cancel</button>
-          </div>
-        </div>`;
-      panel.querySelector('#m_d_cancel').onclick = () => { panel.innerHTML = ''; };
-      const go = panel.querySelector('#m_d_go');
-      go.onclick = async () => {
-        const look = panel.querySelector('#m_d_look').checked;
-        const chars = panel.querySelector('#m_d_chars').checked;
-        if (!look && !chars) { toastr.warning('Tick at least one.', 'Remove NTR data'); return; }
-        go.disabled = true;
-        go.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Removing...';
+  // ===== Remove and uninstall (in the Extensions page drawer) =====
+  const removeHtml = () => `
+    <div class="cb_hint">Choose what to remove. Nothing happens until you confirm.</div>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.<small class="ntr_rm_note">To keep a theme, export it first on the Themes page of the menu.</small></span></label>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_chars"><span><strong>Uploaded files and character data</strong>: images, videos and maps uploaded through NTR, and the NTR data saved in each character card.</span></label>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_ext"><span><strong>Uninstall NTR</strong>: removes the extension.<small class="ntr_rm_note">Anything not ticked above stays, so a reinstall picks up where you left off.</small></span></label>
+    <div class="cb_actions ntr_rm_foot"><button class="menu_button" id="ntr_rm_go" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button></div>`;
+
+  // SillyTavern's own extension tools, with this folder's name. Throws when this user can't uninstall it.
+  async function uninstallTarget() {
+    const ext = await import('/scripts/extensions.js');
+    const name = decodeURIComponent(new URL(NTR_BASE).pathname.split('/').filter(Boolean).pop());
+    const id = Object.keys(ext.extensionTypes || {}).find((k) => k.endsWith(`/${name}`));
+    if (ext.extensionTypes?.[id] === 'global' && !(await import('/scripts/user.js')).isAdmin()) {
+      throw new Error('NTR is installed for all users here, so only an admin can uninstall it.');
+    }
+    return () => ext.deleteExtension(name);
+  }
+
+  function bindRemove(root) {
+    const box = (id) => root.querySelector(`#ntr_rm_${id}`);
+    const go = box('go');
+    const picked = () => ({ look: box('look').checked, chars: box('chars').checked, ext: box('ext').checked });
+    const label = ({ look, chars, ext }) => (look || chars) && ext ? 'Remove and uninstall' : ext ? 'Uninstall' : 'Remove';
+    const sync = () => {
+      const p = picked();
+      go.disabled = !(p.look || p.chars || p.ext);
+      // A question still open was asked about the old ticks.
+      root.querySelector('.ntr_ask')?.ntrCancel?.();
+    };
+    const ticks = root.querySelectorAll('input[type=checkbox]');
+    ticks.forEach((c) => { c.onchange = sync; });
+    // Locked while a removal runs, so a second one can't start alongside it.
+    const lock = (on) => ticks.forEach((c) => { c.disabled = on; });
+    go.onclick = async () => {
+      const p = picked();
+      const what = p.look && p.chars ? 'your settings, themes, uploaded files and the NTR data in every character card'
+        : p.look ? 'your settings and themes' : p.chars ? 'your uploaded files and the NTR data in every character card' : '';
+      const text = what
+        ? `This removes ${what}${p.ext ? ', then uninstalls NTR' : ''}. This can't be undone.`
+        : 'This uninstalls NTR. Your NTR data stays, so a reinstall picks up where you left off.';
+      // The question goes under the button's row, so the row hides once it's placed.
+      const asking = askYes(go, text, label(p), { danger: true });
+      go.parentElement.style.display = 'none';
+      const yes = await asking;
+      go.parentElement.style.display = '';
+      if (!yes) return;
+      lock(true);
+      go.disabled = true;
+      go.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${p.ext ? 'Uninstalling...' : 'Removing...'}`;
+      const fail = (e, title) => {
+        console.error('[NTR remove data]', e);
+        toastr.error(e.message || 'Something went wrong.', title);
+        go.innerHTML = 'Continue <i class="fa-solid fa-arrow-right"></i>';
+        lock(false);
+        sync();
+      };
+      let uninstall;
+      try {
+        // Checked first, so data is never removed when the uninstall can't follow.
+        if (p.ext) uninstall = await uninstallTarget();
+      } catch (e) { fail(e, 'Uninstall NTR'); return; }
+      if (p.look || p.chars) {
+        let left;
         try {
-          await removeData({ look, chars });
-        } catch (e) {
-          console.error('[NTR remove data]', e);
-          toastr.error(e.message || 'Removing failed.', 'Remove NTR data');
-          go.disabled = false;
-          go.innerHTML = '<i class="fa-solid fa-trash"></i> Remove';
+          left = await removeData({ look: p.look, chars: p.chars });
+        } catch (e) { fail(e, 'Remove NTR data'); return; }
+        // Uninstalling now would leave those files with nothing to find them again.
+        if (left) {
+          toastr.warning(`${left} uploaded file${left === 1 ? '' : 's'} could not be deleted${p.ext ? ', so NTR stayed installed' : ''}. Try again from Remove and uninstall after the reload.`, 'Remove NTR data', { timeOut: 10000 });
+          setTimeout(() => location.reload(), 4000);
           return;
         }
-        toastr.success('NTR data removed. Reloading...', 'Remove NTR data');
-        // SillyTavern saves its settings about a second after a change.
-        setTimeout(() => location.reload(), 2500);
-      };
+      }
+      // SillyTavern saves its settings and reloads the page once it's done.
+      if (uninstall) { await uninstall(); return; }
+      toastr.success('NTR data removed. Reloading...', 'Remove NTR data');
+      // SillyTavern saves its settings about a second after a change.
+      setTimeout(() => location.reload(), 2500);
     };
   }
 
@@ -5966,13 +6016,15 @@
     syncReaderToggle();
   }
 
-  // ===== Extensions page bar + master power switch =====
+  // ===== Extensions page drawer + master power switch =====
   function syncExtBar() {
     const p = document.getElementById('ntr_power');
     if (!p) return;
     const on = isOn();
     p.classList.toggle('on', on);
+    p.querySelector('span').textContent = on ? 'Switch off' : 'Switch on';
     p.title = on ? 'Turn Nitwit Tavern Redesign off' : 'Turn Nitwit Tavern Redesign on';
+    document.getElementById('ntr_ext_off').hidden = on;
   }
 
   async function setMaster(on) {
@@ -6003,18 +6055,27 @@
     wrap.id = 'ntr_ext_bar';
     wrap.className = 'inline-drawer';
     wrap.innerHTML = `
-      <div class="inline-drawer-toggle inline-drawer-header ntr_ext_head" title="Open the Nitwit Tavern Redesign menu">
-        <b><span class="ntr_icon ntr_ext_icon"></span> Nitwit Tavern Redesign</b>
-        <div id="ntr_power" class="fa-solid fa-power-off" tabindex="0"></div>
+      <div class="inline-drawer-toggle inline-drawer-header">
+        <b><span class="ntr_icon ntr_ext_icon"></span> Nitwit Tavern Redesign <small id="ntr_ext_off" title="Nitwit Tavern Redesign is switched off" hidden>Off</small></b>
+        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+      </div>
+      <div class="inline-drawer-content">
+        <div class="ntr_ext_row">
+          <button id="ntr_ext_open" class="menu_button"><i class="fa-solid fa-sliders"></i> Open menu</button>
+          <button id="ntr_power" class="menu_button"><i class="fa-solid fa-power-off"></i> <span></span></button>
+        </div>
+        <div class="inline-drawer ntr_ext_fold">
+          <div class="inline-drawer-toggle inline-drawer-header">
+            <span>Remove and uninstall</span>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+          </div>
+          <div class="inline-drawer-content">${removeHtml()}</div>
+        </div>
       </div>`;
     host.appendChild(wrap);
-    wrap.querySelector('.ntr_ext_head').addEventListener('click', (e) => {
-      if (e.target.closest('#ntr_power')) return;
-      openCombinedModal();
-    });
-    const pw = wrap.querySelector('#ntr_power');
-    pw.addEventListener('click', (e) => { e.stopPropagation(); setMaster(!isOn()); });
-    pw.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMaster(!isOn()); } });
+    wrap.querySelector('#ntr_ext_open').onclick = () => openCombinedModal();
+    wrap.querySelector('#ntr_power').onclick = () => setMaster(!isOn());
+    bindRemove(wrap.querySelector('.ntr_ext_fold .inline-drawer-content'));
     syncExtBar();
   }
 
@@ -6229,8 +6290,10 @@
   });
 })();
 
-// SillyTavern's "Also clean up extension data" option when deleting the extension (the manifest's clean hook):
-// removes settings and themes, and the uploaded files no character card still uses. Character cards stay as they are.
+// SillyTavern's "Clean extension data" button and "Also clean up extension data" option when deleting the extension
+// (the manifest's clean hook): removes settings and themes, and the uploaded files no character card still uses.
+// Character cards stay as they are: SillyTavern stops waiting for a hook after 5 seconds, and going through every card
+// can take longer. Remove and uninstall in NTR's own drawer removes those too.
 export async function onClean() {
   await window.NTR?.api?.removeData({ look: true });
 }

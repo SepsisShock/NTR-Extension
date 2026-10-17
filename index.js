@@ -5535,7 +5535,10 @@
       // A question still open was asked about the old ticks.
       root.querySelector('.ntr_ask')?.ntrCancel?.();
     };
-    root.querySelectorAll('input[type=checkbox]').forEach((c) => { c.onchange = sync; });
+    const ticks = root.querySelectorAll('input[type=checkbox]');
+    ticks.forEach((c) => { c.onchange = sync; });
+    // Locked while a removal runs, so a second one can't start alongside it.
+    const lock = (on) => ticks.forEach((c) => { c.disabled = on; });
     go.onclick = async () => {
       const p = picked();
       const what = p.look && p.chars ? 'your settings, themes, uploaded files and the NTR data in every character card'
@@ -5549,12 +5552,14 @@
       const yes = await asking;
       go.parentElement.style.display = '';
       if (!yes) return;
+      lock(true);
       go.disabled = true;
       go.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${p.ext ? 'Uninstalling...' : 'Removing...'}`;
       const fail = (e, title) => {
         console.error('[NTR remove data]', e);
         toastr.error(e.message || 'Something went wrong.', title);
         go.innerHTML = 'Continue <i class="fa-solid fa-arrow-right"></i>';
+        lock(false);
         sync();
       };
       let uninstall;

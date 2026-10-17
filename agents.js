@@ -427,10 +427,15 @@
       try {
         // SillyTavern skips a full-prompt request without a word while your chat has no connection.
         if (full && c.onlineStatus === 'no_connection') throw new Error('Your chat isn\'t connected to an API.');
-        // SillyTavern builds your chat's full prompt from the whole chat and adds the instructions at the end.
+        // SillyTavern builds your chat's full prompt from the whole chat and adds the instructions at the end, so it can't
+        // stop at an older message. A run after a reply that newer messages overtook while it waited is skipped: the
+        // newer reply runs it again.
         if (full) {
           const i = aim(o);
-          if (i !== (c.chat || []).length - 1) throw new Error('With your chat\'s full prompt, it can only run on the last message.');
+          if (i !== (c.chat || []).length - 1) {
+            throw new Error(o.auto ? 'Skipped: newer messages came in first, and with your chat\'s full prompt it only runs on the newest message.'
+              : 'With your chat\'s full prompt, it can only run on the last message.');
+          }
           fullRun = a.id;
           try {
             return String(await abortable(c.generateQuietPrompt({ quietPrompt: withLast(a, i), responseLength: max }), signal) ?? '');

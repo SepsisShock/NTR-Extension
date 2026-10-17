@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.64.0';
+  const READER_VERSION = '2.64.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -345,6 +345,8 @@
     ${B} #chat .mes .swipe_left { position: fixed !important; left: ${px(g.x + g.w - g.po - 90)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
     ${pageFree ? '' : `${B} #ntr_rd_bar { align-self: center; width: min(100%, var(--sheldWidth)); box-sizing: border-box; }`}
     ${free ? '' : `${B} #form_sheld { align-self: center; width: min(100%, var(--sheldWidth)) !important; }`}
+    /* Chat Width is for Desktop: on Phone, the attached bars are as wide as the book. */
+    ${pageFree && free ? '' : `@media (width <= 1000px) { ${B} :is(${[pageFree ? '' : '#ntr_rd_bar', free ? '' : '#form_sheld'].filter(Boolean).join(', ')}) { width: 100% !important; } }`}
     `;
     if (css !== bookCss) {
       let el = document.getElementById('ntr_bk_css');

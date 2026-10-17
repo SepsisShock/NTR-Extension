@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.64.0';
+  const VERSION = '2.64.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1073,8 +1073,10 @@
         box.querySelectorAll('.cb_place_grip').forEach((h) => h.classList.toggle('cb_on', on.includes(h.dataset.g)));
       }
     }
+    // The bar says which layout a move changes: Layout parts and Pinned Blocks are kept for each, the rest for both.
     const sel = placeItems().find((it) => it.id === place.sel && placeRect(it));
-    layer.querySelector('.cb_place_name').textContent = sel ? sel.label : 'Tap an outline to pick it';
+    const lay = phoneNow() ? 'Phone' : 'Desktop';
+    layer.querySelector('.cb_place_name').textContent = sel ? `${sel.label} (${sel.lay || sel.pin ? lay : 'Both Layouts'})` : `Editing ${lay}: tap an outline to pick it`;
     layer.querySelector('#cb_place_snap').checked = !!s.placeSnap;
     layer.querySelector('.cb_place_gridset').style.display = s.placeSnap ? '' : 'none';
     const grid = layer.querySelector('.cb_place_grid');
@@ -2031,8 +2033,8 @@
   const LAY_EDGES = ['top', 'bottom', 'left', 'right'];
   const LAY_WIDE = window.matchMedia('(width > 1000px)');
   // Pinned Blocks redraw too: a block can have its own box in one layout and stay in its message in the other, which
-  // changes whether Where You're Reading watches the scrolling.
-  LAY_WIDE.addEventListener('change', () => { syncLayoutPage(document.getElementById('cb_modal_overlay')); syncPins(); });
+  // changes whether Where You're Reading watches the scrolling. An open Edit Layout names the other layout.
+  LAY_WIDE.addEventListener('change', () => { syncLayoutPage(document.getElementById('cb_modal_overlay')); syncPins(); drawPlace(); });
   // A layout setting's name: lk(false, 'ChatX') is layChatX, lk(true, 'ChatX') is layPhChatX.
   const lk = (phone, name) => (phone ? 'layPh' : 'lay') + name;
   // The layout this page uses now.
@@ -2235,49 +2237,39 @@
     if (chat.style.getPropertyValue('--ntr-send-room') !== v) chat.style.setProperty('--ntr-send-room', v);
   }
 
-  // The Layout page. Its Menu Bar, Send Bar and Back to SillyTavern's Layout change the layout picked under Layout,
-  // which starts on the one this screen uses. Edit Layout always changes the one this screen uses.
-  let layTab = null;
-  const tabPhone = () => (layTab ? layTab === 'phone' : phoneNow());
+  // The Layout page. It changes the layout this screen uses, like Edit Layout, apart from the settings marked Both Layouts
+  // and Pinned Blocks' own settings. The page follows the window across 1000px.
+  const layScope = (t) => `<span class="ntr_scope">${t}</span>`;
 
   function layoutSectionHtml(s) {
-    const ph = tabPhone();
+    const ph = phoneNow();
+    const name = `<b class="m_l_now">${ph ? 'Phone' : 'Desktop'}</b>`;
     const btn = (id, icon, label) => `<button type="button" id="${id}" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid ${icon}"></i> ${label}</button>`;
     return pageHtml('layout', `
-        <div class="cb_hint">Move and resize the chat panel, SillyTavern's menu bar, the send bar, Reader Mode's page bar and the header banner, and set the chat width, the space between messages and where the send box sits. There are two layouts: Desktop for screens wider than 1000px, and Phone for screens 1000px wide or less, like phones. Turning Layout on changes nothing until you move something.</div>
         ${card('', `
-          <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}</div>
-          <div class="cb_hint">Edit Layout hides the menu so you can drag the parts on screen. It changes the layout this screen uses: <b id="m_l_now"></b>. Drag the handles on the picked part to resize it. Tap the picked part to pick the one under it. Press Done to come back.</div>`)}
+          <div class="cb_hint" style="margin-top: 0;">Editing the ${name} layout. Desktop is wider than 1000px, Phone 1000px or less; resize the window to switch. Attached parts move with the chat panel; Free ones move on their own.</div>
+          <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}</div>`)}
         ${card('Chat Panel', `
-          <div class="m_l_over" data-lay="width">${ovRow(s, 'ovWidthOn', 'Chat Width', rangeSlider(s, 'ovWidth'))}</div>
-          <div class="cb_hint m_l_note" data-lay="width" hidden>You moved the chat panel with Edit Layout, so its size comes from there.</div>
-          ${ovRow(s, 'ovMesGapOn', 'Space Between Messages', rangeSlider(s, 'ovMesGap'))}`)}
-        ${card('Send Box', `
-          <div class="m_l_over" data-lay="send">${ovRow(s, 'ovSendPosOn', 'Position', ovPick(s, 'ovSendPos', [['joined', 'Joined'], ['separate', 'Separate']])
-            + ovWhen('ovSendPos', 'separate', ovLabel('Gap', rangeSlider(s, 'ovSendGap')))
-            + '<div class="cb_hint">Joined sits right under the chat panel, flat where they meet, like SillyTavern. Separate is its own box with a gap above it.</div>')}</div>
-          <div class="cb_hint m_l_note" data-lay="send" hidden>The send bar is Free, so it stands on its own.</div>
-          <div class="cb_hint" style="margin-bottom: 0;">Space Between Messages and Send Box apply to both Desktop and Phone. Chat Width is for Desktop only: on a phone, the chat fills the screen.</div>`)}
-        ${card('Layout', `
-          ${pills('ltab', [['desk', 'Desktop'], ['phone', 'Phone']], ph ? 'phone' : 'desk')}
-          <div class="cb_hint" style="margin-bottom: 0;">Menu Bar, Send Bar, Page Bar, Banner and Back to SillyTavern's Layout below change this one.</div>`)}
+          <div class="m_l_over" data-lay="width phone">${ovRow(s, 'ovWidthOn', `Chat Width${layScope('Desktop Only')}`, rangeSlider(s, 'ovWidth'))}</div>
+          <div class="cb_hint m_l_note" data-lay="width" hidden>Off because the chat panel was moved in Edit Layout. Reset it there to use this.</div>
+          ${ovRow(s, 'ovMesGapOn', `Space Between Messages${layScope('Both Layouts')}`, rangeSlider(s, 'ovMesGap'))}`)}
         ${card('Menu Bar', `
           ${pills('lbaredge', [['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']], s[lk(ph, 'BarEdge')])}
-          <div class="cb_hint" style="margin-bottom: 0;">The edge of the screen it sits on. Left and Right stand it on its side. Picking an edge here puts the bar back in its starting spot on that edge. In Edit Layout, slide it along its edge, drag its ends to change its length, or drag it to another edge. Settings panels open out of the bar; on a phone they fill the rest of the screen.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Picking an edge puts the bar back at its start there.</div>`)}
         ${card('Send Bar', `
           ${pills('lsend', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Send')])}
-          <div class="cb_hint" style="margin-bottom: 0;">Attached sits under the chat panel, like SillyTavern, and Send Box Position above still applies. Free goes anywhere on the screen and grows upward as you type more lines.</div>`)}
+          <div class="m_l_over" data-lay="send">${ovRow(s, 'ovSendPosOn', `Attached Style${layScope('Both Layouts')}`, ovPick(s, 'ovSendPos', [['joined', 'Joined'], ['separate', 'Separate']])
+            + ovWhen('ovSendPos', 'separate', ovLabel('Gap', rangeSlider(s, 'ovSendGap'))))}</div>
+          <div class="cb_hint m_l_note" data-lay="send" style="margin-bottom: 0;" hidden>Not used while the send bar is Free.</div>`)}
         ${card('Page Bar', `
           ${pills('lpage', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Page')])}
-          <div class="cb_hint" style="margin-bottom: 0;">Reader Mode's page bar, in Standard and Book. Attached sits between the chat and the send box. Free goes anywhere on the screen: move it and change its width with Edit Layout while Reader Mode is on.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Reader Mode's page bar. It shows in Edit Layout only while Reader Mode is on.</div>`)}
         ${card('Banner', `
           ${pills('lban', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Ban')])}
-          <div class="cb_hint" style="margin-bottom: 0;">The header banner (Overlays). Attached sits at the top of the chat panel, with Lock to top and Overlap. Free goes anywhere on the screen, at the same place for every character: move it and resize it from its edges and corners with Edit Layout while a chat with a banner is open. Free, its height comes from Edit Layout instead of Banner Height.</div>`)}
-        ${card('', `
-          ${btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout')}
-          <div class="cb_hint" style="margin-bottom: 0;">Puts the chat panel, menu bar, send bar, page bar and banner back where they start, in the layout picked above.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">The header banner from Overlays. Free keeps one place for every character.</div>`)}
+        ${card('', btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout'))}
         ${card('Pinned Blocks', `
-          <div class="cb_hint">Shows a block your regex draws in chat messages, like a tracker or status panel, in its own box on screen. Pick the block in a message, then move the box with Edit Layout. The box shows the copy from the message you're reading, or the newest one, as its Show setting says.</div>
+          <div class="cb_hint">Shows a block your regex draws, like a tracker, in its own box. Settings are shared; place and size are kept per layout.</div>
           <div id="m_pin_list"></div>
           <button type="button" id="m_pin_add" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-plus"></i> Add Pinned Block</button>
           <div class="ntr_soonrow ntr_soondim">
@@ -2292,19 +2284,18 @@
     overlay.querySelector('#m_l_enable').onchange = function() { s.layEnabled = this.checked; changed(); };
     overlay.querySelector('#m_l_edit').onclick = () => startPlacement('lay');
     bindPins(overlay, s);
-    onPills(overlay, 'ltab', (v) => { layTab = v; syncLayoutPage(overlay); });
     onPills(overlay, 'lbaredge', (v) => {
-      const ph = tabPhone();
+      const ph = phoneNow();
       Object.assign(s, { [lk(ph, 'BarEdge')]: v, [lk(ph, 'BarMoved')]: false });
       changed();
     });
-    // Free starts where the part is now, so it doesn't jump. For the other screen's layout, or a part that isn't on screen,
-    // it starts where it was last, or at its starting place. The bars keep their bottom edge, the banner its top and height.
+    // Free starts where the part is now, so it doesn't jump. A part that isn't on screen starts where it was last, or at
+    // its starting place. The bars keep their bottom edge, the banner its top and height.
     const freeFrom = (part, id) => (v) => {
-      const ph = tabPhone();
+      const ph = phoneNow();
       const el = document.getElementById(id);
       const r = el?.getBoundingClientRect();
-      if (v === 'free' && s[lk(ph, part)] !== 'free' && ph === phoneNow() && layOn(s) && r?.width) {
+      if (v === 'free' && s[lk(ph, part)] !== 'free' && layOn(s) && r?.width) {
         const W = window.innerWidth, H = window.innerHeight;
         const pct = (x, size) => Math.round(x / size * 10000) / 100;
         Object.assign(s, { [lk(ph, part + 'X')]: pct(r.left, W), [lk(ph, part + 'W')]: pct(r.width, W) });
@@ -2318,7 +2309,7 @@
     onPills(overlay, 'lpage', freeFrom('Page', 'ntr_rd_bar'));
     onPills(overlay, 'lban', freeFrom('Ban', 'cb_banner'));
     overlay.querySelector('#m_l_reset').onclick = async function() {
-      const ph = tabPhone();
+      const ph = phoneNow();
       if (!(await askYes(this, `Put the chat panel, menu bar, send bar, page bar and banner back where they start, in the ${ph ? 'Phone' : 'Desktop'} layout?`, 'Reset'))) return;
       for (const part of Object.values(LAY_PART)) for (const [k, x] of Object.entries(part.start)) s[lk(ph, k)] = x;
       changed();
@@ -2326,21 +2317,20 @@
     syncLayoutPage(overlay);
   }
 
-  // The Layout page's picks after Edit Layout or the Desktop/Phone pick changed them, and the settings the
-  // layout this screen uses takes over: Chat Width once its chat panel has been moved, Send Box Position while its send
-  // bar is Free. The menu follows the window across 1000px.
+  // The Layout page's picks after Edit Layout changed them or the window crossed 1000px, and the settings that don't
+  // apply to the layout this screen uses: Chat Width on Phone or once the chat panel has been moved, Attached Style while
+  // the send bar is Free.
   function syncLayoutPage(overlay) {
     if (!overlay) return;
     const s = settings();
-    const ph = tabPhone(), now = phoneNow();
-    for (const [name, val] of [['ltab', ph ? 'phone' : 'desk'], ['lbaredge', s[lk(ph, 'BarEdge')]], ['lsend', s[lk(ph, 'Send')]], ['lpage', s[lk(ph, 'Page')]], ['lban', s[lk(ph, 'Ban')]]]) {
+    const ph = phoneNow();
+    for (const [name, val] of [['lbaredge', s[lk(ph, 'BarEdge')]], ['lsend', s[lk(ph, 'Send')]], ['lpage', s[lk(ph, 'Page')]], ['lban', s[lk(ph, 'Ban')]]]) {
       const r = overlay.querySelector(`input[name="cbr_${name}"][value="${val}"]`);
       if (r) r.checked = true;
     }
-    const nowEl = overlay.querySelector('#m_l_now');
-    if (nowEl) nowEl.textContent = now ? 'Phone' : 'Desktop';
-    const over = { width: layOn(s) && s[lk(now, 'ChatMoved')], send: layOn(s) && s[lk(now, 'Send')] === 'free' };
-    overlay.querySelectorAll('.m_l_over').forEach((el) => el.classList.toggle('cb_dim', !!over[el.dataset.lay]));
+    overlay.querySelectorAll('.m_l_now').forEach((el) => { el.textContent = ph ? 'Phone' : 'Desktop'; });
+    const over = { phone: ph, width: !ph && layOn(s) && s.layChatMoved, send: layOn(s) && s[lk(ph, 'Send')] === 'free' };
+    overlay.querySelectorAll('.m_l_over').forEach((el) => el.classList.toggle('cb_dim', el.dataset.lay.split(' ').some((k) => over[k])));
     overlay.querySelectorAll('.m_l_note').forEach((el) => { el.hidden = !over[el.dataset.lay]; });
   }
 
@@ -2733,29 +2723,27 @@
       return row + `
           <div class="ntr_tpanel ntr_pinedit" data-pin="${p.id}">
             <label>Name <input type="text" class="text_pole m_pin_name" maxlength="60" value="${escapeHTML(p.name)}"></label>
-            <div class="cb_plab">Shows</div>
+            <div class="cb_plab">Source</div>
             ${pick(p, 'from', [['chat', 'A Block From the Chat'], ['agents', 'Agent Results']], p.from)}
             ${p.from === 'agents' ? `
             <div class="cb_plab">Agents</div>
             ${(Array.isArray(s.agents) ? s.agents : []).map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
-            <div class="cb_hint">Each picked agent's newest result saved in this chat, one under the other. An agent saves results when its Results setting is Saved in the Chat. The Agents page has to be on.</div>` : `
+            <div class="cb_hint">Needs the Agents page on and each agent's Results set to Saved in the Chat.</div>` : `
             <div class="cb_plab">Block</div>
             <button type="button" class="menu_button m_pin_pick" style="margin: 0; width: max-content;"><i class="fa-solid fa-hand-pointer"></i> Pick from chat</button>
-            <div class="cb_hint">The menu hides. Click the block in a message. Escape cancels.</div>`}
+            <div class="cb_hint">Click the block in a message. Escape cancels.</div>`}
             <div class="cb_plab">Place</div>
             ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}
-            <div class="cb_hint">Floating goes anywhere. ${p.from === 'agents' ? '' : 'It stays in its message until you drag it out with Edit Layout; Reset puts it back there. In Visual Novel Mode it shows in its box. '}Docked fills the height of its edge; on a phone it slides out from a tab. Move and resize it with Edit Layout, separately for Desktop and Phone.</div>
+            ${p.from === 'agents' ? '' : '<div class="cb_hint">Floating stays in its message until you drag it out in Edit Layout, in each layout.</div>'}
             ${p.place === 'float' ? `<div class="cb_plab">Height</div>
-            ${pick(p, 'height', [['fit', 'Fit Content'], ['fixed', 'Fixed']], p.height)}
-            <div class="cb_hint">Fit Content grows and shrinks with what it shows, up to the edge of the screen: down from a box in the top half, up from one in the bottom half. Edit Layout moves it and changes its width. Fixed keeps the height set in Edit Layout and scrolls what doesn't fit.</div>` : ''}
-            <div class="cb_plab">Show</div>
+            ${pick(p, 'height', [['fit', 'Fit Content'], ['fixed', 'Fixed']], p.height)}` : ''}
+            <div class="cb_plab">Which Message</div>
             ${p.from === 'agents' ? `${pick(p, 'show', [['reading', 'Where You\'re Reading'], ['always', 'Newest']], p.show === 'reading' ? 'reading' : 'always')}
-            <div class="cb_hint">Where You're Reading shows the results saved up to the message you're reading in the chat. Newest shows the newest ones. Both follow the page in Reader Mode and the message on screen in Visual Novel Mode.</div>` : `
+            <div class="cb_hint">Where You're Reading follows your scroll in the chat.</div>` : `
             ${pick(p, 'show', [['reading', 'Where You\'re Reading'], ['always', 'Newest'], ['newest', 'Newest Reply Only']], p.show)}
-            <div class="cb_hint">Where You're Reading shows the block from the message you're reading in the chat, or the nearest one before it that has it; at the bottom of the chat, the newest. Newest shows the block from the newest message that has it. Newest Reply Only hides the box when the latest reply doesn't have it. All three follow the page in Reader Mode and the message on screen in Visual Novel Mode.</div>`}
+            <div class="cb_hint">Where You're Reading follows your scroll in the chat. Newest Reply Only hides the box when the latest reply doesn't have the block.</div>`}
             <div class="cb_plab">Frame</div>
             ${pick(p, 'frame', [['none', 'None'], ['panel', 'Panel']], p.frame)}
-            <div class="cb_hint">${p.from === 'agents' ? 'None shows the results with no background. Panel puts them' : 'None shows only what your regex draws. Panel puts it'} on SillyTavern's panel look.</div>
             <div class="cb_plab">In Visual Novel Mode</div>
             ${pick(p, 'vn', [['show', 'Show'], ['hide', 'Hide']], p.vn)}
             ${p.from === 'agents' ? '' : `<label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" class="m_pin_hide" ${p.hide ? 'checked' : ''}><span>Hide the original in the chat</span></label>`}

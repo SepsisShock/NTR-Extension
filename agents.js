@@ -7,7 +7,7 @@
 // An agent's answer shows in its activity, and /ntr-agent gives it to Quick Replies and STscript. An agent can also save
 // its answers in the chat, and a Pinned Block set to Agent Results (index.js) shows them on screen.
 (() => {
-  const AGENTS_VERSION = '2.64.0';
+  const AGENTS_VERSION = '2.64.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;

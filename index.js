@@ -5496,12 +5496,11 @@
 
   // ===== Remove and uninstall (in the Extensions page drawer) =====
   const removeHtml = () => `
-    <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Tick what to remove for good.</div>
+    <div class="cb_hint">Your NTR data stays when you uninstall, so a reinstall picks up where you left off. Want to keep your themes? Export them first, on the Themes page of the menu. Tick what to do, then press Continue.</div>
     <label class="checkbox_label"><input type="checkbox" id="ntr_rm_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.</span></label>
     <label class="checkbox_label"><input type="checkbox" id="ntr_rm_chars"><span><strong>Uploaded files and character data</strong>: banners, foreground images, Visual Novel art, maps and opening videos, plus the NTR data saved in each character card.</span></label>
     <label class="checkbox_label"><input type="checkbox" id="ntr_rm_ext"><span><strong>Uninstall NTR</strong>: removes the extension itself.</span></label>
-    <div class="cb_hint">Want to keep your themes? Export them first, on the Themes page of the menu.</div>
-    <button class="menu_button danger_button ntr_dbtn" id="ntr_rm_go" disabled><i class="fa-solid fa-trash"></i> <span>Remove</span></button>`;
+    <div class="ntr_rm_foot"><button class="menu_button ntr_dbtn" id="ntr_rm_go" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button></div>`;
 
   // SillyTavern's own extension tools, with this folder's name. Throws when this user can't uninstall it.
   async function uninstallTarget() {
@@ -5522,7 +5521,6 @@
     const sync = () => {
       const p = picked();
       go.disabled = !(p.look || p.chars || p.ext);
-      go.querySelector('span').textContent = label(p);
     };
     root.querySelectorAll('input[type=checkbox]').forEach((c) => { c.onchange = sync; });
     go.onclick = async () => {
@@ -5534,11 +5532,11 @@
         : 'This uninstalls NTR. Your NTR data stays, so a reinstall picks up where you left off.';
       if (!(await askYes(go, text, label(p), { danger: true }))) return;
       go.disabled = true;
-      go.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>${p.ext ? 'Uninstalling...' : 'Removing...'}</span>`;
+      go.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${p.ext ? 'Uninstalling...' : 'Removing...'}`;
       const fail = (e, title) => {
         console.error('[NTR remove data]', e);
         toastr.error(e.message || 'Something went wrong.', title);
-        go.innerHTML = '<i class="fa-solid fa-trash"></i> <span></span>';
+        go.innerHTML = 'Continue <i class="fa-solid fa-arrow-right"></i>';
         sync();
       };
       let uninstall;

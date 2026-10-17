@@ -316,6 +316,9 @@
 #ntr_ext_bar .ntr_ext_fold { margin-bottom: 6px; }
 #ntr_ext_bar .ntr_ext_fold > .inline-drawer-content { padding: 4px 2px; }
 #ntr_ext_bar .ntr_ext_fold .checkbox_label { margin: 6px 0; }
+#ntr_ext_bar .ntr_rm_foot { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
+#ntr_ext_bar .ntr_rm_foot .ntr_dbtn { margin: 0; }
+#ntr_rm_go:disabled { opacity: 0.4; cursor: default; }
 
 .cb_row {
   display: flex;

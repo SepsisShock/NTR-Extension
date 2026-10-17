@@ -21,8 +21,16 @@ In Line looks too bulky next to the text.
 - [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Show each agent's picture on the pages it tracks.
 - [ ] Every N Replies as a Runs choice, so an agent like a summarizer or tracker doesn't have to run after every reply.
-- To explore: import and export, request batching, parallel runs.
+- To explore: request batching, parallel runs.
 - Open question: whether agents should also be able to run before a reply, not only after it. It matters once an agent's answer is needed for the reply to your own message, like a director, or Story Memory picking memories that fit what you just wrote.
+
+### Agents: import and export
+Share agents as files. A shared agent brings its job, never its connection.
+
+- [ ] Export, next to Duplicate and Delete: a JSON file with the agent's name, title, picture (embedded in the file), instructions, Answer type and fields, samplers, effort, how it reads the chat, Max Tokens, what it keeps, and its Send to Main AI settings. Never its connection: no connection type, source, model, links, key or instruct template. An optional Made With note names the model as a hint; off by default, never applied.
+- [ ] Import, next to Create Agent: one file holds one agent or several. Each starts as a new agent with only those settings filled in, so it runs on Same as Chat, gets a new id, and arrives switched off with Send to Main AI off. A name already in use becomes "Name (2)", "(3)" and so on. Pictures only from inside the file, about 1 MB at most, checked as real images (GIFs too) and uploaded only after you confirm. Keeps to the 30-agent limit and says how many were skipped.
+- [ ] A confirm window before adding: each agent's full instructions and field hints, with a warning on macros that change variables or read other agents, and a note when it triggers lorebooks, inserts as a chosen role, or uses Your Chat's Full Prompt. Two unticked boxes, shown only when the sharer had them on: "Run After Every Reply (On When Shared)" and "Send to Main AI (On When Shared)".
+- [ ] Share `readText` and `embedFiles` through `window.NTR` instead of copying them.
 
 ### Dashboard: follow-ups
 - [ ] Group field type: a small card per character with its own fields, for when List lines aren't enough.

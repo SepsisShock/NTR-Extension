@@ -120,12 +120,11 @@ On light theme colors, the yellow is hard to read and the lines and highlights b
 - [ ] Confirm the findings on a real phone before choosing a fix.
 - Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
 
-### Untangle Elements in `index.js`
-The switches for several Elements parts are bound inside the UI Decor and Text Formatting binders (`bindDisplay`, `bindTextFormatting`), and the Reasoning Block's CSS sits inside `textFormatCss`. Users would see no difference, so this is tidying, not a fix.
+### Split the look pages into their own files
+`index.js` holds every look page (Layout, UI Decor, Text Formatting, Avatars, Elements). Users would see no difference; this keeps the core smaller.
 
-- [ ] Give each Elements part its own bind and CSS functions, and give the rows every page shares a binder of their own.
-- [ ] Check that NTR's CSS stays the same across several setting combinations, comparing `main` with the branch.
-- Worth it? Nothing has broken from this so far. Do it when an Elements change needs these binders anyway, or if the overlap causes a bug.
+- [ ] Move Elements to `elements.js`: core shares its row builders, CSS helpers and number ranges through `window.NTR`, and loads look pages at startup before SillyTavern finishes loading.
+- [ ] Move the other look pages, one at a time, when one is worth it.
 
 ### Story Memory
 Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.

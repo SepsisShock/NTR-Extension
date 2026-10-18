@@ -123,8 +123,7 @@ On light theme colors, the yellow is hard to read and the lines and highlights b
 ### Split the look pages into their own files
 `index.js` holds every look page (Layout, UI Decor, Text Formatting, Avatars, Elements). Users would see no difference; this keeps the core smaller.
 
-- [ ] Move Elements to `elements.js`: core shares its row builders, CSS helpers and number ranges through `window.NTR`, and loads look pages at startup before SillyTavern finishes loading.
-- [ ] Move the other look pages, one at a time, when one is worth it.
+- [ ] Move the other look pages, one at a time, when one is worth it, the same way as Elements (`elements.js`).
 
 ### Story Memory
 Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.

@@ -39,3 +39,22 @@ test('agent fields are cleaned', () => {
   assert.equal(text.listShow, 'chips');
   assert.equal(text.numShow, 'bar');
 });
+
+// Departments are cleaned like agents, and the agents list is kept in the roster's order, which is the run order.
+test('departments are cleaned, and the agents list follows the roster', () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  s.agents = ['a', 'b', 'c', 'd'].map((x) => ({ id: `ag_${x}`, name: x.toUpperCase() }));
+  s.agDepts = [
+    { id: 'dp_1', name: '  ', ids: ['ag_c', 'ag_gone', 'ag_c', 7] },
+    { id: 'dp_1', name: 'Second', ids: ['ag_c', 'ag_a'] },
+    'junk',
+  ];
+  window.NTR.agents.replied('normal', null); // every agent is off, so nothing runs, but the list is put in order first
+  const [one, two] = s.agDepts;
+  assert.equal(s.agDepts.length, 2, 'entries that are not objects are dropped');
+  assert.deepEqual([one.name, two.name], ['Department', 'Second']);
+  assert.notEqual(one.id, two.id, 'a repeated id gets a new one');
+  assert.deepEqual([one.ids, two.ids], [['ag_c'], ['ag_a']], 'unknown and repeated agents are dropped, and an agent stays where it is listed first');
+  assert.deepEqual(s.agents.map((a) => a.id), ['ag_b', 'ag_d', 'ag_c', 'ag_a'], 'no department first, then each department');
+});

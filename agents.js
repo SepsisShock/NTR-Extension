@@ -8,10 +8,10 @@
 // Block set to Agent Results, index.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.68.0';
+  const AGENTS_VERSION = '2.69.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -132,6 +132,55 @@
   }
   const byId = (id) => list().find((a) => a.id === id) || null;
   const pageOn = () => A.isOn() && settings().agEnabled;
+
+  // ----- Departments -----
+  // Departments group agents in the roster: { id, name, ids: its agents, in order }, in agDepts. An agent is in one at
+  // most; the rest come first, in no department. The roster is the order agents run in, so the agents list itself is
+  // kept in the order shown (sortAgents). Saved apart from the agents, so an agent's own data stays the same.
+  const DEPT_MAX = 30;
+  const deptChecked = new WeakSet();
+  function depts() {
+    const s = settings();
+    if (!Array.isArray(s.agDepts)) s.agDepts = [];
+    if (!deptChecked.has(s.agDepts)) {
+      const have = new Set(list().map((a) => a.id));
+      const seen = new Set();
+      const used = new Set();
+      s.agDepts = s.agDepts.filter((d) => d && typeof d === 'object').slice(0, DEPT_MAX).map((d) => {
+        let id = typeof d.id === 'string' && /^[\w-]{1,40}$/.test(d.id) ? d.id : newId('dp');
+        if (used.has(id)) id = newId('dp');
+        used.add(id);
+        // An agent listed twice stays where it's listed first.
+        const ids = (Array.isArray(d.ids) ? d.ids : []).filter((x) => have.has(x) && !seen.has(x) && seen.add(x));
+        return { id, name: str(d.name, 60).trim() || 'Department', ids };
+      });
+      deptChecked.add(s.agDepts);
+    }
+    return s.agDepts;
+  }
+  const deptOf = (id) => depts().find((d) => d.ids.includes(id)) || null;
+  const deptOpen = (d) => settings().uiOpen?.[`agd_${d.id}`] !== false;
+  // The agents in no department, in order.
+  function loose() {
+    const inDept = new Set(depts().flatMap((d) => d.ids));
+    return list().filter((a) => !inDept.has(a.id));
+  }
+  // Puts the agents list in the roster's order: no department first, then each department. Agents that are gone
+  // leave their departments.
+  function sortAgents() {
+    const l = list();
+    const have = new Map(l.map((a) => [a.id, a]));
+    for (const d of depts()) d.ids = d.ids.filter((id) => have.has(id));
+    const next = [...loose(), ...depts().flatMap((d) => d.ids.map((id) => have.get(id)))];
+    if (next.some((a, i) => a !== l[i])) l.splice(0, l.length, ...next);
+  }
+  // Puts the agents in no department in this order, by id.
+  function setLoose(ids) {
+    const l = list();
+    const pos = new Map(ids.map((id, i) => [id, i]));
+    const free = l.filter((a) => pos.has(a.id)).sort((x, y) => pos.get(x.id) - pos.get(y.id));
+    l.splice(0, l.length, ...free, ...l.filter((a) => !pos.has(a.id)));
+  }
 
   // ----- Saved results -----
   // With Results set to Saved in the Chat, an answer is saved on the message that was newest when the run started, on its
@@ -551,7 +600,6 @@
   let root = null;
   const opt = (pairs, cur) => pairs.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const lab = (l, i) => `<div class="cb_hint" style="margin:6px 0 0;">${l}</div>${i}`;
-  const card = (l, i) => `${l ? `<div class="ntr_glab">${l}</div>` : ''}<div class="ntr_card">${i}</div>`;
   const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;"${title ? ` title="${esc(title)}" aria-label="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label || ''}</button>`;
   // An agent's picture is always a circle.
   const picHtml = (a, size) => {
@@ -574,26 +622,62 @@
 
   function sectionHtml(s) {
     const note = '<div class="cb_hint ntr_pnote">Agents are separate requests to a model, each doing one job you give it. Each run costs tokens on its connection. Nothing here calls a model while this page is switched off.</div>';
-    return pageHtml('agents', '<div id="m_ag_root"></div>', { sw: ['m_ag_enable', !!s.agEnabled], note });
+    // m_ag_say reads out a move to screen readers; it sits outside m_ag_root, which is drawn again after every change.
+    return pageHtml('agents', '<div id="m_ag_root"></div><div id="m_ag_say" class="ntr_sr" role="status"></div>', { sw: ['m_ag_enable', !!s.agEnabled], note });
   }
 
-  // The roster: a row per agent, its picture, name and title picking it, and its switch beside them.
-  function listHtml(s) {
-    const l = list();
-    const rows = l.map((a) => `
+  // The roster: the agents in no department, then each department with its agents. A row per agent: a grip to drag
+  // it, its picture, name and title picking it, and its switch. A department's row: a grip, its name opening and
+  // folding it, and More (Rename, Move Up, Move Down, Delete). The order is the run order (sortAgents).
+  function rowHtml(a, s) {
+    return `
       <div class="m_ag_row${a.id === s.agPick ? ' m_ag_sel' : ''}" data-id="${a.id}">
+        <i class="fa-solid fa-grip-lines ntr_grip" aria-hidden="true" title="Drag to reorder or move to a department"></i>
         <button type="button" class="m_ag_pick"${a.id === s.agPick ? ' aria-current="true"' : ''}>
           ${picHtml(a, 30)}
           <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
             <span class="m_ag_rsub">${esc(status(a))}</span></span>
         </button>
         ${onSwitch('m_ag_on', a)}
-      </div>`).join('');
+      </div>`;
+  }
+  function deptHtml(d, s) {
+    const open = deptOpen(d);
+    const n = d.ids.length;
+    // Folded, it shows the picked agent is inside it.
+    const holds = !open && d.ids.includes(s.agPick);
+    return `
+      <div class="m_ag_dept" data-dept="${d.id}">
+        <div class="m_ag_dhead${holds ? ' m_ag_sel' : ''}">
+          <i class="fa-solid fa-grip-lines ntr_grip m_ag_dgrip" aria-hidden="true" title="Drag to reorder departments"></i>
+          <button type="button" class="m_ag_dpick" aria-expanded="${open}" aria-label="${esc(d.name)}, ${n} ${n === 1 ? 'agent' : 'agents'}">
+            <span class="m_ag_dicon"><i class="fa-solid fa-fw ${open ? 'fa-building-user' : 'fa-building'}"></i></span>
+            <span class="m_ag_dname">${esc(d.name)}</span><span class="m_ag_dcount">${n}</span>
+          </button>
+          <span class="ntr_menu"><button type="button" class="menu_button m_ag_hbtn m_ag_dmore" title="More" aria-label="More for ${esc(d.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
+        </div>
+        <div class="m_ag_dbody" role="group" aria-label="${esc(d.name)}"${open ? '' : ' hidden'}>
+          ${d.ids.map(byId).filter(Boolean).map((a) => rowHtml(a, s)).join('') || '<div class="m_ag_empty">Empty. Drag an agent here.</div>'}
+        </div>
+      </div>`;
+  }
+  function listHtml(s) {
+    const l = list();
+    const dl = depts();
+    const free = loose();
+    const top = free.map((a) => rowHtml(a, s)).join('')
+      || (!l.length ? '<div class="cb_hint" style="margin:0;">No agents yet.</div>' : dl.length ? '<div class="m_ag_empty">Drag an agent here to take it out of its department.</div>' : '');
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
         ${btn('m_ag_new', 'fa-plus', 'Hire Agent')}
+        ${btn('m_ag_dnew', 'fa-building-shield', 'Create Department')}
         ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker, to edit or delete like any other agent')}
       </div>
-      ${card('Agent Roster', rows || '<div class="cb_hint" style="margin:0;">No agents yet.</div>')}`;
+      <div class="ntr_glab">Agent Roster</div>
+      <div class="ntr_card m_ag_roster">
+        <div class="m_ag_loose"${dl.length ? ' role="group" aria-label="No department"' : ''}>${top}</div>
+        ${dl.map((d) => deptHtml(d, s)).join('')}
+      </div>
+      ${l.length >= 2 ? '<div class="cb_hint" style="margin:6px 4px 0;">When several agents run for the same reply, they go one at a time, from top to bottom.</div>' : ''}`;
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, its switch,
@@ -875,9 +959,13 @@
     if (a.ccKey && !keys.some((k) => k.id === a.ccKey)) sel.value = '';
   }
 
+  // After a change that draws the page again, focus goes back to the button that made it (focusAfter, a selector).
+  let focusAfter = null;
   function render() {
-    if (!root?.isConnected) return;
+    // A drag redraws the page when it's dropped.
+    if (!root?.isConnected || dragger?.busy()) return;
     const s = settings();
+    sortAgents();
     if (s.agPick && !byId(s.agPick)) s.agPick = '';
     if (!s.agPick && list().length) s.agPick = list()[0].id;
     const a = byId(s.agPick);
@@ -885,6 +973,93 @@
     bindAll(s, a);
     renderActivity();
     if (a?.kind === 'cc') fillKeys(a);
+    if (focusAfter) root.querySelector(focusAfter)?.focus();
+    focusAfter = null;
+  }
+
+  // Read out by screen readers, after a move draws the page again.
+  function say(text) {
+    const el = document.getElementById('m_ag_say');
+    if (!el) return;
+    el.textContent = '';
+    setTimeout(() => { el.textContent = text; }, 60);
+  }
+  const deptSel = (d, part) => `.m_ag_dept[data-dept="${d.id}"] ${part}`;
+  // A department's name: required, and not one another department already has (whatever the capitals). It's cut to
+  // its length first, so the name checked is the one saved.
+  const askDeptName = (anchor, value, ok, self = null) => askText(anchor, {
+    label: 'Department name', value, ok,
+    check: (v) => {
+      const name = v.slice(0, 60).trim();
+      return !name ? { error: 'Type a name first.' }
+        : depts().some((x) => x !== self && x.name.toLowerCase() === name.toLowerCase()) ? { error: 'A department with that name already exists.' } : { value: name };
+    },
+  });
+  // The header's menu hangs under the header, which stays put while the page scrolls, so in a short menu panel the
+  // page can't be scrolled to reach the menu's end. It gets the room left below it instead, and scrolls inside.
+  function fitPop(pop) {
+    const box = root?.closest('.ntr_body');
+    if (!box) return;
+    const room = box.getBoundingClientRect().bottom - pop.getBoundingClientRect().top - 8;
+    pop.style.maxHeight = `${Math.max(96, Math.min(320, room))}px`;
+  }
+  // A new department, at the end and open. Null on Cancel or at the limit.
+  async function makeDept(anchor) {
+    if (depts().length >= DEPT_MAX) { toastr.info(`Up to ${DEPT_MAX} departments.`, 'Agents'); return null; }
+    const name = await askDeptName(anchor, `Department ${depts().length + 1}`, '<i class="fa-solid fa-building-shield"></i> Create');
+    if (!name) return null;
+    const d = { id: newId('dp'), name, ids: [] };
+    depts().push(d);
+    return d;
+  }
+
+  // ----- Dragging in the roster (dragSort in index.js) -----
+  // An agent moves within its group or into another one; a department moves among the departments.
+  let dragger = null;
+  function dragPick(grip) {
+    const dept = grip.classList.contains('m_ag_dgrip');
+    return { item: dept ? grip.closest('.m_ag_dept') : grip.closest('.m_ag_row'), kind: dept ? 'dept' : 'agent', scope: grip.closest('.m_ag_roster') };
+  }
+  function dragPlace(el, d, after) {
+    if (d.kind === 'dept') {
+      const dep = el.closest('.m_ag_dept');
+      if (dep && dep !== d.item) dep.parentElement.insertBefore(d.item, after(dep) ? dep.nextSibling : dep);
+      return null;
+    }
+    d.into = null;
+    const row = el.closest('.m_ag_row');
+    if (row && row !== d.item) { row.parentElement.insertBefore(d.item, after(row) ? row.nextSibling : row); return null; }
+    const head = el.closest('.m_ag_dhead');
+    if (head) {
+      // On an open department's header it goes first, where the gap shows. A folded one has no room for the gap, and
+      // the rows under it would slide up under the pointer, so the gap stays where it is and the lit-up header shows
+      // where it goes: last, like Move to Department, so it doesn't jump ahead in the run order.
+      const body = head.parentElement.querySelector('.m_ag_dbody');
+      if (body.hidden) d.into = head.parentElement.dataset.dept;
+      else if (body.firstElementChild !== d.item) body.insertBefore(d.item, body.firstChild);
+      return head;
+    }
+    const box = el.closest('.m_ag_loose, .m_ag_dbody');
+    if (box && !box.contains(d.item)) box.appendChild(d.item);
+    return null;
+  }
+  // The roster's new order, read from where the rows ended up. Escape (d.moved false) draws it back as it was.
+  function dragDone(d) {
+    if (d.moved) {
+      const dl = depts();
+      const order = [...d.scope.querySelectorAll('.m_ag_dept')].map((el) => el.dataset.dept);
+      dl.sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id));
+      for (const x of dl) x.ids = [...d.scope.querySelectorAll(`${deptSel(x, '.m_ag_row')}`)].map((r) => r.dataset.id);
+      setLoose([...d.scope.querySelectorAll('.m_ag_loose > .m_ag_row')].map((r) => r.dataset.id));
+      const into = d.into && dl.find((x) => x.id === d.into);
+      if (into) {
+        for (const x of dl) x.ids = x.ids.filter((id) => id !== d.item.dataset.id);
+        into.ids.push(d.item.dataset.id);
+      }
+      sortAgents();
+      save();
+    }
+    render();
   }
 
   // SillyTavern's crop box, square, on the picture at src. Returns the cropped part as a PNG file (transparency kept), or
@@ -926,7 +1101,7 @@
   }
 
   function bindAll(s, a) {
-    const changed = (redraw) => { save(); if (redraw) render(); else syncSums(a); };
+    const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else syncSums(a); };
     // A click anywhere but in a menu closes it.
     root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
@@ -959,6 +1134,67 @@
       showHead();
       toastr.info('Margi runs after every reply. To see her on screen, add a Dashboard on the Layout page.', 'Agents');
     };
+    root.querySelector('#m_ag_dnew').onclick = async function() {
+      const d = await makeDept(this);
+      if (!d) return;
+      focusAfter = deptSel(d, '.m_ag_dpick');
+      changed(true);
+    };
+
+    // Departments: the name opens and folds it, More has Rename, Move Up, Move Down and Delete. Rename and Delete ask
+    // under its row.
+    root.querySelectorAll('.m_ag_dept').forEach((el) => {
+      const d = depts().find((x) => x.id === el.dataset.dept);
+      if (!d) return;
+      const head = el.querySelector('.m_ag_dhead');
+      el.querySelector('.m_ag_dpick').onclick = () => {
+        s.uiOpen[`agd_${d.id}`] = !deptOpen(d);
+        focusAfter = deptSel(d, '.m_ag_dpick');
+        changed(true);
+      };
+      const dmore = el.querySelector('.m_ag_dmore');
+      dmore.onclick = () => {
+        const i = depts().indexOf(d);
+        const pop = popMenu(dmore, `
+          <button type="button" data-act="ren"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
+          <button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
+          <button type="button" data-act="down"${i >= depts().length - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>
+          <button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete</button>`);
+        if (!pop) return;
+        pop.onclick = async (e) => {
+          const b = e.target.closest('button[data-act]');
+          if (!b || b.disabled) return;
+          closePops(root);
+          const act = b.dataset.act;
+          if (act === 'ren') {
+            const name = await askDeptName(head, d.name, '<i class="fa-solid fa-pen"></i> Rename', d);
+            if (!name) return;
+            d.name = name;
+            focusAfter = deptSel(d, '.m_ag_dmore');
+            changed(true);
+          } else if (act === 'del') {
+            const n = d.ids.length;
+            const q = !n ? `Delete the department "${d.name}"?`
+              : `Delete the department "${d.name}"? ${n === 1 ? 'Its agent stays' : `Its ${n} agents stay`}, outside any department.`;
+            if (!(await askYes(head, q, 'Delete', { danger: true }))) return;
+            // Its agents go to the end of the ones in no department, in their order (sortAgents).
+            depts().splice(depts().indexOf(d), 1);
+            delete s.uiOpen[`agd_${d.id}`];
+            focusAfter = '#m_ag_dnew';
+            changed(true);
+          } else {
+            const dl = depts();
+            const at = dl.indexOf(d);
+            const to = at + (act === 'up' ? -1 : 1);
+            if (to < 0 || to >= dl.length) return;
+            [dl[at], dl[to]] = [dl[to], dl[at]];
+            focusAfter = deptSel(d, '.m_ag_dmore');
+            changed(true);
+            say(`Department moved ${act}.`);
+          }
+        };
+      };
+    });
     if (!a) return;
     root.querySelector('.m_ag_hon').onchange = function() {
       a.on = this.checked;
@@ -995,20 +1231,75 @@
       syncAll();
     };
 
-    // More: Duplicate and Delete. Delete asks under the header, where the menu was.
+    // More: Duplicate, Move Up and Move Down (within its group), Move to Department, and Delete. Move to Department
+    // shows the departments in the same menu; with none yet, it makes one. Delete and a new department's name ask
+    // under the header, where the menu was. Focus comes back to More after a move.
     const more = root.querySelector('#m_ag_more');
+    const ask = () => root.querySelector('.m_ag_headrow');
+    const group = () => deptOf(a.id)?.ids || loose().map((x) => x.id);
+    const moveBy = (dir) => {
+      const d = deptOf(a.id);
+      const ids = group();
+      const i = ids.indexOf(a.id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= ids.length) return;
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      if (!d) setLoose(ids);
+      focusAfter = '#m_ag_more';
+      changed(true);
+      say(`Moved ${dir < 0 ? 'up' : 'down'}. Now ${j + 1} of ${ids.length}${d ? ` in ${d.name}` : ''}.`);
+    };
+    // Into a department (at its end, opened so it shows there), or out of one (at the end of the ones in no department).
+    const moveTo = (d) => {
+      for (const x of depts()) x.ids = x.ids.filter((id) => id !== a.id);
+      if (d) { d.ids.push(a.id); s.uiOpen[`agd_${d.id}`] = true; }
+      focusAfter = '#m_ag_more';
+      changed(true);
+      say(d ? `Moved to ${d.name}.` : 'Moved out of its department.');
+    };
+    const toNew = async () => { const d = await makeDept(ask()); if (d) moveTo(d); };
     more.onclick = () => {
+      const cur = deptOf(a.id);
+      const ids = group();
+      const i = ids.indexOf(a.id);
       const pop = popMenu(more, `
         <button type="button" data-act="dup"><i class="fa-solid fa-copy fa-fw"></i>Duplicate</button>
+        <button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
+        <button type="button" data-act="down"${i >= ids.length - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>
+        <button type="button" data-act="to"><i class="fa-solid fa-share fa-fw"></i>${depts().length ? 'Move to Department…' : 'Move to New Department…'}</button>
         <button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete</button>`);
       if (!pop) return;
-      pop.querySelector('[data-act="dup"]').onclick = () => { closePops(root); dup(); };
-      pop.querySelector('[data-act="del"]').onclick = () => { closePops(root); del(); };
+      fitPop(pop);
+      pop.onclick = (e) => {
+        // Kept from the page's own click, which closes a menu when the click lands outside it: the department list
+        // takes the place of the button that was clicked.
+        e.stopPropagation();
+        const b = e.target.closest('button[data-act]');
+        if (!b || b.disabled) return;
+        const act = b.dataset.act;
+        if (act === 'to' && depts().length) {
+          pop.innerHTML = depts().map((d) => `<button type="button" data-act="dept" data-dept="${d.id}"${d === cur ? ' class="ntr_here" disabled' : ''}><i class="fa-solid fa-building fa-fw"></i>${esc(d.name)}</button>`).join('')
+            + `<button type="button" data-act="none"${cur ? '' : ' class="ntr_here" disabled'}><i class="fa-solid fa-inbox fa-fw"></i>No Department</button>`
+            + '<button type="button" data-act="new"><i class="fa-solid fa-building-shield fa-fw"></i>New Department…</button>';
+          pop.querySelector('button:not(:disabled)')?.focus();
+          return;
+        }
+        closePops(root);
+        if (act === 'dup') dup();
+        else if (act === 'del') del();
+        else if (act === 'up' || act === 'down') moveBy(act === 'up' ? -1 : 1);
+        else if (act === 'dept') moveTo(depts().find((d) => d.id === b.dataset.dept) || null);
+        else if (act === 'none') moveTo(null);
+        else toNew();
+      };
     };
+    // The copy goes right under the original, in its department.
     const dup = () => {
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
       const x = { ...structuredClone(a), id: newId('ag'), name: `${a.name} (copy)`.slice(0, 60), on: false, example: false };
       list().splice(list().indexOf(a) + 1, 0, x);
+      const d = deptOf(a.id);
+      if (d) d.ids.splice(d.ids.indexOf(a.id) + 1, 0, x.id);
       s.agPick = x.id;
       changed(true);
     };
@@ -1129,7 +1420,7 @@
     root.querySelector('#m_ag_stop').onclick = () => current?.ctrl.abort();
   }
 
-  // The Answer card's field list. Typing a name, hint or number only updates its row, like the name at the top: a
+  // The Answer part's field list. Typing a name, hint or number only updates its row, like the name at the top: a
   // redraw when the box loses focus would swallow a click on another button.
   function bindFields(a, changed) {
     const box = root.querySelector('.ntr_agfl');
@@ -1216,6 +1507,7 @@
     root = overlay.querySelector('#m_ag_root');
     // Switching the page off also stops a run in progress; runs still waiting are skipped.
     overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); if (!this.checked) current?.ctrl.abort(); };
+    dragger = dragSort(root, { pick: dragPick, place: dragPlace, done: dragDone });
     render();
   }
 
@@ -1435,6 +1727,7 @@
     replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
+      sortAgents();
       for (const a of list()) if (a.on && a.runs === 'reply' && (a.job.trim() || usesFields(a))) enqueue(a.id, false, true, at);
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.

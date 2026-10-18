@@ -14,7 +14,6 @@ In Line looks too bulky next to the text.
 ### Agents: follow-ups
 The Agents page is still taking shape: its layout and how agents work may change as we find the best way to do them.
 
-- [ ] Options for being able to drag agent order or alphabetical.
 - [ ] Show each agent's picture on the pages it tracks.
 - [ ] Every N Replies as a Runs choice, so an agent like a summarizer or tracker doesn't have to run after every reply.
 - To explore: request batching, parallel runs.

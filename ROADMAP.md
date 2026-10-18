@@ -121,10 +121,14 @@ On light theme colors, the yellow is hard to read and the lines and highlights b
 - Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
 
 ### Split the look pages into their own files
-`index.js` holds every look page (Layout, UI Decor, Text Formatting, Avatars, Elements). Users would see no difference; this keeps the core smaller.
+`index.js` holds the other look pages (Layout, UI Decor, Text Formatting, Avatars). Users would see no difference; this keeps the core smaller.
 
-- [ ] Move Elements to `elements.js`: core shares its row builders, CSS helpers and number ranges through `window.NTR`, and loads look pages at startup before SillyTavern finishes loading.
-- [ ] Move the other look pages, one at a time, when one is worth it.
+- [ ] Move the other look pages, one at a time, when one is worth it, the same way as Elements (`elements.js`).
+
+### First menu open: modules redraw the menu
+The first time the menu opens, it loads Agents, Emotions, Overlays and Regexes (`agents.js`, `cast.js`, `overlays.js`, `regex.js`), then redraws the whole menu as each one arrives. Anything being answered in that moment, like a new theme's name, closes. It's usually under a second, so it's rare.
+
+- [ ] Fill in just that page or part when its module arrives, instead of redrawing the menu, the way a late Elements changes only its note.
 
 ### Story Memory
 Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.

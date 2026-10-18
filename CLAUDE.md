@@ -20,6 +20,7 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 - Preserve existing settings keys so my saved config keeps working.
 - `index.js` is the core; the other modules use its helpers through `window.NTR`. Reuse them; don't copy them.
 - All uploads go through `uploadImage` or `uploadVideo`.
+- Give each new Elements part its own bind and CSS functions, like `bindMessageDetails` and `messageDetailsCss`. Rows built with `ovRow`, `rangeSlider`, `ovColor`, `ovText`, `ovFont`, `ovPick` and `ovWhen` are bound on every page by `bindDisplay` and `bindTextFormatting`, which run after the other page binders; to add behavior to them, listen on the part, like `syncFade`.
 - Number settings in `index.js`: put the range in `NUM_RANGE` as `[min, max, step, unit]`, adding `sliderMin, sliderMax` only when the slider is narrower than the saved limit. Read settings with `rangeNum` and numbers from card data with `cardNum`. Build sliders with `rangeSlider`, or `rangeAttrs` for sliders written out by hand. Don't write the numbers into the menu, `cleanStore` or the code that applies them. `vn.js` and `opening.js` keep their own slider numbers until `NUM_RANGE` is shared through `window.NTR` (see `ROADMAP.md`).
 - Global settings live in `extensionSettings.chatvisuals`; per-character data lives in the card under `extensions.ntr`.
 - Card data comes from other people and stays untrusted. Any new field read from a card must be cleaned in `cleanStore` like the existing ones (ranges, length limits, safe links).

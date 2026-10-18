@@ -1577,7 +1577,9 @@
       aim();
       raf = requestAnimationFrame(scroll);
     };
+    // Only the finger (or mouse) that started the drag moves or drops it, so a second finger can't.
     const onMove = (e) => {
+      if (e.pointerId !== drag.pointer) return;
       drag.moved = true;
       drag.x = e.clientX;
       drag.y = e.clientY;
@@ -1600,7 +1602,7 @@
       d.moved = keep && d.moved;
       done(d);
     };
-    const onUp = () => end(true);
+    const onUp = (e) => { if (e.pointerId === drag.pointer) end(true); };
     const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } };
     page.addEventListener('pointerdown', (e) => {
       const grip = e.target.closest('.ntr_grip');
@@ -1609,7 +1611,7 @@
       if (!p) return;
       e.preventDefault();
       closePops(page);
-      drag = { ...p, scope: p.scope || page, moved: false, ghost: null, x: e.clientX, y: e.clientY };
+      drag = { ...p, scope: p.scope || page, moved: false, ghost: null, x: e.clientX, y: e.clientY, pointer: e.pointerId };
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
       document.addEventListener('pointercancel', onUp);

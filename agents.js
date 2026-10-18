@@ -985,12 +985,24 @@
     setTimeout(() => { el.textContent = text; }, 60);
   }
   const deptSel = (d, part) => `.m_ag_dept[data-dept="${d.id}"] ${part}`;
-  // A department's name: required, and not one another department already has (whatever the capitals).
+  // A department's name: required, and not one another department already has (whatever the capitals). It's cut to
+  // its length first, so the name checked is the one saved.
   const askDeptName = (anchor, value, ok, self = null) => askText(anchor, {
     label: 'Department name', value, ok,
-    check: (v) => (!v ? { error: 'Type a name first.' }
-      : depts().some((x) => x !== self && x.name.toLowerCase() === v.toLowerCase()) ? { error: 'A department with that name already exists.' } : { value: v.slice(0, 60) }),
+    check: (v) => {
+      const name = v.slice(0, 60).trim();
+      return !name ? { error: 'Type a name first.' }
+        : depts().some((x) => x !== self && x.name.toLowerCase() === name.toLowerCase()) ? { error: 'A department with that name already exists.' } : { value: name };
+    },
   });
+  // The header's menu hangs under the header, which stays put while the page scrolls, so in a short menu panel the
+  // page can't be scrolled to reach the menu's end. It gets the room left below it instead, and scrolls inside.
+  function fitPop(pop) {
+    const box = root?.closest('.ntr_body');
+    if (!box) return;
+    const room = box.getBoundingClientRect().bottom - pop.getBoundingClientRect().top - 8;
+    pop.style.maxHeight = `${Math.max(96, Math.min(320, room))}px`;
+  }
   // A new department, at the end and open. Null on Cancel or at the limit.
   async function makeDept(anchor) {
     if (depts().length >= DEPT_MAX) { toastr.info(`Up to ${DEPT_MAX} departments.`, 'Agents'); return null; }
@@ -1257,6 +1269,7 @@
         <button type="button" data-act="to"><i class="fa-solid fa-share fa-fw"></i>${depts().length ? 'Move to Department…' : 'Move to New Department…'}</button>
         <button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete</button>`);
       if (!pop) return;
+      fitPop(pop);
       pop.onclick = (e) => {
         // Kept from the page's own click, which closes a menu when the click lands outside it: the department list
         // takes the place of the button that was clicked.

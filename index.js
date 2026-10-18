@@ -3221,13 +3221,18 @@
   // size and fades like its icons when the panel is closed. Tint uses the picture as a mask in the icon's color. A
   // picture shows only once it has loaded, so a broken link keeps SillyTavern's icon. While SillyTavern shows its
   // no-connection warning on the connection icon, the warning shows instead of the picture.
+  // A mask only works on a picture its site allows other sites to use (CORS), so each picture is loaded that way first:
+  // 'mask' if it loads, 'plain' if it loads only the ordinary way (Tint then shows it in Full Color), false if it
+  // doesn't load, null while loading.
   const mbLoaded = new Map();
   const mbWait = new Map();
+  const loadCors = (u) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
   function mbReady(src) {
     if (mbLoaded.has(src)) return mbLoaded.get(src);
     if (mbLoaded.size > 60) { mbLoaded.clear(); mbWait.clear(); }
     mbLoaded.set(src, null);
-    mbWait.set(src, loadImg(src).then(() => true, () => false).then((ok) => { mbLoaded.set(src, ok); updateAvatarStyle(); return ok; }));
+    const p = loadCors(src).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
+    mbWait.set(src, p.then((st) => { mbLoaded.set(src, st); updateAvatarStyle(); return st; }));
     return null;
   }
   function menuBarIconCss(s) {
@@ -3236,10 +3241,11 @@
     for (const [id, e] of Object.entries(s.mbIcons || {})) {
       const u = cUrl(e?.img);
       // MB_ID keeps the id a plain CSS name, so it needs no escaping in the selector.
-      if (!MB_ID.test(id) || !u || mbReady(u) !== true) continue;
+      const st = MB_ID.test(id) && u ? mbReady(u) : false;
+      if (!st) continue;
       const pic = `url("${u}") center / contain no-repeat`;
       css += `\n      #top-settings-holder > #${id} > :not(.drawer-content) .drawer-icon:not(.redOverlayGlow, .fa-plug-circle-exclamation)::before { content: '' !important; display: inline-block; width: 1em; height: 1em; vertical-align: middle; `
-        + (e.mode === 'full' ? `background: ${pic};` : `background-color: currentColor; -webkit-mask: ${pic}; mask: ${pic};`) + ' }';
+        + (e.mode === 'full' || st !== 'mask' ? `background: ${pic};` : `background-color: currentColor; -webkit-mask: ${pic}; mask: ${pic};`) + ' }';
     }
     return css ? css + '\n' : '';
   }
@@ -4523,22 +4529,25 @@
     `);
   }
 
-  // Whether a picture has see-through parts, so Tint suits it. It's checked small. A picture that can't be read counts as see-through.
+  // Whether Tint suits a picture: it has see-through parts, checked small. A picture its site doesn't let other sites
+  // read can't be tinted either (see mbReady), so it counts as not suiting Tint.
   async function hasClear(src) {
     try {
       const c = document.createElement('canvas');
       c.width = c.height = 32;
       const g = c.getContext('2d');
-      g.drawImage(await loadImg(src), 0, 0, 32, 32);
+      g.drawImage(await loadCors(src), 0, 0, 32, 32);
       const d = g.getImageData(0, 0, 32, 32).data;
       for (let k = 3; k < d.length; k += 4) if (d[k] < 250) return true;
       return false;
-    } catch (e) { return true; }
+    } catch (e) { return false; }
   }
 
   function bindMenuBarIcons(overlay, s) {
     const file = overlay.querySelector('#m_mb_file');
     let pending = -1;
+    // Pictures this menu already waits on, so each one redraws the rows once when it's done.
+    const waiting = new Set();
     const slot = (i) => overlay.querySelector(`.cb_cur_slot[data-mb="${i}"]`);
     const render = () => {
       if (!overlay.isConnected) return;
@@ -4546,10 +4555,11 @@
         const el = slot(i);
         const e = s.mbIcons[r.id];
         const ok = e ? mbReady(e.img) : null;
-        if (e && ok === null) mbWait.get(e.img)?.then(render);
+        if (e && ok === null && !waiting.has(e.img)) { waiting.add(e.img); mbWait.get(e.img)?.then(render); }
         el.querySelector('.m_mb_note').textContent = !r.id ? 'This icon can\'t take a picture.'
           : r.gone ? 'Not on the menu bar right now. Kept in case it comes back.'
           : ok === false ? 'Didn\'t load. SillyTavern\'s icon shows instead.'
+          : ok === 'plain' && e.mode === 'tint' ? 'Its site doesn\'t allow Tint, so it shows in Full Color. Upload the picture to tint it.'
           : e && r.api ? 'While not connected, SillyTavern\'s warning shows instead.' : '';
         const clr = el.querySelector('.m_mb_clr');
         if (clr) clr.disabled = !e;
@@ -4573,22 +4583,21 @@
       b.onclick = async () => {
         const i = Number(b.dataset.mb);
         const url = await askImageUrl(`${mbRows[i].name} icon`, b, false);
-        // Pictures from another site often can't be checked for see-through parts, so the link decides.
-        if (url) set(i, url, /\.jpe?g(?:[?#]|$)/i.test(url) ? 'full' : 'tint');
+        if (url) set(i, url, await hasClear(url) ? 'tint' : 'full');
       };
     });
     overlay.querySelectorAll('.m_mb_clr').forEach((b) => { b.onclick = () => set(Number(b.dataset.mb), ''); });
     mbRows.forEach((r, i) => onPills(slot(i), 'mbmode' + i, (v) => {
       if (!s.mbIcons[r.id]) return;
       s.mbIcons[r.id].mode = v;
-      save(); updateAvatarStyle();
+      save(); updateAvatarStyle(); render();
     }));
     file.onchange = async () => {
       const f = file.files[0];
       if (!f || pending < 0) return;
       try {
         const url = await uploadImage(f, 'baricon', { max: 128 });
-        set(pending, url, f.type !== 'image/jpeg' && await hasClear(url) ? 'tint' : 'full');
+        set(pending, url, await hasClear(url) ? 'tint' : 'full');
       } catch (e) {
         console.error('[NTR menu bar icon upload]', e);
         toastr.error(e.message || 'Upload failed', 'Menu Bar Icons');

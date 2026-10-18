@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.68.0';
+  const VERSION = '2.69.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -68,9 +68,9 @@
     rdStyle: 'plain', rdBook: 'brown', rdBookImg: '', rdBookW: 90, rdBookTop: 13, rdBookBottom: 15, rdBookOuter: 11, rdBookSpine: 11,
     rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '', rdFlip: true,
 
-    // Agents page (agents.js): your agents (each with its own job, connection, samplers and limits; see clean in agents.js)
-    // and the one picked in the menu. Not in themes.
-    agEnabled: false, agents: [], agPick: '',
+    // Agents page (agents.js): your agents (each with its own job, connection, samplers and limits; see clean in agents.js),
+    // the one picked in the menu, and the departments grouping them (see depts in agents.js). Not in themes.
+    agEnabled: false, agents: [], agPick: '', agDepts: [],
 
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
@@ -1524,6 +1524,98 @@
   }
   function closePops(scope = document) {
     scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
+  }
+
+  // Dragging by a grip (.ntr_grip), with a mouse or a finger, on the Regexes and Agents pages. A copy of what's dragged
+  // follows the pointer and its own place in the list becomes the gap that shows where it lands. Near the top or bottom
+  // of the menu the page scrolls, even while the pointer stays still. Escape puts it back.
+  //   pick(grip): what the grip drags, as { item, kind, scope } (scope: the box it stays in), or null.
+  //   place(el, drag, after): moves drag.item to where the pointer is, over el; after(box) says if the pointer is in the
+  //     lower half of box. Returns a header to light up as where it goes, if any.
+  //   done(drag): the drag is over; drag.moved is false for a click or Escape.
+  // Gives back { busy() }, true while dragging, so a page doesn't redraw under it.
+  function dragSort(page, { pick, place, done }) {
+    let drag = null;
+    let raf = 0;
+    const unlit = () => page.querySelectorAll('.ntr_drop').forEach((el) => el.classList.remove('ntr_drop'));
+    const follow = () => {
+      if (!drag.ghost) {
+        const r = drag.item.getBoundingClientRect();
+        const g = drag.item.cloneNode(true);
+        g.classList.add('ntr_ghost');
+        g.setAttribute('aria-hidden', 'true');
+        for (const el of [g, ...g.querySelectorAll('[id], [data-id]')]) [...el.attributes].forEach((x) => { if (x.name === 'id' || x.name.startsWith('data-')) el.removeAttribute(x.name); });
+        g.style.width = `${r.width}px`;
+        g.style.left = '0px';
+        g.style.top = '0px';
+        page.appendChild(g);
+        // A transformed menu moves "fixed" boxes with it, so measure where 0, 0 landed and allow for it.
+        const o = g.getBoundingClientRect();
+        drag.ghost = g;
+        drag.at = { x: r.left - o.left, dy: drag.y - r.top, oy: o.top };
+        drag.item.classList.add('ntr_dragging');
+      }
+      drag.ghost.style.left = `${drag.at.x}px`;
+      drag.ghost.style.top = `${drag.y - drag.at.dy - drag.at.oy}px`;
+    };
+    const aim = () => {
+      unlit();
+      const el = document.elementFromPoint(drag.x, drag.y);
+      if (!el || !drag.scope.contains(el)) return;
+      const after = (box) => { const r = box.getBoundingClientRect(); return drag.y > r.top + r.height / 2; };
+      place(el, drag, after)?.classList.add('ntr_drop');
+    };
+    const scroll = () => {
+      raf = 0;
+      const body = drag && page.closest('.ntr_body');
+      if (!body) return;
+      const r = body.getBoundingClientRect();
+      const step = drag.y < r.top + 40 ? -12 : drag.y > r.bottom - 40 ? 12 : 0;
+      const was = body.scrollTop;
+      if (step) body.scrollTop += step;
+      if (body.scrollTop === was) return;
+      aim();
+      raf = requestAnimationFrame(scroll);
+    };
+    const onMove = (e) => {
+      drag.moved = true;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      follow();
+      aim();
+      if (!raf) raf = requestAnimationFrame(scroll);
+    };
+    const end = (keep) => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      document.removeEventListener('keydown', onKey, true);
+      cancelAnimationFrame(raf);
+      raf = 0;
+      const d = drag;
+      drag = null;
+      d.ghost?.remove();
+      d.item.classList.remove('ntr_dragging');
+      unlit();
+      d.moved = keep && d.moved;
+      done(d);
+    };
+    const onUp = () => end(true);
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } };
+    page.addEventListener('pointerdown', (e) => {
+      const grip = e.target.closest('.ntr_grip');
+      if (drag || !grip || e.button !== 0) return;
+      const p = pick(grip);
+      if (!p) return;
+      e.preventDefault();
+      closePops(page);
+      drag = { ...p, scope: p.scope || page, moved: false, ghost: null, x: e.clientX, y: e.clientY };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+      document.addEventListener('keydown', onKey, true);
+    });
+    return { busy: () => !!drag };
   }
 
   // Resolves to true for the main button, false for Cancel.
@@ -6358,7 +6450,7 @@
     // Edit Placement
     peek, bannerSrc, startChar, ROT_KEYS, BANNER_LOOK_KEYS, fgData, FG_POS, fgTransform, cardNum, cNum, card, pagePart,
     startPlacement: (first) => startPlacement(first), drawPlace: () => drawPlace(),
-    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, popMenu, closePops, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
+    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, popMenu, closePops, dragSort, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

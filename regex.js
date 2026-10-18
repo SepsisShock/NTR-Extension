@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.68.0';
+  const REGEX_VERSION = '2.69.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -240,15 +240,7 @@ try {
     #cb_modal_overlay .rx_row:last-child { border-bottom: 0; }
     #cb_modal_overlay .rx_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_dim .rx_name { opacity: .45; text-decoration: line-through; }
-    #cb_modal_overlay .rx_grip { flex: none; padding: 4px 2px; cursor: grab; opacity: .4; touch-action: none; }
-    #cb_modal_overlay .rx_dragging { border-radius: 8px; outline: 2px dashed var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px;
-      background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 15%, transparent); }
-    #cb_modal_overlay .rx_dragging > * { visibility: hidden; }
-    #cb_modal_overlay .rx_ghost { position: fixed; z-index: 10000; box-sizing: border-box; margin: 0; padding-inline: 8px; border-radius: 8px;
-      background: var(--SmartThemeBlurTintColor, #222); box-shadow: 0 8px 24px rgba(0,0,0,.55); opacity: .9; pointer-events: none; }
-    #cb_modal_overlay .rx_drop { outline: 2px dashed var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px;
-      background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 15%, transparent); }
-    #cb_modal_overlay .rx_dragging + .rx_empty { display: none; }
+    #cb_modal_overlay .ntr_dragging + .rx_empty { display: none; }
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
     #cb_modal_overlay input.rx_sw[type=checkbox] {
       appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0 4px 0 0;
@@ -275,7 +267,7 @@ try {
   function rowHtml(x) {
     const on = !x.disabled;
     return `<div class="rx_row${on ? '' : ' rx_dim'}" data-id="${esc(x.id)}">
-      ${query ? '' : '<i class="fa-solid fa-grip-lines rx_grip" title="Drag to reorder or move to a folder"></i>'}
+      ${query ? '' : '<i class="fa-solid fa-grip-lines ntr_grip" title="Drag to reorder or move to a folder"></i>'}
       <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
       ${sw('rx_rsw', on, 'Turn on or off')}
       <span class="ntr_menu">${btn('mvmenu', 'fa-share', 'Move to folder')}</span>
@@ -295,7 +287,7 @@ try {
       const open = query ? true : !!s.uiOpen[openKey(f)];
       return `<div class="rx_folder${open ? ' rx_open' : ''}" data-fid="${esc(f.id)}">
         <div class="ntr_fold rx_fhead" tabindex="0" role="button" aria-expanded="${open}">
-          ${query ? '' : '<i class="fa-solid fa-grip-lines rx_grip rx_fgrip" title="Drag to reorder folders"></i>'}
+          ${query ? '' : '<i class="fa-solid fa-grip-lines ntr_grip rx_fgrip" title="Drag to reorder folders"></i>'}
           <i class="fa-solid fa-fw ${open ? 'fa-folder-open' : 'fa-folder'} rx_ficon"></i>
           <span class="rx_fname">${esc(f.name)} <span class="rx_count">${items.length}</span></span>
           ${sw('rx_fsw', items.some((x) => !x.disabled), 'Turn the whole folder on or off', items.length ? '' : ' disabled')}
@@ -352,9 +344,10 @@ try {
 
   let page = null;
   let watcher = null;
+  // Dragging regexes and folders (dragSort in index.js); a redraw waits until a drag is over.
   let drag = null;
   function refresh() {
-    if (!page?.isConnected || drag) return;
+    if (!page?.isConnected || drag?.busy()) return;
     const list = page.querySelector('.rx_list');
     if (list) list.innerHTML = listHtml();
   }
@@ -415,7 +408,7 @@ try {
     const f = fEl && sec ? folders(sec).find((x) => x.id === fEl.dataset.fid) : null;
     const id = e.target.closest('.rx_row')?.dataset.id;
     if (!b) {
-      if (f && !query && e.target.closest('.rx_fhead') && !e.target.closest('input, .rx_grip')) {
+      if (f && !query && e.target.closest('.rx_fhead') && !e.target.closest('input, .ntr_grip')) {
         const s = settings();
         s.uiOpen[openKey(f)] = !s.uiOpen[openKey(f)];
         save();
@@ -512,97 +505,49 @@ try {
     }
   }
 
-  // ===== Dragging: by the grip, with a mouse or a finger =====
-  function onDown(e) {
-    const grip = e.target.closest('.rx_grip');
-    if (!grip || e.button !== 0 || query) return;
-    e.preventDefault();
-    closePops();
-    const item = grip.classList.contains('rx_fgrip') ? grip.closest('.rx_folder') : grip.closest('.rx_row');
-    drag = { secEl: grip.closest('.rx_sec'), item, folder: grip.classList.contains('rx_fgrip'), moved: false, ghost: null };
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
-    document.addEventListener('pointercancel', onUp);
+  // ===== Dragging: by the grip, with a mouse or a finger (dragSort in index.js) =====
+  // A regex moves within its section, into a folder or out of one; a folder moves among the section's folders.
+  function dragPick(grip) {
+    if (query) return null;
+    const folder = grip.classList.contains('rx_fgrip');
+    return { item: folder ? grip.closest('.rx_folder') : grip.closest('.rx_row'), kind: folder ? 'folder' : 'regex', scope: grip.closest('.rx_sec') };
   }
 
-  // A copy of the dragged regex or folder follows the pointer up and down; its own place in the list becomes a
-  // highlighted gap that shows where it will land.
-  function follow(e) {
-    if (!drag.ghost) {
-      const r = drag.item.getBoundingClientRect();
-      const g = drag.item.cloneNode(true);
-      g.classList.add('rx_ghost');
-      g.removeAttribute('data-id');
-      g.removeAttribute('data-fid');
-      g.style.width = `${r.width}px`;
-      g.style.left = '0px';
-      g.style.top = '0px';
-      page.appendChild(g);
-      // A transformed menu moves "fixed" boxes with it, so measure where 0, 0 landed and allow for it.
-      const o = g.getBoundingClientRect();
-      drag.ghost = g;
-      drag.at = { x: r.left - o.left, dy: e.clientY - r.top, oy: o.top };
-      drag.item.classList.add('rx_dragging');
-    }
-    drag.ghost.style.left = `${drag.at.x}px`;
-    drag.ghost.style.top = `${e.clientY - drag.at.dy - drag.at.oy}px`;
-  }
-
-  function onMove(e) {
-    if (!drag) return;
-    drag.moved = true;
-    follow(e);
-    const body = page.closest('.ntr_body');
-    if (body) {
-      const r = body.getBoundingClientRect();
-      if (e.clientY < r.top + 40) body.scrollTop -= 12;
-      else if (e.clientY > r.bottom - 40) body.scrollTop += 12;
-    }
-    page.querySelectorAll('.rx_drop').forEach((el) => el.classList.remove('rx_drop'));
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    if (!el || !drag.secEl.contains(el)) return;
-    const after = (box) => { const r = box.getBoundingClientRect(); return e.clientY > r.top + r.height / 2; };
-    if (drag.folder) {
+  function dragPlace(el, d, after) {
+    if (d.kind === 'folder') {
       const fol = el.closest('.rx_folder');
-      if (fol && fol !== drag.item) fol.parentElement.insertBefore(drag.item, after(fol) ? fol.nextSibling : fol);
-      return;
+      if (fol && fol !== d.item) fol.parentElement.insertBefore(d.item, after(fol) ? fol.nextSibling : fol);
+      return null;
     }
     const row = el.closest('.rx_row');
-    if (row && row !== drag.item) { row.parentElement.insertBefore(drag.item, after(row) ? row.nextSibling : row); return; }
+    if (row && row !== d.item) { row.parentElement.insertBefore(d.item, after(row) ? row.nextSibling : row); return null; }
     const head = el.closest('.rx_fhead, .rx_uhead');
     if (head) {
       // Dropped on a header, it goes first in that folder, so the gap shows right under the pointer. A closed folder
       // hides the gap, so its lit-up header shows where it goes.
       const fb = head.parentElement.querySelector('.rx_fbody, .rx_loose');
-      if (fb.firstElementChild !== drag.item) fb.insertBefore(drag.item, fb.firstChild);
-      head.classList.add('rx_drop');
-      return;
+      if (fb.firstElementChild !== d.item) fb.insertBefore(d.item, fb.firstChild);
+      return head;
     }
     const box = el.closest('.rx_fbody, .rx_loose');
-    if (box && !box.contains(drag.item)) box.appendChild(drag.item);
+    if (box && !box.contains(d.item)) box.appendChild(d.item);
+    return null;
   }
 
-  function onUp() {
-    if (!drag) return;
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    document.removeEventListener('pointercancel', onUp);
-    const d = drag;
-    drag = null;
-    d.ghost?.remove();
+  function dragDone(d) {
     if (!d.moved) { refresh(); return; }
-    const sec = secOf(d.secEl.dataset.sec);
+    const sec = secOf(d.scope.dataset.sec);
     const fl = folders(sec, true);
-    const fids = [...d.secEl.querySelectorAll('.rx_folder')].map((el) => el.dataset.fid);
+    const fids = [...d.scope.querySelectorAll('.rx_folder')].map((el) => el.dataset.fid);
     fl.sort((a, b) => fids.indexOf(a.id) - fids.indexOf(b.id));
     const ids = [];
     for (const f of fl) {
-      const fb = [...d.secEl.querySelectorAll('.rx_folder')].find((el) => el.dataset.fid === f.id)?.querySelector('.rx_fbody');
+      const fb = [...d.scope.querySelectorAll('.rx_folder')].find((el) => el.dataset.fid === f.id)?.querySelector('.rx_fbody');
       if (fb) f.ids = [...fb.querySelectorAll('.rx_row')].map((r) => r.dataset.id);
       if (f.was) f.was = f.was.filter((id) => f.ids.includes(id));
       ids.push(...f.ids);
     }
-    ids.push(...[...d.secEl.querySelectorAll('.rx_loose .rx_row')].map((r) => r.dataset.id));
+    ids.push(...[...d.scope.querySelectorAll('.rx_loose .rx_row')].map((r) => r.dataset.id));
     save();
     const now = scripts(sec).map((x) => x.id);
     if (ids.length === now.length && ids.join('\n') !== now.join('\n')) reorder(sec, ids);
@@ -628,7 +573,7 @@ try {
     claimNew();
     page.addEventListener('click', onClick);
     page.addEventListener('change', onChange);
-    page.addEventListener('pointerdown', onDown);
+    drag = A.dragSort(page, { pick: dragPick, place: dragPlace, done: dragDone });
     page.addEventListener('input', (e) => {
       if (!e.target.classList.contains('rx_search')) return;
       query = e.target.value.trim().toLowerCase();

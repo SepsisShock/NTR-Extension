@@ -4938,7 +4938,8 @@ await (async () => {
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
-    if (retry && modError[name]) modPromise[name] = null;
+    // A retry counts as loading again, so the menu marks its part to fill in and every draw shares this one load.
+    if (retry && modError[name]) { modPromise[name] = null; modError[name] = ''; }
     if (!modPromise[name]) {
       const label = MOD_LABEL[name] || name;
       modPromise[name] = import(`${NTR_BASE}${name}.js?v=${VERSION}`)

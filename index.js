@@ -4988,14 +4988,19 @@ await (async () => {
   }
   // Waits for elements.js, at most 5 seconds. SillyTavern waits for this file behind its loading screen, this wait
   // included, so Elements' styles are there from the first draw. If it takes longer, NTR starts without it and
-  // restyles when it arrives.
+  // restyles when it arrives. An open menu only gets its Elements note changed: redrawing it would close a question
+  // being answered, like a theme's name, and bring the menu back over Edit Layout.
   async function loadElements() {
     const load = loadModule('elements');
     let timer;
     const inTime = await Promise.race([load.then(() => true), new Promise((res) => { timer = setTimeout(res, 5000, false); })]);
     clearTimeout(timer);
-    // The open menu is redrawn either way, so the Elements page doesn't keep saying it's loading.
-    if (!inTime) load.then((m) => { if (m) updateAvatarStyle(); if (document.getElementById('cb_modal_overlay')) openCombinedModal(); });
+    if (inTime) return;
+    load.then((m) => {
+      if (m) updateAvatarStyle();
+      const note = document.querySelector('#cb_modal_overlay .ntr_page[data-page="elements"] .ntr_pnote');
+      if (note) note.textContent = m ? 'Elements is ready. Close and open the menu to use it.' : 'Elements failed to load: ' + modError.elements;
+    });
   }
 
   // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).

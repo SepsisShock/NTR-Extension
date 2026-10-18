@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.69.2';
+  const VN_VERSION = '2.69.3';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -426,7 +426,8 @@
   function loadSub(name, retry = false) {
     if (!A.loadModule) return Promise.resolve(null);
     return A.loadModule(name, retry).then((m) => {
-      if (m && document.querySelector(`#cb_modal_overlay [data-ntr-wait="${name}"]`)) A.openMenu();
+      // Only its part of an open menu is drawn again, heading included (see fillIn in index.js).
+      if (m) A.fillIn(name, (s) => m.sectionHtml(s), m.bind, { head: true });
       return m;
     });
   }

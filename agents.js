@@ -8,10 +8,10 @@
 // Block set to Agent Results, index.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.67.0';
+  const AGENTS_VERSION = '2.68.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -561,42 +561,124 @@
   const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${(CC.find(([v]) => v === a.ccSource) || [, ''])[1]}${a.ccModel ? ' · ' + a.ccModel : ''}`
     : `${(TC.find(([v]) => v === a.tcType) || [, ''])[1]} (local)`);
   const slider = (a, f, k) => `<div class="cb_row"><input type="range" class="m_ag_num" data-f="${f}" data-k="${k}" ${A.rangeAttrs(k)} value="${a[f]}" style="flex:1;"><span style="min-width:72px;text-align:right;"><span id="m_ag_v_${f}" class="ntr_slval">${a[f]}</span>${A.numRange(k)[3] || ''}</span></div>`;
+  const RUNS = [['reply', 'After Every Reply'], ['button', 'On the Button Only']];
+  const KEEP = [['off', 'Activity Only'], ['chat', 'Saved in the Chat']];
+  const nameOf = (pairs, v) => (pairs.find(([x]) => x === v) || [, ''])[1];
+  // When it runs and on what, under its name in the roster and in its header.
+  const status = (a) => `${nameOf(RUNS, a.runs)} · ${conn(a)}`;
+  const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // An agent's own switch, in a box that's easier to tap on a touch screen.
+  const onSwitch = (cls, a) => `<label class="m_ag_sw"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
+  const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
+  const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
 
   function sectionHtml(s) {
     const note = '<div class="cb_hint ntr_pnote">Agents are separate requests to a model, each doing one job you give it. Each run costs tokens on its connection. Nothing here calls a model while this page is switched off.</div>';
     return pageHtml('agents', '<div id="m_ag_root"></div>', { sw: ['m_ag_enable', !!s.agEnabled], note });
   }
 
+  // The roster: a row per agent, its picture, name and title picking it, and its switch beside them.
   function listHtml(s) {
     const l = list();
     const rows = l.map((a) => `
-      <div class="m_ag_row" data-id="${a.id}" tabindex="0" role="button" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;${a.id === s.agPick ? 'background:rgba(255,255,255,.07);outline:1px solid var(--SmartThemeQuoteColor);' : ''}">
-        ${picHtml(a, 28)}
-        <div style="flex:1;min-width:0;"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle" style="opacity:.7;">${a.title ? ` · ${esc(a.title)}` : ''}</span><div class="cb_hint" style="margin:0;">${a.runs === 'reply' ? 'After every reply' : 'On the button only'} · ${esc(conn(a))}</div></div>
-        <input type="checkbox" class="ntr_pswitch m_ag_on" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off">
+      <div class="m_ag_row${a.id === s.agPick ? ' m_ag_sel' : ''}" data-id="${a.id}">
+        <button type="button" class="m_ag_pick"${a.id === s.agPick ? ' aria-current="true"' : ''}>
+          ${picHtml(a, 30)}
+          <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
+            <span class="m_ag_rsub">${esc(status(a))}</span></span>
+        </button>
+        ${onSwitch('m_ag_on', a)}
       </div>`).join('');
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
-        ${btn('m_ag_new', 'fa-plus', 'Create Agent')}
+        ${btn('m_ag_new', 'fa-plus', 'Hire Agent')}
         ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker, to edit or delete like any other agent')}
       </div>
-      ${card('Your Agents', rows || '<div class="cb_hint" style="margin:0;">No agents yet.</div>')}`;
+      ${card('Agent Roster', rows || '<div class="cb_hint" style="margin:0;">No agents yet.</div>')}`;
   }
 
-  // Picture, name and job title. The name and title are typed in place; the title is only shown here and in the list.
-  function profileHtml(a) {
-    const field = (f, v, ph, max, big) => `<input type="text" class="text_pole m_ag_prof" data-f="${f}" value="${esc(v)}" maxlength="${max}" placeholder="${ph}" aria-label="${ph}"
-      style="margin:0;width:100%;padding:2px 6px;${big ? 'font-size:1.2em;font-weight:bold;' : 'opacity:.8;'}">`;
-    return `<div class="ntr_card" style="margin-top:14px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <button type="button" id="m_ag_pic" title="Change picture" aria-label="Change picture" aria-expanded="false" style="all:unset;cursor:pointer;border-radius:50%;flex:none;display:flex;">${picHtml(a, 64)}</button>
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">${field('name', a.name, 'Name', 60, true)}${field('title', a.title, 'Job title', 60, false)}</div>
-        <div style="display:flex;gap:6px;align-self:flex-start;">${btn('m_ag_dup', 'fa-copy', '', 'Duplicate')}${btn('m_ag_del', 'fa-trash-can', '', 'Delete')}</div>
+  // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, its switch,
+  // when it runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Delete). The title is only
+  // shown here and in the roster.
+  function headHtml(a, allOpen) {
+    const busy = current?.id === a.id;
+    return `<div class="m_ag_head">
+      <div class="m_ag_headrow">
+        <button type="button" id="m_ag_pic" title="Change picture" aria-label="Change picture" aria-expanded="false" style="all:unset;cursor:pointer;border-radius:50%;flex:none;display:flex;">${picHtml(a, 44)}</button>
+        <div class="m_ag_headtxt">
+          <div class="m_ag_line">
+            <div class="m_ag_names">
+              <input type="text" class="text_pole m_ag_prof m_ag_nm" data-f="name" value="${esc(a.name)}" maxlength="60" size="${nameSize(a.name)}" placeholder="Name" aria-label="Name">
+              <input type="text" class="text_pole m_ag_prof m_ag_ttl" data-f="title" value="${esc(a.title)}" maxlength="60" placeholder="Job title" aria-label="Job title">
+            </div>
+            ${onSwitch('m_ag_hon', a)}
+          </div>
+          <div class="m_ag_line">
+            <span class="m_ag_status">${esc(status(a))}</span>
+            ${headBtn('m_ag_hrun', busy ? 'fa-stop' : 'fa-play', busy ? 'Stop' : 'Run Now')}
+            ${headBtn('m_ag_all', allOpen ? 'fa-angles-up' : 'fa-angles-down', allOpen ? 'Collapse All' : 'Expand All')}
+            <span class="ntr_menu">${headBtn('m_ag_more', 'fa-ellipsis', 'More', ' aria-haspopup="menu" aria-expanded="false"')}</span>
+          </div>
+        </div>
       </div>
-      <div id="m_ag_picmenu" hidden><div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0;">
+      <div id="m_ag_picmenu" hidden><div>
         ${btn('m_ag_up', 'fa-upload', 'Upload')}${btn('m_ag_url', 'fa-link', 'Use a Link')}${btn('m_ag_crop', 'fa-crop-simple', 'Crop')}${btn('m_ag_clr', 'fa-robot', 'Back to the Robot')}
       </div></div>
       <input type="file" id="m_ag_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
     </div>`;
+  }
+
+  // What each folded part is set to, in the words its buttons use. A setting that stops the agent from running gets a
+  // warning; Test and Activity shows its latest run.
+  function sums(a) {
+    const fields = a.answer === 'fields';
+    const n = fieldsOf(a).length;
+    const api = ctx().mainApi;
+    const ticked = SAMP.filter(([f]) => a[f + 'On']).map(([f, l]) => `${l} ${a[f]}`);
+    if (a.effOn && (a.kind !== 'chat' || api === 'openai')) ticked.push(`Reasoning Effort ${nameOf(EFFORT, a.eff)}`);
+    // What call() turns down before sending anything.
+    const missing = a.kind === 'cc' ? (!a.ccModel.trim() ? 'No Model' : a.ccSource === 'custom' && !a.ccUrl.trim() ? 'No Link' : '')
+      : a.kind === 'tc' && !a.tcUrl.trim() ? 'No Server Link' : '';
+    const last = a.keep === 'chat' && a.last && !fields ? ' · Its Last Result' : '';
+    const run = (runs.get(a.id) || [])[0];
+    return {
+      ins: !a.job.trim() && !usesFields(a) ? { warn: 'Empty: it won\'t run' } : { text: a.job.split('\n').map((l) => l.trim()).find(Boolean) || 'Empty' },
+      ans: { text: !fields ? 'Free Text' : n ? `Fields · ${n} ${n === 1 ? 'Field' : 'Fields'}` : 'Fields · No Fields Yet' },
+      runs: { text: `${nameOf(RUNS, a.runs)} · ${nameOf(KEEP, a.keep)}` },
+      main: { text: !a.send ? 'Not Sent' : a.sendWhere === 'chat' ? `In Chat · Depth ${a.sendDepth} · As ${nameOf(ROLES, a.sendRole)}` : nameOf(WHERE, a.sendWhere) },
+      conn: missing ? { warn: `${conn(a)} · ${missing}` } : { text: conn(a) },
+      samp: { text: `${a.kind === 'chat' && (!OWN_SAMP_API[api] || !ticked.length) ? 'Your Chat\'s Samplers' : ticked.join(', ') || 'API Defaults'} · ${a.maxTokens} Tokens` },
+      reads: { text: (usesFull(a) ? 'Your Chat\'s Full Prompt' : `${a.context} ${a.context === 1 ? 'Message' : 'Messages'} · ${a.split ? 'As Separate Messages' : 'As One Block'}`) + last },
+      test: current?.id === a.id ? { text: 'Running...' }
+        : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' },
+    };
+  }
+  const sumHtml = (o) => (o.warn ? `<i class="fa-solid fa-triangle-exclamation"></i><span>${esc(o.warn)}</span>`
+    : `${'ok' in o ? `<i class="fa-solid ${o.ok ? 'fa-circle-check' : 'fa-circle-xmark'}" style="color:${o.ok ? '#7c6' : '#d66'};"></i>` : ''}<span>${esc(o.text)}</span>`);
+  function setSum(k, o) {
+    const el = root?.querySelector(`.m_ag_fsum[data-sum="${k}"]`);
+    if (!el) return;
+    el.innerHTML = sumHtml(o);
+    el.classList.toggle('cb_warn', !!o.warn);
+  }
+  // The summaries and the header's status line, after a change that doesn't redraw the page.
+  function syncSums(a) {
+    if (!root?.isConnected || !a) return;
+    for (const [k, o] of Object.entries(sums(a))) setSum(k, o);
+    const st = root.querySelector('.m_ag_status');
+    if (st) st.textContent = status(a);
+  }
+
+  // A folded part of the agent's settings. Which parts are open is the same for every agent; the first time, only
+  // Instructions is.
+  const isOpen = (k) => { const o = settings().uiOpen || {}; return `ag_${k}` in o ? !!o[`ag_${k}`] : k === 'ins'; };
+  function foldHtml(k, title, sum, body) {
+    const open = isOpen(k);
+    return `
+      <div class="cb_collapse_toggle ntr_fold m_ag_fold${open ? ' ntr_open' : ''}" data-ag="${k}" tabindex="0" role="button" aria-expanded="${open}">
+        <span class="m_ag_fwrap"><span>${title}</span><span class="m_ag_fsum${sum.warn ? ' cb_warn' : ''}" data-sum="${k}">${sumHtml(sum)}</span></span>
+        <i class="fa-solid ${open ? 'fa-chevron-down' : 'fa-chevron-right'} cb_chevron"></i>
+      </div>
+      <div class="cb_collapse_content" style="display:${open ? 'block' : 'none'};">${body}</div>`;
   }
 
   // Answer: Free Text, or Fields with its list of fields and headings, like the Pinned Blocks list on the Layout page.
@@ -605,13 +687,13 @@
   function answerHtml(a) {
     const fields = a.answer === 'fields';
     const rows = fields ? a.fields.map((f, i) => fieldRowHtml(f, i, a.fields.length)).join('') : '';
-    return card('Answer', `
+    return `
       ${pills('aganswer', [['text', 'Free Text'], ['fields', 'Fields']], a.answer)}
       <div class="cb_hint"${fields ? '' : ' style="margin-bottom:0;"'}>${fields
         ? 'Named values NTR checks and keeps, shown as bars, lines and chips in a Dashboard. Headings group them there.'
         : 'The answer as the agent writes it, shown with Markdown.'}</div>
       ${fields ? `<div class="ntr_agfl">${rows || '<div class="cb_hint">No fields yet. Until it has one, it answers as Free Text.</div>'}</div>
-      <div class="cb_actions" style="margin:8px 0 0;">${btn('m_agf_add', 'fa-plus', 'Add Field')}${btn('m_agf_head', 'fa-heading', 'Add Heading')}</div>` : ''}`);
+      <div class="cb_actions" style="margin:8px 0 0;">${btn('m_agf_add', 'fa-plus', 'Add Field')}${btn('m_agf_head', 'fa-heading', 'Add Heading')}</div>` : ''}`;
   }
   const fieldWhat = (f) => (f.kind === 'heading' ? 'Heading'
     : f.type === 'num' ? `Number · ${f.min} to ${f.max}, starts at ${f.start}, ${f.step ? `±${f.step} per update` : 'no change limit'}${f.numShow === 'number' ? ', as a number' : ''}`
@@ -681,19 +763,18 @@
     const sampNote = a.kind !== 'chat' ? 'Unticked uses the API\'s own default. An API that doesn\'t use one ignores it. Your Chat Completion presets are never used.'
       : OWN_SAMP_API[api] ? 'Unticked uses your chat preset\'s value. A sampler your chat\'s API doesn\'t take is left out. Your preset itself never changes.'
         : 'Your chat isn\'t on Chat Completion or Text Completion, so it uses your chat\'s samplers. Switch your chat\'s API, or this agent\'s connection, to use these.';
-    return `
-      ${profileHtml(a)}
-      ${card('Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="${fields ? 'What to track and any rules, like: only count injuries that happen on screen.' : 'What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list.'}" style="width:100%;margin:0;">${esc(a.job)}</textarea>
-        ${fields ? '<div class="cb_hint" style="margin-bottom:0;">Say what to track and any rules. NTR adds the answer format from your fields.</div>' : ''}`)}
-      ${answerHtml(a)}
-      ${card('When It Runs', `
-        ${lab('Runs', pills('agruns', [['reply', 'After Every Reply'], ['button', 'On the Button Only']], a.runs))}
-        ${lab('Results', pills('agkeep', [['off', 'Activity Only'], ['chat', 'Saved in the Chat']], a.keep))}
+    // Include Its Last Result reads what Saved in the Chat keeps, so with Activity Only it's dimmed with a note.
+    const lastOff = a.keep !== 'chat';
+    const parts = [
+      ['ins', 'Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="${fields ? 'What to track and any rules, like: only count injuries that happen on screen.' : 'What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list.'}" style="width:100%;margin:0;">${esc(a.job)}</textarea>
+        ${fields ? '<div class="cb_hint" style="margin-bottom:0;">Say what to track and any rules. NTR adds the answer format from your fields.</div>' : ''}`],
+      ['ans', 'Answer', answerHtml(a)],
+      ['runs', 'When It Runs', `
+        ${lab('Runs', pills('agruns', RUNS, a.runs))}
+        ${lab('Results', pills('agkeep', KEEP, a.keep))}
         ${fields ? '<div class="cb_hint">Fields keeps its values in the chat, so it always saves there.</div>' : ''}
-        <div class="cb_hint"${a.keep === 'chat' && !fields ? '' : ' style="margin-bottom:0;"'}>Activity Only shows its answers under Activity at the bottom until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Dashboard on the Layout page.</div>
-        ${a.keep === 'chat' && !fields ? `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" data-redraw="1" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
-        <div class="cb_hint" style="margin-bottom:0;">Adds its newest saved answer from before the message it runs on to its prompt, so it updates what it had instead of starting over.</div>` : ''}`)}
-      ${a.keep === 'chat' ? card('Main AI', `
+        <div class="cb_hint" style="margin-bottom:0;">Activity Only shows its answers under Activity at the bottom until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Dashboard on the Layout page.</div>`],
+      ...(a.keep === 'chat' ? [['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
         <div class="cb_hint"${a.send ? '' : ' style="margin-bottom:0;"'}>Puts its current saved answer, under its name, into your chat's prompt for every reply. After a swipe, it's the answer from before the swiped reply.</div>
         ${a.send ? `${lab('Where', pills('agwhere', WHERE.map(([v, l]) => [v, l]), a.sendWhere))}
@@ -701,12 +782,12 @@
         <div class="cb_hint">Depth 0 is after the last message, 1 is before it, and so on.</div>` : ''}
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Lorebooks Can Read It</span></label>
         <div class="cb_hint">Words in it can trigger lorebook entries, like a location's entry.</div>` : ''}
-        <div class="cb_hint" style="margin-bottom:0;">To place it yourself instead, type <code class="m_ag_macro">{{agent::${esc(a.name)}}}</code> anywhere SillyTavern reads macros, like the Author's Note, a lorebook entry or another agent's instructions.</div>`) : ''}
-      ${card('Connection', `
+        <div class="cb_hint" style="margin-bottom:0;">To place it yourself instead, type <code class="m_ag_macro">{{agent::${esc(a.name)}}}</code> anywhere SillyTavern reads macros, like the Author's Note, a lorebook entry or another agent's instructions.</div>`]] : []),
+      ['conn', 'Connection', `
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
         <div class="cb_hint">Chat Completion is an online API, or a local server with an OpenAI-style link (Custom). Text Completion is a local server like KoboldCpp or llama.cpp. Neither changes your chat's connection or SillyTavern's Connection Profiles.</div>
-        ${connBody}
-        <div class="cb_sub">Samplers</div>
+        ${connBody}`],
+      ['samp', 'Samplers', `
         <div class="${a.kind === 'chat' && !OWN_SAMP_API[api] ? 'cb_dim' : ''}">
         ${sampRows}
         ${a.kind === 'chat' && api !== 'openai' ? '' : `<div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="effOn" ${a.effOn ? 'checked' : ''}><span>Reasoning Effort</span></label>
@@ -715,19 +796,28 @@
         <div class="cb_hint" style="margin-bottom:0;">${sampNote}</div>
         <div class="cb_sub">Reply</div>
         ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}
-        <div class="cb_hint" style="margin-bottom:0;">How long its answer may be.</div>`)}
-      ${card('What It Reads', `
+        <div class="cb_hint" style="margin-bottom:0;">How long its answer may be.</div>`],
+      ['reads', 'What It Reads', `
         ${a.kind === 'chat' ? `${lab('What It Sends', pills('agfull', [['own', 'Its Own Prompt'], ['full', 'Your Chat\'s Full Prompt']], a.full ? 'full' : 'own'))}
         <div class="cb_hint">Its Own Prompt: its instructions and the latest chat messages. Your Chat's Full Prompt: everything your chat sends for a reply (card, lorebooks, Author's Note, chat history), with its instructions added at the end. That costs more tokens.</div>` : ''}
         ${usesFull(a) ? '' : `${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
         <div class="cb_hint">As One Block: all the messages in one text. As Separate Messages: your messages as user and the others as AI. Each keeps its speaker's name either way.${a.kind === 'cc' ? ' If your API complains about the order of messages, set Prompt Post-Processing to Semi-strict.' : ''}</div>`}
         ${full ? '<div class="cb_hint">With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
           : `${lab('Messages Read', slider(a, 'context', 'agContext'))}<div class="cb_hint">How many of the latest chat messages it reads.</div>`}
+        ${fields ? '' : `<div class="${lastOff ? 'cb_dim' : ''}"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}${lastOff ? ' disabled' : ''}><span>Include Its Last Result</span></label>
+        <div class="cb_hint"${lastOff ? ' style="margin-bottom:0;"' : ''}>Adds its newest saved answer from before the message it runs on to its prompt, so it updates what it had instead of starting over.</div></div>
+        ${lastOff ? '<div class="cb_hint">Needs Results set to Saved in the Chat, under When It Runs.</div>' : ''}`}
         <div class="cb_actions" style="margin:6px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}</div>
-        <div id="m_ag_prevbox" hidden></div>`)}
-      ${card('Test and Activity', `
+        <div id="m_ag_prevbox" hidden></div>`],
+      ['test', 'Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
-        <div id="m_ag_act">${activityHtml(a, past)}</div>`)}`;
+        <div id="m_ag_act">${activityHtml(a, past)}</div>`],
+    ];
+    const sum = sums(a);
+    return `<div class="m_ag_frame">
+        ${headHtml(a, parts.every(([k]) => isOpen(k)))}
+        <div class="m_ag_body">${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body)).join('')}</div>
+      </div>`;
   }
 
   // What the agent sends on its next run, from the chat as it is now. Keys and links are never part of it.
@@ -742,9 +832,8 @@
 
   function activityHtml(a, l = runs.get(a.id) || []) {
     const busy = current && current.id === a.id ? '<div class="cb_hint" style="margin:8px 0 0;"><i class="fa-solid fa-spinner fa-spin"></i> Running...</div>' : '';
-    const time = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const rows = l.map((r) => {
-      const head = `<i class="fa-solid ${r.ok ? 'fa-circle-check' : 'fa-circle-xmark'}" style="color:${r.ok ? '#7c6' : '#d66'};"></i> ${time(r.at)} · ${r.test ? 'Test · ' : ''}${(r.ms / 1000).toFixed(1)} s${r.note ? ` · ${esc(r.note)}` : ''}`;
+      const head = `<i class="fa-solid ${r.ok ? 'fa-circle-check' : 'fa-circle-xmark'}" style="color:${r.ok ? '#7c6' : '#d66'};"></i> ${clock(r.at)} ·${r.test ? 'Test · ' : ''}${(r.ms / 1000).toFixed(1)} s${r.note ? ` · ${esc(r.note)}` : ''}`;
       if (!r.ok) return `<div class="cb_hint" style="margin:6px 0 0;">${head} · ${esc(r.text)}</div>`;
       return `<details class="cb_hint" style="margin:6px 0 0;"><summary style="cursor:pointer;">${head} · ${esc(r.text.slice(0, 70))}${r.text.length > 70 ? '...' : ''}</summary><div style="white-space:pre-wrap;margin-top:4px;">${esc(r.text)}</div></details>`;
     }).join('');
@@ -759,6 +848,15 @@
     const stop = root.querySelector('#m_ag_stop');
     // style.display, not hidden: SillyTavern's buttons are flex boxes, which would show a hidden one anyway.
     if (stop) stop.style.display = current ? '' : 'none';
+    // The header's Run Now is Stop while this agent runs.
+    const run = root.querySelector('#m_ag_hrun');
+    if (a && run) {
+      const busy = current?.id === a.id;
+      run.title = busy ? 'Stop' : 'Run Now';
+      run.setAttribute('aria-label', run.title);
+      run.querySelector('i').className = `fa-solid fa-fw ${busy ? 'fa-stop' : 'fa-play'}`;
+    }
+    if (a) setSum('test', sums(a).test);
   }
 
   // Your saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
@@ -816,22 +914,40 @@
     } finally { if (revoke) URL.revokeObjectURL(src); }
   }
 
+  // After picking or adding an agent, its header is scrolled into sight if a long roster pushed it out.
+  function showHead() {
+    const head = root?.querySelector('.m_ag_head');
+    const box = root?.closest('.ntr_body');
+    if (!head || !box) return;
+    const h = head.getBoundingClientRect();
+    const b = box.getBoundingClientRect();
+    if (h.top >= b.top && h.bottom <= b.bottom) return;
+    box.scrollTo({ top: box.scrollTop + h.top - b.top - 8, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
   function bindAll(s, a) {
-    const changed = (redraw) => { save(); if (redraw) render(); };
+    const changed = (redraw) => { save(); if (redraw) render(); else syncSums(a); };
+    // A click anywhere but in a menu closes it.
+    root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
-      const go = (e) => { if (e.target.closest('.m_ag_on')) return; s.agPick = row.dataset.id; changed(true); };
-      row.onclick = go;
-      row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(e); } };
-      row.querySelector('.m_ag_on').onchange = function() { const x = byId(row.dataset.id); if (x) { x.on = this.checked; changed(false); } };
+      row.querySelector('.m_ag_pick').onclick = () => { s.agPick = row.dataset.id; changed(true); showHead(); };
+      row.querySelector('.m_ag_on').onchange = function() {
+        const x = byId(row.dataset.id);
+        if (!x) return;
+        x.on = this.checked;
+        if (x === a) root.querySelector('.m_ag_hon').checked = x.on;
+        changed(false);
+      };
     });
     root.querySelector('#m_ag_new').onclick = async function() {
-      const name = await askText(this, { label: 'Agent name', value: `Agent ${list().length + 1}`, ok: '<i class="fa-solid fa-plus"></i> Create', check: (v) => (v.trim() ? { value: v.trim().slice(0, 60) } : { error: 'Type a name first.' }) });
+      const name = await askText(this, { label: 'Agent name', value: `Agent ${list().length + 1}`, ok: '<i class="fa-solid fa-plus"></i> Hire', check: (v) => (v.trim() ? { value: v.trim().slice(0, 60) } : { error: 'Type a name first.' }) });
       if (!name) return;
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
       const x = fresh(name);
       list().push(x);
       s.agPick = x.id;
       changed(true);
+      showHead();
     };
     const ex = root.querySelector('#m_ag_ex');
     if (ex) ex.onclick = () => {
@@ -840,10 +956,56 @@
       list().push(x);
       s.agPick = x.id;
       changed(true);
+      showHead();
       toastr.info('Margi runs after every reply. To see her on screen, add a Dashboard on the Layout page.', 'Agents');
     };
     if (!a) return;
-    root.querySelector('#m_ag_dup').onclick = () => {
+    root.querySelector('.m_ag_hon').onchange = function() {
+      a.on = this.checked;
+      const sw = root.querySelector(`.m_ag_row[data-id="${a.id}"] .m_ag_on`);
+      if (sw) sw.checked = a.on;
+      changed(false);
+    };
+    root.querySelector('#m_ag_hrun').onclick = () => { if (current?.id === a.id) current.ctrl.abort(); else enqueue(a.id); };
+
+    // The folded parts, and Expand All or Collapse All for all of them.
+    const folds = [...root.querySelectorAll('.m_ag_fold')];
+    const allBtn = root.querySelector('#m_ag_all');
+    const setFold = (h, open) => {
+      h.classList.toggle('ntr_open', open);
+      h.setAttribute('aria-expanded', String(open));
+      h.querySelector('.cb_chevron').className = `fa-solid ${open ? 'fa-chevron-down' : 'fa-chevron-right'} cb_chevron`;
+      h.nextElementSibling.style.display = open ? 'block' : 'none';
+      s.uiOpen[`ag_${h.dataset.ag}`] = open;
+    };
+    const syncAll = () => {
+      const all = folds.every((h) => h.classList.contains('ntr_open'));
+      allBtn.title = all ? 'Collapse All' : 'Expand All';
+      allBtn.setAttribute('aria-label', allBtn.title);
+      allBtn.querySelector('i').className = `fa-solid fa-fw ${all ? 'fa-angles-up' : 'fa-angles-down'}`;
+    };
+    folds.forEach((h) => {
+      h.onclick = () => { setFold(h, !h.classList.contains('ntr_open')); save(); syncAll(); };
+      h.onkeydown = (e) => { if (e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click(); } };
+    });
+    allBtn.onclick = () => {
+      const open = !folds.every((h) => h.classList.contains('ntr_open'));
+      folds.forEach((h) => setFold(h, open));
+      save();
+      syncAll();
+    };
+
+    // More: Duplicate and Delete. Delete asks under the header, where the menu was.
+    const more = root.querySelector('#m_ag_more');
+    more.onclick = () => {
+      const pop = popMenu(more, `
+        <button type="button" data-act="dup"><i class="fa-solid fa-copy fa-fw"></i>Duplicate</button>
+        <button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete</button>`);
+      if (!pop) return;
+      pop.querySelector('[data-act="dup"]').onclick = () => { closePops(root); dup(); };
+      pop.querySelector('[data-act="del"]').onclick = () => { closePops(root); del(); };
+    };
+    const dup = () => {
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
       const x = { ...structuredClone(a), id: newId('ag'), name: `${a.name} (copy)`.slice(0, 60), on: false, example: false };
       list().splice(list().indexOf(a) + 1, 0, x);
@@ -854,10 +1016,12 @@
     // shows instead of redrawing the page: the change fires when the field loses focus, which is often a click on
     // Duplicate or on another agent, and a redraw then would swallow that click.
     root.querySelectorAll('.m_ag_prof').forEach((el) => {
+      // The name's box is as wide as the name, so the job title sits right after it.
+      if (el.dataset.f === 'name') el.oninput = () => { el.size = nameSize(el.value); };
       el.onkeydown = (e) => { if (e.key === 'Enter') el.blur(); };
       el.onchange = () => {
         const v = el.value.trim().slice(0, 60);
-        if (el.dataset.f === 'name' && !v) { el.value = a.name; return; }
+        if (el.dataset.f === 'name' && !v) { el.value = a.name; el.size = nameSize(a.name); return; }
         el.value = v;
         a[el.dataset.f] = v;
         changed(false);
@@ -865,17 +1029,18 @@
         if (row) {
           row.querySelector('.m_ag_rname').textContent = a.name;
           row.querySelector('.m_ag_rtitle').textContent = a.title ? ` · ${a.title}` : '';
-          const sw = row.querySelector('.m_ag_on');
+        }
+        root.querySelectorAll(`.m_ag_row[data-id="${a.id}"] .m_ag_on, .m_ag_hon`).forEach((sw) => {
           sw.title = `Turn ${a.name} on or off`;
           sw.setAttribute('aria-label', sw.title);
-        }
+        });
         const macro = root.querySelector('.m_ag_macro');
         if (macro) macro.textContent = `{{agent::${a.name}}}`;
         refreshBoxes();
       };
     });
-    root.querySelector('#m_ag_del').onclick = async function() {
-      if (!(await askYes(this, `Delete "${a.name}"? This can't be undone.`, 'Delete'))) return;
+    const del = async () => {
+      if (!(await askYes(root.querySelector('.m_ag_headrow'), `Delete "${a.name}"? This can't be undone.`, 'Delete', { danger: true }))) return;
       if (current?.id === a.id) current.ctrl.abort();
       s.agents = list().filter((x) => x !== a);
       checked.add(s.agents);
@@ -935,6 +1100,9 @@
         changed(!!el.dataset.redraw);
       };
     });
+    // Instructions' summary follows what's typed; the text itself saves when the box loses focus.
+    const job = root.querySelector('.m_ag_txt[data-f="job"]');
+    job.oninput = () => setSum('ins', sums({ ...a, job: job.value }).ins);
     root.querySelectorAll('.m_ag_chk').forEach((el) => {
       el.onchange = () => {
         a[el.dataset.f] = el.checked;
@@ -947,6 +1115,7 @@
         const f = el.dataset.f;
         a[f] = num(el.dataset.k, el.value, a[f]);
         root.querySelector(`#m_ag_v_${f}`).textContent = a[f];
+        syncSums(a);
       };
       el.onchange = () => changed(false);
     });

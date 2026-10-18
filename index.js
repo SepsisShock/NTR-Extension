@@ -4994,7 +4994,8 @@ await (async () => {
     let timer;
     const inTime = await Promise.race([load.then(() => true), new Promise((res) => { timer = setTimeout(res, 5000, false); })]);
     clearTimeout(timer);
-    if (!inTime) load.then((m) => { if (m) { updateAvatarStyle(); if (document.getElementById('cb_modal_overlay')) openCombinedModal(); } });
+    // The open menu is redrawn either way, so the Elements page doesn't keep saying it's loading.
+    if (!inTime) load.then((m) => { if (m) updateAvatarStyle(); if (document.getElementById('cb_modal_overlay')) openCombinedModal(); });
   }
 
   // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).

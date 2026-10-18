@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.2';
+  const VERSION = '2.69.3';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1895,8 +1895,7 @@ await (async () => {
     bindWand(overlay, s);
     bindVNSection(overlay, s);
     bindReader(overlay, s);
-    overlay.querySelector('#m_rx_enable').onchange = function() { s.rxEnabled = this.checked; save(); openCombinedModal(); };
-    if (s.rxEnabled) window.NTR.regex?.bind(overlay, s);
+    bindRegexPage(overlay, s);
     window.NTR.agents?.bind(overlay, s);
     window.NTR.cast?.bind(overlay, s);
     bindRows(overlay, s);
@@ -2022,10 +2021,11 @@ await (async () => {
     + '<div class="ntr_navfill"></div>';
   // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
   // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
-  function pageHtml(sec, body, { sw = null, legend = false, note = '' } = {}) {
+  // `wait` names the module a page is still loading, which fills it in when it arrives (see fillIn).
+  function pageHtml(sec, body, { sw = null, legend = false, note = '', wait = '' } = {}) {
     const [, icon, , title] = PAGES.find(([id]) => id === sec);
     return `
-      <section class="ntr_page${(sw && !sw[1]) || SOON.has(sec) ? ' ntr_off' : ''}" data-page="${sec}"${settings().uiPage === sec ? '' : ' hidden'}>
+      <section class="ntr_page${(sw && !sw[1]) || SOON.has(sec) ? ' ntr_off' : ''}" data-page="${sec}"${wait ? ` data-ntr-wait="${wait}"` : ''}${settings().uiPage === sec ? '' : ' hidden'}>
         <div class="ntr_phead">
           <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
           <h3 class="ntr_ptitle">${title}</h3>
@@ -4960,11 +4960,36 @@ await (async () => {
     }
     return modPromise[name];
   }
-  // vn.js draws the speakers' pictures from cast.js, so cast.js loads first.
-  const loadVN = () => loadModule('cast', true).then((c) => (c ? loadModule('vn', true) : null));
+  // vn.js draws the speakers' pictures from cast.js, so cast.js loads first. Without it, Visual Novel Mode fails too.
+  const loadVN = () => loadModule('cast', true).then((c) => {
+    if (c) return loadModule('vn', true);
+    modError.vn = 'Emotions didn\'t load: ' + modError.cast;
+    return null;
+  });
 
-  // The Regexes page comes from regex.js, loaded the first time the menu opens.
-  let regexWaiting = false;
+  // A module that arrives after the menu was drawn fills in only its own page or part: the element marked
+  // data-ntr-wait with its name, drawn again by `draw`. Redrawing the whole menu would close a question being answered,
+  // like a theme's name, and bring the menu back over Edit Layout. With `head`, the heading just before the mark goes
+  // too, since `draw` brings its own. Nothing happens if the menu was closed or drawn again in the meantime.
+  function fillIn(name, draw, bind, { head = false } = {}) {
+    const overlay = document.getElementById('cb_modal_overlay');
+    const mark = overlay?.querySelector(`[data-ntr-wait="${name}"]`);
+    if (!mark) return;
+    const s = settings();
+    try {
+      const t = document.createElement('template');
+      t.innerHTML = draw(s).trim();
+      // Its folds are bound before it goes in, so the menu's other folds don't get a second click handler.
+      bindCollapses(t.content, s);
+      if (head) mark.previousElementSibling?.remove();
+      mark.replaceWith(t.content);
+      // Bound once it's in the menu: Agents, Emotions and Regexes draw their lists only into a page that's on screen.
+      bind?.(overlay, s);
+    } catch (e) {
+      console.error(`[NTR] ${MOD_LABEL[name] || name} menu crashed`, e);
+    }
+    syncPageOff(overlay);
+  }
   // Elements comes from elements.js, loaded before NTR starts (see loadElements). Each call is guarded, so a failure
   // there leaves the rest of NTR running with SillyTavern's look for those parts. It's logged once per kind of call,
   // since css and sync run on every restyle.
@@ -5004,85 +5029,58 @@ await (async () => {
   }
 
   // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
-  let agentsWaiting = false;
   function agentsSectionHtml(s) {
     const ag = window.NTR.agents;
     if (ag) return ag.sectionHtml(s);
-    if (!modError.agents && !agentsWaiting) {
-      agentsWaiting = true;
-      loadModule('agents').then(() => {
-        agentsWaiting = false;
-        if (document.getElementById('cb_modal_overlay')) openCombinedModal();
-      });
-    }
+    if (!modError.agents) loadModule('agents').then((m) => fillIn('agents', agentsSectionHtml, m?.bind));
     const msg = modError.agents ? 'Agents failed to load: ' + escapeHTML(modError.agents) : 'Loading your agents.';
-    return pageHtml('agents', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
+    return pageHtml('agents', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError.agents ? '' : 'agents' });
   }
 
   // The Emotions part of the Avatars page comes from cast.js, loaded the first time the menu opens.
-  let castWaiting = false;
   function castPartHtml() {
     const c = window.NTR.cast;
     if (c) return c.partHtml(settings());
-    if (!modError.cast && !castWaiting) {
-      castWaiting = true;
-      loadModule('cast').then(() => {
-        castWaiting = false;
-        if (document.getElementById('cb_modal_overlay')) openCombinedModal();
-      });
-    }
+    if (!modError.cast) loadModule('cast').then((m) => fillIn('cast', castPartHtml, m?.bind));
     const msg = modError.cast ? 'Emotions failed to load: ' + escapeHTML(modError.cast) : 'Loading emotions.';
-    return `<div class="cb_hint ntr_keepon">${msg}</div>`;
+    return `<div class="cb_hint ntr_keepon"${modError.cast ? '' : ' data-ntr-wait="cast"'}>${msg}</div>`;
   }
 
   // The Overlays page comes from overlays.js, loaded the first time the menu opens if a banner or foreground image
   // hasn't loaded it already.
-  let overlaysWaiting = false;
   function overlaysSectionHtml(s) {
     const m = window.NTR.overlays;
     if (m) return m.sectionHtml(s);
-    if (!modError.overlays && !overlaysWaiting) {
-      overlaysWaiting = true;
-      loadModule('overlays').then(() => {
-        overlaysWaiting = false;
-        if (document.getElementById('cb_modal_overlay')) openCombinedModal();
-      });
-    }
+    if (!modError.overlays) loadModule('overlays').then((o) => fillIn('overlays', overlaysSectionHtml, o?.bind));
     const msg = modError.overlays ? 'Overlays failed to load: ' + escapeHTML(modError.overlays) : 'Loading the banner and foreground images.';
-    return pageHtml('fg', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, legend: true });
+    return pageHtml('fg', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, legend: true, wait: modError.overlays ? '' : 'overlays' });
   }
 
+  // The Regexes page comes from regex.js, loaded the first time the menu opens.
   function regexSectionHtml(s) {
     if (!s.rxEnabled) {
       return pageHtml('regex', '', { sw: ['m_rx_enable', false], note: '<div class="cb_hint ntr_pnote">Your regexes still run in SillyTavern as usual. With this page off, NTR doesn\'t show or sort them, and themes don\'t switch regex folders on or off.</div>' });
     }
     const rx = window.NTR.regex;
     if (rx) return rx.sectionHtml(s);
-    if (!modError.regex && !regexWaiting) {
-      regexWaiting = true;
-      loadModule('regex').then(() => {
-        regexWaiting = false;
-        if (document.getElementById('cb_modal_overlay')) openCombinedModal();
-      });
-    }
+    if (!modError.regex) loadModule('regex').then(() => fillIn('regex', regexSectionHtml, bindRegexPage));
     const msg = modError.regex ? 'Regexes failed to load: ' + escapeHTML(modError.regex) : 'Loading your regexes.';
-    return pageHtml('regex', '', { sw: ['m_rx_enable', true], note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
+    return pageHtml('regex', '', { sw: ['m_rx_enable', true], note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError.regex ? '' : 'regex' });
+  }
+  // The page's switch is there whether regex.js loaded or not.
+  function bindRegexPage(overlay, s) {
+    overlay.querySelector('#m_rx_enable').onchange = function() { s.rxEnabled = this.checked; save(); openCombinedModal(); };
+    if (s.rxEnabled) window.NTR.regex?.bind(overlay, s);
   }
 
   // Visual Novel's settings, for the Visual Novel part of the Reader Mode page. vn.js loads when the menu first needs them.
-  let vnWaiting = false;
   function vnSectionHtml(s) {
     const vn = window.NTR.vn;
     if (vn) return vn.sectionHtml(s);
-    if (isOn() && !modError.vn && !vnWaiting) {
-      vnWaiting = true;
-      loadVN().then((m) => {
-        vnWaiting = false;
-        if (m && document.getElementById('cb_modal_overlay')) openCombinedModal();
-      });
-    }
+    const wait = isOn() && !modError.vn;
+    if (wait) loadVN().then((m) => fillIn('vn', vnSectionHtml, m && bindVNSection));
     const msg = modError.vn ? 'Visual Novel Mode failed to load: ' + escapeHTML(modError.vn) : isOn() ? 'Loading its settings.' : 'Its settings show while the extension is on.';
-    return `<div class="cb_hint">${msg}</div>`;
+    return `<div class="cb_hint"${wait ? ' data-ntr-wait="vn"' : ''}>${msg}</div>`;
   }
 
   const bindVNSection = (overlay, s) => { if (readerPart(s) === 'vn') window.NTR.vn?.bind(overlay, s); };
@@ -5402,7 +5400,7 @@ await (async () => {
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
     pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
-    openMenu: () => openCombinedModal(),
+    openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),
     // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)

@@ -9,9 +9,6 @@ In Line looks too bulky next to the text.
 
 - [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
 
-### SillyTavern's top bar icons
-- [ ] Change the icons in SillyTavern's top menu bar.
-
 ### Independent, customizable "favorites" bar
 
 ### Agents: follow-ups

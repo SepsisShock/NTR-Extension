@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.66.2';
+  const VERSION = '2.67.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -135,6 +135,9 @@
     ovScrollCssOn: false, ovScrollCss: '',
     ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorTextImg: '', ovCursorSize: 32,
     ovCursorCssOn: false, ovCursorCss: '',
+    // Menu Bar Icons (Elements): your own pictures for the icons on SillyTavern's menu bar, keyed by the id of each icon's
+    // drawer (see menuBarIconCss). Each is { img, mode: 'tint' or 'full', name }.
+    mbOn: false, mbIcons: {},
     // Quick Replies restyle SillyTavern's Quick Reply bar. Shape, Background and Border come from BOX_PARTS. ST's hover
     // color is a plain gray, not one of its theme colors, so it starts filled in like the scrollbar's Track Color.
     // Message Details (Elements): which details show in each spot, and their look (see messageDetailsCss). The spots start
@@ -398,6 +401,7 @@
     // Saved themes with Fade as their pattern move it to its own switch.
     if (!s.themeLookV5) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV5 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
+    if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
     if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
     if (!Array.isArray(s.layPins)) s.layPins = [];
@@ -1276,6 +1280,7 @@
       .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
       .cb_cur_row { display: flex; align-items: center; gap: 6px; }
       .cb_cur_row .menu_button { margin: 0; padding: 4px 8px; }
+      @media (pointer: coarse) { .cb_cur_row .menu_button { min-width: 40px; min-height: 40px; } }
       .cb_cur_prev { width: 40px; height: 40px; flex: none; border-radius: 8px; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
       .cb_cur_prev img { max-width: 32px; max-height: 32px; }
       .cb_cur_prev i { opacity: .35; }
@@ -1322,7 +1327,7 @@
       .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
 
-    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + qrCss(s) + messageDetailsCss(s) + textFormatCss(s) + chatLookCss(s);
+    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + textFormatCss(s) + chatLookCss(s);
     // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
     // repainted all of it, avatar fades included.
     if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
@@ -2254,7 +2259,8 @@
           ${ovRow(s, 'ovMesGapOn', `Space Between Messages${layScope('Both Layouts')}`, rangeSlider(s, 'ovMesGap'))}`)}
         ${card('Menu Bar', `
           ${pills('lbaredge', [['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']], s[lk(ph, 'BarEdge')])}
-          <div class="cb_hint" style="margin-bottom: 0;">Picking an edge puts the bar back at its start there.</div>`)}
+          <div class="cb_hint">Picking an edge puts the bar back at its start there.</div>
+          <div class="cb_hint" style="margin-bottom: 0;">Pictures for the icons are under Elements, Menu Bar Icons.</div>`)}
         ${card('Send Bar', `
           ${pills('lsend', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Send')])}
           <div class="m_l_over" data-lay="send">${ovRow(s, 'ovSendPosOn', `Attached Style${layScope('Both Layouts')}`, ovPick(s, 'ovSendPos', [['joined', 'Joined'], ['separate', 'Separate']])
@@ -3211,6 +3217,38 @@
     if (down) css += `\n      html.ntr_cur_down, html.ntr_cur_down *:not(${TEXT_CURSOR_SEL}) { cursor: ${down} !important; }`;
     return css ? css + '\n' : '';
   }
+  // Menu Bar Icons. A picture takes the place of its icon in the icon's own 1em square, so it follows SillyTavern's icon
+  // size and fades like its icons when the panel is closed. Tint uses the picture as a mask in the icon's color. A
+  // picture shows only once it has loaded, so a broken link keeps SillyTavern's icon. While SillyTavern shows its
+  // no-connection warning on the connection icon, the warning shows instead of the picture.
+  // A mask only works on a picture its site allows other sites to use (CORS), so each picture is loaded that way first:
+  // 'mask' if it loads, 'plain' if it loads only the ordinary way (Tint then shows it in Full Color), false if it
+  // doesn't load, null while loading.
+  const mbLoaded = new Map();
+  const mbWait = new Map();
+  const loadCors = (u) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
+  function mbReady(src) {
+    if (mbLoaded.has(src)) return mbLoaded.get(src);
+    if (mbLoaded.size > 60) { mbLoaded.clear(); mbWait.clear(); }
+    mbLoaded.set(src, null);
+    const p = loadCors(src).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
+    mbWait.set(src, p.then((st) => { mbLoaded.set(src, st); updateAvatarStyle(); return st; }));
+    return null;
+  }
+  function menuBarIconCss(s) {
+    if (!s.mbOn) return '';
+    let css = '';
+    for (const [id, e] of Object.entries(s.mbIcons || {})) {
+      const u = cUrl(e?.img);
+      // MB_ID keeps the id a plain CSS name, so it needs no escaping in the selector.
+      const st = MB_ID.test(id) && u ? mbReady(u) : false;
+      if (!st) continue;
+      const pic = `url("${u}") center / contain no-repeat`;
+      css += `\n      #top-settings-holder > #${id} > :not(.drawer-content) .drawer-icon:not(.redOverlayGlow, .fa-plug-circle-exclamation)::before { content: '' !important; display: inline-block; width: 1em; height: 1em; vertical-align: middle; `
+        + (e.mode === 'full' || st !== 'mask' ? `background: ${pic};` : `background-color: currentColor; -webkit-mask: ${pic}; mask: ${pic};`) + ' }';
+    }
+    return css ? css + '\n' : '';
+  }
   function onCursorDown(e) {
     if (e.pointerType === 'mouse' && cursorKinds.down) document.documentElement.classList.add('ntr_cur_down');
   }
@@ -3950,7 +3988,7 @@
 
   // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
-    return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + qrPartHtml(s));
+    return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
   }
 
   function reasoningPartHtml(s) {
@@ -4452,6 +4490,123 @@
     `);
   }
 
+  // Menu Bar Icons: a row for each drawer on SillyTavern's menu bar, in bar order, then the saved pictures of drawers
+  // that aren't on the bar right now (like one from an extension that's switched off). The rows are read when the menu
+  // is drawn; bindMenuBarIcons finds each row's drawer in mbRows by its number.
+  let mbRows = [];
+  const mbName = (id) => id.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+  function menuBarDrawers() {
+    return [...document.querySelectorAll('#top-settings-holder > .drawer')].map((d) => {
+      const icon = d.querySelector(':scope > :not(.drawer-content) .drawer-icon');
+      const id = MB_ID.test(d.id) ? d.id : '';
+      const name = (icon?.title || d.querySelector(':scope > .drawer-toggle')?.title || (id ? mbName(id) : '') || 'Icon').trim().slice(0, 100);
+      return { id: icon ? id : '', name, api: !!d.querySelector('#API-status-top') };
+    });
+  }
+  function menuBarIconsPartHtml(s) {
+    const live = menuBarDrawers();
+    const gone = Object.keys(s.mbIcons).filter((id) => !live.some((d) => d.id === id)).map((id) => ({ id, name: s.mbIcons[id].name || mbName(id), gone: true }));
+    mbRows = [...live, ...gone];
+    const rows = mbRows.map((r, i) => {
+      const name = escapeHTML(r.name);
+      const b = (cls, icon, title, aria) => `<button class="menu_button ${cls}" data-mb="${i}" title="${title}" aria-label="${aria} ${name}"><i class="fa-solid ${icon}"></i></button>`;
+      return `
+      <div class="cb_cur_slot" data-mb="${i}"${r.id && !r.gone ? '' : ' style="opacity: .6;"'}>
+        <div class="cb_cur_row">
+          <span class="cb_cur_name">${name}<small class="m_mb_note"></small></span>
+          ${r.id && !r.gone ? b('m_mb_up', 'fa-upload', 'Upload', 'Upload a picture for') + b('m_mb_url', 'fa-link', 'Use a link', 'Use a link for') : ''}
+          ${r.id ? b('m_mb_clr', 'fa-rotate-left', 'Remove image', 'Remove the picture for') : ''}
+        </div>
+        <div class="m_mb_mode">${pills('mbmode' + i, [['tint', 'Tint', 'Uses the picture\'s shape in the theme\'s icon color.'], ['full', 'Full Color', 'Shows the picture as it is.']], s.mbIcons[r.id]?.mode)}</div>
+      </div>`;
+    }).join('');
+    return pagePart('Menu Bar Icons', ['m_mb_enable', s.mbOn], 'el_mbicons', `
+          <div class="cb_hint">Your own pictures for the icons on SillyTavern's menu bar. Empty keeps SillyTavern's icon.</div>
+          ${rows}
+          <div class="cb_hint">Tint colors the picture like SillyTavern's icons, so it needs a see-through background. Full Color shows the picture as it is. Icons for closed panels stay faded, like SillyTavern's.</div>
+          <div class="cb_hint" style="margin-bottom: 0;">Pictures fill the same square as SillyTavern's icons. Square pictures with a little empty space around them look best; 64×64 px is plenty. Animated GIFs keep moving.</div>
+          <input type="file" id="m_mb_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+    `);
+  }
+
+  // Whether Tint suits a picture: it has see-through parts, checked small. A picture its site doesn't let other sites
+  // read can't be tinted either (see mbReady), so it counts as not suiting Tint.
+  async function hasClear(src) {
+    try {
+      const c = document.createElement('canvas');
+      c.width = c.height = 32;
+      const g = c.getContext('2d');
+      g.drawImage(await loadCors(src), 0, 0, 32, 32);
+      const d = g.getImageData(0, 0, 32, 32).data;
+      for (let k = 3; k < d.length; k += 4) if (d[k] < 250) return true;
+      return false;
+    } catch (e) { return false; }
+  }
+
+  function bindMenuBarIcons(overlay, s) {
+    const file = overlay.querySelector('#m_mb_file');
+    let pending = -1;
+    // Pictures this menu already waits on, so each one redraws the rows once when it's done.
+    const waiting = new Set();
+    const slot = (i) => overlay.querySelector(`.cb_cur_slot[data-mb="${i}"]`);
+    const render = () => {
+      if (!overlay.isConnected) return;
+      mbRows.forEach((r, i) => {
+        const el = slot(i);
+        const e = s.mbIcons[r.id];
+        const ok = e ? mbReady(e.img) : null;
+        if (e && ok === null && !waiting.has(e.img)) { waiting.add(e.img); mbWait.get(e.img)?.then(render); }
+        el.querySelector('.m_mb_note').textContent = !r.id ? 'This icon can\'t take a picture.'
+          : r.gone ? 'Not on the menu bar right now. Kept in case it comes back.'
+          : ok === false ? 'Didn\'t load. SillyTavern\'s icon shows instead.'
+          : ok === 'plain' && e.mode === 'tint' ? 'Its site doesn\'t allow Tint, so it shows in Full Color. Upload the picture to tint it.'
+          : e && r.api ? 'While not connected, SillyTavern\'s warning shows instead.' : '';
+        const clr = el.querySelector('.m_mb_clr');
+        if (clr) clr.disabled = !e;
+        el.querySelector('.m_mb_mode').hidden = !e || r.gone;
+        const pick = e && el.querySelector(`input[name="cbr_mbmode${i}"][value="${e.mode}"]`);
+        if (pick) pick.checked = true;
+      });
+    };
+    const set = (i, img, mode) => {
+      const r = mbRows[i];
+      const old = s.mbIcons[r.id]?.img;
+      if (img) s.mbIcons[r.id] = { img, mode, name: r.name };
+      else delete s.mbIcons[r.id];
+      save(); updateAvatarStyle();
+      if (!img && r.gone) slot(i).hidden = true;
+      render();
+      deleteFileIfUnused(old);
+    };
+    overlay.querySelectorAll('.m_mb_up').forEach((b) => { b.onclick = () => { pending = Number(b.dataset.mb); file.click(); }; });
+    overlay.querySelectorAll('.m_mb_url').forEach((b) => {
+      b.onclick = async () => {
+        const i = Number(b.dataset.mb);
+        const url = await askImageUrl(`${mbRows[i].name} icon`, b, false);
+        if (url) set(i, url, await hasClear(url) ? 'tint' : 'full');
+      };
+    });
+    overlay.querySelectorAll('.m_mb_clr').forEach((b) => { b.onclick = () => set(Number(b.dataset.mb), ''); });
+    mbRows.forEach((r, i) => onPills(slot(i), 'mbmode' + i, (v) => {
+      if (!s.mbIcons[r.id]) return;
+      s.mbIcons[r.id].mode = v;
+      save(); updateAvatarStyle(); render();
+    }));
+    file.onchange = async () => {
+      const f = file.files[0];
+      if (!f || pending < 0) return;
+      try {
+        const url = await uploadImage(f, 'baricon', { max: 128 });
+        set(pending, url, await hasClear(url) ? 'tint' : 'full');
+      } catch (e) {
+        console.error('[NTR menu bar icon upload]', e);
+        toastr.error(e.message || 'Upload failed', 'Menu Bar Icons');
+      }
+      file.value = '';
+    };
+    render();
+  }
+
   function mdPartHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const hint = (t) => `<div class="cb_hint">${t}</div>`;
@@ -4501,7 +4656,7 @@
   }
 
   function bindDisplay(overlay, s) {
-    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_qr_enable', 'ovQrOn'], ['m_md_enable', 'mdOn']]) {
+    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_mb_enable', 'mbOn'], ['m_qr_enable', 'ovQrOn'], ['m_md_enable', 'mdOn']]) {
       overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };
     }
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
@@ -4528,6 +4683,7 @@
     bindCssBoxes(overlay, 'ov');
 
     bindMessageDetails(overlay, s);
+    bindMenuBarIcons(overlay, s);
 
     // Bubble Style: picking one sets its values and redraws the menu. Any other change on the page may make it Custom.
     const page = overlay.querySelector('.ntr_page[data-page="display"]');
@@ -4619,6 +4775,17 @@
     const out = Object.create(null);
     if (!isObj(v)) return out;
     for (const k of Object.keys(v).slice(0, 500)) { const u = cUrl(v[k]); if (u && k.length <= 200) out[k] = u; }
+    return out;
+  }
+  // Menu Bar Icons' pictures, saved or from a theme file: ids that are plain CSS names, safe links, at most 40.
+  const MB_ID = /^[A-Za-z][\w-]{0,63}$/;
+  function cleanMbIcons(v) {
+    const out = {};
+    for (const id of isObj(v) ? Object.keys(v).filter((k) => MB_ID.test(k) && isObj(v[k])).slice(0, 40) : []) {
+      const img = cUrl(v[id].img);
+      if (img && !img.startsWith('data:video/')) out[id] = { img, mode: cPick(v[id].mode, ['tint', 'full']), name: cStr(v[id].name, 100).trim() };
+    }
+    cleaned.add(out);
     return out;
   }
   const cList = (v, max, fn) => (Array.isArray(v) ? v.filter(isObj).slice(0, max).map(fn) : []);
@@ -4922,7 +5089,7 @@
   }
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
-  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|book|arrow|rbbg|plate|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|baricon|book|arrow|rbbg|plate|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
   // Resolves to true if the file was deleted or was already gone. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok || res.status === 404).catch(() => false);
@@ -5015,7 +5182,7 @@
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },
-    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor, quick replies, message details)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb') || k.startsWith('md')), ...ELEMENT_OV_KEYS] },
+    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor, menu bar icons, quick replies, message details)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb') || k.startsWith('md') || k.startsWith('mb')), ...ELEMENT_OV_KEYS] },
     banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
@@ -5142,6 +5309,7 @@
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
     if (k === 'bannerGlobal') return isObj(v);
     if (k === 'layPins') return Array.isArray(v);
+    if (k === 'mbIcons') return isObj(v);
     if (MD_SPOTS.some(([, key]) => key === k)) return Array.isArray(v) && v.every((i) => MD_ITEM_IDS.includes(i));
     if (k === 'emotions') return validEmotions(v);
     if (k === 'emoDefault') return !!cRef(v);
@@ -5158,6 +5326,7 @@
     if (NUM_RANGE[k]) return Math.min(NUM_RANGE[k][1], Math.max(NUM_RANGE[k][0], v));
     if (k === 'emotions') return v.map((e) => ({ id: e.id, name: e.name.trim() }));
     if (k === 'layPins') return cleanPins(v);
+    if (k === 'mbIcons') return cleanMbIcons(v);
     if (MD_SPOTS.some(([, key]) => key === k)) return MD_ITEM_IDS.filter((i) => v.includes(i));
     if (TAG_KEYS.includes(k)) return v.trim(); // as the menu's Apply saves them
     return structuredClone(v);

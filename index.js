@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.0';
+  const VERSION = '2.69.1';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1327,7 +1327,7 @@
       .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
     `;
 
-    if (isOn()) cssString += overrideCss(s) + scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + textFormatCss(s) + chatLookCss(s);
+    if (isOn()) cssString += overrideCss(s) + elementsCss(s) + textFormatCss(s) + chatLookCss(s);
     // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
     // repainted all of it, avatar fades included.
     if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
@@ -1359,7 +1359,7 @@
     document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); fullAvatar(img); });
     syncGoogleFonts();
     syncCustomCss();
-    watchReasoningLabels();
+    watchMessages();
     syncReasoningLabels();
     syncMessageDetails();
     syncPopouts();
@@ -1901,8 +1901,10 @@
     if (s.rxEnabled) window.NTR.regex?.bind(overlay, s);
     window.NTR.agents?.bind(overlay, s);
     window.NTR.cast?.bind(overlay, s);
+    bindRows(overlay, s);
     bindDisplay(overlay, s);
     bindTextFormatting(overlay, s);
+    bindElements(overlay, s);
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);
@@ -3452,6 +3454,64 @@
     return `<input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="300" placeholder="Lora, or a link like fonts.google.com/specimen/Lora" style="width:100%;">`;
   }
 
+  // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick and ovWhen, bound once for the
+  // whole menu. It runs after the modules', Themes', Layout's and Reader Mode's binders and before UI Decor's, Text
+  // Formatting's and Elements', so these handlers replace any set on the same rows earlier. Empty colors get
+  // SillyTavern's own (stColor).
+  function bindRows(overlay, s) {
+    overlay.querySelectorAll('.m_o_on').forEach((c) => {
+      c.onchange = () => {
+        s[c.dataset.key] = c.checked;
+        save();
+        overlay.querySelector(`.m_o_body[data-for="${c.dataset.key}"]`).classList.toggle('cb_dim', !c.checked);
+        updateAvatarStyle();
+      };
+    });
+    overlay.querySelectorAll('.m_o_sl').forEach((sl) => {
+      sl.oninput = () => {
+        s[sl.dataset.key] = Number(sl.value);
+        overlay.querySelector(`#m_o_${sl.dataset.key}val`).textContent = sl.value;
+        updateAvatarStyle();
+      };
+      sl.onchange = save;
+    });
+    const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
+    for (const k of Object.keys(PICK_KEYS)) {
+      if (k.startsWith('ov') && k !== 'ovAvatar') onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
+    }
+    syncWhen();
+    overlay.querySelectorAll('.m_o_col').forEach((el) => {
+      const k = el.dataset.key;
+      if (!COLOR_RE.test(s[k])) {
+        s[k] = stColor(k);
+        if (el.tagName === 'INPUT') el.value = toHex(s[k]); else el.setAttribute('color', s[k]);
+      }
+      const set = (v) => {
+        if (!COLOR_RE.test(v) || v === s[k]) return;
+        s[k] = v;
+        save();
+        updateAvatarStyle();
+      };
+      if (el.tagName === 'INPUT') el.oninput = () => set(el.value);
+      else el.addEventListener('change', (e) => set(e.detail && e.detail.rgba));
+    });
+    overlay.querySelectorAll('.m_o_txt').forEach((el) => {
+      el.onchange = () => {
+        el.value = fontName(el.value);
+        s[el.dataset.key] = el.value;
+        save();
+        updateAvatarStyle();
+      };
+    });
+    overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
+      el.onchange = () => {
+        s[el.dataset.key] = el.value.slice(0, strMax(el.dataset.key));
+        save();
+        updateAvatarStyle();
+      };
+    });
+  }
+
   // ===== Reasoning Block and Text Formatting =====
   const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\))$/i;
   const FONT_RE = /^[\p{L}\p{N} _-]{0,60}$/u;
@@ -3729,11 +3789,20 @@
     return css;
   }
 
-  function textFormatCss(s) {
+  // What the Reasoning Block and Text Formatting CSS read from a setting: its tick, and its color, font or size while ticked.
+  function cssReaders(s) {
     const on = (k) => s[k + 'On'];
-    const col = (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : '');
-    const font = (k) => { const f = on(k) ? cleanFont(s[k]) : ''; return f ? `"${f}", var(--mainFontFamily)` : ''; };
-    const size = (k) => (on(k) ? rangeNum(s, k) : 0);
+    return {
+      on,
+      col: (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : ''),
+      font: (k) => { const f = on(k) ? cleanFont(s[k]) : ''; return f ? `"${f}", var(--mainFontFamily)` : ''; },
+      size: (k) => (on(k) ? rangeNum(s, k) : 0),
+    };
+  }
+
+  function reasoningCss(s) {
+    if (!s.rbEnabled) return '';
+    const { on, col, font } = cssReaders(s);
     let css = '';
 
     // Border Effects: Glow in the border's color, or a black Shadow. The reasoning box's sits on its left edge.
@@ -3742,51 +3811,54 @@
       const n = rangeNum(s, k + 'Size'), o = Math.ceil(n / 3);
       return s[k] === 'glow' ? `${left ? -o : 0}px 0 ${n}px ${spread} ${c}` : `${left ? -o : o}px ${o}px ${n}px ${spread} rgba(0, 0, 0, .6)`;
     };
-    if (s.rbEnabled) {
-      // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
-      const boxOp = on('rbBoxAlpha') ? rangeNum(s, 'rbBoxOpacity') : 100;
-      const boxFill = col('rbBoxColor') || (boxOp < 100 ? 'var(--SmartThemeBlurTintColor)' : '');
-      const boxBg = boxFill && seeThrough(boxFill, boxOp);
-      const allPat = boxPattern(s, col, boxBg);
-      // With a Background Image or Fade, a drawn pattern moves to the layer above the picture (see reasoningBgCss), so
-      // Fade can reach it through a mask. The Box Color fades on the box itself.
-      const img = cUrl(s.rbBgImg);
-      const fade = !!s.rbPatFadeOn;
-      const layered = !!img || (fade && allPat.length > 0);
-      const pat = layered ? [] : allPat;
-      const bg = fade ? (boxBg ? [fadeLayer(s, boxBg)] : []) : pat.length ? [...pat, boxBg || 'transparent'] : [];
-      const bs = on('rbBorderStyle') && RB_BOX_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
-      css += cssRule('.mes_reasoning', {
-        'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
-        'background-color': bg.length || fade ? '' : boxBg,
-        background: bg.join(', '),
-        position: layered ? 'relative' : '',
-        isolation: layered ? 'isolate' : '',
-        'padding-left': s.rbPat === 'notebook' ? '2.1em' : '',
-        '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
-        'border-left-color': col('rbBorder'),
-        'font-family': font('rbFont'),
-        'border-left-style': bs,
-        'border-left-width': bs === 'double' ? '4px' : '',
-        'box-shadow': edgeFx('rbEdgeFx', col('rbBorder') || 'var(--reasoning-body-color)', '-2px', true),
-      });
-      if (layered) css += reasoningBgCss(s, img, allPat, fade);
-      // The Reasoning Button above it. ST's has no border and rounded corners.
-      const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : '';
-      const bc = col('rbBtnBorderColor') || 'currentColor';
-      const op = on('rbBtnAlpha') ? rangeNum(s, 'rbBtnOpacity') : 100;
-      const fill = col('rbBtnColor') || (op < 100 ? 'var(--grey30)' : '');
-      css += cssRule('.mes_reasoning_header', {
-        'background-color': fill && seeThrough(fill, op),
-        color: col('rbBtnText'),
-        'border-radius': s.rbBtnShape !== 'rounded' ? RB_SHAPE[s.rbBtnShape] || '' : '',
-        border: bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
-        'box-shadow': edgeFx('rbBtnFx', bc, '0px', false),
-      });
-      css += reasoningArrowCss(s, col);
-    }
+    // The reasoning text box. SillyTavern colors it from these variables, so overriding them keeps its dimming and quote handling.
+    const boxOp = on('rbBoxAlpha') ? rangeNum(s, 'rbBoxOpacity') : 100;
+    const boxFill = col('rbBoxColor') || (boxOp < 100 ? 'var(--SmartThemeBlurTintColor)' : '');
+    const boxBg = boxFill && seeThrough(boxFill, boxOp);
+    const allPat = boxPattern(s, col, boxBg);
+    // With a Background Image or Fade, a drawn pattern moves to the layer above the picture (see reasoningBgCss), so
+    // Fade can reach it through a mask. The Box Color fades on the box itself.
+    const img = cUrl(s.rbBgImg);
+    const fade = !!s.rbPatFadeOn;
+    const layered = !!img || (fade && allPat.length > 0);
+    const pat = layered ? [] : allPat;
+    const bg = fade ? (boxBg ? [fadeLayer(s, boxBg)] : []) : pat.length ? [...pat, boxBg || 'transparent'] : [];
+    const bs = on('rbBorderStyle') && RB_BOX_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
+    css += cssRule('.mes_reasoning', {
+      'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
+      'background-color': bg.length || fade ? '' : boxBg,
+      background: bg.join(', '),
+      position: layered ? 'relative' : '',
+      isolation: layered ? 'isolate' : '',
+      'padding-left': s.rbPat === 'notebook' ? '2.1em' : '',
+      '--reasoning-saturation': on('rbSat') ? rangeNum(s, 'rbSat') / 100 : '',
+      'border-left-color': col('rbBorder'),
+      'font-family': font('rbFont'),
+      'border-left-style': bs,
+      'border-left-width': bs === 'double' ? '4px' : '',
+      'box-shadow': edgeFx('rbEdgeFx', col('rbBorder') || 'var(--reasoning-body-color)', '-2px', true),
+    });
+    if (layered) css += reasoningBgCss(s, img, allPat, fade);
+    // The Reasoning Button above it. ST's has no border and rounded corners.
+    const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : '';
+    const bc = col('rbBtnBorderColor') || 'currentColor';
+    const op = on('rbBtnAlpha') ? rangeNum(s, 'rbBtnOpacity') : 100;
+    const fill = col('rbBtnColor') || (op < 100 ? 'var(--grey30)' : '');
+    css += cssRule('.mes_reasoning_header', {
+      'background-color': fill && seeThrough(fill, op),
+      color: col('rbBtnText'),
+      'border-radius': s.rbBtnShape !== 'rounded' ? RB_SHAPE[s.rbBtnShape] || '' : '',
+      border: bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
+      'box-shadow': edgeFx('rbBtnFx', bc, '0px', false),
+    });
+    css += reasoningArrowCss(s, col);
+    return css ? css + '\n' : '';
+  }
 
-    if (!s.tfEnabled) return css ? css + '\n' : '';
+  function textFormatCss(s) {
+    if (!s.tfEnabled) return '';
+    const { on, col, font, size } = cssReaders(s);
+    let css = '';
 
     // Names on chat messages, and the speaker's name tag in Visual Novel Mode.
     const ns = size('tfNameSize');
@@ -3952,33 +4024,34 @@
       if (!mine || rbKey.get(el) !== frame.join('\0')) rbWrite(el, frame);
     });
   }
-  // Streaming changes one message many times a second, so only the messages that changed are checked, not the whole chat.
-  let rbObs = null, rbQueued = null;
-  function watchReasoningLabels() {
+  // Watches the chat for changed messages and refreshes their reasoning labels and Message Details. Streaming changes
+  // one message many times a second, so only the messages that changed are checked, not the whole chat.
+  let mesObs = null, mesQueued = null;
+  function watchMessages() {
     const chat = document.getElementById('chat');
-    if (rbObs || !chat || !window.MutationObserver) return;
-    rbObs = new MutationObserver((recs) => {
-      const first = !rbQueued;
-      rbQueued ??= new Set();
+    if (mesObs || !chat || !window.MutationObserver) return;
+    mesObs = new MutationObserver((recs) => {
+      const first = !mesQueued;
+      mesQueued ??= new Set();
       for (const r of recs) {
         const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
         const m = t && t.closest('.mes');
-        if (m) { rbQueued.add(m); continue; }
+        if (m) { mesQueued.add(m); continue; }
         for (const a of r.addedNodes) {
           if (a.nodeType !== 1) continue;
-          if (a.matches('.mes')) rbQueued.add(a);
-          a.querySelectorAll('.mes').forEach((e) => rbQueued.add(e));
+          if (a.matches('.mes')) mesQueued.add(a);
+          a.querySelectorAll('.mes').forEach((e) => mesQueued.add(e));
         }
       }
       if (!first) return;
       requestAnimationFrame(() => {
-        const mes = [...rbQueued].filter((m) => chat.contains(m));
-        rbQueued = null;
+        const mes = [...mesQueued].filter((m) => chat.contains(m));
+        mesQueued = null;
         syncReasoningLabels(mes);
         syncMessageDetails(mes);
       });
     });
-    rbObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
+    mesObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
   }
 
   // ===== Message Details =====
@@ -4062,7 +4135,7 @@
     return parts.map(([id, v], i) => (i ? (id === 'time' && parts[i - 1][0] === 'date' && spot !== 'av' ? ' ' : sep) : '') + v).join('');
   }
   // Writes each spot's text on the given messages, or every one in the chat. Called when a message changes (see
-  // watchReasoningLabels), so the reply time counts up while streaming and the numbers follow a deleted message.
+  // watchMessages), so the reply time counts up while streaming and the numbers follow a deleted message.
   const mdLast = new WeakMap();
   function syncMessageDetails(mes) {
     const s = settings();
@@ -4101,6 +4174,108 @@
   // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
     return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
+  }
+
+  // Elements' CSS, in the order it has always been written: Scrollbar, Cursor, Menu Bar Icons, Quick Replies, Message
+  // Details, then the Reasoning Block.
+  function elementsCss(s) {
+    return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
+  }
+
+  // Each part's switch, then its own binder. The rows it shares with other pages are bound by bindRows.
+  function bindElements(overlay, s) {
+    for (const [id, key] of [['m_rb_enable', 'rbEnabled'], ['m_md_enable', 'mdOn'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_mb_enable', 'mbOn'], ['m_qr_enable', 'ovQrOn']]) {
+      overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };
+    }
+    bindReasoning(overlay, s);
+    bindMessageDetails(overlay, s);
+    bindCursor(overlay, s);
+    bindMenuBarIcons(overlay, s);
+    bindCssBoxes(overlay, 'ov');
+  }
+
+  function bindReasoning(overlay, s) {
+    onPills(overlay, 'rbtyping', (v) => { s.rbTyping = v; save(); syncReasoningLabels(); });
+    onPills(overlay, 'rbbtnshape', (v) => { s.rbBtnShape = v; save(); updateAvatarStyle(); });
+    onPills(overlay, 'rbbtnborder', (v) => { s.rbBtnBorder = v; save(); updateAvatarStyle(); });
+    for (const [name, k] of [['rbbtnfx', 'rbBtnFx'], ['rbedgefx', 'rbEdgeFx']]) {
+      onPills(overlay, name, (v) => {
+        s[k] = v; save(); updateAvatarStyle();
+        overlay.querySelector(`.m_rb_fxsize[data-for="${k}"]`).classList.toggle('cb_dim', v === 'none');
+      });
+    }
+    onPills(overlay, 'rbboxshape', (v) => { s.rbBoxShape = v; save(); updateAvatarStyle(); });
+    // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
+    const syncPatRows = () => {
+      const p = s.rbPat;
+      overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'drawn' && p !== 'none') ? '' : 'none'; });
+      const onlyH = p === 'lines' && s.rbPatH && !s.rbPatV && !s.rbPatR && !s.rbPatL;
+      overlay.querySelector('.m_rb_patdim[data-for="thick"]').classList.toggle('cb_dim', p === 'checkers');
+      overlay.querySelector('.m_rb_patdim[data-for="size"]').classList.toggle('cb_dim', p === 'notebook' || onlyH);
+    };
+    const patSet = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncPatRows(); };
+    onPills(overlay, 'rbpat', (v) => patSet('rbPat', v));
+    onPills(overlay, 'rbpatshade', (v) => patSet('rbPatShade', v));
+    onPills(overlay, 'rbpatfade', (v) => patSet('rbPatFade', v));
+    overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.onchange = () => patSet(c.dataset.key, c.checked); });
+    overlay.querySelector('#m_rb_patreset').onclick = () => {
+      overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.checked = false; s[c.dataset.key] = false; });
+      patSet('rbPatH', false);
+    };
+    syncPatRows();
+    // Fade: its rows dim while it's off, and a note shows while the box has nothing to fade.
+    const fadeRows = overlay.querySelector('.m_rb_fade');
+    const syncFade = () => {
+      const fill = (s.rbBoxColorOn && COLOR_RE.test(s.rbBoxColor)) || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
+      const pat = s.rbPat !== 'none' && (s.rbPat !== 'lines' || s.rbPatH || s.rbPatV || s.rbPatR || s.rbPatL);
+      fadeRows.classList.toggle('cb_dim', !s.rbPatFadeOn);
+      overlay.querySelector('.m_rb_fadeneed').hidden = !s.rbPatFadeOn || fill || pat || !!s.rbBgImg;
+    };
+    const part = fadeRows.closest('.ntr_part');
+    for (const ev of ['input', 'change', 'click']) part.addEventListener(ev, () => setTimeout(syncFade), true);
+    syncFade();
+    onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
+    bindCssBoxes(overlay, 'rb');
+    bindReasoningArrow(overlay, s);
+    bindReasoningBg(overlay, s, syncFade);
+  }
+
+  // Cursor pictures: Upload / Link / Remove for each kind.
+  function bindCursor(overlay, s) {
+    const curFile = overlay.querySelector('#m_cur_file');
+    let curPending = null;
+    const renderCursor = () => {
+      for (const k of ['ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg']) {
+        const box = overlay.querySelector(`#m_cur_prev_${k}`);
+        box.innerHTML = s[k] ? `<img src="${escapeHTML(s[k])}" alt="">` : `<i class="fa-solid ${box.dataset.icon}"></i>`;
+        overlay.querySelector(`.m_cur_clr[data-k="${k}"]`).disabled = !s[k];
+      }
+    };
+    const setCursor = (k, url) => {
+      const old = s[k];
+      s[k] = url;
+      save(); updateAvatarStyle(); renderCursor();
+      deleteFileIfUnused(old);
+    };
+    overlay.querySelectorAll('.m_cur_up').forEach((b) => { b.onclick = () => { curPending = b.dataset.k; curFile.click(); }; });
+    overlay.querySelectorAll('.m_cur_url').forEach((b) => {
+      b.onclick = async () => {
+        const url = await askImageUrl(b.dataset.label, b, false);
+        if (url) setCursor(b.dataset.k, url);
+      };
+    });
+    overlay.querySelectorAll('.m_cur_clr').forEach((b) => { b.onclick = () => setCursor(b.dataset.k, ''); });
+    curFile.onchange = async () => {
+      if (!curFile.files.length || !curPending) return;
+      try {
+        setCursor(curPending, await uploadImage(curFile.files[0], 'cursor', { max: 128 }));
+      } catch (e) {
+        console.error('[NTR cursor upload]', e);
+        toastr.error(e.message || 'Upload failed', 'Cursor');
+      }
+      curFile.value = '';
+    };
+    renderCursor();
   }
 
   function reasoningPartHtml(s) {
@@ -4261,89 +4436,12 @@
   }
 
   function bindTextFormatting(overlay, s) {
-    overlay.querySelectorAll('.m_o_col').forEach((el) => {
-      const k = el.dataset.key;
-      if (!COLOR_RE.test(s[k])) {
-        s[k] = stColor(k);
-        if (el.tagName === 'INPUT') el.value = toHex(s[k]); else el.setAttribute('color', s[k]);
-      }
-      const set = (v) => {
-        if (!COLOR_RE.test(v) || v === s[k]) return;
-        s[k] = v;
-        save();
-        updateAvatarStyle();
-      };
-      if (el.tagName === 'INPUT') el.oninput = () => set(el.value);
-      else el.addEventListener('change', (e) => set(e.detail && e.detail.rgba));
-    });
-    overlay.querySelectorAll('.m_o_txt').forEach((el) => {
-      el.onchange = () => {
-        el.value = fontName(el.value);
-        s[el.dataset.key] = el.value;
-        save();
-        updateAvatarStyle();
-      };
-    });
-    for (const [id, key] of [['m_rb_enable', 'rbEnabled'], ['m_tf_enable', 'tfEnabled']]) {
-      overlay.querySelector('#' + id).onchange = function() {
-        s[key] = this.checked; save(); updateAvatarStyle();
-      };
-    }
-    onPills(overlay, 'rbtyping', (v) => { s.rbTyping = v; save(); syncReasoningLabels(); });
-    overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
-      el.onchange = () => {
-        s[el.dataset.key] = el.value.slice(0, strMax(el.dataset.key));
-        save();
-        updateAvatarStyle();
-      };
-    });
-    onPills(overlay, 'rbbtnshape', (v) => { s.rbBtnShape = v; save(); updateAvatarStyle(); });
-    onPills(overlay, 'rbbtnborder', (v) => { s.rbBtnBorder = v; save(); updateAvatarStyle(); });
-    for (const [name, k] of [['rbbtnfx', 'rbBtnFx'], ['rbedgefx', 'rbEdgeFx']]) {
-      onPills(overlay, name, (v) => {
-        s[k] = v; save(); updateAvatarStyle();
-        overlay.querySelector(`.m_rb_fxsize[data-for="${k}"]`).classList.toggle('cb_dim', v === 'none');
-      });
-    }
+    overlay.querySelector('#m_tf_enable').onchange = function() { s.tfEnabled = this.checked; save(); updateAvatarStyle(); };
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     for (const p of ['tfUser', 'tfAi']) onPills(overlay, p.toLowerCase() + 'align', (v) => { s[p + 'Align'] = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'tfplatepos', (v) => { s.tfPlatePos = v; save(); updateAvatarStyle(); });
     bindNameplatePic(overlay, s);
-    onPills(overlay, 'rbboxshape', (v) => { s.rbBoxShape = v; save(); updateAvatarStyle(); });
-    // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
-    const syncPatRows = () => {
-      const p = s.rbPat;
-      overlay.querySelectorAll('[data-rbpat]').forEach((r) => { r.style.display = r.dataset.rbpat === p || (r.dataset.rbpat === 'drawn' && p !== 'none') ? '' : 'none'; });
-      const onlyH = p === 'lines' && s.rbPatH && !s.rbPatV && !s.rbPatR && !s.rbPatL;
-      overlay.querySelector('.m_rb_patdim[data-for="thick"]').classList.toggle('cb_dim', p === 'checkers');
-      overlay.querySelector('.m_rb_patdim[data-for="size"]').classList.toggle('cb_dim', p === 'notebook' || onlyH);
-    };
-    const patSet = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncPatRows(); };
-    onPills(overlay, 'rbpat', (v) => patSet('rbPat', v));
-    onPills(overlay, 'rbpatshade', (v) => patSet('rbPatShade', v));
-    onPills(overlay, 'rbpatfade', (v) => patSet('rbPatFade', v));
-    overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.onchange = () => patSet(c.dataset.key, c.checked); });
-    overlay.querySelector('#m_rb_patreset').onclick = () => {
-      overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.checked = false; s[c.dataset.key] = false; });
-      patSet('rbPatH', false);
-    };
-    syncPatRows();
-    // Fade: its rows dim while it's off, and a note shows while the box has nothing to fade.
-    const fadeRows = overlay.querySelector('.m_rb_fade');
-    const syncFade = () => {
-      const fill = (s.rbBoxColorOn && COLOR_RE.test(s.rbBoxColor)) || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
-      const pat = s.rbPat !== 'none' && (s.rbPat !== 'lines' || s.rbPatH || s.rbPatV || s.rbPatR || s.rbPatL);
-      fadeRows.classList.toggle('cb_dim', !s.rbPatFadeOn);
-      overlay.querySelector('.m_rb_fadeneed').hidden = !s.rbPatFadeOn || fill || pat || !!s.rbBgImg;
-    };
-    const part = fadeRows.closest('.ntr_part');
-    for (const ev of ['input', 'change', 'click']) part.addEventListener(ev, () => setTimeout(syncFade), true);
-    syncFade();
-    onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
-    bindCssBoxes(overlay, 'rb');
-    bindReasoningArrow(overlay, s);
-    bindReasoningBg(overlay, s, syncFade);
   }
 
   // Nameplate Picture: Upload / Link / Remove.
@@ -4768,35 +4866,7 @@
   }
 
   function bindDisplay(overlay, s) {
-    for (const [id, key] of [['m_ov_enable', 'ovEnabled'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_mb_enable', 'mbOn'], ['m_qr_enable', 'ovQrOn'], ['m_md_enable', 'mdOn']]) {
-      overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };
-    }
-    overlay.querySelectorAll('.m_o_on').forEach((c) => {
-      c.onchange = () => {
-        s[c.dataset.key] = c.checked;
-        save();
-        overlay.querySelector(`.m_o_body[data-for="${c.dataset.key}"]`).classList.toggle('cb_dim', !c.checked);
-        updateAvatarStyle();
-      };
-    });
-    overlay.querySelectorAll('.m_o_sl').forEach((sl) => {
-      sl.oninput = () => {
-        s[sl.dataset.key] = Number(sl.value);
-        overlay.querySelector(`#m_o_${sl.dataset.key}val`).textContent = sl.value;
-        updateAvatarStyle();
-      };
-      sl.onchange = save;
-    });
-    const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
-    for (const k of Object.keys(PICK_KEYS)) {
-      if (k.startsWith('ov') && k !== 'ovAvatar') onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
-    }
-    syncWhen();
-    bindCssBoxes(overlay, 'ov');
-
-    bindMessageDetails(overlay, s);
-    bindMenuBarIcons(overlay, s);
-
+    overlay.querySelector('#m_ov_enable').onchange = function() { s.ovEnabled = this.checked; save(); updateAvatarStyle(); };
     // Bubble Style: picking one sets its values and redraws the menu. Any other change on the page may make it Custom.
     const page = overlay.querySelector('.ntr_page[data-page="display"]');
     const syncBubStyle = () => {
@@ -4809,41 +4879,6 @@
       Object.assign(s, BUB_PRESETS[v][1]);
       save(); updateAvatarStyle(); openCombinedModal();
     });
-
-    const curFile = overlay.querySelector('#m_cur_file');
-    let curPending = null;
-    const renderCursor = () => {
-      for (const k of ['ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg']) {
-        const box = overlay.querySelector(`#m_cur_prev_${k}`);
-        box.innerHTML = s[k] ? `<img src="${escapeHTML(s[k])}" alt="">` : `<i class="fa-solid ${box.dataset.icon}"></i>`;
-        overlay.querySelector(`.m_cur_clr[data-k="${k}"]`).disabled = !s[k];
-      }
-    };
-    const setCursor = (k, url) => {
-      const old = s[k];
-      s[k] = url;
-      save(); updateAvatarStyle(); renderCursor();
-      deleteFileIfUnused(old);
-    };
-    overlay.querySelectorAll('.m_cur_up').forEach((b) => { b.onclick = () => { curPending = b.dataset.k; curFile.click(); }; });
-    overlay.querySelectorAll('.m_cur_url').forEach((b) => {
-      b.onclick = async () => {
-        const url = await askImageUrl(b.dataset.label, b, false);
-        if (url) setCursor(b.dataset.k, url);
-      };
-    });
-    overlay.querySelectorAll('.m_cur_clr').forEach((b) => { b.onclick = () => setCursor(b.dataset.k, ''); });
-    curFile.onchange = async () => {
-      if (!curFile.files.length || !curPending) return;
-      try {
-        setCursor(curPending, await uploadImage(curFile.files[0], 'cursor', { max: 128 }));
-      } catch (e) {
-        console.error('[NTR cursor upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Cursor');
-      }
-      curFile.value = '';
-    };
-    renderCursor();
   }
 
   // ===== Per-character storage (kept inside the character card) =====
@@ -5587,7 +5622,7 @@
     const need = () => { const t = active(); if (!t) toastr.info('Pick a theme first.', 'Themes'); return t; };
     const nameTaken = (name, self) => s.themes.some((t) => t !== self && t.name.toLowerCase() === name.toLowerCase());
     const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
-    // The menu fills empty colors with SillyTavern's own (see bindTextFormatting), so those count as default too.
+    // The menu fills empty colors with SillyTavern's own (see bindRows), so those count as default too.
     const atDefault = (k) => JSON.stringify(s[k]) === JSON.stringify(DEFAULTS[k]) || (k in COLOR_FROM && s[k] === stColor(k));
     // Unsaved: the look differs from the selected theme, or from the default look when None is selected.
     const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };

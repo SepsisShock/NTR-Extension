@@ -1,6 +1,6 @@
 (() => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.67.0';
+  const VERSION = '2.68.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1508,6 +1508,24 @@
       <button class="menu_button ntr_ask_cancel">Cancel</button>
     </div>`;
 
+  // A small menu under a button, like Move to folder on the Regex page. The button sits in a .ntr_menu box, and `html`
+  // is the menu's buttons. A second click on the same button closes it; a page closes it on any other click.
+  function popMenu(anchor, html) {
+    const had = anchor.parentElement.querySelector('.ntr_pop');
+    closePops(anchor.closest('.ntr_page') || document);
+    if (had) return null;
+    const pop = document.createElement('div');
+    pop.className = 'ntr_pop';
+    pop.innerHTML = html;
+    pop.ntrAnchor = anchor;
+    anchor.parentElement.appendChild(pop);
+    anchor.setAttribute('aria-expanded', 'true');
+    return pop;
+  }
+  function closePops(scope = document) {
+    scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
+  }
+
   // Resolves to true for the main button, false for Cancel.
   function askYes(anchor, text, ok, { danger = false } = {}) {
     if (!anchor) {
@@ -2894,7 +2912,7 @@
     '#extensionsMenu', '#options .options-content', '.list-group', '.draggable', '.select2-dropdown',
     '#cb_modal_overlay .cb_popup_content', '#ntr_pin_layer .ntr_pin_panel', '#ntr_map .ntr_map_panel'];
   const UI_INNER = ['#user-settings-block h4', '.standoutHeader', '.standoutHeader ~ .inline-drawer-content', '.settingsSectionWrap', '.extensions_info .extension_block',
-    '#cb_modal_overlay .ntr_page .ntr_card', '#cb_modal_overlay .ntr_glab + .cb_collapse_content', '#cb_modal_overlay .ntr_fold', '#ntr_map .ntr_map_pop'];
+    '#cb_modal_overlay .ntr_page .ntr_card', '#cb_modal_overlay .ntr_glab + .cb_collapse_content', '#cb_modal_overlay .ntr_fold', '#cb_modal_overlay .m_ag_frame', '#ntr_map .ntr_map_pop'];
   // Folded parts: the header's top corners while open, and the part under it the bottom ones.
   const UI_INNER_TOP = ['#cb_modal_overlay .ntr_fold.ntr_open', '#cb_modal_overlay .rx_open .ntr_fold.rx_fhead', '#cb_modal_overlay .ntr_fold.rx_uhead'];
   const UI_INNER_BOTTOM = ['#cb_modal_overlay .ntr_fold + .cb_collapse_content', '#cb_modal_overlay .ntr_page .ntr_card.rx_fbody', '#cb_modal_overlay .ntr_page .ntr_card.rx_loose'];
@@ -6340,7 +6358,7 @@
     // Edit Placement
     peek, bannerSrc, startChar, ROT_KEYS, BANNER_LOOK_KEYS, fgData, FG_POS, fgTransform, cardNum, cNum, card, pagePart,
     startPlacement: (first) => startPlacement(first), drawPlace: () => drawPlace(),
-    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
+    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, popMenu, closePops, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

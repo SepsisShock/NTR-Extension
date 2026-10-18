@@ -336,6 +336,15 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 /* SillyTavern's buttons are flex boxes, which drop the space between an icon and its label, so the gap does it. */
 #cb_modal_overlay .menu_button, #ntr_pin_layer .menu_button { gap: 6px; }
 
+/* A small menu under a button (popMenu in index.js), like Move to folder on the Regex page. */
+#cb_modal_overlay .ntr_menu { position: relative; flex: none; }
+#cb_modal_overlay .ntr_pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 170px; padding: 4px; border-radius: 8px; white-space: nowrap;
+  background: var(--SmartThemeBlurTintColor, #222); border: 1px solid var(--SmartThemeBorderColor, #555); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
+#cb_modal_overlay .ntr_pop button { display: flex; gap: 8px; align-items: center; width: 100%; margin: 0; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+#cb_modal_overlay .ntr_pop button:hover { background: rgba(255, 255, 255, 0.08); }
+#cb_modal_overlay .ntr_pop .ntr_here { opacity: 0.5; cursor: default; }
+#cb_modal_overlay .ntr_pop .ntr_danger { color: var(--warning, #e57373); }
+
 .cb_carousel_nav {
   display: flex;
   align-items: center;
@@ -357,9 +366,57 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #ntr_pin_layer .ntr_pin_panel.ntr_pin_left { border-radius: 0 10px 10px 0; border-left: 0; }
 #ntr_pin_layer .ntr_pin_panel.ntr_pin_right { border-radius: 10px 0 0 10px; border-right: 0; }
 /* A box with nothing to show yet only shows while Edit Layout is open, so it can be placed. */
-/* Agents page: the name and job title look like text and show a border only to be typed in. */
-#cb_modal_overlay .m_ag_prof { background: transparent; border-color: transparent; }
-#cb_modal_overlay .m_ag_prof:hover, #cb_modal_overlay .m_ag_prof:focus { border-color: var(--SmartThemeBorderColor); }
+/* Agents page (agents.js): the roster, then the picked agent in a frame. Its header stays at the top of the menu while its
+   folded settings scroll under it, with the panel's own tint and blur so nothing shows through. overflow: clip rounds
+   the header with the frame without making the frame a scroll box, which would stop the header from staying put. */
+#cb_modal_overlay .m_ag_row { display: flex; align-items: center; gap: 8px; padding: 2px 8px; border-radius: 8px; }
+#cb_modal_overlay .m_ag_row.m_ag_sel { background: rgba(255, 255, 255, 0.07); outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }
+#cb_modal_overlay .m_ag_pick { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 0; border-radius: 6px; cursor: pointer; }
+#cb_modal_overlay :is(.m_ag_pick, #m_ag_pic):focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
+#cb_modal_overlay .m_ag_rtext { flex: 1; min-width: 0; }
+#cb_modal_overlay :is(.m_ag_rline, .m_ag_rsub) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cb_modal_overlay .m_ag_rtitle { opacity: 0.7; }
+#cb_modal_overlay .m_ag_rsub { font-size: 0.8em; opacity: 0.7; }
+/* A switch in a box that's easier to tap on a touch screen, without taking more room. */
+#cb_modal_overlay .m_ag_sw { flex: none; display: inline-flex; align-items: center; padding: 2px; margin: -2px; cursor: pointer; }
+#cb_modal_overlay .m_ag_frame { margin-top: 14px; border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 50%, transparent); border-radius: 12px; overflow: clip; }
+#cb_modal_overlay .m_ag_head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 8px 12px;
+  background-color: var(--SmartThemeBlurTintColor, #1e1e24);
+  background-image: linear-gradient(var(--SmartThemeBlurTintColor, #1e1e24), var(--SmartThemeBlurTintColor, #1e1e24));
+  backdrop-filter: blur(calc(var(--blurStrength, 10) * 1px));
+  -webkit-backdrop-filter: blur(calc(var(--blurStrength, 10) * 1px));
+  border-bottom: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 30%, transparent);
+}
+#cb_modal_overlay .m_ag_headrow { display: flex; align-items: center; gap: 10px; }
+#cb_modal_overlay .m_ag_headtxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+#cb_modal_overlay .m_ag_line { display: flex; align-items: center; gap: 5px; }
+#cb_modal_overlay .m_ag_names { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; }
+#cb_modal_overlay .m_ag_names .text_pole { margin: 0; padding: 1px 6px; min-height: 0; }
+/* The name's box fits the name, so the job title fits beside it. Browsers without field-sizing use its size instead. */
+#cb_modal_overlay .m_ag_nm { flex: 0 1 auto; width: auto; max-width: 100%; field-sizing: content; min-width: 4ch; font-size: 1.1em; font-weight: bold; }
+#cb_modal_overlay .m_ag_ttl { flex: 1 1 100px; width: auto; min-width: 0; }
+#cb_modal_overlay .m_ag_status { flex: 1; min-width: 0; padding-left: 7px; font-size: 0.8em; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cb_modal_overlay .m_ag_hbtn { flex: none; width: 28px; height: 28px; margin: 0; padding: 0; justify-content: center; }
+#cb_modal_overlay #m_ag_picmenu > div { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+/* Each part folds, with what it's set to on the right of its title, or under it in a narrow menu. */
+#cb_modal_overlay .m_ag_body { padding: 2px 10px 12px; }
+#cb_modal_overlay .m_ag_body .ntr_fold { margin-top: 8px; }
+#cb_modal_overlay .m_ag_body .ntr_fold + .cb_collapse_content { padding-top: 6px; }
+#cb_modal_overlay .m_ag_fwrap { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+#cb_modal_overlay .m_ag_fsum { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 5px; font-size: 0.8em; font-weight: normal; opacity: 0.65; }
+#cb_modal_overlay .m_ag_fsum > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cb_modal_overlay .m_ag_fsum.cb_warn { opacity: 1; }
+#cb_modal_overlay .ntr_compact .m_ag_fwrap { flex-direction: column; align-items: stretch; gap: 1px; }
+#cb_modal_overlay .ntr_compact .m_ag_fsum { justify-content: flex-start; }
+@media (pointer: coarse) {
+  #cb_modal_overlay .m_ag_hbtn { min-width: 40px; min-height: 40px; }
+  #cb_modal_overlay .m_ag_sw { padding: 11px 6px; margin: -11px -6px; }
+  #cb_modal_overlay .m_ag_head .ntr_pop button { min-height: 40px; }
+}
 /* Agent Results in a Pinned Block (agents.js): each agent's name and buttons, then its saved result. */
 #ntr_pin_layer .ntr_agres + .ntr_agres { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--SmartThemeBorderColor); }
 #ntr_pin_layer .ntr_agres_head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 600; }

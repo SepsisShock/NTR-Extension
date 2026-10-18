@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.67.0';
+  const REGEX_VERSION = '2.68.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -236,7 +236,6 @@ try {
     #cb_modal_overlay .rx_ublock { margin-top: 10px; }
     #cb_modal_overlay .ntr_page .rx_uhead { display: flex; align-items: center; gap: 8px; margin-top: 0; padding: 8px 10px; border-radius: 10px 10px 0 0; }
     #cb_modal_overlay .ntr_page .rx_loose { margin-top: 0; padding: 2px 12px 8px; border-top: 0; border-radius: 0 0 10px 10px; }
-    #cb_modal_overlay .rx_pop .rx_here { opacity: .5; cursor: default; }
     #cb_modal_overlay .rx_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
     #cb_modal_overlay .rx_row:last-child { border-bottom: 0; }
     #cb_modal_overlay .rx_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -265,12 +264,6 @@ try {
     #cb_modal_overlay input.rx_sw[type=checkbox]:checked::before { left: calc(100% - .94em); background: #fff; opacity: 1; }
     #cb_modal_overlay input.rx_sw[type=checkbox]:disabled { opacity: .35; cursor: default; }
     #cb_modal_overlay input.rx_sw[type=checkbox]:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
-    #cb_modal_overlay .rx_menu { position: relative; flex: none; }
-    #cb_modal_overlay .rx_pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 170px; padding: 4px; border-radius: 8px; white-space: nowrap;
-      background: var(--SmartThemeBlurTintColor, #222); border: 1px solid var(--SmartThemeBorderColor, #555); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
-    #cb_modal_overlay .rx_pop button { display: flex; gap: 8px; align-items: center; width: 100%; margin: 0; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
-    #cb_modal_overlay .rx_pop button:hover { background: rgba(255,255,255,.08); }
-    #cb_modal_overlay .rx_pop .rx_danger { color: var(--warning, #e57373); }
     #cb_modal_overlay .rx_guide { display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; border: 0; background: none;
       color: var(--SmartThemeQuoteColor, #6cf); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   `;
@@ -285,7 +278,7 @@ try {
       ${query ? '' : '<i class="fa-solid fa-grip-lines rx_grip" title="Drag to reorder or move to a folder"></i>'}
       <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
       ${sw('rx_rsw', on, 'Turn on or off')}
-      <span class="rx_menu">${btn('mvmenu', 'fa-share', 'Move to folder')}</span>
+      <span class="ntr_menu">${btn('mvmenu', 'fa-share', 'Move to folder')}</span>
       ${btn('edit', 'fa-pen', 'Edit')}
       ${btn('del', 'fa-trash', 'Delete', ' danger_button')}
     </div>`;
@@ -306,7 +299,7 @@ try {
           <i class="fa-solid fa-fw ${open ? 'fa-folder-open' : 'fa-folder'} rx_ficon"></i>
           <span class="rx_fname">${esc(f.name)} <span class="rx_count">${items.length}</span></span>
           ${sw('rx_fsw', items.some((x) => !x.disabled), 'Turn the whole folder on or off', items.length ? '' : ' disabled')}
-          <span class="rx_menu">${btn('fmenu', 'fa-ellipsis', 'Folder options')}</span>
+          <span class="ntr_menu">${btn('fmenu', 'fa-ellipsis', 'Folder options')}</span>
         </div>
         <div class="ntr_card rx_fbody">${list.map(rowHtml).join('') || '<div class="rx_empty">Empty. Drag a regex here.</div>'}</div>
       </div>`;
@@ -366,21 +359,15 @@ try {
     if (list) list.innerHTML = listHtml();
   }
 
-  function closePops() { page?.querySelectorAll('.rx_pop').forEach((p) => p.remove()); }
+  function closePops() { A.closePops(page); }
 
   // Move to folder: the section's folders, Unassigned, and New folder to make one and move the regex into it.
   function moveMenu(anchor, sec, id) {
-    const had = anchor.parentElement.querySelector('.rx_pop');
-    closePops();
-    if (had) return;
     const cur = folders(sec).find((f) => f.ids.includes(id)) || null;
-    const item = (fid, icon, label, here) => `<button data-act="mvto" data-fid="${esc(fid)}"${here ? ' class="rx_here" disabled' : ''}><i class="fa-solid ${icon} fa-fw"></i>${esc(label)}</button>`;
-    const pop = document.createElement('div');
-    pop.className = 'rx_pop';
-    pop.innerHTML = folders(sec).map((f) => item(f.id, 'fa-folder', f.name, f === cur)).join('')
+    const item = (fid, icon, label, here) => `<button data-act="mvto" data-fid="${esc(fid)}"${here ? ' class="ntr_here" disabled' : ''}><i class="fa-solid ${icon} fa-fw"></i>${esc(label)}</button>`;
+    A.popMenu(anchor, folders(sec).map((f) => item(f.id, 'fa-folder', f.name, f === cur)).join('')
       + item('', 'fa-inbox', 'Unassigned', !cur)
-      + '<button data-act="mvnew"><i class="fa-solid fa-folder-plus fa-fw"></i>New folder…</button>';
-    anchor.parentElement.appendChild(pop);
+      + '<button data-act="mvnew"><i class="fa-solid fa-folder-plus fa-fw"></i>New folder…</button>');
   }
 
   // Puts a regex in a folder (or Unassigned) at the end of it, and SillyTavern's run order follows.
@@ -405,18 +392,12 @@ try {
   }
 
   function folderMenu(anchor, sec, f) {
-    const had = anchor.parentElement.querySelector('.rx_pop');
-    closePops();
-    if (had) return;
-    const pop = document.createElement('div');
-    pop.className = 'rx_pop';
-    pop.innerHTML = `
+    A.popMenu(anchor, `
       <button data-act="frename"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
       <button data-act="fnew"><i class="fa-solid fa-plus fa-fw"></i>New regex here</button>
       <button data-act="fimport"><i class="fa-solid fa-file-import fa-fw"></i>Import here</button>
       <button data-act="fexport"><i class="fa-solid fa-file-export fa-fw"></i>Export folder</button>
-      <button data-act="fdelete" class="rx_danger"><i class="fa-solid fa-trash fa-fw"></i>Delete folder</button>`;
-    anchor.parentElement.appendChild(pop);
+      <button data-act="fdelete" class="ntr_danger"><i class="fa-solid fa-trash fa-fw"></i>Delete folder</button>`);
   }
 
   const nameCheck = (sec, self) => (v) => {
@@ -426,7 +407,7 @@ try {
   };
 
   async function onClick(e) {
-    if (!e.target.closest('.rx_menu')) closePops();
+    if (!e.target.closest('.ntr_menu')) closePops();
     const b = e.target.closest('[data-act]');
     const secEl = e.target.closest('.rx_sec');
     const sec = secEl ? secOf(secEl.dataset.sec) : null;

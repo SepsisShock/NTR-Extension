@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.3';
+  const VERSION = '2.69.4';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1328,7 +1328,7 @@ await (async () => {
     `;
 
     // Asked even while NTR is off, so Elements can let go of its custom cursor.
-    const elCss = callElements('css', s) || '';
+    const elCss = callModule('elements', 'css', s) || '';
     if (isOn()) cssString += overrideCss(s) + elCss + textFormatCss(s) + chatLookCss(s);
     // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
     // repainted all of it, avatar fades included.
@@ -1359,7 +1359,7 @@ await (async () => {
     applyLayout();
     document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); fullAvatar(img); });
     syncGoogleFonts();
-    callElements('sync');
+    callModule('elements', 'sync');
     syncPopouts();
     syncPins();
     markBubbleRuns();
@@ -1857,7 +1857,7 @@ await (async () => {
             ${castPartHtml()}
         `, { sw: ['m_a_enable', s.avatarEnabled], legend: true })}
 
-        ${elementsSectionHtml(s)}
+        ${lookPageHtml('elements', s)}
         ${textSectionHtml(s)}
         ${displaySectionHtml(s)}
         ${agentsSectionHtml(s)}
@@ -1901,7 +1901,7 @@ await (async () => {
     bindRows(overlay, s);
     bindDisplay(overlay, s);
     bindTextFormatting(overlay, s);
-    callElements('bind', overlay, s);
+    callModule('elements', 'bind', overlay, s);
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);
@@ -4991,42 +4991,53 @@ await (async () => {
     }
     syncPageOff(overlay);
   }
-  // Elements comes from elements.js, loaded before NTR starts (see loadElements). Each call is guarded, so a failure
-  // there leaves the rest of NTR running with SillyTavern's look for those parts. It's logged once per kind of call,
-  // since css and sync run on every restyle.
-  const elFailed = new Set();
-  function callElements(fn, ...args) {
-    const m = window.NTR.elements;
+  // Some look pages live in their own files, like Elements in elements.js. These load before NTR starts (see
+  // loadLookModules). This lists each one's file name and the menu page it draws. Each call into one is guarded, so a
+  // failure there leaves the rest of NTR running with SillyTavern's look for those parts. It's logged once per module
+  // and kind of call, since css and sync run on every restyle.
+  const LOOK_MODULES = { elements: 'elements' };
+  const lookFailed = new Set();
+  function callModule(name, fn, ...args) {
+    const m = window.NTR[name];
     if (!m) return undefined;
     try {
       return m[fn](...args);
     } catch (e) {
-      if (!elFailed.has(fn)) { elFailed.add(fn); console.error(`[NTR] Elements: ${fn} failed`, e); }
+      const k = `${name}.${fn}`;
+      if (!lookFailed.has(k)) { lookFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
       return undefined;
     }
   }
-  function elementsSectionHtml(s) {
-    const html = callElements('sectionHtml', s);
+  // A look module's page, or a note saying why it isn't there.
+  function lookPageHtml(name, s) {
+    const html = callModule(name, 'sectionHtml', s);
     if (html !== undefined) return html;
-    const msg = modError.elements ? 'Elements failed to load: ' + escapeHTML(modError.elements)
-      : window.NTR.elements ? 'Elements couldn\'t be drawn. The browser console has the details.' : 'Loading Elements.';
-    return pageHtml('elements', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
+    const label = MOD_LABEL[name];
+    const msg = modError[name] ? `${label} failed to load: ` + escapeHTML(modError[name])
+      : window.NTR[name] ? `${label} couldn't be drawn. The browser console has the details.` : `Loading ${label}.`;
+    return pageHtml(LOOK_MODULES[name], '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
   }
-  // Waits for elements.js, at most 5 seconds. SillyTavern waits for this file behind its loading screen, this wait
-  // included, so Elements' styles are there from the first draw. If it takes longer, NTR starts without it and
-  // restyles when it arrives. An open menu only gets its Elements note changed: redrawing it would close a question
+  // Waits for the look modules, side by side and at most 5 seconds in all. SillyTavern waits for them behind its loading
+  // screen, this wait included, so their styles are there from the first draw. One that takes longer arrives after NTR
+  // starts and restyles then. An open menu only gets that page's note changed: redrawing it would close a question
   // being answered, like a theme's name, and bring the menu back over Edit Layout.
-  async function loadElements() {
-    const load = loadModule('elements');
+  async function loadLookModules() {
+    const loads = Object.keys(LOOK_MODULES).map((name) => [name, loadModule(name)]);
+    const done = new Set();
+    for (const [name, load] of loads) load.then(() => done.add(name));
     let timer;
-    const inTime = await Promise.race([load.then(() => true), new Promise((res) => { timer = setTimeout(res, 5000, false); })]);
+    const inTime = await Promise.race([Promise.all(loads.map(([, load]) => load)).then(() => true), new Promise((res) => { timer = setTimeout(res, 5000, false); })]);
     clearTimeout(timer);
     if (inTime) return;
-    load.then((m) => {
-      if (m) updateAvatarStyle();
-      const note = document.querySelector('#cb_modal_overlay .ntr_page[data-page="elements"] .ntr_pnote');
-      if (note) note.textContent = m ? 'Elements is ready. Close and open the menu to use it.' : 'Elements failed to load: ' + modError.elements;
-    });
+    for (const [name, load] of loads) {
+      if (done.has(name)) continue;
+      load.then((m) => {
+        if (m) updateAvatarStyle();
+        const label = MOD_LABEL[name];
+        const note = document.querySelector(`#cb_modal_overlay .ntr_page[data-page="${LOOK_MODULES[name]}"] .ntr_pnote`);
+        if (note) note.textContent = m ? `${label} is ready. Close and open the menu to use it.` : `${label} failed to load: ` + modError[name];
+      });
+    }
   }
 
   // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
@@ -5432,7 +5443,7 @@ await (async () => {
     },
   };
 
-  await loadElements();
+  await loadLookModules();
 
   jQuery(() => {
     const { eventSource, event_types } = ctx();

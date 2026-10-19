@@ -3331,8 +3331,8 @@ await (async () => {
 
   // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick and ovWhen, bound once for the
   // whole menu. It runs after the modules', Themes', Layout's and Reader Mode's binders and before UI Decor's, Text
-  // Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows earlier. Empty colors get
-  // SillyTavern's own (stColor).
+  // Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows earlier. Empty
+  // colors get SillyTavern's own (stColor).
   function bindRows(overlay, s) {
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
       c.onchange = () => {

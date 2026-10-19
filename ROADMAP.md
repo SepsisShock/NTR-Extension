@@ -124,7 +124,6 @@ On light theme colors, the yellow is hard to read and the lines and highlights b
 `index.js` holds the other look pages (Layout, UI Decor). Users would see no difference; this keeps the core smaller.
 
 - [ ] Move the other look pages, one at a time, when one is worth it, the same way as Elements (`elements.js`), Text Formatting (`text.js`) and Avatar Management (`avatars.js`).
-- UI Decor first needs the Layout and Avatar Management CSS in its `chatLookCss` split out: Space Between Messages, the Separate gap, and Names and Pictures: Hide.
 
 ### Story Memory
 Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.

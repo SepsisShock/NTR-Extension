@@ -2551,7 +2551,8 @@ await (async () => {
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
 
   // UI Decor's switch, with decor.js loaded. Without decor.js, the parts of UI Decor the core builds stay SillyTavern's
-  // own too, whatever is saved: Blur and Shadow, the Free send bar's corners, and Speech Bubbles (bubblesOn).
+  // own too, whatever is saved: Blur and Shadow, the corners and bottom line where the chat panel meets a Free send bar,
+  // and Speech Bubbles (bubblesOn).
   const decorOn = (s) => s.ovEnabled && !!window.NTR.decor;
 
   function overrideCss(s) {

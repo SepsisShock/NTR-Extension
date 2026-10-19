@@ -2,8 +2,8 @@
 // the page that sets them. Loaded by index.js before NTR starts, so its styles are there from the first draw. If this file
 // breaks, the rest of the extension keeps working, with SillyTavern's own look for these parts.
 // The settings, their limits and the lists they're checked against stay in index.js, and so do Blur and Shadow (in
-// overrideCss) and the Free send bar's corners (joinCss), which follow this file; this file builds from what index.js
-// shares in window.NTR.api.look.
+// overrideCss) and the corners and bottom line where the chat panel meets a Free send bar (joinCss), which follow
+// this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
   const DECOR_VERSION = '2.69.9';
   const A = window.NTR && window.NTR.api;

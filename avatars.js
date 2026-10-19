@@ -1,8 +1,9 @@
 // Nitwit Tavern Redesign: Avatar Management module: NTR Avatars (In Line, Backdrop and Pop Out), avatar shapes,
 // fades and crop, and the page that sets them. Loaded by index.js before NTR starts, so its styles are there from the
 // first draw. If this file breaks, the rest of the extension keeps working, with SillyTavern's own avatars.
-// The settings, their limits and the lists they're checked against stay in index.js, and so do the pop-out pictures,
-// which Edit Placement moves; this file builds from what it shares in window.NTR.api.look.
+// The settings, their limits and the lists they're checked against stay in index.js, and so do the pop-out pictures'
+// layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
+// shares in window.NTR.api.look.
 (() => {
   const AVATARS_VERSION = '2.69.7';
   const A = window.NTR && window.NTR.api;

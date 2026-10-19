@@ -2562,8 +2562,8 @@ await (async () => {
   }
 
   // Names and Pictures: Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.
-  // It sits in Avatar Management, so that section's switch is the one that counts. Both of these are set only on that
-  // page, so without avatars.js they stay off, and other pages stop making room for NTR's avatars.
+  // It sits in Avatar Management, so that section's switch is the one that counts. Without avatars.js both of these
+  // stay off, whatever is saved, and other pages stop making room for NTR's avatars.
   const namesHidden = (s) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s.ovNamesOn && s.ovNames === 'hide';
   // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar.
   const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);

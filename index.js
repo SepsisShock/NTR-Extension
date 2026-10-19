@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.7';
+  const VERSION = '2.69.8';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1126,7 +1126,10 @@ await (async () => {
 
     // Asked even while NTR is off, so Elements can let go of its custom cursor.
     const elCss = callModule('elements', 'css', s) || '';
-    if (isOn()) cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + chatLookCss(s);
+    if (isOn()) {
+      const chatCss = layoutChatCss(s) + namesCss(s) + chatLookCss(s);
+      cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + (chatCss ? chatCss + '\n' : '');
+    }
     // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
     // repainted all of it, avatar fades included.
     if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
@@ -2633,15 +2636,25 @@ await (async () => {
   // Send Box Position: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
   const sendSeparate = (s) => s.layEnabled && s.ovSendPosOn && s.ovSendPos === 'separate';
 
-  function chatLookCss(s) {
+  // Space Between Messages and Send Box Position sit in Layout, so Layout's switch counts.
+  function layoutChatCss(s) {
     let css = '';
-    // Space Between Messages and Send Box Position sit in Layout; Names and Pictures in Avatar Management.
     if (s.layEnabled && s.ovMesGapOn) css += cssRule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
     if (sendSeparate(s)) css += cssRule('#form_sheld', { 'margin-top': `${rangeNum(s, 'ovSendGap')}px` });
-    if (namesHidden(s)) {
-      css += cssRule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
-    }
-    if (!s.ovEnabled) return css ? css + '\n' : '';
+    return css;
+  }
+
+  // Names and Pictures: Hide, from Avatar Management (see namesHidden).
+  function namesCss(s) {
+    if (!namesHidden(s)) return '';
+    return cssRule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
+  }
+
+  // UI Decor's own chat CSS: the chat panel, messages, send box, Interface Shape and Speech Bubbles. The caller adds the
+  // line break after it, together with layoutChatCss and namesCss.
+  function chatLookCss(s) {
+    if (!s.ovEnabled) return '';
+    let css = '';
     const on = (k) => s[k + 'On'];
     const color = (k, opacity) => ovColorVal(s, k, opacity);
     const radius = (p) => ovRadius(s, p);
@@ -2687,7 +2700,7 @@ await (async () => {
       // SillyTavern's own menus open outside it, so nothing gets cut off.
       overflow: sr ? 'clip' : '',
     });
-    return css ? css + '\n' : '';
+    return css;
   }
 
   // ----- Speech Bubbles -----
@@ -3010,7 +3023,7 @@ await (async () => {
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
     rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
-    ovBubTail: Object.keys(BUB_TAILS), ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: Object.keys(BUB_INK),
+    ovBubTail: ['none', 'pointed', 'curved', 'thought'], ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: ['auto', 'dark', 'light'],
     ovQrWrap: ['wrap', 'scroll'], ovQrAlign: Object.keys(QR_ALIGN),
     mdDate: ['long', 'short'], mdSep: Object.keys(MD_SEP),
   });

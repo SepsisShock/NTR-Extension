@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.5';
+  const VERSION = '2.69.6';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -587,6 +587,16 @@ await (async () => {
     pre.src = full;
   }
 
+  // Every chat avatar picture on screen, after a restyle: its shape and width once it has loaded, and the full-size picture.
+  function syncAvatarImgs() {
+    document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); fullAvatar(img); });
+  }
+  // A chat avatar picture that just loaded.
+  function avatarImgLoaded(img) {
+    setAvatarRatio(img);
+    fullAvatar(img);
+  }
+
   // SillyTavern's own chat avatars in a side's Shape, where NTR Avatars is off for that side.
   function stShapeCss(flag, shape, corner, focus) {
     const [w, h] = shape === 'rectangle' ? ['calc(var(--avatar-base-width) * 1.2)', 'calc(var(--avatar-base-height) * 1.8)'] : ['var(--avatar-base-width)', 'var(--avatar-base-height)'];
@@ -594,6 +604,33 @@ await (async () => {
     const r = shape === 'round' ? 'var(--avatar-base-border-radius-round)' : outline ? '0' : `calc(${w} * ${corner / 100})`;
     return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; object-position: 50% ${focus}% !important; }\n`
       + (outline ? `      #chat .mes[is_user="${flag}"] .avatar img { border: none !important; box-shadow: none !important; -webkit-mask: ${outline} center / 100% 100% no-repeat !important; mask: ${outline} center / 100% 100% no-repeat !important; }\n` : '');
+  }
+
+  // NTR Avatars on each side, and SillyTavern's own chat avatars in a side's Shape where NTR Avatars is off. The Shape
+  // part counts with Avatar Management switched off too.
+  function avatarsCss(s) {
+    let css = '';
+    if (isOn() && s.avatarEnabled) {
+      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+        if (!ntrAvatars(s, prefix)) continue;
+        const m = `.mes[is_user="${flag}"]`;
+        // In Line keeps SillyTavern's own message layout.
+        if (s[prefix + 'Style'] === 'inline') { css += getAvatarCss(prefix, flag, s); continue; }
+        css += `
+        ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; overflow: clip !important; }
+        ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
+        ${m} .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
+
+        ${getAvatarCss(prefix, flag, s)}
+      `;
+      }
+    }
+    if (isOn()) {
+      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) css += stShapeCss(flag, s[prefix + 'Shape'], rangeNum(s, prefix + 'Corner'), rangeNum(s, prefix + 'Focus'));
+      }
+    }
+    return css;
   }
 
   function setPopStatus(prefix, msg) {
@@ -1334,30 +1371,11 @@ await (async () => {
     // repainted all of it, avatar fades included.
     if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
 
-    if (isOn() && s.avatarEnabled) {
-      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-        if (!ntrAvatars(s, prefix)) continue;
-        const m = `.mes[is_user="${flag}"]`;
-        // In Line keeps SillyTavern's own message layout.
-        if (s[prefix + 'Style'] === 'inline') { cssString += getAvatarCss(prefix, flag, s); continue; }
-        cssString += `
-        ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; overflow: clip !important; }
-        ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
-        ${m} .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
-
-        ${getAvatarCss(prefix, flag, s)}
-      `;
-      }
-    }
-    if (isOn()) {
-      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) cssString += stShapeCss(flag, s[prefix + 'Shape'], rangeNum(s, prefix + 'Corner'), rangeNum(s, prefix + 'Focus'));
-      }
-    }
+    cssString += avatarsCss(s);
 
     styleEl.textContent = cssString;
     applyLayout();
-    document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); fullAvatar(img); });
+    syncAvatarImgs();
     syncGoogleFonts();
     callModule('elements', 'sync');
     syncPopouts();
@@ -1809,45 +1827,9 @@ await (async () => {
     `;
   }
 
-  function openCombinedModal() {
-    const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
-    document.getElementById('cb_modal_overlay')?.remove();
-    const s = settings();
-    // Reasoning Block Design is part of Elements now.
-    if (s.uiPage === 'reasoning') s.uiPage = 'elements';
-    // Visual Novel Mode's settings are part of Reader Mode's page now.
-    if (s.uiPage === 'vn') s.uiPage = 'reader';
-    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
-
-    const overlay = document.createElement('div');
-    overlay.id = 'cb_modal_overlay';
-    overlay.className = 'cb_popup_overlay';
-
-    overlay.innerHTML = `
-      <div class="cb_popup_content">
-        <div class="cb_popup_header">
-          <button class="cb_hbtn ntr_navbtn" title="Show the sections"><i class="fa-solid fa-bars"></i></button>
-          <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
-          <span class="ntr_hbtns">
-            <button class="cb_hbtn" id="m_wand"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="right" title="Dock right"><i class="fa-solid fa-right-long"></i></button>
-            <button class="cb_close_btn" title="Close">&times;</button>
-          </span>
-        </div>
-        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. To turn it back on, open its bar on the Extensions page and press Switch on.</div>'}
-        <div class="ntr_main">
-        <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
-        <div class="ntr_shade"></div>
-        <div class="ntr_body">
-
-        ${themesSectionHtml(s)}
-        ${layoutSectionHtml(s)}
-
-        ${overlaysSectionHtml(s)}
-
-        ${pageHtml('pfp', `
+  // The Avatar Management page: Names and Pictures, a column for each side, and Emotions (cast.js).
+  function avatarsSectionHtml(s) {
+    return pageHtml('pfp', `
             ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
               + '<div class="cb_hint">Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included. With Message Details (Elements) on, its details show wherever they\'re ticked, except under the avatar.</div>'))}
             <div class="ntr_cols">
@@ -1855,53 +1837,14 @@ await (async () => {
               ${getColHtml('us', 'User', s)}
             </div>
             ${castPartHtml()}
-        `, { sw: ['m_a_enable', s.avatarEnabled], legend: true })}
+        `, { sw: ['m_a_enable', s.avatarEnabled], legend: true });
+  }
 
-        ${lookPageHtml('elements', s)}
-        ${lookPageHtml('text', s)}
-        ${displaySectionHtml(s)}
-        ${agentsSectionHtml(s)}
-
-        ${regexSectionHtml(s)}
-        ${readerSectionHtml(s)}
-        </div>
-        </div>
-      </div>
-      <div id="ntr_edge" title="Drag to resize"></div>
-      <div id="ntr_preview"></div>`;
-
-    document.body.appendChild(overlay);
-
-    bindCollapses(overlay, s);
-    // Rotation waits while the Overlays page is open, showing the picked image, and starts a fresh count
-    // when another page is picked or the menu closes.
-    // The banner's rotation waits while the Overlays page is open (see overlays.js).
-    const rotRestart = () => window.NTR.overlays?.rotRestart(s);
-    bindPages(overlay, s, rotRestart);
-
-    setupPanel(overlay, prevScroll);
-
-    const close = () => { overlay.remove(); syncPopouts(); rotRestart(); };
-    overlay.querySelector('.cb_close_btn').onclick = close;
-    
-    window.NTR.overlays?.bind(overlay, s);
-
+  // The Avatar Management page's switch and both columns.
+  function bindAvatars(overlay, s) {
     overlay.querySelector('#m_a_enable').onchange = function() {
       s.avatarEnabled = this.checked; save(); updateAvatarStyle();
     };
-    
-    bindThemes(overlay, s);
-    bindLayout(overlay, s);
-    bindWand(overlay, s);
-    bindVNSection(overlay, s);
-    bindReader(overlay, s);
-    bindRegexPage(overlay, s);
-    window.NTR.agents?.bind(overlay, s);
-    window.NTR.cast?.bind(overlay, s);
-    bindRows(overlay, s);
-    bindDisplay(overlay, s);
-    callModule('text', 'bind', overlay, s);
-    callModule('elements', 'bind', overlay, s);
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);
@@ -1995,6 +1938,91 @@ await (async () => {
     
     bindCol('ai');
     bindCol('us');
+  }
+
+  function openCombinedModal() {
+    const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
+    document.getElementById('cb_modal_overlay')?.remove();
+    const s = settings();
+    // Reasoning Block Design is part of Elements now.
+    if (s.uiPage === 'reasoning') s.uiPage = 'elements';
+    // Visual Novel Mode's settings are part of Reader Mode's page now.
+    if (s.uiPage === 'vn') s.uiPage = 'reader';
+    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cb_modal_overlay';
+    overlay.className = 'cb_popup_overlay';
+
+    overlay.innerHTML = `
+      <div class="cb_popup_content">
+        <div class="cb_popup_header">
+          <button class="cb_hbtn ntr_navbtn" title="Show the sections"><i class="fa-solid fa-bars"></i></button>
+          <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
+          <span class="ntr_hbtns">
+            <button class="cb_hbtn" id="m_wand"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="right" title="Dock right"><i class="fa-solid fa-right-long"></i></button>
+            <button class="cb_close_btn" title="Close">&times;</button>
+          </span>
+        </div>
+        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. To turn it back on, open its bar on the Extensions page and press Switch on.</div>'}
+        <div class="ntr_main">
+        <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
+        <div class="ntr_shade"></div>
+        <div class="ntr_body">
+
+        ${themesSectionHtml(s)}
+        ${layoutSectionHtml(s)}
+
+        ${overlaysSectionHtml(s)}
+
+        ${avatarsSectionHtml(s)}
+
+        ${lookPageHtml('elements', s)}
+        ${lookPageHtml('text', s)}
+        ${displaySectionHtml(s)}
+        ${agentsSectionHtml(s)}
+
+        ${regexSectionHtml(s)}
+        ${readerSectionHtml(s)}
+        </div>
+        </div>
+      </div>
+      <div id="ntr_edge" title="Drag to resize"></div>
+      <div id="ntr_preview"></div>`;
+
+    document.body.appendChild(overlay);
+
+    bindCollapses(overlay, s);
+    // Rotation waits while the Overlays page is open, showing the picked image, and starts a fresh count
+    // when another page is picked or the menu closes.
+    // The banner's rotation waits while the Overlays page is open (see overlays.js).
+    const rotRestart = () => window.NTR.overlays?.rotRestart(s);
+    bindPages(overlay, s, rotRestart);
+
+    setupPanel(overlay, prevScroll);
+
+    const close = () => { overlay.remove(); syncPopouts(); rotRestart(); };
+    overlay.querySelector('.cb_close_btn').onclick = close;
+    
+    window.NTR.overlays?.bind(overlay, s);
+
+    bindThemes(overlay, s);
+    bindLayout(overlay, s);
+    bindWand(overlay, s);
+    bindVNSection(overlay, s);
+    bindReader(overlay, s);
+    bindRegexPage(overlay, s);
+    window.NTR.agents?.bind(overlay, s);
+    window.NTR.cast?.bind(overlay, s);
+    bindRows(overlay, s);
+    bindDisplay(overlay, s);
+    callModule('text', 'bind', overlay, s);
+    callModule('elements', 'bind', overlay, s);
+
+    bindAvatars(overlay, s);
   }
 
   // ===== Shared UI helpers =====
@@ -3303,8 +3331,8 @@ await (async () => {
 
   // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick and ovWhen, bound once for the
   // whole menu. It runs after the modules', Themes', Layout's and Reader Mode's binders and before UI Decor's, Text
-  // Formatting's and Elements', so these handlers replace any set on the same rows earlier. Empty colors get
-  // SillyTavern's own (stColor).
+  // Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows earlier. Empty
+  // colors get SillyTavern's own (stColor).
   function bindRows(overlay, s) {
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
       c.onchange = () => {
@@ -5258,8 +5286,7 @@ await (async () => {
     });
     document.addEventListener('load', (e) => {
       if (!(e.target instanceof HTMLImageElement) || !e.target.matches('#chat .mes .avatar img')) return;
-      setAvatarRatio(e.target);
-      fullAvatar(e.target);
+      avatarImgLoaded(e.target);
     }, true);
     window.addEventListener('resize', () => {
       layoutPop();

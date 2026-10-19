@@ -2636,7 +2636,7 @@ await (async () => {
   // Send Box Position: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
   const sendSeparate = (s) => s.layEnabled && s.ovSendPosOn && s.ovSendPos === 'separate';
 
-  // Space Between Messages and Send Box Position sit in Layout, so Layout's switch counts.
+  // Layout's Space Between Messages, and the gap Separate leaves above the send box.
   function layoutChatCss(s) {
     let css = '';
     if (s.layEnabled && s.ovMesGapOn) css += cssRule('#chat .mes:not(.last_mes)', { 'margin-bottom': `${rangeNum(s, 'ovMesGap')}px` });
@@ -2717,6 +2717,9 @@ await (async () => {
     curved: svgMask('M100 0C100 55 60 95 0 100L100 100Z'),
     thought: thoughtMask(),
   };
+  // The Tail and Text in Bubbles choices on the page. A saved one is checked against them (PICK_KEYS).
+  const BUB_TAIL_OPTS = [['none', 'None'], ['pointed', 'Pointed'], ['curved', 'Curved'], ['thought', 'Thought']];
+  const BUB_INK_OPTS = [['auto', 'As Is'], ['dark', 'Dark'], ['light', 'Light']];
   // Text in Bubbles: As Is keeps Text Formatting's or SillyTavern's text color.
   const BUB_INK = { auto: '', dark: '#1a1a1a', light: '#f2f2f2' };
   const TAIL_PX = 14, THOUGHT_PX = 34;
@@ -3023,7 +3026,7 @@ await (async () => {
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
     rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
-    ovBubTail: ['none', 'pointed', 'curved', 'thought'], ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: ['auto', 'dark', 'light'],
+    ovBubTail: BUB_TAIL_OPTS.map(([v]) => v), ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: BUB_INK_OPTS.map(([v]) => v),
     ovQrWrap: ['wrap', 'scroll'], ovQrAlign: Object.keys(QR_ALIGN),
     mdDate: ['long', 'short'], mdSep: Object.keys(MD_SEP),
   });
@@ -3153,7 +3156,7 @@ await (async () => {
       hint('Turns AI and User messages into chat bubbles around the message text. Avatars, names, buttons and the reasoning block stay outside the bubble. Its color, roundness and border come from AI Message and User Message. Reader Mode\'s Book keeps plain messages.')
       + ovLabel('Style', pills('obubpreset', [...Object.entries(BUB_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], bubPreset(s)))
       + hint('A style sets everything here except Tail Position, plus the AI and User Message cards. Change anything after that and it shows Custom. Comic suits a comic font, like Comic Neue or Bangers, in Text Formatting.')
-      + ovLabel('Tail', pick('ovBubTail', [['none', 'None'], ['pointed', 'Pointed'], ['curved', 'Curved'], ['thought', 'Thought']]))
+      + ovLabel('Tail', pick('ovBubTail', BUB_TAIL_OPTS))
       + hint('A Transparent background has no tail.')
       + ovLabel('Tail Position', pick('ovBubTailPos', [['top', 'Top'], ['bottom', 'Bottom']]))
       + hint('Top suits long replies: the tail is where the message starts.')
@@ -3164,7 +3167,7 @@ await (async () => {
       + hint('Shrink to Fit gives short messages a small bubble.')
       + ovLabel('Messages in a Row', pick('ovBubGroup', [['group', 'Group'], ['each', 'Each Message']]))
       + hint('Group gives several messages in a row from the same speaker one tail and one avatar, and puts them closer together.')
-      + ovLabel('Text in Bubbles', pick('ovBubInk', [['auto', 'As Is'], ['dark', 'Dark'], ['light', 'Light']]))
+      + ovLabel('Text in Bubbles', pick('ovBubInk', BUB_INK_OPTS))
       + hint('As Is keeps Text Formatting\'s or SillyTavern\'s text color. Dark suits light bubbles, like Comic\'s.'));
   }
 

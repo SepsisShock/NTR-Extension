@@ -21,6 +21,7 @@ const PLACES = [
   ['reader.js', 'READER_VERSION'],
   ['agents.js', 'AGENTS_VERSION'],
   ['elements.js', 'ELEMENTS_VERSION'],
+  ['text.js', 'TEXT_VERSION'],
 ];
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const ci = !!process.env.GITHUB_ACTIONS;

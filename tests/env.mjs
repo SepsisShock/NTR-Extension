@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
-export const MODULES = ['cast', 'vn', 'map', 'opening', 'overlays', 'regex', 'reader', 'agents', 'elements'];
+export const MODULES = ['cast', 'vn', 'map', 'opening', 'overlays', 'regex', 'reader', 'agents', 'elements', 'text'];
+// The look modules, which the core loads itself before it starts (LOOK_MODULES in index.js).
+export const LOOK = ['elements', 'text'];
 
 const noop = () => {};
 // Stands in for document and anything else the files only touch in passing: every property and call returns itself.
@@ -53,9 +55,9 @@ mkdirSync(ext, { recursive: true });
 mkdirSync(join(dir, 'regex'));
 writeFileSync(join(dir, 'regex', 'engine.js'), 'export {};\n');
 for (const name of ['index', ...MODULES]) cpSync(join(ROOT, `${name}.js`), join(ext, `${name}.mjs`));
-// The core loads elements.js itself before it starts, by its own name, so it's there under that name too. Plain
-// scripts like it run fine that way in Node. A test that sets NTR_TEST_NO_ELEMENTS first sees the core without it.
-if (!globalThis.NTR_TEST_NO_ELEMENTS) cpSync(join(ROOT, 'elements.js'), join(ext, 'elements.js'));
+// The core loads the look modules itself, by their own names, so they're there under those names too. Plain scripts
+// like them run fine that way in Node. A test that lists some in NTR_TEST_WITHOUT first sees the core without them.
+for (const name of LOOK) if (!globalThis.NTR_TEST_WITHOUT?.includes(name)) cpSync(join(ROOT, `${name}.js`), join(ext, `${name}.js`));
 
 export const load = (name) => import(pathToFileURL(join(ext, `${name}.mjs`)).href);
 

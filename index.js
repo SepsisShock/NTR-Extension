@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.4';
+  const VERSION = '2.69.5';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -112,7 +112,7 @@ await (async () => {
     tfAiFontOn: false, tfAiFont: '', tfAiSizeOn: false, tfAiSize: 1, tfAiAlignOn: false, tfAiAlign: 'left', tfAiMainOn: false, tfAiMain: '',
     tfAiEmOn: false, tfAiEm: '', tfAiUnderOn: false, tfAiUnder: '', tfAiQuoteOn: false, tfAiQuote: '',
     tfNameFxOn: false, tfNameFx: 'glow', tfNameFxStr: 3, tfNameFxColorOn: false, tfNameFxColor: '',
-    // Nameplate: the box behind the names on chat messages and the Visual Novel name tag (see textFormatCss).
+    // Nameplate: the box behind the names on chat messages and the Visual Novel name tag (see textFormatCss in text.js).
     tfPlateBgOn: false, tfPlateBg: '', tfPlateImg: '', tfPlateBorderOn: false, tfPlateBorder: '', tfPlateBorderWidth: 1,
     tfPlateRoundOn: false, tfPlateRound: 8, tfPlatePosOn: false, tfPlatePos: 'edge',
     tfUserFxOn: false, tfUserFx: 'glow', tfUserFxStr: 3, tfUserFxColorOn: false, tfUserFxColor: '',
@@ -1329,7 +1329,7 @@ await (async () => {
 
     // Asked even while NTR is off, so Elements can let go of its custom cursor.
     const elCss = callModule('elements', 'css', s) || '';
-    if (isOn()) cssString += overrideCss(s) + elCss + textFormatCss(s) + chatLookCss(s);
+    if (isOn()) cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + chatLookCss(s);
     // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
     // repainted all of it, avatar fades included.
     if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
@@ -1858,7 +1858,7 @@ await (async () => {
         `, { sw: ['m_a_enable', s.avatarEnabled], legend: true })}
 
         ${lookPageHtml('elements', s)}
-        ${textSectionHtml(s)}
+        ${lookPageHtml('text', s)}
         ${displaySectionHtml(s)}
         ${agentsSectionHtml(s)}
 
@@ -1900,7 +1900,7 @@ await (async () => {
     window.NTR.cast?.bind(overlay, s);
     bindRows(overlay, s);
     bindDisplay(overlay, s);
-    bindTextFormatting(overlay, s);
+    callModule('text', 'bind', overlay, s);
     callModule('elements', 'bind', overlay, s);
 
     const bindCol = (prefix) => {
@@ -2958,8 +2958,9 @@ await (async () => {
       if (s.ovBlurOn) v += `--blurStrength: ${rangeNum(s, 'ovBlur')} !important; `;
       if (s.ovShadowOn) v += `--shadowWidth: ${rangeNum(s, 'ovShadow')} !important; `;
     }
-    // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts.
-    if (s.tfEnabled && s.ovFontOn) v += `--fontScale: ${rangeNum(s, 'ovFont')} !important; `;
+    // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts. Its only control is on
+    // that page, so without text.js it stays SillyTavern's own, like the rest of the page.
+    if (s.tfEnabled && s.ovFontOn && window.NTR.text) v += `--fontScale: ${rangeNum(s, 'ovFont')} !important; `;
     return v ? `\n      :root { ${v}}\n` : '';
   }
 
@@ -3296,14 +3297,6 @@ await (async () => {
   function ovText(s, key, placeholder = '', max = 100) {
     return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="${max}" placeholder="${escapeHTML(placeholder)}" style="width:100%;">`;
   }
-  function ovFx(s, p) {
-    return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline']], s[p + 'Fx']) + rangeSlider(s, p + 'FxStr');
-  }
-  function fxRows(s, p) {
-    return `
-          ${ovRow(s, p + 'FxOn', 'Text Effect', ovFx(s, p))}
-          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + '<div class="cb_hint">Without this, Glow uses the text color, and Shadow and Outline are black.</div>')}`;
-  }
   function ovFont(s, key) {
     return `<input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="300" placeholder="Lora, or a link like fonts.google.com/specimen/Lora" style="width:100%;">`;
   }
@@ -3458,68 +3451,6 @@ await (async () => {
     return m ? '#' + [m[1], m[2], m[3]].map((n) => Math.min(255, Math.round(Number(n))).toString(16).padStart(2, '0')).join('') : '#dcdcd2';
   }
 
-  // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
-  function fxProps(s, p) {
-    if (!s[p + 'FxOn'] || !FX.includes(s[p + 'Fx'])) return {};
-    const n = rangeNum(s, p + 'FxStr');
-    const fx = s[p + 'Fx'];
-    const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)';
-    if (fx === 'glow') return { 'text-shadow': `0 0 ${n * 2}px ${c}, 0 0 ${n}px ${c}` };
-    if (fx === 'shadow') return { 'text-shadow': `${Math.ceil(n / 3)}px ${Math.ceil(n / 3)}px ${n}px ${c}` };
-    return { '-webkit-text-stroke': `${(n * 0.2).toFixed(1)}px ${c}`, 'paint-order': 'stroke fill' };
-  }
-
-  // Nameplate: a color or picture, border and roundness behind the name, on chat messages and the Visual Novel name tag.
-  // The picture covers the color. On the Top Edge lifts the name onto the top edge of its message's box, like the Visual
-  // Novel name tag. It keeps its place in the row, so the row stays as tall as the name and nothing in the message goes
-  // under it. It stays on one line (a long name ends in ...), so the room above the message is half its height. NTR
-  // Avatars behind the message or popped out clip the message, so there, and in Reader Mode's Book, the name stays in its row.
-  function nameplateCss(s, on, col, ns) {
-    const img = cUrl(s.tfPlateImg);
-    const border = on('tfPlateBorder') ? `${rangeNum(s, 'tfPlateBorderWidth')}px solid ${col('tfPlateBorder') || 'var(--SmartThemeBorderColor)'}` : '';
-    const plate = {
-      'background-color': col('tfPlateBg'),
-      'background-image': img ? `url("${img}")` : '',
-      'background-size': img ? 'cover' : '',
-      'background-position': img ? 'center' : '',
-      border,
-      'border-radius': on('tfPlateRound') ? `${rangeNum(s, 'tfPlateRound')}px` : '',
-    };
-    const boxed = !!(plate['background-color'] || img || border);
-    let css = cssRule('.mes .name_text', { ...plate, padding: boxed ? '.1em .6em' : '' }) + cssRule('#cb_node .cb_n_name', plate);
-    if (!on('tfPlatePos') || s.tfPlatePos !== 'edge') return css;
-    // The plate's height: one line at line-height 1.3, its padding (.1em top and bottom) and its border.
-    const half = `calc((var(--mainFontSize) * ${+((ns || 1) * (boxed ? 1.5 : 1.3)).toFixed(3)} + ${border ? 2 * rangeNum(s, 'tfPlateBorderWidth') : 0}px) / 2)`;
-    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-      const m = `body:not(.ntr_book) #chat .mes[is_user="${flag}"]`;
-      if (ntrAvatars(s, prefix) && s[prefix + 'Style'] !== 'inline') continue;
-      const one = { 'line-height': '1.3', 'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0' };
-      // NTR Avatars In Line above the text puts the name row under the avatar. There the name leaves its row for the
-      // message's top edge, and the avatar moves down to clear it.
-      const side = String(s[prefix + 'Side']);
-      if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
-        css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)', 'max-width': 'calc(100% - 30px)' });
-        css += cssRule(m, { 'margin-top': `calc(${half} + 2px)`, 'padding-top': `max(10px, calc(${half} + 4px))` });
-        // Speech Bubbles put this side's name row on the right: the name lines up with the row's right end instead of
-        // running past the message.
-        const p = prefix === 'ai' ? 'Ai' : 'Us';
-        if (bubblesOn(s) && bubRight(s, p)) css += cssRule(`body:not(.ntr_book) #chat .mes[is_user="${flag}"] .ch_name .name_text`, { left: 'auto', right: '10px' });
-        continue;
-      }
-      // 10px is SillyTavern's room between the message's top edge and its name row.
-      css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'relative', 'z-index': '2', transform: 'translateY(calc(-50% - 10px))', 'max-width': '100%' });
-      // The row stays one line and its parts may shrink, so a long name ends in ... instead of pushing the time and buttons away.
-      css += cssRule(`${m} .ch_name > .flex1`, { 'min-width': '0' })
-        + cssRule(`${m} .ch_name > .flex1 > .flex-container`, { 'min-width': '0', 'flex-wrap': 'nowrap' })
-        + cssRule(`${m} .ch_name :is(.timestamp, .timestamp-icon, .mes_ghost)`, { 'flex-shrink': '0' });
-      // SillyTavern cuts off anything above the message's content; sideways it still does. Its overflow also let the
-      // content shrink to the message's width, so that's kept with min-width.
-      css += cssRule(`${m} .mes_block`, { overflow: 'clip visible', 'min-width': '0' });
-      css += cssRule(m, { 'margin-top': `calc(${half} + 2px)` });
-    }
-    return css;
-  }
-
   // What the Reasoning Block and Text Formatting CSS read from a setting: its tick, and its color, font or size while ticked.
   function cssReaders(s) {
     const on = (k) => s[k + 'On'];
@@ -3529,43 +3460,6 @@ await (async () => {
       font: (k) => { const f = on(k) ? cleanFont(s[k]) : ''; return f ? `"${f}", var(--mainFontFamily)` : ''; },
       size: (k) => (on(k) ? rangeNum(s, k) : 0),
     };
-  }
-
-  function textFormatCss(s) {
-    if (!s.tfEnabled) return '';
-    const { on, col, font, size } = cssReaders(s);
-    let css = '';
-
-    // Names on chat messages, and the speaker's name tag in Visual Novel Mode.
-    const ns = size('tfNameSize');
-    css += cssRule('.mes .name_text', {
-      color: col('tfNameColor'),
-      'font-family': font('tfNameFont'),
-      'font-size': ns ? `calc(var(--mainFontSize) * ${ns})` : '',
-      'font-weight': on('tfNameWeight') ? NAME_WEIGHT[s.tfNameWeight] : '',
-      ...fxProps(s, 'tfName'),
-    });
-    css += cssRule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
-    css += nameplateCss(s, on, col, ns);
-
-    // User and AI message text. The Visual Novel dialogue box uses the AI's.
-    const align = (p) => (on(p + 'Align') && TEXT_ALIGN.includes(s[p + 'Align']) ? s[p + 'Align'] : '');
-    for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
-      const m = `.mes[is_user="${flag}"] .mes_text`;
-      const sz = size(p + 'Size');
-      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fxProps(s, p) });
-      // Lists, tables, code blocks and the edit box keep SillyTavern's alignment: bullets, columns and code don't center or justify well.
-      if (align(p)) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
-      css += cssRule(`${m} i, ${m} em`, { color: col(p + 'Em') });
-      css += cssRule(`${m} u`, { color: col(p + 'Under') });
-      css += cssRule(`${m} q`, { color: col(p + 'Quote') });
-      if (col(p + 'Em')) css += cssRule(`${m} q i, ${m} q em`, { color: 'inherit' });
-    }
-    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fxProps(s, 'tfAi') });
-    css += cssRule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
-    css += cssRule('#cb_node .cb_q', { color: col('tfAiQuote') });
-    if (col('tfAiEm')) css += cssRule('#cb_node .cb_q em', { color: 'inherit' });
-    return css ? css + '\n' : '';
   }
 
   // Custom CSS for the reasoning button, box and arrow, each inside its part's selector. Every Custom CSS box gets its own
@@ -3602,99 +3496,6 @@ await (async () => {
   }
 
   const FONT_NOTE = 'Use a font on your device, or any font from Google Fonts by its name or a link to it. Google fonts load on their own while you\'re online. Type the name exactly as it\'s written.';
-
-  function textSectionHtml(s) {
-    const part = (p) => `
-          ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
-          ${ovRow(s, p + 'SizeOn', 'Size', rangeSlider(s, p + 'Size'))}
-          ${ovRow(s, p + 'AlignOn', 'Alignment', pills(p.toLowerCase() + 'align', [['left', 'Left', 'SillyTavern\'s default'], ['right', 'Right'], ['center', 'Center'], ['justify', 'Justify']], s[p + 'Align'])
-            + '<div class="cb_hint">Lists, tables and code blocks stay as they are. Justify can leave wide gaps between words in narrow messages.</div>')}
-          ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
-          ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
-          ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
-          ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
-    return pageHtml('text', `
-          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names and Nameplate for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
-          ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', rangeSlider(s, 'ovFont') + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
-          ${subHead('tf_names', 'Names')}
-          <div class="cb_collapse_content">
-            <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
-            ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
-            ${ovRow(s, 'tfNameSizeOn', 'Size', rangeSlider(s, 'tfNameSize'))}
-            ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'SillyTavern\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
-            ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}${fxRows(s, 'tfName')}
-          </div>
-          ${subHead('tf_plate', 'Nameplate')}
-          <div class="cb_collapse_content">
-            <div class="cb_hint">A box behind the name, on chat messages and the Visual Novel name tag.</div>
-            ${ovRow(s, 'tfPlateBgOn', 'Color', ovColor(s, 'tfPlateBg'))}
-            <div class="cb_cur_slot">
-              <div class="cb_cur_row">
-                <div class="cb_cur_prev ntr_rd_pic" id="m_plate_prev"></div>
-                <span class="cb_cur_name">Picture<small>Covers the box, over the Color. A wide picture works best.</small></span>
-                <button class="menu_button" id="m_plate_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
-                <button class="menu_button" id="m_plate_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
-                <button class="menu_button" id="m_plate_clr" title="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
-              </div>
-              <input type="file" id="m_plate_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-            </div>
-            ${ovRow(s, 'tfPlateBorderOn', 'Border', ovColor(s, 'tfPlateBorder') + ovLabel('Width', rangeSlider(s, 'tfPlateBorderWidth')))}
-            ${ovRow(s, 'tfPlateRoundOn', 'Roundness', rangeSlider(s, 'tfPlateRound'))}
-            ${ovRow(s, 'tfPlatePosOn', 'Position', pills('tfplatepos', [['row', 'Name Row', 'SillyTavern\'s default'], ['edge', 'On the Top Edge']], s.tfPlatePos)
-              + '<div class="cb_hint">On the Top Edge lifts the name onto the top edge of its message and adds room above each message. A long name ends in ... With NTR Avatars behind the message or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
-          </div>
-          ${subHead('tf_user', 'User Text')}
-          <div class="cb_collapse_content">${part('tfUser')}
-          </div>
-          ${subHead('tf_ai', 'AI Text')}
-          <div class="cb_collapse_content">${part('tfAi')}
-          </div>
-    `, { sw: ['m_tf_enable', s.tfEnabled] });
-  }
-
-  function bindTextFormatting(overlay, s) {
-    overlay.querySelector('#m_tf_enable').onchange = function() { s.tfEnabled = this.checked; save(); updateAvatarStyle(); };
-    onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
-    for (const p of ['tfUser', 'tfAi']) onPills(overlay, p.toLowerCase() + 'align', (v) => { s[p + 'Align'] = v; save(); updateAvatarStyle(); });
-    onPills(overlay, 'tfplatepos', (v) => { s.tfPlatePos = v; save(); updateAvatarStyle(); });
-    bindNameplatePic(overlay, s);
-    for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
-  }
-
-  // Nameplate Picture: Upload / Link / Remove.
-  function bindNameplatePic(overlay, s) {
-    const prev = overlay.querySelector('#m_plate_prev');
-    const render = () => {
-      prev.innerHTML = s.tfPlateImg ? `<img src="${escapeHTML(s.tfPlateImg)}" alt="">` : '<i class="fa-solid fa-image"></i>';
-      overlay.querySelector('#m_plate_clr').disabled = !s.tfPlateImg;
-    };
-    const setImg = (url) => {
-      const old = s.tfPlateImg;
-      s.tfPlateImg = url;
-      save();
-      updateAvatarStyle();
-      render();
-      deleteFileIfUnused(old);
-    };
-    const file = overlay.querySelector('#m_plate_file');
-    overlay.querySelector('#m_plate_up').onclick = () => file.click();
-    overlay.querySelector('#m_plate_url').onclick = async function() {
-      const url = await askImageUrl('Nameplate picture', this, false);
-      if (url) setImg(url);
-    };
-    overlay.querySelector('#m_plate_clr').onclick = () => setImg('');
-    file.onchange = async () => {
-      if (!file.files.length) return;
-      try {
-        setImg(await uploadImage(file.files[0], 'plate', { maxWidth: 800 }));
-      } catch (e) {
-        console.error('[NTR nameplate upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Nameplate');
-      }
-      file.value = '';
-    };
-    render();
-  }
 
   // Pick-one rows of UI Decor (and the rows that moved from it to Layout and Avatars): the radio name is the key in lower case, with "o" in front.
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
@@ -4934,7 +4735,7 @@ await (async () => {
 
   // ===== Visual Novel module loader + its toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', overlays: 'Overlays', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions', elements: 'Elements' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening video', overlays: 'Overlays', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions', elements: 'Elements', text: 'Text Formatting' };
   const modPromise = {}, modError = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -4995,7 +4796,7 @@ await (async () => {
   // loadLookModules). This lists each one's file name and the menu page it draws. Each call into one is guarded, so a
   // failure there leaves the rest of NTR running with SillyTavern's look for those parts. It's logged once per module
   // and kind of call, since css and sync run on every restyle.
-  const LOOK_MODULES = { elements: 'elements' };
+  const LOOK_MODULES = { elements: 'elements', text: 'text' };
   const lookFailed = new Set();
   function callModule(name, fn, ...args) {
     const m = window.NTR[name];
@@ -5434,9 +5235,9 @@ await (async () => {
       const im = r.images[r.idx] || r.images[0];
       return im ? media(im.url) : '';
     },
-    // What elements.js builds from: the row builders, CSS helpers, and the lists its settings are checked against.
+    // What elements.js and text.js build from: the row builders, CSS helpers, and the lists their settings are checked against.
     look: {
-      COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
+      COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, ovLabel,
       RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
       cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,

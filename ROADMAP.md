@@ -121,9 +121,9 @@ On light theme colors, the yellow is hard to read and the lines and highlights b
 - Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
 
 ### Split the look pages into their own files
-`index.js` holds the other look pages (Layout, UI Decor, Avatars). Users would see no difference; this keeps the core smaller.
+`index.js` holds the other look pages (Layout, UI Decor). Users would see no difference; this keeps the core smaller.
 
-- [ ] Move the other look pages, one at a time, when one is worth it, the same way as Elements (`elements.js`) and Text Formatting (`text.js`).
+- [ ] Move the other look pages, one at a time, when one is worth it, the same way as Elements (`elements.js`), Text Formatting (`text.js`) and Avatar Management (`avatars.js`).
 - UI Decor first needs the Layout and Avatar Management CSS in its `chatLookCss` split out: Space Between Messages, the Separate gap, and Names and Pictures: Hide.
 
 ### Story Memory

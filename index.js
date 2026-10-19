@@ -4991,9 +4991,10 @@ await (async () => {
     }
     syncPageOff(overlay);
   }
-  // Look pages in their own files, loaded before NTR starts (see loadLookModules): each module's name and the menu page
-  // it draws. Each call is guarded, so a failure there leaves the rest of NTR running with SillyTavern's look for those
-  // parts. It's logged once per module and kind of call, since css and sync run on every restyle.
+  // Some look pages live in their own files, like Elements in elements.js. These load before NTR starts (see
+  // loadLookModules). This lists each one's file name and the menu page it draws. Each call into one is guarded, so a
+  // failure there leaves the rest of NTR running with SillyTavern's look for those parts. It's logged once per module
+  // and kind of call, since css and sync run on every restyle.
   const LOOK_MODULES = { elements: 'elements' };
   const lookFailed = new Set();
   function callModule(name, fn, ...args) {

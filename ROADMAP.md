@@ -121,9 +121,9 @@ On light theme colors, the yellow is hard to read and the lines and highlights b
 - Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
 
 ### Split the look pages into their own files
-`index.js` holds the other look pages (Layout, UI Decor). Users would see no difference; this keeps the core smaller.
+`index.js` holds the last look page, Layout. Users would see no difference; this keeps the core smaller.
 
-- [ ] Move the other look pages, one at a time, when one is worth it, the same way as Elements (`elements.js`), Text Formatting (`text.js`) and Avatar Management (`avatars.js`).
+- [ ] Move Layout when it's worth it, the same way as the others (`elements.js`, `text.js`, `avatars.js`, `decor.js`). It shares code with Edit Layout and Pinned Blocks, so those need separating from it first.
 
 ### Story Memory
 Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.

@@ -12,6 +12,6 @@ test('the core starts without text.js', () => {
   assert.equal(typeof api, 'object');
   assert.equal(window.NTR.text, undefined);
   assert.notEqual(api.moduleError('text'), '');
-  assert.ok(window.NTR.elements && window.NTR.avatars, 'the other look modules did not load without text.js');
+  assert.ok(window.NTR.elements && window.NTR.avatars && window.NTR.decor, 'the other look modules did not load without text.js');
   assert.ok(took < 4000, `the core waited ${Math.round(took)} ms for a file that isn't there`);
 });

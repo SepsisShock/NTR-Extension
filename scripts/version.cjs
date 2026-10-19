@@ -23,6 +23,7 @@ const PLACES = [
   ['elements.js', 'ELEMENTS_VERSION'],
   ['text.js', 'TEXT_VERSION'],
   ['avatars.js', 'AVATARS_VERSION'],
+  ['decor.js', 'DECOR_VERSION'],
 ];
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const ci = !!process.env.GITHUB_ACTIONS;

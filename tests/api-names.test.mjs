@@ -11,6 +11,16 @@ const unpacked = (src, from) => [...src.matchAll(new RegExp(`const \\{([^}]*)\\}
   .flatMap((m) => m[1].split(',').map((x) => x.split(':')[0].trim()).filter(Boolean));
 const used = (src, from) => [...src.matchAll(new RegExp(`(?<![\\w.$])${from.replace('.', '\\.')}\\.(\\w+)`, 'g'))].map((m) => m[1]);
 
+// The other way: every call the core makes into a look module names something the module has. callModule catches what
+// goes wrong, so a misspelled one would only show as a part that quietly stopped working.
+test('the core only calls what the look modules have', () => {
+  const core = readFileSync(join(ROOT, 'index.js'), 'utf8');
+  const calls = [...core.matchAll(/callModule\('(\w+)', '(\w+)'/g), ...[...core.matchAll(/lookPageHtml\('(\w+)'/g)].map((m) => [m[0], m[1], 'sectionHtml'])];
+  assert.ok(calls.length > 0, 'found no calls into the look modules');
+  const missing = calls.filter(([, mod, fn]) => typeof window.NTR[mod]?.[fn] !== 'function').map(([, mod, fn]) => `${mod}.${fn}`);
+  assert.deepEqual(missing, [], `index.js calls ${missing.join(', ')}, which the look modules don't have`);
+});
+
 for (const name of MODULES) {
   test(`${name}.js only takes names the core shares`, () => {
     const src = readFileSync(join(ROOT, `${name}.js`), 'utf8');

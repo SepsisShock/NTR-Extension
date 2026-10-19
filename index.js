@@ -2958,8 +2958,9 @@ await (async () => {
       if (s.ovBlurOn) v += `--blurStrength: ${rangeNum(s, 'ovBlur')} !important; `;
       if (s.ovShadowOn) v += `--shadowWidth: ${rangeNum(s, 'ovShadow')} !important; `;
     }
-    // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts.
-    if (s.tfEnabled && s.ovFontOn) v += `--fontScale: ${rangeNum(s, 'ovFont')} !important; `;
+    // Overall Font Scale sits in Text Formatting, so that section's switch is the one that counts. Its only control is on
+    // that page, so without text.js it stays SillyTavern's own, like the rest of the page.
+    if (s.tfEnabled && s.ovFontOn && window.NTR.text) v += `--fontScale: ${rangeNum(s, 'ovFont')} !important; `;
     return v ? `\n      :root { ${v}}\n` : '';
   }
 

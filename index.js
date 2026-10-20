@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.9';
+  const VERSION = '2.69.10';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -518,7 +518,7 @@ await (async () => {
   // Layout settings by their full names, for the layout being edited.
   const layNames = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [lk(phoneNow(), k), x]));
   const placeKind = (it) => (it.lay ? 'lay' : it.pin ? 'pin' : it.pos ? 'fg' : 'pop');
-  const place = { on: false, sel: null, drag: null, undo: [] };
+  const place = { on: false, sel: null, drag: null, undo: [], step: null, dirty: false, frame: 0 };
   let placeTouchGuard = false;
 
   function syncFgSliders(pos) {
@@ -804,32 +804,23 @@ await (async () => {
       box.classList.add('cb_dragging');
     });
 
+    // Pointer moves can come faster than frames, so a move only keeps where the pointer is; the frame moves the item there
+    // (see placeFrame).
     window.addEventListener('pointermove', (e) => {
       const d = place.drag;
       if (!d || e.pointerId !== d.id) return;
-      let dx = e.clientX - d.sx, dy = e.clientY - d.sy;
       // A tap that wobbles a little isn't a drag.
-      if (!d.moved && Math.hypot(dx, dy) < 4) return;
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
       d.moved = true;
-      if (d.it.lay) return d.r0 && dragLayout(d, dx, dy, e.clientX, e.clientY, e.altKey);
-      if (d.it.pin) return d.r0 && dragPin(d, dx, dy, e.altKey);
-      const s = settings();
-      if (s.placeSnap && !e.altKey && d.r0) {
-        // The picture's nearest edge lands on a grid line, whichever corner or center it's tied to.
-        const g = rangeNum(s, 'placeGrid');
-        const snap = (a, b) => {
-          const sa = Math.round(a / g) * g - a, sb = Math.round(b / g) * g - b;
-          return Math.abs(sa) <= Math.abs(sb) ? sa : sb;
-        };
-        dx += snap(d.r0.left + dx, d.r0.right + dx);
-        dy += snap(d.r0.top + dy, d.r0.bottom + dy);
-      }
-      placeSet(d.it, { x: d.start.x + dx, y: d.start.y + dy });
+      place.step = { d, x: e.clientX, y: e.clientY, alt: e.altKey };
+      if (!place.frame) place.frame = requestAnimationFrame(placeFrame);
     }, true);
 
     const end = (e) => {
       const d = place.drag;
       if (!d || e.pointerId !== d.id) return;
+      // A move still waiting for its frame lands first, so the item stops where the pointer did.
+      placeStep();
       place.drag = null;
       layer.querySelector('.cb_dragging')?.classList.remove('cb_dragging');
       if (d.moved) {
@@ -837,11 +828,13 @@ await (async () => {
       } else if (e.type === 'pointerup') {
         // A tap on the picked item picks the next one under it, so a picture over the chat panel can still be picked.
         // They go round in drawing order, top first, which picking doesn't change, so every outline there gets a turn.
+        // It reads the outlines as drawn, so a draw still waiting for its frame goes first.
+        if (place.dirty) drawPlaceNow();
         const under = new Set(document.elementsFromPoint(e.clientX, e.clientY).filter((el) => el.classList.contains('cb_place_box')).map((el) => el.dataset.id));
         const ids = placeItems().map((p) => p.id).reverse().filter((id) => under.has(id));
         if (ids.length > 1) place.sel = ids[(ids.indexOf(d.it.id) + 1) % ids.length];
       }
-      drawPlace();
+      drawPlaceNow();
     };
     window.addEventListener('pointerup', end, true);
     window.addEventListener('pointercancel', end, true);
@@ -854,16 +847,56 @@ await (async () => {
     if (place.undo.length > 20) place.undo.shift();
   }
 
+  // While Edit Layout is open, the outlines are drawn at most once a frame, however often something asks: a drag step
+  // moves things that several parts follow, and each of them asks for a draw of its own.
   function drawPlace() {
+    if (!place.on) return;
+    place.dirty = true;
+    if (!place.frame) place.frame = requestAnimationFrame(placeFrame);
+  }
+
+  // The latest drag move first, then the outlines, so they never show where things were before it. A draw asked for while
+  // this runs gets the next frame, and finds nothing left to do once this one has drawn.
+  function placeFrame() {
+    place.frame = 0;
+    placeStep();
+    if (place.dirty) drawPlaceNow();
+  }
+
+  // Moves the dragged item to where the pointer last was.
+  function placeStep() {
+    const st = place.step;
+    place.step = null;
+    const d = st?.d;
+    if (!d || place.drag !== d) return;
+    let dx = st.x - d.sx, dy = st.y - d.sy;
+    if (d.it.lay) return d.r0 && dragLayout(d, dx, dy, st.x, st.y, st.alt);
+    if (d.it.pin) return d.r0 && dragPin(d, dx, dy, st.alt);
+    const s = settings();
+    if (s.placeSnap && !st.alt && d.r0) {
+      // The picture's nearest edge lands on a grid line, whichever corner or center it's tied to.
+      const g = rangeNum(s, 'placeGrid');
+      const snap = (a, b) => {
+        const sa = Math.round(a / g) * g - a, sb = Math.round(b / g) * g - b;
+        return Math.abs(sa) <= Math.abs(sb) ? sa : sb;
+      };
+      dx += snap(d.r0.left + dx, d.r0.right + dx);
+      dy += snap(d.r0.top + dy, d.r0.bottom + dy);
+    }
+    placeSet(d.it, { x: d.start.x + dx, y: d.start.y + dy });
+  }
+
+  function drawPlaceNow() {
+    place.dirty = false;
     if (!place.on) return;
     const layer = document.getElementById('cb_place_layer');
     if (!layer) return;
     const s = settings();
     const small = [];
-    for (const it of placeItems()) {
-      const box = layer.querySelector(`.cb_place_box[data-id="${it.id}"]`);
-      if (!box) continue;
-      const r = placeRect(it);
+    // Every outline is measured before any is moved: measuring after a move makes the browser work out the layout again.
+    const items = placeItems().map((it) => ({ it, box: layer.querySelector(`.cb_place_box[data-id="${it.id}"]`) })).filter((x) => x.box);
+    for (const x of items) x.r = placeRect(x.it);
+    for (const { it, box, r } of items) {
       box.style.display = r ? 'block' : 'none';
       if (!r) continue;
       if (r.height < window.innerHeight * 0.3) small.push(r);
@@ -875,7 +908,7 @@ await (async () => {
       }
     }
     // The bar says which layout a move changes: Layout parts and Pinned Blocks are kept for each, the rest for both.
-    const sel = placeItems().find((it) => it.id === place.sel && placeRect(it));
+    const sel = items.find((x) => x.it.id === place.sel && x.r)?.it;
     const lay = phoneNow() ? 'Phone' : 'Desktop';
     layer.querySelector('.cb_place_name').textContent = sel ? `${sel.label} (${sel.lay || sel.pin ? lay : 'Both Layouts'})` : `Editing ${lay}: tap an outline to pick it`;
     layer.querySelector('#cb_place_snap').checked = !!s.placeSnap;
@@ -933,7 +966,7 @@ await (async () => {
     setPlaceTouchGuard(true);
     // A block still in its message moves with the chat, so the outlines follow any scroll, like Page Down in Reader Mode.
     document.addEventListener('scroll', drawPlace, true);
-    drawPlace();
+    drawPlaceNow();
     return true;
   }
 
@@ -942,6 +975,10 @@ await (async () => {
     place.on = false;
     place.drag = null;
     place.undo = [];
+    cancelAnimationFrame(place.frame);
+    place.frame = 0;
+    place.step = null;
+    place.dirty = false;
     const layer = document.getElementById('cb_place_layer');
     if (layer) layer.style.display = 'none';
     setPlaceTouchGuard(false);

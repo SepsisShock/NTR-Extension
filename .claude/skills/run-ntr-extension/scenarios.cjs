@@ -53,14 +53,17 @@ const styleText = () => {
   // Scenario names by outcome, for the closing summary.
   const ran = [], skipped = [], failed = [];
 
-  // Whether the installed extension has a file, asked from a page on the server so it carries the login.
+  // Whether the installed extension has a file, asked from a page on the server so it carries the login. A server that
+  // doesn't answer fails the scenario; one that answers without NTR stops the run.
   const files = {};
-  let probe;
+  let probe, notInstalled = false;
   const has = async (n) => {
     if (!(n in files)) {
       if (!probe) {
-        probe = await browser.newPage();
-        if (!(await probe.goto(EXT_URL + 'manifest.json'))?.ok()) throw new Error(`NTR isn't installed at ${EXT_URL}`);
+        const p = await browser.newPage();
+        const res = await p.goto(EXT_URL + 'manifest.json').catch(async (e) => { await p.close(); throw e; });
+        if (!res?.ok()) { notInstalled = true; throw new Error(`NTR isn't installed at ${EXT_URL}`); }
+        probe = p;
       }
       files[n] = await probe.evaluate(async (u) => (await fetch(u, { method: 'HEAD', cache: 'no-store' })).ok, EXT_URL + n + '.js');
     }
@@ -71,7 +74,13 @@ const styleText = () => {
     if (ONLY && !ONLY.includes(name[0])) return;
     out(`\n== ${name}`);
     // The files a scenario holds back or blocks are the ones it's about.
-    for (const n of [...hold, ...abort, ...Object.keys(seq)]) if (!(await has(n))) { out(`skipped: no ${n}.js`); skipped.push(name); return; }
+    try {
+      for (const n of [...hold, ...abort, ...Object.keys(seq)]) if (!(await has(n))) { out(`skipped: no ${n}.js`); skipped.push(name); return; }
+    } catch (e) {
+      if (notInstalled) throw e;
+      ran.push(name); failed.push(name); out('FAILED', e.message.split('\n')[0]);
+      return;
+    }
     const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
     const errors = [];
     page.on('pageerror', (e) => { if (!/Internal S/.test(e.message)) errors.push(e.message); });

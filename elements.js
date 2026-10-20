@@ -1,6 +1,7 @@
 // Nitwit Tavern Redesign: Elements module: Reasoning Block, Message Details, Scrollbar, Cursor, Menu Bar Icons and
 // Quick Replies. Loaded by index.js before NTR starts, so its styles are there from the first draw, unless it takes
-// over 5 seconds; then it restyles when it arrives. If this file breaks, the rest of the extension keeps working, with SillyTavern's own look for these parts.
+// over 5 seconds; then it restyles when it arrives. If this file breaks, the rest of the extension keeps working, with
+// SillyTavern's own look for these parts.
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {

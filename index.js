@@ -848,12 +848,13 @@ await (async () => {
   }
 
   // While Edit Layout is open, the outlines are drawn at most once a frame, however often something asks: a drag step
-  // moves things that several parts follow, and each of them asked for a draw of its own.
+  // moves things that several parts follow, and each of them asks for a draw of its own.
   function drawPlace() {
     if (!place.on) return;
     place.dirty = true;
     if (!place.frame) place.frame = requestAnimationFrame(placeFrame);
   }
+
   // The latest drag move first, then the outlines, so they never show where things were before it. A draw asked for while
   // this runs gets the next frame, and finds nothing left to do once this one has drawn.
   function placeFrame() {

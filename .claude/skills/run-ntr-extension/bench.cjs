@@ -180,10 +180,12 @@ async function drag(page, cdp, opts, saves, { first, id, grip = '', axis, amp, s
   const undone = Date.now();
   await page.evaluate(() => { document.querySelector('#cb_place_undo').click(); document.querySelector('#cb_place_done').click(); });
   if ((await saved()) !== before) throw new Error(`Undo didn't put ${id} back`);
-  // SillyTavern saves a second after the last change: wait for that save to answer, so it can't land in what comes next.
+  // SillyTavern saves a second after the last change: wait for Undo's save to answer, so it can't land in what comes
+  // next. A save starting sooner is the release's, which may still be on its way when Undo is pressed.
+  const after = undone + 900;
   const until = Date.now() + 20000 * T;
-  while (Date.now() < until && !(saves.since(undone) && saves.open === 0)) await sleep(100);
-  if (!saves.since(undone)) throw new Error(`the settings weren't saved after ${id}'s drag`);
+  while (Date.now() < until && !(saves.since(after) && saves.open === 0)) await sleep(100);
+  if (!saves.since(after)) throw new Error(`the settings weren't saved after ${id}'s drag`);
   return r;
 }
 

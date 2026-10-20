@@ -683,7 +683,7 @@
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, its switch,
   // when it runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
-  // Department, Delete). The title shows here, in the roster and on a Dashboard's tabs.
+  // Department, Delete). The title shows here, in the roster and on a Dashboard set to Tabs.
   function headHtml(a, allOpen) {
     const busy = current?.id === a.id;
     return `<div class="m_ag_head">

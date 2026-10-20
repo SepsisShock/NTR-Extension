@@ -50,7 +50,8 @@ const styleText = () => {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const out = (...a) => { console.log(...a); fs.appendFileSync(path.join(OUT, 'out.txt'), a.join(' ') + '\n'); };
   const save = (file, text) => fs.writeFileSync(path.join(OUT, file), text);
-  let failed = 0;
+  // Scenario names by outcome, for the closing summary.
+  const ran = [], skipped = [], failed = [];
 
   // Whether the installed extension has a file, asked from a page on the server so it carries the login.
   const files = {};
@@ -70,7 +71,7 @@ const styleText = () => {
     if (ONLY && !ONLY.includes(name[0])) return;
     out(`\n== ${name}`);
     // The files a scenario holds back or blocks are the ones it's about.
-    for (const n of [...hold, ...abort, ...Object.keys(seq)]) if (!(await has(n))) { out(`skipped: no ${n}.js`); return; }
+    for (const n of [...hold, ...abort, ...Object.keys(seq)]) if (!(await has(n))) { out(`skipped: no ${n}.js`); skipped.push(name); return; }
     const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
     const errors = [];
     page.on('pageerror', (e) => { if (!/Internal S/.test(e.message)) errors.push(e.message); });
@@ -163,7 +164,8 @@ const styleText = () => {
         }, sec),
       };
       await body(t);
-    } catch (e) { failed++; out('FAILED', e.message.split('\n')[0]); }
+    } catch (e) { failed.push(name); out('FAILED', e.message.split('\n')[0]); }
+    ran.push(name);
     out('errors', JSON.stringify(errors));
     await page.context().close();
   }
@@ -710,5 +712,7 @@ const styleText = () => {
   });
 
   await browser.close();
-  if (failed) process.exitCode = 1;
+  const list = (a) => (a.length ? ` (${a.join(', ')})` : '');
+  out(`\nran ${ran.length}, skipped ${skipped.length}${list(skipped)}, failed ${failed.length}${list(failed)}`);
+  if (failed.length) process.exitCode = 1;
 })().catch((e) => { console.error(e.message || e); process.exit(1); });

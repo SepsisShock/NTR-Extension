@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.11';
+  const VERSION = '2.69.12';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -797,7 +797,10 @@ await (async () => {
       if (place.sel !== it.id) { place.sel = it.id; drawPlace(); return; }
       const start = placeGet(it);
       const grip = e.target.closest('.cb_place_grip')?.dataset.g || '';
-      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false };
+      // For a cancelled drag (see endPlacement): a foreground picture's place belongs to the open chat, so the drag keeps
+      // whose it is; Layout parts and Pinned Blocks have a place for each layout, so it keeps both, as the window can
+      // cross 1000 px while the drag goes on.
+      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false, fg: it.pos ? { data: fgData(), owner: fgOwner() } : null, both: placeBoth(it) };
       if (it.lay) Object.assign(place.drag, { r0: layRect(it), px0: e.clientX, py0: e.clientY, edge0: settings()[lk(phoneNow(), 'BarEdge')] });
       else place.drag.r0 = placeRect(it);
       place.drag.edge = place.drag.edge0;
@@ -840,6 +843,13 @@ await (async () => {
     window.addEventListener('pointercancel', end, true);
     window.addEventListener('keydown', (e) => { if (place.on && e.key === 'Escape') endPlacement(); });
     return layer;
+  }
+
+  // An item's places in both layouts: a Layout part's settings, a Pinned Block's two boxes. Pictures have one place.
+  function placeBoth(it) {
+    if (it.lay) return Object.fromEntries([false, true].flatMap((ph) => LAY_PART[it.lay].keys.map((k) => [lk(ph, k), settings()[lk(ph, k)]])));
+    if (it.pin) { const p = pinOf(it); return p ? { desk: { ...p.desk }, phone: { ...p.phone } } : null; }
+    return null;
   }
 
   function pushUndo(id, v) {
@@ -972,6 +982,14 @@ await (async () => {
 
   function endPlacement() {
     if (!place.on) return;
+    // A drag not let go yet (Escape in the middle of one) isn't saved, so it goes back where it started. A foreground
+    // picture whose chat has changed meanwhile goes back in that chat's data, not the new one's.
+    const d = place.drag;
+    if (d?.fg && d.fg.owner !== fgOwner()) Object.assign(d.fg.data, { [d.it.pos + 'X']: d.start.x, [d.it.pos + 'Y']: d.start.y });
+    else if (d?.it.pin) {
+      const p = pinOf(d.it);
+      if (p) { Object.assign(p, structuredClone(d.both)); cssTag('ntr_pin_css', pinCss(settings())); }
+    } else if (d) placeSet(d.it, d.both || d.start);
     place.on = false;
     place.drag = null;
     place.undo = [];
@@ -1196,6 +1214,9 @@ await (async () => {
     for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
     r.scope = 'char';
   }
+
+  // Whose foreground pictures are showing: the group's in a group chat, otherwise the character's.
+  const fgOwner = () => (ctx().groupId ? 'group:' + ctx().groupId : currentKey());
 
   function currentKey() {
     const c = ctx();

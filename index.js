@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.17';
+  const VERSION = '2.69.18';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -2448,8 +2448,6 @@ await (async () => {
     document.body.appendChild(overlay);
 
     bindCollapses(overlay, s);
-    // Rotation waits while the Overlays page is open, showing the picked image, and starts a fresh count
-    // when another page is picked or the menu closes.
     // The banner's rotation waits while the Overlays page is open (see overlays.js).
     const rotRestart = () => window.NTR.overlays?.rotRestart(s);
     bindPages(overlay, s, rotRestart);

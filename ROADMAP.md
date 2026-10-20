@@ -191,4 +191,4 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.
 - [ ] Maps: pins and popups near the screen edge.
 - [ ] Opening video and banner video: autoplay, sound button, YouTube.
-- [ ] Reader Mode: Book on a phone held sideways, the page flip, and dragging a Free page bar and banner by touch.
+- [ ] Reader Mode: Book on a phone held sideways, the page flip, and dragging a Floating page bar and banner by touch.

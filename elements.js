@@ -5,7 +5,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.69.18';
+  const ELEMENTS_VERSION = '2.69.19';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -989,8 +989,8 @@
         <div class="m_mb_mode">${pills('mbmode' + i, [['tint', 'Tint', 'Uses the picture\'s shape in the theme\'s icon color.'], ['full', 'Full Color', 'Shows the picture as it is.']], s.mbIcons[r.id]?.mode)}</div>
       </div>`;
     }).join('');
-    return pagePart('Menu Bar Icons', ['m_mb_enable', s.mbOn], 'el_mbicons', `
-          <div class="cb_hint">Your own pictures for the icons on SillyTavern's menu bar. Empty keeps SillyTavern's icon.</div>
+    return pagePart('ST Menu Bar Icons', ['m_mb_enable', s.mbOn], 'el_mbicons', `
+          <div class="cb_hint">Your own pictures for the icons on the ST menu bar. Empty keeps ST's icon.</div>
           ${rows}
           <div class="cb_hint">Tint colors the picture like SillyTavern's icons, so it needs a see-through background. Full Color shows the picture as it is. Icons for closed panels stay faded, like SillyTavern's.</div>
           <div class="cb_hint" style="margin-bottom: 0;">Pictures fill the same square as SillyTavern's icons. Square pictures with a little empty space around them look best; 64×64 px is plenty. Animated GIFs keep moving.</div>
@@ -1073,7 +1073,7 @@
         set(i, url, await hasClear(url) ? 'tint' : 'full');
       } catch (e) {
         console.error('[NTR menu bar icon upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Menu Bar Icons');
+        toastr.error(e.message || 'Upload failed', 'ST Menu Bar Icons');
       }
     };
     render();

@@ -4,7 +4,7 @@
 // The header banner above the chat (images that can rotate, a YouTube loop or a video) and the foreground images beside
 // the chat panel, with their page in the menu. Their settings, card data and Edit Placement stay in index.js.
 (() => {
-  const OVERLAYS_VERSION = '2.69.18';
+  const OVERLAYS_VERSION = '2.69.19';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
@@ -612,7 +612,7 @@
             </div>
 
             ${card('Layout', `
-              ${A.banFree?.() ? '<div class="cb_hint">The banner is Free on the Layout page, so it sits where Edit Layout puts it: Lock to top, Overlap, Banner Height, Gap and Overlap Offset don\'t apply.</div>' : ''}
+              ${A.banFree?.() ? '<div class="cb_hint">The banner is Floating on the Layout page, so it sits where Edit Layout puts it: Lock to top, Overlap, Banner Height, Gap and Overlap Offset don\'t apply.</div>' : ''}
               <div class="${A.banFree?.() ? 'cb_dim' : ''}">
               <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                 <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>

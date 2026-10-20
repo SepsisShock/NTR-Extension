@@ -244,6 +244,7 @@
   text-transform: uppercase;
   opacity: 0.6;
 }
+.ntr_glab_icon { margin-right: 6px; font-size: 1.2em; color: var(--SmartThemeQuoteColor, #6cf); }
 .ntr_page .ntr_card,
 .ntr_glab + .cb_collapse_content,
 .ntr_fold,
@@ -525,9 +526,19 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
   body.ntr_placing #ntr_pin_layer .ntr_pin { transform: none; }
 }
 
+/* The Layout page's top card: which layout it edits, then Edit Layout (widest) and Restore ST Layout. */
+.m_l_now { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.m_l_now .ntr_scope { margin-left: 0; font-size: 0.8em; }
+.m_l_now .cb_hint { margin: 0; }
+.m_l_actions { flex-wrap: wrap; margin: 8px 0 0; }
+.m_l_actions #m_l_reset { flex: none; }
+#m_l_edit { border-color: var(--SmartThemeQuoteColor, #6cf); }
 /* The Pinned Blocks list on the Layout page. */
 .ntr_pinrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
-.ntr_pinrow + .ntr_pinrow, .ntr_pinedit + .ntr_pinrow { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ntr_pinrow + .ntr_pinrow, .ntr_pinedit + .ntr_pinrow { border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08)); }
+@media (width <= 1000px) {
+  .ntr_pinrow .menu_button { min-width: 40px; min-height: 40px; }
+}
 .ntr_pinrow > i { opacity: 0.7; }
 .ntr_pinrow .menu_button { margin: 0; padding: 4px 8px; }
 .ntr_pinrow .m_pin_edit.on { outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }

@@ -57,16 +57,21 @@ const stopFrames = () => {
 
 // Run in the page from its very start (an init script): the moment NTR's style tag appears, and SillyTavern's APP_READY.
 // SillyTavern fires APP_READY again for a listener added after it, so one that runs while it's being added came late.
-const startupWatch = () => {
+// Only in the page itself, not its frames, and only for `limit` ms, so nothing of it keeps running into the measurements.
+const startupWatch = (limit) => {
+  if (window !== window.top) return;
+  // Chromium keeps 250 entries by default, fewer than SillyTavern's own files, so NTR's could be left out.
+  performance.setResourceTimingBufferSize(5000);
   const m = window.__ntrStartup = { ntrStarted: null, stReady: null, stLate: false };
   const obs = new MutationObserver(() => {
     if (m.ntrStarted == null && document.getElementById('aw_dynamic_style')) m.ntrStarted = performance.now();
   });
   obs.observe(document, { childList: true, subtree: true });
+  setTimeout(() => obs.disconnect(), limit);
   const hook = () => {
     let c = null;
     try { c = window.SillyTavern?.getContext?.(); } catch (e) { /* not ready yet */ }
-    if (!c?.eventSource) return requestAnimationFrame(hook);
+    if (!c?.eventSource) { if (performance.now() < limit) requestAnimationFrame(hook); return; }
     let adding = true;
     c.eventSource.on(c.eventTypes.APP_READY, () => {
       if (m.stReady != null || m.stLate) return;
@@ -110,7 +115,7 @@ const stopMoves = () => {
 // One Edit Layout drag: the item `first` picked, its outline (or grip `grip`) pressed, then a move every 16 ms for 2 s
 // on a fixed timer, the way a mouse keeps sending whatever the page is doing, ending `amp` px out along `axis`. Through
 // the one CDP session, so the input stays in order. Checks the item moved about that far, and that Undo put it back.
-async function drag(page, cdp, opts, { first, id, grip = '', axis, amp, sway }) {
+async function drag(page, cdp, opts, saves, { first, id, grip = '', axis, amp, sway }) {
   const T = opts.cpu;
   const saved = () => page.evaluate(() => JSON.stringify(Object.entries(NTR.api.settings()).filter(([k]) => k.startsWith('lay'))));
   const before = await saved();
@@ -122,8 +127,10 @@ async function drag(page, cdp, opts, { first, id, grip = '', axis, amp, sway }) 
     const target = grip ? box.querySelector(`.cb_place_grip.cb_on[data-g="${grip}"]`) : box;
     if (!target) return { error: `no ${grip} grip on ${id}` };
     const r = target.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    // The press has to land on the outline (or its label), or on the grip itself: Edit Layout's bar can cover either.
     const hit = document.elementFromPoint(x, y);
-    if (hit !== target && !(target.contains(hit) && !hit.classList.contains('cb_place_grip'))) return { error: `the press point on ${id} is covered by ${hit?.id || hit?.className || hit?.tagName}` };
+    const ok = hit === target || (target.contains(hit) && !hit.classList.contains('cb_place_grip'));
+    if (!ok) return { error: `the press point on ${id} is covered by ${hit?.id || hit?.className || hit?.tagName}` };
     const b = box.getBoundingClientRect();
     return { x, y, box: { left: b.left, top: b.top } };
   }, { id, grip });
@@ -146,12 +153,17 @@ async function drag(page, cdp, opts, { first, id, grip = '', axis, amp, sway }) 
     let k = 0;
     const iv = setInterval(() => {
       k++;
-      sent.push(send(touch ? 'touchMove' : 'mouseMoved', ...pos(k)));
+      // Caught at once, so a failed send fails the run below instead of stopping Node.
+      sent.push(send(touch ? 'touchMove' : 'mouseMoved', ...pos(k)).then(() => null, (e) => e));
       if (k >= N) { clearInterval(iv); done(); }
     }, 16);
   });
-  await Promise.all(sent);
+  const failed = (await Promise.all(sent)).find(Boolean);
+  if (failed) throw failed;
   await page.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res))));
+  // The counters stop before the release: they cover the moves only.
+  const m1 = await metrics(cdp);
+  const r = { ...spent(m0, m1), ...(await page.evaluate(stopFrames)), ...(await page.evaluate(stopMoves)) };
   const moved = await page.evaluate(({ axis }) => {
     const b = document.querySelector('#cb_place_layer .cb_place_box.cb_sel').getBoundingClientRect();
     return axis === 'x' ? b.left : b.top;
@@ -159,14 +171,17 @@ async function drag(page, cdp, opts, { first, id, grip = '', axis, amp, sway }) 
   const [ex, ey] = pos(N);
   await send(touch ? 'touchEnd' : 'mouseReleased', ex, ey);
   await sleep(300 * T);
-  const m1 = await metrics(cdp);
-  const r = { ...spent(m0, m1), ...(await page.evaluate(stopFrames)), ...(await page.evaluate(stopMoves)) };
   r.layoutsPerMove = r.moves ? +((m1.LayoutCount - m0.LayoutCount) / r.moves).toFixed(2) : null;
   r.restylesPerMove = r.moves ? +((m1.RecalcStyleCount - m0.RecalcStyleCount) / r.moves).toFixed(2) : null;
   r.distance = Math.round(moved - (axis === 'x' ? at.box.left : at.box.top));
   if (!(Math.abs(r.distance) >= amp / 2 && Math.abs(r.distance) <= amp * 1.5)) throw new Error(`${id} moved ${r.distance} px, not about ${amp}`);
+  const undone = Date.now();
   await page.evaluate(() => { document.querySelector('#cb_place_undo').click(); document.querySelector('#cb_place_done').click(); });
   if ((await saved()) !== before) throw new Error(`Undo didn't put ${id} back`);
+  // SillyTavern saves a second after the last change: wait for that save to answer, so it can't land in what comes next.
+  const until = Date.now() + 20000 * T;
+  while (Date.now() < until && !(saves.since(undone) && saves.open === 0)) await sleep(100);
+  if (!saves.since(undone)) throw new Error(`the settings weren't saved after ${id}'s drag`);
   return r;
 }
 
@@ -187,9 +202,9 @@ async function once(chromium, opts) {
   });
   page.on('dialog', (d) => d.accept());
   // SillyTavern's settings saves, so the run can wait for the last one before it ends.
-  const saves = { open: 0, last: 0 };
-  page.on('request', (q) => { if (q.url().includes('/api/settings/save')) { saves.open++; saves.last = Date.now(); } });
-  const saveDone = (q) => { if (q.url().includes('/api/settings/save')) { saves.open--; saves.last = Date.now(); } };
+  const saves = { open: 0, started: [], since: (t) => saves.started.some((x) => x >= t) };
+  page.on('request', (q) => { if (q.url().includes('/api/settings/save')) { saves.open++; saves.started.push(Date.now()); } });
+  const saveDone = (q) => { if (q.url().includes('/api/settings/save')) saves.open--; };
   page.on('requestfinished', saveDone);
   page.on('requestfailed', saveDone);
   const cdp = await context.newCDPSession(page);
@@ -197,7 +212,7 @@ async function once(chromium, opts) {
   // Waits for setup to finish grow with the slowdown; the measured parts keep their own times.
   const T = opts.cpu;
   if (T > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: T });
-  await page.addInitScript(startupWatch);
+  await page.addInitScript(startupWatch, 60000 * T);
   const r = { cpu: T };
 
   let t = Date.now();
@@ -210,7 +225,7 @@ async function once(chromium, opts) {
   if (st.stLate) throw new Error('APP_READY came before the startup timing was listening');
   r.startup = { stReady: st.stReady == null ? null : Math.round(st.stReady), ntrStarted: st.ntrStarted == null ? null : Math.round(st.ntrStarted), ntrFiles: await page.evaluate(startupFiles) };
   // The same loop on every machine, so a throttled run that wasn't shows up.
-  r.cpuCheckMs = Math.round(await page.evaluate(() => { const a = performance.now(); let x = 0; for (let i = 0; i < 5e6; i++) x += i % 7; return performance.now() - a + x * 0; }));
+  r.cpuCheckMs = Math.round(await page.evaluate(() => { const a = performance.now(); let x = 0; for (let i = 0; i < 5e7; i++) x += i % 7; return performance.now() - a + x * 0; }));
   // A run meant for NTR stops here if it didn't load, rather than timing plain SillyTavern under NTR's name.
   if (opts.ntr && r.ntr !== opts.ntr) throw new Error(`expected NTR ${opts.ntr}, but the page has ${r.ntr || 'no NTR'}`);
 
@@ -294,22 +309,29 @@ async function once(chromium, opts) {
   r.reasoningBlocks = await page.evaluate(() => [...document.querySelectorAll('#chat .mes_reasoning_details')]
     .filter((e) => getComputedStyle(e).display !== 'none').length);
   // full's Bench Reading block, showing the block from a message.
-  r.pinShows = await page.evaluate(() => (window.NTR?.api?.settings().layPins.some((p) => p.id === 'pin_read')
+  r.pinShows = await page.evaluate(() => (window.NTR?.api?.settings().layPins?.some((p) => p.id === 'pin_read')
     ? !!document.querySelector('#ntr_pin_layer > .ntr_pin[data-pin="pin_read"] .custom-bench') : null));
 
   // Edit Layout drags, after idle so their saves stay out of it: the chat panel (on a phone it fills the screen, so its
-  // top edge), and the Bench Reading block. Each is undone, and the run waits for the save, so the next run starts the same.
+  // top edge), and the Bench Reading block. Each is undone and saved, so the next run starts the same.
   if (r.ntr && !opts.vn && (await page.evaluate(() => !!NTR.api.settings().layEnabled))) {
-    r.dragChat = await drag(page, cdp, opts, opts.phone
+    r.dragChat = await drag(page, cdp, opts, saves, opts.phone
       ? { first: 'lay', id: 'layChat', grip: 'n', axis: 'y', amp: 60, sway: false }
       : { first: 'lay', id: 'layChat', axis: 'x', amp: 120, sway: true });
-    if (r.pinShows != null) r.dragPin = await drag(page, cdp, opts, { first: 'pin_pin_read', id: 'pin_pin_read', axis: 'x', amp: opts.phone ? 50 : 120, sway: true });
-    const quiet = Date.now() + 30000 * T;
-    while (Date.now() < quiet && (saves.open > 0 || Date.now() - saves.last < 1500 * T)) await sleep(200);
+    if (r.pinShows != null) r.dragPin = await drag(page, cdp, opts, saves, { first: 'pin_pin_read', id: 'pin_pin_read', axis: 'x', amp: opts.phone ? 50 : 120, sway: true });
   }
   r.errors = errors;
   await browser.close();
   return r;
+}
+
+async function warmUp(chromium) {
+  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const page = await browser.newPage();
+  await page.goto(ST_URL);
+  await page.waitForFunction(() => window.SillyTavern?.getContext && SillyTavern.getContext().characters.length > 0, null, { timeout: 60000 });
+  await sleep(5000);
+  await browser.close();
 }
 
 async function run(args) {
@@ -319,9 +341,14 @@ async function run(args) {
   const runs = i >= 0 ? Math.max(1, +args[i + 1] || 3) : 3;
   const v = args.indexOf('--ntr');
   const c = args.indexOf('--cpu');
-  const opts = { phone: args.includes('--phone'), vn: args.includes('--vn'), cpu: c >= 0 ? Math.max(1, +args[c + 1] || 1) : 1, ntr: v >= 0 ? args[v + 1] : '' };
+  const cpu = c >= 0 ? Number(args[c + 1]) : 1;
+  if (!(cpu >= 1)) throw new Error(`--cpu needs a number of 1 or more, not ${args[c + 1]}`);
+  const opts = { phone: args.includes('--phone'), vn: args.includes('--vn'), cpu, ntr: v >= 0 ? args[v + 1] : '' };
   const { chromium } = loadPlaywright();
   fs.mkdirSync(OUT, { recursive: true });
+  // The first page load after the server starts makes SillyTavern do first-time work (about 2 s more before it's
+  // ready), so one load that isn't measured goes first.
+  await warmUp(chromium);
   const results = [];
   for (let n = 1; n <= runs; n++) {
     const r = await once(chromium, { ...opts, shot: n === 1 ? path.join(OUT, name + '.png') : '' });
@@ -369,9 +396,10 @@ function table(names) {
     ...dragRows('drag chat panel', 'dragChat'),
     ...dragRows('drag pinned block', 'dragPin'),
   ];
-  const mid = (list) => {
-    if (list[0] == null) return '-';
-    if (typeof list[0] !== 'number') return list[0];
+  const mid = (all) => {
+    const list = all.filter((x) => x != null);
+    if (!list.length) return '-';
+    if (typeof list[0] !== 'number') return list.every((x) => x === list[0]) ? list[0] : 'mixed';
     const s = [...list].sort((a, b) => a - b);
     return s[Math.floor(s.length / 2)];
   };

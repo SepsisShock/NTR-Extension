@@ -12,7 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
-const EXT_URL = ST_URL + 'scripts/extensions/third-party/NTR-Extension/';
+const EXT_URL = new URL('scripts/extensions/third-party/NTR-Extension/', ST_URL).href;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hash = (x) => crypto.createHash('sha1').update(x).digest('hex').slice(0, 12);
 const BASE = { agEnabled: false, bannerOn: false, fgEnabled: false, rxEnabled: true, layEnabled: true, nodeEnabled: false, rdEnabled: false, nodeMaps: false, uiPage: 'themes' };
@@ -57,7 +57,10 @@ const styleText = () => {
   let probe;
   const has = async (n) => {
     if (!(n in files)) {
-      if (!probe) { probe = await browser.newPage(); await probe.goto(EXT_URL + 'manifest.json'); }
+      if (!probe) {
+        probe = await browser.newPage();
+        if (!(await probe.goto(EXT_URL + 'manifest.json'))?.ok()) throw new Error(`NTR isn't installed at ${EXT_URL}`);
+      }
       files[n] = await probe.evaluate(async (u) => (await fetch(u, { method: 'HEAD', cache: 'no-store' })).ok, EXT_URL + n + '.js');
     }
     return files[n];
@@ -102,62 +105,65 @@ const styleText = () => {
         && SillyTavern.getContext().characters.length > 0, null, { timeout: 60000 });
       await sleep(1500);
     };
-    await page.goto(ST_URL);
-    await ready();
-    // A new install's settings (settings() fills them in from DEFAULTS), then the scenario's own, saved for the reload.
-    await page.evaluate((st) => {
-      const c = SillyTavern.getContext();
-      delete c.extensionSettings.chatvisuals;
-      Object.assign(NTR.api.settings(), st);
-      c.saveSettingsDebounced();
-    }, { ...BASE, ...settings });
-    await sleep(2500);
-    for (const n of hold) { let open; const p = new Promise((r) => { open = r; }); gates[n] = { p, open }; }
-    for (const n of abort) gates[n] = { p: Promise.resolve('abort'), open() {} };
-    Object.assign(seqs, structuredClone(seq));
-    await page.reload();
-    await ready();
-    const i = await page.evaluate(() => SillyTavern.getContext().characters.findIndex((c) => c.avatar === 'default_Seraphina.png'));
-    await page.evaluate((i) => SillyTavern.getContext().selectCharacterById(i), i);
-    await page.waitForFunction(() => document.querySelector('#chat .mes'), null, { timeout: 20000 });
-    await sleep(1500);
-    const ev = (fn, arg) => page.evaluate(fn, arg);
-    const version = await ev(() => NTR.api.VERSION);
-    const t = {
-      page, release, ev, reqs,
-      unversion: (x) => x.split(version).join('V'),
-      styles: async () => t.unversion(await ev(styleText)),
-      async menu(p) { await ev(() => { window.toastr?.clear(); NTR.api.openMenu(); }); if (p) await t.nav(p); await sleep(300); },
-      async nav(p) { await ev((p) => document.querySelector(`#cb_modal_overlay .ntr_navi[data-page="${p}"]`).click(), p); await sleep(200); },
-      // A checkbox or a radio button set the way a click would, firing change.
-      tick: (sel, on) => ev(({ sel, on }) => { const c = document.querySelector(sel); c.checked = on; c.dispatchEvent(new Event('change', { bubbles: true })); }, { sel, on }),
-      pick: (name, v) => ev(({ name, v }) => { const r = document.querySelector(`#cb_modal_overlay input[name="cbr_${name}"][value="${v}"]`); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }, { name, v }),
-      mark: () => ev(() => { window.__ov = document.getElementById('cb_modal_overlay'); }),
-      // The state everything below is checked against.
-      state: () => ev(() => {
-        const ov = document.getElementById('cb_modal_overlay');
-        const ask = document.querySelector('.ntr_ask');
-        return {
-          sameMenu: !!ov && ov === window.__ov,
-          menuShown: !!ov && ov.style.display !== 'none',
-          prompt: ask ? ask.querySelector('input')?.value ?? 'open' : 'closed',
-          waiting: [...document.querySelectorAll('#cb_modal_overlay [data-ntr-wait]')].map((e) => e.dataset.ntrWait),
-        };
-      }),
-      async show(label, extra) { out(label, JSON.stringify({ ...(await t.state()), ...(extra ? await ev(extra) : {}) })); },
-      async newTheme() { await t.nav('themes'); await ev(() => document.querySelector('#m_t_new').click()); await sleep(300); await ev(() => { document.querySelector('.ntr_ask input').value = 'Half typed'; }); },
-      // Clicks a fold's title once; says whether it changed (a doubled handler opens and closes it again).
-      fold: (sec) => ev((sec) => {
-        const h = document.querySelector(`#cb_modal_overlay .cb_collapse_toggle[data-sec="${sec}"]`);
-        if (!h) return 'missing';
-        const before = h.nextElementSibling.style.display;
-        h.click();
-        const after = h.nextElementSibling.style.display;
-        h.click();
-        return `${before || 'shown'} -> ${after || 'shown'}`;
-      }, sec),
-    };
-    try { await body(t); } catch (e) { failed++; out('FAILED', e.message.split('\n')[0]); }
+    // A page that doesn't load or a check that throws ends only this scenario.
+    try {
+      await page.goto(ST_URL);
+      await ready();
+      // A new install's settings (settings() fills them in from DEFAULTS), then the scenario's own, saved for the reload.
+      await page.evaluate((st) => {
+        const c = SillyTavern.getContext();
+        delete c.extensionSettings.chatvisuals;
+        Object.assign(NTR.api.settings(), st);
+        c.saveSettingsDebounced();
+      }, { ...BASE, ...settings });
+      await sleep(2500);
+      for (const n of hold) { let open; const p = new Promise((r) => { open = r; }); gates[n] = { p, open }; }
+      for (const n of abort) gates[n] = { p: Promise.resolve('abort'), open() {} };
+      Object.assign(seqs, structuredClone(seq));
+      await page.reload();
+      await ready();
+      const i = await page.evaluate(() => SillyTavern.getContext().characters.findIndex((c) => c.avatar === 'default_Seraphina.png'));
+      await page.evaluate((i) => SillyTavern.getContext().selectCharacterById(i), i);
+      await page.waitForFunction(() => document.querySelector('#chat .mes'), null, { timeout: 20000 });
+      await sleep(1500);
+      const ev = (fn, arg) => page.evaluate(fn, arg);
+      const version = await ev(() => NTR.api.VERSION);
+      const t = {
+        page, release, ev, reqs,
+        unversion: (x) => x.split(version).join('V'),
+        styles: async () => t.unversion(await ev(styleText)),
+        async menu(p) { await ev(() => { window.toastr?.clear(); NTR.api.openMenu(); }); if (p) await t.nav(p); await sleep(300); },
+        async nav(p) { await ev((p) => document.querySelector(`#cb_modal_overlay .ntr_navi[data-page="${p}"]`).click(), p); await sleep(200); },
+        // A checkbox or a radio button set the way a click would, firing change.
+        tick: (sel, on) => ev(({ sel, on }) => { const c = document.querySelector(sel); c.checked = on; c.dispatchEvent(new Event('change', { bubbles: true })); }, { sel, on }),
+        pick: (name, v) => ev(({ name, v }) => { const r = document.querySelector(`#cb_modal_overlay input[name="cbr_${name}"][value="${v}"]`); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }, { name, v }),
+        mark: () => ev(() => { window.__ov = document.getElementById('cb_modal_overlay'); }),
+        // The state everything below is checked against.
+        state: () => ev(() => {
+          const ov = document.getElementById('cb_modal_overlay');
+          const ask = document.querySelector('.ntr_ask');
+          return {
+            sameMenu: !!ov && ov === window.__ov,
+            menuShown: !!ov && ov.style.display !== 'none',
+            prompt: ask ? ask.querySelector('input')?.value ?? 'open' : 'closed',
+            waiting: [...document.querySelectorAll('#cb_modal_overlay [data-ntr-wait]')].map((e) => e.dataset.ntrWait),
+          };
+        }),
+        async show(label, extra) { out(label, JSON.stringify({ ...(await t.state()), ...(extra ? await ev(extra) : {}) })); },
+        async newTheme() { await t.nav('themes'); await ev(() => document.querySelector('#m_t_new').click()); await sleep(300); await ev(() => { document.querySelector('.ntr_ask input').value = 'Half typed'; }); },
+        // Clicks a fold's title once; says whether it changed (a doubled handler opens and closes it again).
+        fold: (sec) => ev((sec) => {
+          const h = document.querySelector(`#cb_modal_overlay .cb_collapse_toggle[data-sec="${sec}"]`);
+          if (!h) return 'missing';
+          const before = h.nextElementSibling.style.display;
+          h.click();
+          const after = h.nextElementSibling.style.display;
+          h.click();
+          return `${before || 'shown'} -> ${after || 'shown'}`;
+        }, sec),
+      };
+      await body(t);
+    } catch (e) { failed++; out('FAILED', e.message.split('\n')[0]); }
     out('errors', JSON.stringify(errors));
     await page.context().close();
   }

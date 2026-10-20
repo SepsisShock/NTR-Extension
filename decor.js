@@ -19,7 +19,7 @@
 
   // Interface Shape for the rest of the interface: SillyTavern's Menu Bar, drawers, side panels, menus and popups, and NTR's
   // own windows. Every corner follows it, wherever the part sits, even against the screen edge. Boxes inside them are a
-  // little less round, so their corners sit inside the outer ones. Buttons, text boxes, checkboxes and sliders keep ST's
+  // little less round, so their corners sit inside the outer ones. Buttons, text boxes, checkboxes, sliders and pills keep ST's
   // corners on Rounded and go square on Square. Messages, the send box, avatars, the VN box and Reasoning keep their own
   // Shape, and scrollbars what their Custom CSS sets.
   const UI_SHELLS = ['#top-bar', '.drawer-content', '#character_popup', '.popup', '.popup .popper-modal', '#dialogue_popup', '#select_chat_popup',
@@ -255,7 +255,7 @@
           ${card('Whole Interface', `
           ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
             + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))
-            + '<div class="cb_hint">Rounds or squares every corner of SillyTavern\'s Menu Bar, drawers, side panels, menus and popups, and of NTR\'s own windows, wherever they sit. On Square, their buttons, text boxes, checkboxes and sliders go square too. The chat panel\'s bottom corners follow it when Layout\'s Attached Style is Separate, or its send bar is Floating; its top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
+            + '<div class="cb_hint">Rounds or squares every corner of the ST Menu Bar, drawers, side panels, menus and popups, and of NTR\'s own windows, wherever they sit. On Square, their buttons, text boxes, checkboxes and sliders go square too. The chat panel\'s bottom corners follow it when Layout\'s Attached Style is Separate, or its send bar is Floating; its top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
           ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + '<div class="cb_hint">The frosted-glass blur behind the chat, menus, drawers and popups.</div>')}
           ${row('ovShadowOn', 'Shadow Width', sl('ovShadow') + '<div class="cb_hint">The dark glow around all text in SillyTavern.</div>')}`)}
           ${card('Chat Panel', `

@@ -612,7 +612,7 @@
             </div>
 
             ${card('Layout', `
-              ${A.banFree?.() ? '<div class="cb_hint">The banner is Free on the Layout page, so it sits where Edit Layout puts it: Lock to top, Overlap, Banner Height, Gap and Overlap Offset don\'t apply.</div>' : ''}
+              ${A.banFree?.() ? '<div class="cb_hint">The banner is Floating on the Layout page, so it sits where Edit Layout puts it: Lock to top, Overlap, Banner Height, Gap and Overlap Offset don\'t apply.</div>' : ''}
               <div class="${A.banFree?.() ? 'cb_dim' : ''}">
               <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
                 <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>

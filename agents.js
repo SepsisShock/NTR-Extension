@@ -8,7 +8,7 @@
 // Block set to Agent Results, index.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.69.14';
+  const AGENTS_VERSION = '2.69.15';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -52,7 +52,7 @@
   // Margi, the example tracker: an ordinary agent, made by its button, to edit or delete like any other. Her button
   // shows while no agent made by it is left (example marks it; Duplicate doesn't copy that). Her picture comes with
   // NTR, cropped, and Crop starts from the full one. Saved as a path from the site's root, so it works from any address.
-  // She answers in Fields, so a Dashboard shows her state as soon as she's made.
+  // She answers in Fields, so once her first result is saved, a Dashboard shows her state as values.
   const MARGI_JOB = 'You are Margi, a story state tracker. Read the latest chat messages and update the story\'s state. Write "Unknown" for anything the story hasn\'t said yet.';
   const MARGI_FIELDS = [
     { kind: 'heading', name: 'Scene' },
@@ -191,7 +191,8 @@
   // sanitized.
   const KEY = 'ntr_agents';
   const MAX_SAVED = 20000;
-  // Longer than that, a result isn't saved at all, so a Fields result never loses its last fields to the cut.
+  // Longer than that, a Fields result isn't saved at all, so it never loses its last fields to the cut; Free Text is cut
+  // to it and saved. Text edited by hand that's too long isn't saved, for either answer.
   const OVER = `over ${MAX_SAVED.toLocaleString('en-US')} characters`;
   // Which chat is open: its file name, with whose chat it is, since a duplicated card starts with the same chat name.
   const chatId = () => {
@@ -681,8 +682,8 @@
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, its switch,
-  // when it runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Delete). The title is only
-  // shown here and in the roster.
+  // when it runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
+  // Department, Delete). The title shows here, in the roster and on a Dashboard set to Tabs.
   function headHtml(a, allOpen) {
     const busy = current?.id === a.id;
     return `<div class="m_ag_head">
@@ -1340,6 +1341,7 @@
       fails.delete(a.id);
       s.agPick = '';
       changed(true);
+      refreshBoxes();
       deleteFileIfUnused(a.pic);
     };
 
@@ -1348,7 +1350,7 @@
     const picBtn = root.querySelector('#m_ag_pic');
     const picMenu = root.querySelector('#m_ag_picmenu');
     picBtn.onclick = () => { picMenu.hidden = !picMenu.hidden; picBtn.setAttribute('aria-expanded', String(!picMenu.hidden)); };
-    const setPic = (url) => { const old = a.pic; a.pic = url; changed(true); if (old && old !== url) deleteFileIfUnused(old); };
+    const setPic = (url) => { const old = a.pic; a.pic = url; changed(true); refreshBoxes(); if (old && old !== url) deleteFileIfUnused(old); };
     const fail = (e) => { console.error('[NTR agent picture]', e); toastr.error(e.message || 'Upload failed', 'Agent picture'); };
     root.querySelector('#m_ag_up').onclick = () => file.click();
     root.querySelector('#m_ag_url').onclick = async function() { const url = await askImageUrl('Agent picture', this, false); if (url) setPic(url); };
@@ -1506,7 +1508,7 @@
   function bind(overlay, s) {
     root = overlay.querySelector('#m_ag_root');
     // Switching the page off also stops a run in progress; runs still waiting are skipped.
-    overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); if (!this.checked) current?.ctrl.abort(); };
+    overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); if (!this.checked) current?.ctrl.abort(); refreshBoxes(); };
     dragger = dragSort(root, { pick: dragPick, place: dragPlace, done: dragDone });
     render();
   }
@@ -1598,7 +1600,7 @@
       + (r ? iconBtn('edit', 'fa-pen', 'Edit Saved Text', ` aria-pressed="${!!edit}"`) : '') + (r?.prev != null ? iconBtn('undo', 'fa-rotate-left', 'Undo') : '');
     const head = isTabs ? `<span class="ntr_agres_name ntr_agres_title">${esc(a.title)}</span>`
       : `<button type="button" class="ntr_agres_fold" data-act="fold" data-fold="${esc(key)}" aria-expanded="${open}"><i class="fa-solid fa-fw fa-chevron-${open ? 'down' : 'right'} ntr_agres_chev"></i>${picHtml(a, 18)}<span class="ntr_agres_name">${esc(a.name)}</span>${!open && fv?.changed ? DOT + sr(', changed') : ''}</button>`;
-    const body = edit ? `${fv ? '<div class="ntr_agres_note">Saved as plain text, in the same format the agent answers in. Lists are edited here.</div>' : ''}<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
+    const body = edit ? `${usesFields(a) ? '<div class="ntr_agres_note">Saved as plain text, in the same format the agent answers in. Lists are edited here.</div>' : ''}<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
       <div class="ntr_agres_editbtns"><button type="button" class="menu_button" data-act="save"><i class="fa-solid fa-check"></i> Save</button><button type="button" class="menu_button" data-act="cancel">Cancel</button></div>`
       : fv ? fv.html : r ? `<div class="ntr_agres_text">${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
     return `<div class="ntr_agres" data-ag="${esc(a.id)}" data-mes="${r ? r.mes : ''}">

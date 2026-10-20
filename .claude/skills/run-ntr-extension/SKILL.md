@@ -133,7 +133,9 @@ diff -r /tmp/ntr-scenarios/main /tmp/ntr-scenarios/branch
 - **streaming**: a 400-word reply with a reasoning block, one word every 15 ms, updated the way SillyTavern updates a message while streaming;
 - **adding 80 messages**, user and character in turn;
 - **scrolling** the long chat from top to bottom;
-- **idle**: 10 s of doing nothing, which catches timers and animations that keep running.
+- **idle**: 10 s of doing nothing, which catches timers and animations that keep running;
+- **startup**: when NTR's files have arrived, when NTR starts, and when SillyTavern is ready to use, from the start of the page load;
+- **Edit Layout drag**, with Layout on (`full`): the chat panel and a Pinned Block dragged back and forth in Edit Layout for 2 s each, with the mouse, or by touch with `phone`, then undone.
 
 ```bash
 bash .claude/skills/run-ntr-extension/st.sh bench plain none          # SillyTavern without NTR
@@ -142,7 +144,7 @@ bash .claude/skills/run-ntr-extension/st.sh bench branch full        # the worki
 bash .claude/skills/run-ntr-extension/st.sh bench table plain main branch
 ```
 
-Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Decor styling, a custom cursor, and Layout with a Pinned Block, through `bench-full.txt`, which reloads the page and fails if any of those settings didn't stick), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen) and `runs=N` (default 3). A run with NTR fails if the page doesn't load the version that was installed. Each run takes about a minute, and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
+Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Decor styling, a custom cursor, and Layout with two Pinned Blocks, one following the message you're reading and one matching nothing, through `bench-full.txt`, which reloads the page and fails if any of those settings didn't stick), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen), `cpu=N` (Chromium slows the page's processor N times, to stand in for a slower machine; 4 to 6 is a good range, and runs take longer) and `runs=N` (default 3). A run with NTR fails if the page doesn't load the version that was installed. Each run takes about a minute (a minute and a quarter with `cpu=4`), and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
 
 Reading the numbers:
 
@@ -150,6 +152,8 @@ Reading the numbers:
 - **95% of frames under** is about 16.7 ms when smooth (60 frames a second). 33 or 50 ms means visible stutter.
 - Compare runs from the same session only. Without a graphics card everything is drawn in software, so the numbers show how setups differ, not what a real phone would get. Differences under about 10% are noise.
 - With `vn`, most of the chat sits behind the dialogue box, so its streaming numbers can come out lower than plain SillyTavern.
+- **layouts per move** in the drag rows is how often the page works out its layout for each pointer move; more than 1 means the page works out its layout more than once for a move. **delay until the next frame** is the time from a move until the page starts drawing the next frame, including the time spent handling the move; the screen shows it slightly later.
+- Compare only columns with the same `cpu`: busy times grow with it.
 
 ## Run (human path)
 

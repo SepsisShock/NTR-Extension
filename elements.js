@@ -5,7 +5,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.69.19';
+  const ELEMENTS_VERSION = '2.69.20';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -1105,7 +1105,7 @@
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const hint = (t) => `<div class="cb_hint">${t}</div>`;
     return pagePart('Quick Replies', ['m_qr_enable', s.ovQrOn], 'el_qr', `
-          ${hint('Changes the buttons of SillyTavern\'s Quick Reply bar, above the send box, and its pop-out window. A set\'s own color from Quick Reply\'s settings still shows behind its buttons.')}
+          ${hint('Changes the buttons of SillyTavern\'s Quick Reply bar, above the send bar, and its pop-out window. A set\'s own color from Quick Reply\'s settings still shows behind its buttons.')}
           ${subHead('ov_qr_btn', 'Buttons')}
           ${ovShapeRow(s, 'Qr')}
           ${ovBgRow(s, 'Qr', hint('SillyTavern\'s buttons have no background of their own.'))}

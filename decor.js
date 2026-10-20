@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Free send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.69.19';
+  const DECOR_VERSION = '2.69.20';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
@@ -255,16 +255,16 @@
           ${card('Whole Interface', `
           ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
             + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))
-            + '<div class="cb_hint">Rounds or squares every corner of the ST Menu Bar, drawers, side panels, menus and popups, and of NTR\'s own windows, wherever they sit. On Square, their buttons, text boxes, checkboxes and sliders go square too. The chat panel\'s bottom corners follow it when Layout\'s Attached Style is Separate, or its send bar is Floating; its top stays flush with the top bar. Messages and the send box have their own Shape.</div>')}
+            + '<div class="cb_hint">Corners of the ST Menu Bar, drawers, side panels, popups and NTR\'s windows. Square also squares their buttons and controls.</div>')}
           ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + '<div class="cb_hint">The frosted-glass blur behind the chat, menus, drawers and popups.</div>')}
-          ${row('ovShadowOn', 'Shadow Width', sl('ovShadow') + '<div class="cb_hint">The dark glow around all text in SillyTavern.</div>')}`)}
+          ${row('ovShadowOn', 'Text Shadow', sl('ovShadow'))}`, 'fa-display')}
           ${card('Chat Panel', `
-          ${bg('Panel', '<div class="cb_hint">Transparent shows the background picture through the chat.</div>')}
-          ${border('Panel')}`)}
-          ${card('AI Message', shape('Ai') + bg('Ai') + border('Ai'))}
-          ${card('User Message', shape('Us') + bg('Us') + border('Us'))}
-          ${card('Speech Bubbles', bubbleRowHtml(s))}
-          ${card('Send Box', shape('Send') + bg('Send') + border('Send'))}
+          ${bg('Panel')}
+          ${border('Panel')}`, 'fa-comments')}
+          ${card('AI Message', shape('Ai') + bg('Ai') + border('Ai'), 'fa-robot')}
+          ${card('User Message', shape('Us') + bg('Us') + border('Us'), 'fa-user')}
+          ${card('Speech Bubbles', bubbleRowHtml(s), 'fa-comment-dots')}
+          ${card('Send Bar', shape('Send') + bg('Send') + border('Send'), 'fa-paper-plane')}
     `, { sw: ['m_ov_enable', s.ovEnabled] });
   }
 
@@ -272,22 +272,20 @@
     const pick = (k, opts) => ovPick(s, k, opts);
     const hint = (t) => `<div class="cb_hint">${t}</div>`;
     return ovRow(s, 'ovBubOn', 'Speech Bubbles',
-      hint('Turns AI and User messages into chat bubbles around the message text. Avatars, names, buttons and the reasoning block stay outside the bubble. Its color, roundness and border come from AI Message and User Message. Reader Mode\'s Book keeps plain messages.')
+      hint('Turns AI and User messages into bubbles. Colors, roundness and border come from AI Message and User Message.')
       + ovLabel('Style', pills('obubpreset', [...Object.entries(BUB_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], bubPreset(s)))
-      + hint('A style sets everything here except Tail Position, plus the AI and User Message cards. Change anything after that and it shows Custom. Comic suits a comic font, like Comic Neue or Bangers, in Text Formatting.')
+      + hint('A style sets everything here except Tail Position. Changing anything after makes it Custom.')
       + ovLabel('Tail', pick('ovBubTail', BUB_TAIL_OPTS))
       + hint('A Transparent background has no tail.')
       + ovLabel('Tail Position', pick('ovBubTailPos', [['top', 'Top'], ['bottom', 'Bottom']]))
-      + hint('Top suits long replies: the tail is where the message starts.')
       + ovLabel('Sides', pick('ovBubAlign', [['left', 'All Left'], ['sides', 'AI Left, You Right'], ['swap', 'AI Right, You Left']]))
-      + hint('Avatars move to their message\'s side too, unless NTR Avatars puts them above or below the text, behind the message, or pops them out.')
+      + hint('Avatars follow their message\'s side, unless NTR Avatars places them elsewhere.')
       + ovLabel('Max Width', rangeSlider(s, 'ovBubWidth'))
       + ovLabel('Width', pick('ovBubFit', [['shrink', 'Shrink to Fit'], ['fill', 'Always Max Width']]))
-      + hint('Shrink to Fit gives short messages a small bubble.')
       + ovLabel('Messages in a Row', pick('ovBubGroup', [['group', 'Group'], ['each', 'Each Message']]))
-      + hint('Group gives several messages in a row from the same speaker one tail and one avatar, and puts them closer together.')
+      + hint('Group gives a run of messages from the same speaker one tail and avatar.')
       + ovLabel('Text in Bubbles', pick('ovBubInk', BUB_INK_OPTS))
-      + hint('As Is keeps Text Formatting\'s or SillyTavern\'s text color. Dark suits light bubbles, like Comic\'s.'));
+      + hint('As Is keeps Text Formatting\'s or ST\'s text color.'));
   }
 
   function bindDisplay(overlay, s) {

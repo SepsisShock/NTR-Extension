@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.19';
+  const VERSION = '2.69.20';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -3415,7 +3415,7 @@ await (async () => {
   const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...AVATAR_SHAPE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
   // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
-    layout: { label: 'Layout (chat panel, menu bar, send bar, page bar, banner, chat width, message spacing, send box position)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
+    layout: { label: 'Layout (chat panel, menu bar, send bar, page bar, banner, chat width, message spacing, attached style)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },

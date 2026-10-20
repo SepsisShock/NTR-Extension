@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.20';
+  const VERSION = '2.69.21';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1979,6 +1979,11 @@ await (async () => {
       .ntr_mdgrid .ntr_mdh { font-size: .8em; opacity: .7; text-align: center; line-height: 1.2; }
       .ntr_mdgrid label { display: flex; justify-content: center; margin: 0; cursor: pointer; }
       .ntr_mdgrid input { margin: 0; }
+      @media (pointer: coarse) {
+        .ntr_mdgrid label { min-height: 40px; align-items: center; }
+        .cb_posgrid { grid-template-columns: repeat(3, 40px); }
+        .cb_posgrid label { width: 40px; height: 40px; }
+      }
       .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
       .cb_dfield input { margin: 0; font-family: monospace; }
       .ntr_rd_books { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
@@ -2516,12 +2521,14 @@ await (async () => {
       </section>`;
   }
   // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
-  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title.
-  function pagePart(title, sw, fold, body) {
+  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title. An optional Font
+  // Awesome icon goes before the title.
+  function pagePart(title, sw, fold, body, icon = '') {
     return `
       <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
         <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
           ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
+          ${icon ? `<i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>` : ''}
           <h4 class="ntr_parttitle">${title}</h4>
           <input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">
         </div>
@@ -2955,7 +2962,7 @@ await (async () => {
     }
   }
 
-  const FONT_NOTE = 'Use a font on your device, or any font from Google Fonts by its name or a link to it. Google fonts load on their own while you\'re online. Type the name exactly as it\'s written.';
+  const FONT_NOTE = 'A font on your device, or a Google Fonts name or link (needs a connection). Type the name exactly.';
 
   // Pick-one rows of UI Decor (and the rows that moved from it to Layout and Avatars): the radio name is the key in lower case, with "o" in front.
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);

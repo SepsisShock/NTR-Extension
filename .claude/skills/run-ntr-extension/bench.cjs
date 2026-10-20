@@ -185,7 +185,7 @@ async function drag(page, cdp, opts, saves, { first, id, grip = '', axis, amp, s
   const after = undone + 900;
   const until = Date.now() + 20000 * T;
   while (Date.now() < until && !(saves.since(after) && saves.open === 0)) await sleep(100);
-  if (!saves.since(after)) throw new Error(`the settings weren't saved after ${id}'s drag`);
+  if (!saves.since(after) || saves.open) throw new Error(`the settings save after ${id}'s drag didn't finish`);
   return r;
 }
 

@@ -1,26 +1,73 @@
-// NTR scenario checks, kept from the look-module PRs (#278 to #284). Not cleaned up yet: settings saved by one scenario
-// leak into the next, the style snapshot is written out three times with the version hardcoded, and NO_TEXT_JS,
-// NO_AVATARS_JS and NO_DECOR_JS skip scenarios by hand on refs that lack a file. Clean it up before relying on it.
+// NTR scenario checks: how the menu copes when module files load late or fail, the Text Formatting, Avatars and UI Decor
+// pages' controls, and NTR's style tags across many settings. Prints one line per check.
 //
-// Run with SillyTavern up (st.sh start), on main and on the branch from the same `st.sh reset`, and diff the output:
-//   node .claude/skills/run-ntr-extension/scenarios.cjs KPSTH > out.txt
-// The argument picks scenarios by their first letter (none runs all). HTML_OUT, CSS_OUT, AV_CSS_OUT and D_CSS_OUT
-// name files to write the full menu HTML and style snapshots to, for cmp.
-// Late and failed module loads with the NTR menu open. Prints one line per check; run on main and the branch and diff.
+// With SillyTavern up (st.sh start), on main and on the branch, each from its own `st.sh reset`:
+//   node .claude/skills/run-ntr-extension/scenarios.cjs <name> [letters]
+// Letters pick scenarios by their first letter (none runs all). Results go to $NTR_SCENARIOS/<name>/ (default
+// /tmp/ntr-scenarios): out.txt, menu.html and the style tags, with the version replaced by V. Compare two runs with
+// diff -r. Each scenario starts from NTR's default settings, and one that holds back or blocks a file the installed
+// version doesn't have is skipped. Exits 1 if a scenario couldn't finish.
+const fs = require('fs');
 const path = require('path');
-const { chromium } = require(path.join(require('child_process').execSync('npm root -g').toString().trim(), 'playwright'));
-const URL = 'http://127.0.0.1:8000/';
+const crypto = require('crypto');
+
+const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
+const EXT_URL = ST_URL + 'scripts/extensions/third-party/NTR-Extension/';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const hash = (x) => crypto.createHash('sha1').update(x).digest('hex').slice(0, 12);
 const BASE = { agEnabled: false, bannerOn: false, fgEnabled: false, rxEnabled: true, layEnabled: true, nodeEnabled: false, rdEnabled: false, nodeMaps: false, uiPage: 'themes' };
-const ONLY = process.argv[2] || '';
+const NAME = process.argv[2] || '';
+const ONLY = process.argv[3] || '';
+if (!/^[\w.-]+$/.test(NAME) || NAME === '.' || NAME === '..') {
+  console.error('usage: scenarios.cjs <name> [letters]   (name: letters, digits, ".", "-" or "_")');
+  process.exit(1);
+}
+const OUT = path.join(process.env.NTR_SCENARIOS || '/tmp/ntr-scenarios', NAME);
+
+function loadPlaywright() {
+  try { return require('playwright'); } catch (e) { /* try the global install below */ }
+  try {
+    const root = require('child_process').execSync('npm root -g').toString().trim();
+    return require(path.join(root, 'playwright'));
+  } catch (e) {
+    console.error('Playwright (with Chromium) is needed and wasn\'t found.');
+    process.exit(2);
+  }
+}
+
+// NTR's style tags in page order, except the two that load side by side and land in either order: those go last, by id.
+const styleText = () => {
+  const RACE = ['ntr_overlays_css', 'ntr_rx_css'];
+  const tags = [...document.querySelectorAll('style')].filter((x) => /ntr|cb_|aw_/i.test(x.id));
+  return [...tags.filter((x) => !RACE.includes(x.id)), ...RACE.map((id) => tags.find((x) => x.id === id)).filter(Boolean)]
+    .map((x) => x.id + ':' + x.textContent).join('\n');
+};
 
 (async () => {
+  const { chromium } = loadPlaywright();
+  fs.rmSync(OUT, { recursive: true, force: true });
+  fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
-  const out = (...a) => console.log(...a);
+  const out = (...a) => { console.log(...a); fs.appendFileSync(path.join(OUT, 'out.txt'), a.join(' ') + '\n'); };
+  const save = (file, text) => fs.writeFileSync(path.join(OUT, file), text);
+  let failed = 0;
+
+  // Whether the installed extension has a file, asked from a page on the server so it carries the login.
+  const files = {};
+  let probe;
+  const has = async (n) => {
+    if (!(n in files)) {
+      if (!probe) { probe = await browser.newPage(); await probe.goto(EXT_URL + 'manifest.json'); }
+      files[n] = await probe.evaluate(async (u) => (await fetch(u, { method: 'HEAD', cache: 'no-store' })).ok, EXT_URL + n + '.js');
+    }
+    return files[n];
+  };
 
   async function session(name, { settings = {}, hold = [], abort = [], seq = {} }, body) {
     if (ONLY && !ONLY.includes(name[0])) return;
     out(`\n== ${name}`);
+    // The files a scenario holds back or blocks are the ones it's about.
+    for (const n of [...hold, ...abort, ...Object.keys(seq)]) if (!(await has(n))) { out(`skipped: no ${n}.js`); return; }
     const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
     const errors = [];
     page.on('pageerror', (e) => { if (!/Internal S/.test(e.message)) errors.push(e.message); });
@@ -55,9 +102,15 @@ const ONLY = process.argv[2] || '';
         && SillyTavern.getContext().characters.length > 0, null, { timeout: 60000 });
       await sleep(1500);
     };
-    await page.goto(URL);
+    await page.goto(ST_URL);
     await ready();
-    await page.evaluate((st) => { Object.assign(NTR.api.settings(), st); SillyTavern.getContext().saveSettingsDebounced(); }, { ...BASE, ...settings });
+    // A new install's settings (settings() fills them in from DEFAULTS), then the scenario's own, saved for the reload.
+    await page.evaluate((st) => {
+      const c = SillyTavern.getContext();
+      delete c.extensionSettings.chatvisuals;
+      Object.assign(NTR.api.settings(), st);
+      c.saveSettingsDebounced();
+    }, { ...BASE, ...settings });
     await sleep(2500);
     for (const n of hold) { let open; const p = new Promise((r) => { open = r; }); gates[n] = { p, open }; }
     for (const n of abort) gates[n] = { p: Promise.resolve('abort'), open() {} };
@@ -69,10 +122,16 @@ const ONLY = process.argv[2] || '';
     await page.waitForFunction(() => document.querySelector('#chat .mes'), null, { timeout: 20000 });
     await sleep(1500);
     const ev = (fn, arg) => page.evaluate(fn, arg);
+    const version = await ev(() => NTR.api.VERSION);
     const t = {
       page, release, ev, reqs,
+      unversion: (x) => x.split(version).join('V'),
+      styles: async () => t.unversion(await ev(styleText)),
       async menu(p) { await ev(() => { window.toastr?.clear(); NTR.api.openMenu(); }); if (p) await t.nav(p); await sleep(300); },
       async nav(p) { await ev((p) => document.querySelector(`#cb_modal_overlay .ntr_navi[data-page="${p}"]`).click(), p); await sleep(200); },
+      // A checkbox or a radio button set the way a click would, firing change.
+      tick: (sel, on) => ev(({ sel, on }) => { const c = document.querySelector(sel); c.checked = on; c.dispatchEvent(new Event('change', { bubbles: true })); }, { sel, on }),
+      pick: (name, v) => ev(({ name, v }) => { const r = document.querySelector(`#cb_modal_overlay input[name="cbr_${name}"][value="${v}"]`); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }, { name, v }),
       mark: () => ev(() => { window.__ov = document.getElementById('cb_modal_overlay'); }),
       // The state everything below is checked against.
       state: () => ev(() => {
@@ -98,9 +157,41 @@ const ONLY = process.argv[2] || '';
         return `${before || 'shown'} -> ${after || 'shown'}`;
       }, sec),
     };
-    try { await body(t); } catch (e) { out('FAILED', e.message.split('\n')[0]); }
+    try { await body(t); } catch (e) { failed++; out('FAILED', e.message.split('\n')[0]); }
     out('errors', JSON.stringify(errors));
     await page.context().close();
+  }
+
+  // NTR's style tags across setups: each combo set on top of the start values (the combos' keys put back first),
+  // restyled, and read back.
+  async function sweep(t, combos) {
+    const css = {};
+    const all = [...new Set(Object.values(combos).flatMap(Object.keys))];
+    for (const [name, combo] of Object.entries(combos)) {
+      await t.ev(({ combo, all }) => {
+        const s = NTR.api.settings();
+        window.__orig = window.__orig || structuredClone(s);
+        for (const k of all) s[k] = structuredClone(window.__orig[k]);
+        Object.assign(s, combo);
+        NTR.api.look.restyle();
+      }, { combo, all });
+      await sleep(400);
+      css[name] = await t.styles();
+    }
+    return { css, all };
+  }
+  // Then a mix saved on top of what's there and reloaded, read at the first draw and once settled; prints one line
+  // per setup and writes the full text to style-<letter>.css.
+  async function reloadMix(t, css, mix, file) {
+    await t.ev((mix) => { Object.assign(NTR.api.settings(), mix); SillyTavern.getContext().saveSettingsDebounced(); }, mix);
+    await sleep(2500);
+    await t.page.reload();
+    await t.page.waitForFunction(() => window.NTR?.api && document.getElementById('cb_node_toggle'), null, { timeout: 60000 });
+    css.reloadedFirstDraw = await t.styles();
+    await sleep(1500);
+    css.reloaded = await t.styles();
+    for (const [k, v] of Object.entries(css)) out('css', k, v.length, hash(v));
+    save(file, Object.entries(css).map(([k, v]) => `===== ${k}\n${v}`).join('\n'));
   }
 
   const pageInfo = () => {
@@ -129,7 +220,7 @@ const ONLY = process.argv[2] || '';
     out('typed field', await t.ev(() => document.querySelector('#cb_modal_overlay .m_o_txt').value));
     for (const sec of ['av_emo', 'av_spk', 'fg_banner', 'rb_css', 'ov_scroll_css']) out('fold', sec, await t.fold(sec));
     // Agents' switch after filling: saves, and the page and its icon light up.
-    await t.ev(() => { const c = document.querySelector('#m_ag_enable'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_ag_enable', true);
     out('agents on', JSON.stringify(await t.ev(() => ({ saved: NTR.api.settings().agEnabled, pageOff: document.querySelector('.ntr_page[data-page="agents"]').classList.contains('ntr_off'), navOff: document.querySelector('.ntr_navi[data-page="agents"]').classList.contains('ntr_off') }))));
     // Hire two agents through the filled page, then drag the second above the first.
     await t.nav('agents');
@@ -152,7 +243,7 @@ const ONLY = process.argv[2] || '';
     }
     out('agents after drag', grips.length, await order());
     // Regexes' switch after filling.
-    await t.ev(() => { const c = document.querySelector('#m_rx_enable'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_rx_enable', false);
     await sleep(300);
     out('regex off', await t.ev(() => NTR.api.settings().rxEnabled));
   });
@@ -177,7 +268,7 @@ const ONLY = process.argv[2] || '';
     await t.mark();
     await sleep(1500);
     await t.show('after failures', pageInfo);
-    await t.ev(() => { const c = document.querySelector('#m_rx_enable'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_rx_enable', false);
     await sleep(300);
     out('failed regex page switch', await t.ev(() => NTR.api.settings().rxEnabled));
   });
@@ -213,7 +304,7 @@ const ONLY = process.argv[2] || '';
     t.release('opening');
     await sleep(1200);
     await t.show('after opening', vnInfo);
-    await t.ev(() => { const c = document.querySelector('#m_map_on'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_map_on', true);
     await sleep(500);
     await t.mark();
     await t.show('maps ticked', vnInfo);
@@ -311,8 +402,7 @@ const ONLY = process.argv[2] || '';
     });
   }
 
-  // NTR's style tags across setups, each set on top of the start values, restyled, and read back. Last, a mix saved
-  // and reloaded, read at the first draw.
+  // NTR's style tags across Text Formatting and Elements setups.
   const TF = { tfEnabled: true, tfNameColorOn: true, tfNameColor: 'rgba(255, 0, 0, 1)', tfNameFontOn: true, tfNameFont: 'Georgia', tfNameSizeOn: true, tfNameSize: 1.3,
     tfNameWeightOn: true, tfNameWeight: 'extra', tfNameFxOn: true, tfNameFx: 'glow', tfNameFxStr: 3, tfAiMainOn: true, tfAiMain: 'rgba(200, 200, 0, 1)',
     tfAiEmOn: true, tfAiEm: 'rgba(0, 200, 0, 1)', tfAiQuoteOn: true, tfAiQuote: 'rgba(0, 0, 200, 1)', tfUserAlignOn: true, tfUserAlign: 'center',
@@ -328,28 +418,8 @@ const ONLY = process.argv[2] || '';
     ntrOff: { ...TF, ...EL_ON, masterEnabled: false },
   };
   await session('K style tags', {}, async (t) => {
-    const css = {};
-    const read = () => t.ev(() => [...document.querySelectorAll('style')].filter((x) => /ntr|cb_|aw_/i.test(x.id)).map((x) => x.id + ':' + x.textContent).join('\n').replace(/2\.69\.\d+/g, 'V'));
-    for (const [name, combo] of Object.entries(COMBOS)) {
-      css[name] = await t.ev(({ combo, all }) => {
-        const s = NTR.api.settings();
-        window.__orig = window.__orig || structuredClone(s);
-        for (const k of all) s[k] = structuredClone(window.__orig[k]);
-        Object.assign(s, combo);
-        NTR.api.look.restyle();
-        return true;
-      }, { combo, all: [...new Set(Object.values(COMBOS).flatMap(Object.keys))] });
-      await sleep(300);
-      css[name] = await read();
-    }
-    await t.ev((combo) => { Object.assign(NTR.api.settings(), combo); SillyTavern.getContext().saveSettingsDebounced(); }, { ...TF, ...PLATE, ...EL_ON, masterEnabled: true });
-    await sleep(2500);
-    await t.page.reload();
-    await t.page.waitForFunction(() => window.NTR?.api && document.getElementById('cb_node_toggle'), null, { timeout: 60000 });
-    css.reloaded = await read();
-    const h = (x) => require('crypto').createHash('sha1').update(x).digest('hex').slice(0, 12);
-    for (const [k, v] of Object.entries(css)) out('css', k, v.length, h(v));
-    require('fs').writeFileSync(process.env.CSS_OUT || '/dev/null', Object.entries(css).map(([k, v]) => `===== ${k}\n${v}`).join('\n'));
+    const { css } = await sweep(t, COMBOS);
+    await reloadMix(t, css, { ...TF, ...PLATE, ...EL_ON, masterEnabled: true }, 'style-K.css');
   });
 
   // The Text Formatting page's own controls: its switch, a pick, an effect, a shared row, and the nameplate picture by link.
@@ -357,11 +427,11 @@ const ONLY = process.argv[2] || '';
     await t.menu('text');
     const style = () => t.ev(() => document.getElementById('aw_dynamic_style').textContent);
     const click = (sel) => t.ev((sel) => document.querySelector(sel).click(), sel);
-    const pick = (name, v) => t.ev(({ name, v }) => { const r = document.querySelector(`#cb_modal_overlay input[name="cbr_${name}"][value="${v}"]`); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); return !!r; }, { name, v });
-    await t.ev(() => { const c = document.querySelector('#m_tf_enable'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
-    await t.ev(() => { const c = document.querySelector('#cb_modal_overlay .m_o_on[data-key="tfNameWeightOn"]'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    const pick = t.pick;
+    await t.tick('#m_tf_enable', true);
+    await t.tick('#cb_modal_overlay .m_o_on[data-key="tfNameWeightOn"]', true);
     await pick('tfnweight', 'bold');
-    await t.ev(() => { const c = document.querySelector('#cb_modal_overlay .m_o_on[data-key="tfUserFxOn"]'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#cb_modal_overlay .m_o_on[data-key="tfUserFxOn"]', true);
     await pick('tfuserfx', 'shadow');
     await pick('tfuseralign', 'right');
     await sleep(300);
@@ -376,7 +446,7 @@ const ONLY = process.argv[2] || '';
     await click('#m_plate_clr');
     await sleep(500);
     out('plate cleared', JSON.stringify(await t.ev(() => ({ img: NTR.api.settings().tfPlateImg, prev: !!document.querySelector('#m_plate_prev img') }))));
-    await t.ev(() => { const c = document.querySelector('#m_tf_enable'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_tf_enable', false);
     await sleep(300);
     out('off', await t.ev(() => NTR.api.settings().tfEnabled), 'css bold gone', !/font-weight: 700/.test(await style()));
   });
@@ -385,7 +455,6 @@ const ONLY = process.argv[2] || '';
   const FS = { tfEnabled: true, ovFontOn: true, ovFont: 1.6 };
   const fsInfo = () => ({ scale: (document.getElementById('aw_dynamic_style')?.textContent.match(/--fontScale: [\d.]+/) || ['none'])[0], text: !!window.NTR.text });
   for (const [label, opts, rel] of [['loaded', {}, []], ['text.js failed', { abort: ['text'] }, []], ['text.js late', { seq: { text: ['hold'] } }, [['text', 'ok']]]]) {
-    if (label !== 'loaded' && process.env.NO_TEXT_JS) continue;
     await session(`N font scale, ${label}`, { settings: FS, ...opts }, async (t) => {
       await t.show('at start', fsInfo);
       for (const [n, how] of rel) { t.release(n, how); await sleep(1500); await t.show(`after ${n} ${how}`, fsInfo); }
@@ -411,29 +480,8 @@ const ONLY = process.argv[2] || '';
     ntrOff: { ...AV, aiStyle: 'backdrop', aiShape: 'heart', masterEnabled: false },
   };
   await session('P avatar style tags', {}, async (t) => {
-    const css = {};
-    const read = () => t.ev(() => [...document.querySelectorAll('style')].filter((x) => /ntr|cb_|aw_/i.test(x.id)).map((x) => x.id + ':' + x.textContent).join('\n').replace(/2\.69\.\d+/g, 'V'));
-    const all = [...new Set(Object.values(AV_COMBOS).flatMap(Object.keys))];
-    for (const [name, combo] of Object.entries(AV_COMBOS)) {
-      await t.ev(({ combo, all }) => {
-        const s = NTR.api.settings();
-        window.__orig = window.__orig || structuredClone(s);
-        for (const k of all) s[k] = structuredClone(window.__orig[k]);
-        Object.assign(s, combo);
-        NTR.api.look.restyle();
-      }, { combo, all });
-      await sleep(400);
-      css[name] = await read();
-    }
-    await t.ev((combo) => { Object.assign(NTR.api.settings(), combo); SillyTavern.getContext().saveSettingsDebounced(); }, { ...AV_COMBOS.shapes, ...AV_COMBOS.bubbles, aiStyle: 'backdrop', masterEnabled: true });
-    await sleep(2500);
-    await t.page.reload();
-    await t.page.waitForFunction(() => window.NTR?.api && document.getElementById('cb_node_toggle'), null, { timeout: 60000 });
-    await sleep(1500);
-    css.reloaded = await read();
-    const h = (x) => require('crypto').createHash('sha1').update(x).digest('hex').slice(0, 12);
-    for (const [k, v] of Object.entries(css)) out('css', k, v.length, h(v));
-    require('fs').writeFileSync(process.env.AV_CSS_OUT || '/dev/null', Object.entries(css).map(([k, v]) => `===== ${k}\n${v}`).join('\n'));
+    const { css } = await sweep(t, AV_COMBOS);
+    await reloadMix(t, css, { ...AV_COMBOS.shapes, ...AV_COMBOS.bubbles, aiStyle: 'backdrop', masterEnabled: true }, 'style-P.css');
   });
 
   // Avatars: the chat pictures, the pop-out, and the page's controls.
@@ -448,7 +496,7 @@ const ONLY = process.argv[2] || '';
     await sleep(1500);
     await t.show('emotions filled', () => ({ emo: !!document.querySelector('#m_emo_list') }));
     const st = () => t.ev(() => { const s = NTR.api.settings(); return ['avatarEnabled', 'aiEnabled', 'aiStyle', 'aiShape', 'aiSide', 'aiFit', 'aiFadeTop', 'aiFadeBR', 'aiScale', 'aiPopX', 'aiPopY', 'aiBlur', 'aiCorner'].map((k) => `${k}=${s[k]}`).join(' '); });
-    const pick = (name, v) => t.ev(({ name, v }) => { const r = document.querySelector(`#cb_modal_overlay input[name="cbr_${name}"][value="${v}"]`); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }, { name, v });
+    const pick = t.pick;
     const grp = () => t.ev(() => [...document.querySelectorAll('#m_ai_col .cb_grp')].map((g) => g.dataset.only + ':' + g.style.display).join(' | '));
     const dims = () => t.ev(() => ['fowrap', 'crwrap', 'fitwrap', 'scwrap', 'padwrap'].map((k) => `${k}${document.querySelector('#m_ai_' + k).classList.contains('cb_dim') ? '-dim' : ''}`).join(' '));
     await pick('aishape', 'rectangle');
@@ -492,12 +540,12 @@ const ONLY = process.argv[2] || '';
     await sleep(600);
     out('placed', !!box, await st(), await t.ev(() => `ox=${document.querySelector('#m_ai_ox')?.value} oxval=${document.querySelector('#m_ai_oxval')?.textContent}`));
     // The side's switch and the page switch.
-    await t.ev(() => { const c = document.querySelector('#m_ai_on'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_ai_on', false);
     out('side off', await st(), await t.ev(() => document.querySelector('#m_ai_body').classList.contains('cb_dim')));
-    await t.ev(() => { const c = document.querySelector('#m_ai_on'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
-    await t.ev(() => { const c = document.querySelector('#m_a_enable'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_ai_on', true);
+    await t.tick('#m_a_enable', false);
     out('page off', await st(), await t.ev(() => document.querySelector('.ntr_navi[data-page="pfp"]').classList.contains('ntr_off')));
-    await t.ev(() => { const c = document.querySelector('#m_a_enable'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_a_enable', true);
     // Reset asks first, then redraws the menu, keeping the scroll and the side's switch.
     await t.ev(() => { document.querySelector('#cb_modal_overlay .ntr_body').scrollTop = 600; });
     await t.ev(() => document.querySelector('#m_ai_reset').click());
@@ -534,7 +582,6 @@ const ONLY = process.argv[2] || '';
     ['failed, Names Hide', { abort: ['avatars'] }, { ...AV, ovNamesOn: true, ovNames: 'hide' }, []],
     ['late', { seq: { avatars: ['hold'] } }, AVF, [['avatars', 'ok']]],
   ]) {
-    if (process.env.NO_AVATARS_JS) continue;
     await session(`R avatars ${label}`, { settings, ...opts }, async (t) => {
       await t.menu('pfp');
       await sleep(1200);
@@ -578,20 +625,7 @@ const ONLY = process.argv[2] || '';
     ntrOffDecor: { ovEnabled: true, ovShapeOn: true, ovBubOn: true, masterEnabled: false },
   };
   await session('S decor style tags', {}, async (t) => {
-    const css = {};
-    const read = () => t.ev(() => [...document.querySelectorAll('style')].filter((x) => /ntr|cb_|aw_/i.test(x.id)).map((x) => x.id + ':' + x.textContent).join('\n').replace(/2\.69\.\d+/g, 'V'));
-    const all = [...new Set(Object.values(D_COMBOS).flatMap(Object.keys))];
-    for (const [name, combo] of Object.entries(D_COMBOS)) {
-      await t.ev(({ combo, all }) => {
-        const s = NTR.api.settings();
-        window.__orig = window.__orig || structuredClone(s);
-        for (const k of all) s[k] = structuredClone(window.__orig[k]);
-        Object.assign(s, combo);
-        NTR.api.look.restyle();
-      }, { combo, all });
-      await sleep(400);
-      css[name] = await read();
-    }
+    const { css, all } = await sweep(t, D_COMBOS);
     // Bubble runs: two more AI messages and one of yours, grouped.
     await t.ev(({ combo, all }) => { const s = NTR.api.settings(); for (const k of all) s[k] = structuredClone(window.__orig[k]); Object.assign(s, combo); NTR.api.look.restyle(); }, { combo: BUB('pointed', { ovBubGroup: 'group' }), all });
     await t.ev(() => {
@@ -606,28 +640,20 @@ const ONLY = process.argv[2] || '';
     out('runs each', await runs());
     await t.ev(() => NTR.api.refreshPins());
     out('runs after refreshPins', await runs());
-    await t.ev((combo) => { Object.assign(NTR.api.settings(), combo); SillyTavern.getContext().saveSettingsDebounced(); }, { ...D_COMBOS.freeSend, ...D_COMBOS.bubThoughtBorder, ...GAPS, masterEnabled: true });
-    await sleep(2500);
-    await t.page.reload();
-    await t.page.waitForFunction(() => window.NTR?.api && document.getElementById('cb_node_toggle'), null, { timeout: 60000 });
-    await sleep(1500);
-    css.reloaded = await read();
-    const h = (x) => require('crypto').createHash('sha1').update(x).digest('hex').slice(0, 12);
-    for (const [k, v] of Object.entries(css)) out('css', k, v.length, h(v));
-    require('fs').writeFileSync(process.env.D_CSS_OUT || '/dev/null', Object.entries(css).map(([k, v]) => `===== ${k}\n${v}`).join('\n'));
+    await reloadMix(t, css, { ...D_COMBOS.freeSend, ...D_COMBOS.bubThoughtBorder, ...GAPS, masterEnabled: true }, 'style-S.css');
   });
   await session('T decor page controls', { settings: { ovEnabled: true, ovBubOn: true } }, async (t) => {
     await t.menu('display');
     const st = () => t.ev(() => { const s = NTR.api.settings(); return ['ovEnabled', 'ovBubTail', 'ovBubAlign', 'ovBubInk', 'ovAiRound', 'ovAiBgColor'].map((k) => `${k}=${s[k]}`).join(' ') + ' preset=' + (document.querySelector('#cb_modal_overlay input[name="cbr_obubpreset"]:checked')?.value || ''); });
     out('start', await st());
     await t.mark();
-    await t.ev(() => { const r = document.querySelector('#cb_modal_overlay input[name="cbr_obubpreset"][value="comic"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.pick('obubpreset', 'comic');
     await sleep(600);
     out('picked comic', await st(), 'menu redrawn:', !(await t.state()).sameMenu);
-    await t.ev(() => { const r = document.querySelector('#cb_modal_overlay input[name="cbr_oovbubtail"][value="thought"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.pick('oovbubtail', 'thought');
     await sleep(300);
     out('changed tail', await st());
-    await t.ev(() => { const c = document.querySelector('#m_ov_enable'); c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await t.tick('#m_ov_enable', false);
     await sleep(300);
     out('page off', await st(), await t.ev(() => document.querySelector('.ntr_navi[data-page="display"]').classList.contains('ntr_off')));
   });
@@ -655,7 +681,6 @@ const ONLY = process.argv[2] || '';
     for (const [x, user] of [['Two', false], ['Three', false]]) { const m = { name: user ? c.name1 : c.name2, is_user: user, is_system: false, send_date: Date.now(), mes: x, extra: {} }; c.chat.push(m); c.addOneMessage(m); }
   });
   for (const [label, opts, rel] of [['failed at once', { abort: ['decor'] }, []], ['late', { seq: { decor: ['hold'] } }, [['decor', 'ok']]], ['loaded', {}, []]]) {
-    if (label !== 'loaded' && process.env.NO_DECOR_JS) continue;
     await session(`U decor ${label}`, { settings: DF, ...opts }, async (t) => {
       await addMsgs(t);
       await sleep(800);
@@ -672,15 +697,12 @@ const ONLY = process.argv[2] || '';
   await session('H everything loaded: menu HTML', {}, async (t) => {
     await t.menu();
     await sleep(2500);
-    const html = await t.ev(() => {
-      const ov = document.getElementById('cb_modal_overlay');
-      const styles = [...document.querySelectorAll('style')].filter((s) => /ntr|cb_/i.test(s.id)).map((s) => s.id + ':' + s.textContent).join('\n');
-      return { menu: ov.innerHTML.replace(/2\.69\.\d+/g, 'V'), styles: styles.replace(/2\.69\.\d+/g, 'V') };
-    });
-    require('fs').writeFileSync(process.env.HTML_OUT || '/dev/null', html.menu + '\n=====STYLES=====\n' + html.styles);
-    const h = (s) => require('crypto').createHash('sha1').update(s).digest('hex').slice(0, 12);
-    out('menu html', html.menu.length, h(html.menu), 'styles', html.styles.length, h(html.styles));
+    const menu = t.unversion(await t.ev(() => document.getElementById('cb_modal_overlay').innerHTML));
+    const styles = await t.styles();
+    save('menu.html', menu + '\n=====STYLES=====\n' + styles);
+    out('menu html', menu.length, hash(menu), 'styles', styles.length, hash(styles));
   });
 
   await browser.close();
-})();
+  if (failed) process.exitCode = 1;
+})().catch((e) => { console.error(e.message || e); process.exit(1); });

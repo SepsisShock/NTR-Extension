@@ -52,7 +52,7 @@
   // Margi, the example tracker: an ordinary agent, made by its button, to edit or delete like any other. Her button
   // shows while no agent made by it is left (example marks it; Duplicate doesn't copy that). Her picture comes with
   // NTR, cropped, and Crop starts from the full one. Saved as a path from the site's root, so it works from any address.
-  // She answers in Fields, so a Dashboard shows her state once her first result is saved.
+  // She answers in Fields, so once her first result is saved, a Dashboard shows her state as values.
   const MARGI_JOB = 'You are Margi, a story state tracker. Read the latest chat messages and update the story\'s state. Write "Unknown" for anything the story hasn\'t said yet.';
   const MARGI_FIELDS = [
     { kind: 'heading', name: 'Scene' },

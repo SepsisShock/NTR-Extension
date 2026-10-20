@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.18';
+  const VERSION = '2.69.19';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -514,7 +514,7 @@ await (async () => {
   // bottom has Snap to Grid, Undo, Reset and Done.
   // Layout parts come first, so the pictures' outlines sit on top of theirs.
   const PLACE = [
-    { id: 'layChat', lay: 'chat', label: 'Chat Panel' }, { id: 'layBar', lay: 'bar', label: 'Menu Bar' }, { id: 'laySend', lay: 'send', label: 'Send Bar' },
+    { id: 'layChat', lay: 'chat', label: 'Chat Panel' }, { id: 'layBar', lay: 'bar', label: 'ST Menu Bar' }, { id: 'laySend', lay: 'send', label: 'Send Bar' },
     { id: 'layPage', lay: 'page', label: 'Page Bar' }, { id: 'layBan', lay: 'ban', label: 'Banner' },
     { id: 'us', label: 'User Pop Out' }, { id: 'ai', label: 'AI Pop Out' },
     ...['Left', 'Center', 'Right'].map((pos) => ({ id: 'fg' + pos, pos, label: `${pos} Foreground` })),
@@ -1259,40 +1259,41 @@ await (async () => {
   // The Layout page. It changes the layout this screen uses, like Edit Layout, apart from the settings marked Both Layouts
   // and Pinned Blocks' own settings. The page follows the window across 1000px.
   const layScope = (t) => `<span class="ntr_scope">${t}</span>`;
+  // Which layout the page is editing. It follows the window across 1000px (syncLayoutPage).
+  const layNowHtml = (ph) => `<span class="ntr_scope"><b>${ph ? 'Phone' : 'Desktop'}</b> · ${ph ? '1000px or Less' : 'Over 1000px'}</span>
+    <span class="cb_hint">${ph ? 'Wider windows use Desktop.' : 'Narrower windows use Phone.'}</span>`;
 
   function layoutSectionHtml(s) {
     const ph = phoneNow();
-    const name = `<b class="m_l_now">${ph ? 'Phone' : 'Desktop'}</b>`;
     const btn = (id, icon, label) => `<button type="button" id="${id}" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid ${icon}"></i> ${label}</button>`;
     return pageHtml('layout', `
         ${card('', `
-          <div class="cb_hint" style="margin-top: 0;">Editing the ${name} layout. Desktop is wider than 1000px, Phone 1000px or less; resize the window to switch. Attached parts move with the chat panel; Free ones move on their own.</div>
-          <div class="cb_actions" style="margin: 0;">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}</div>`)}
+          <div class="m_l_now">${layNowHtml(ph)}</div>
+          <div class="cb_hint">Attached parts move with the chat panel; Floating ones move on their own.</div>
+          <div class="cb_actions m_l_actions">${btn('m_l_edit', 'fa-up-down-left-right', 'Edit Layout')}${btn('m_l_reset', 'fa-rotate-left', 'Restore ST Layout')}</div>`)}
         ${card('Chat Panel', `
           <div class="m_l_over" data-lay="width phone">${ovRow(s, 'ovWidthOn', `Chat Width${layScope('Desktop Only')}`, rangeSlider(s, 'ovWidth'))}</div>
-          <div class="cb_hint m_l_note" data-lay="width" hidden>Off because the chat panel was moved in Edit Layout. Reset it there to use this.</div>
-          ${ovRow(s, 'ovMesGapOn', `Space Between Messages${layScope('Both Layouts')}`, rangeSlider(s, 'ovMesGap'))}`)}
-        ${card('Menu Bar', `
+          <div class="cb_hint m_l_note" data-lay="width" hidden>Off: the chat panel was moved. Reset it in Edit Layout to use this.</div>
+          ${ovRow(s, 'ovMesGapOn', `Space Between Messages${layScope('Both Layouts')}`, rangeSlider(s, 'ovMesGap'))}`, 'fa-comments')}
+        ${card('ST Menu Bar', `
           ${pills('lbaredge', [['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']], s[lk(ph, 'BarEdge')])}
-          <div class="cb_hint">Picking an edge puts the bar back at its start there.</div>
-          <div class="cb_hint" style="margin-bottom: 0;">Pictures for the icons are under Elements, Menu Bar Icons.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Picking an edge puts the bar back at its start there.</div>`, 'fa-window-maximize')}
         ${card('Send Bar', `
-          ${pills('lsend', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Send')])}
+          ${pills('lsend', [['attached', 'Attached'], ['free', 'Floating']], s[lk(ph, 'Send')])}
           <div class="m_l_over" data-lay="send">${ovRow(s, 'ovSendPosOn', `Attached Style${layScope('Both Layouts')}`, ovPick(s, 'ovSendPos', [['joined', 'Joined'], ['separate', 'Separate']])
             + ovWhen('ovSendPos', 'separate', ovLabel('Gap', rangeSlider(s, 'ovSendGap'))))}</div>
-          <div class="cb_hint m_l_note" data-lay="send" style="margin-bottom: 0;" hidden>Not used while the send bar is Free.</div>`)}
+          <div class="cb_hint m_l_note" data-lay="send" style="margin-bottom: 0;" hidden>Not used while the send bar is Floating.</div>`, 'fa-paper-plane')}
         ${card('Page Bar', `
-          ${pills('lpage', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Page')])}
-          <div class="cb_hint" style="margin-bottom: 0;">Reader Mode's page bar. It shows in Edit Layout only while Reader Mode is on.</div>`)}
+          ${pills('lpage', [['attached', 'Attached'], ['free', 'Floating']], s[lk(ph, 'Page')])}
+          <div class="cb_hint" style="margin-bottom: 0;">Reader Mode's page bar. Edit Layout shows it only while Reader Mode is on.</div>`, 'fa-book-open')}
         ${card('Banner', `
-          ${pills('lban', [['attached', 'Attached'], ['free', 'Free']], s[lk(ph, 'Ban')])}
-          <div class="cb_hint" style="margin-bottom: 0;">The header banner from Overlays. Free keeps one place for every character.</div>`)}
-        ${card('', btn('m_l_reset', 'fa-rotate-left', 'Back to SillyTavern\'s Layout'))}
+          ${pills('lban', [['attached', 'Attached'], ['free', 'Floating']], s[lk(ph, 'Ban')])}
+          <div class="cb_hint" style="margin-bottom: 0;">From Overlays. Floating keeps one place for every character.</div>`, 'fa-image')}
         ${card('Pinned Blocks', `
-          <div class="cb_hint">Shows a block your regex draws, or your agents' results, in its own box. Settings are shared; place and size are kept per layout.</div>
+          <div class="cb_hint">Shows a block from the chat, or your agents' results, in its own box. Settings are shared; place and size are kept per layout.</div>
           <div id="m_pin_list"></div>
           <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0;">${btn('m_pin_add', 'fa-plus', 'Add Pinned Block')}${btn('m_pin_dash', 'fa-gauge-high', 'Add Dashboard')}</div>
-          <div class="cb_hint" style="margin-bottom: 0;">Add Dashboard makes a box for your agents' results, docked right, with every agent that saves in the chat ticked.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Add Dashboard makes a box docked right with every agent that saves in the chat.</div>`, 'fa-thumbtack')}
     `, { sw: ['m_l_enable', s.layEnabled] });
   }
 
@@ -1306,7 +1307,7 @@ await (async () => {
       Object.assign(s, { [lk(ph, 'BarEdge')]: v, [lk(ph, 'BarMoved')]: false });
       changed();
     });
-    // Free starts where the part is now, so it doesn't jump. A part that isn't on screen starts where it was last, or at
+    // Floating starts where the part is now, so it doesn't jump. A part that isn't on screen starts where it was last, or at
     // its starting place. The bars keep their bottom edge, the banner its top and height.
     const freeFrom = (part, id) => (v) => {
       const ph = phoneNow();
@@ -1327,7 +1328,7 @@ await (async () => {
     onPills(overlay, 'lban', freeFrom('Ban', 'cb_banner'));
     overlay.querySelector('#m_l_reset').onclick = async function() {
       const ph = phoneNow();
-      if (!(await askYes(this, `Put the chat panel, menu bar, send bar, page bar and banner back where they start, in the ${ph ? 'Phone' : 'Desktop'} layout?`, 'Reset'))) return;
+      if (!(await askYes(this, `Put the chat panel, menu bar, send bar, page bar and banner back where they start, in the ${ph ? 'Phone' : 'Desktop'} layout?`, 'Restore'))) return;
       for (const part of Object.values(LAY_PART)) for (const [k, x] of Object.entries(part.start)) s[lk(ph, k)] = x;
       changed();
     };
@@ -1345,7 +1346,7 @@ await (async () => {
       const r = overlay.querySelector(`input[name="cbr_${name}"][value="${val}"]`);
       if (r) r.checked = true;
     }
-    overlay.querySelectorAll('.m_l_now').forEach((el) => { el.textContent = ph ? 'Phone' : 'Desktop'; });
+    overlay.querySelectorAll('.m_l_now').forEach((el) => { el.innerHTML = layNowHtml(ph); });
     const over = { phone: ph, width: !ph && layOn(s) && s.layChatMoved, send: layOn(s) && s[lk(ph, 'Send')] === 'free' };
     overlay.querySelectorAll('.m_l_over').forEach((el) => el.classList.toggle('cb_dim', el.dataset.lay.split(' ').some((k) => over[k])));
     overlay.querySelectorAll('.m_l_note').forEach((el) => { el.hidden = !over[el.dataset.lay]; });
@@ -1736,9 +1737,9 @@ await (async () => {
           <div class="ntr_pinrow" data-pin="${p.id}">
             <i class="fa-solid fa-fw ${p.from === 'agents' ? 'fa-gauge-high' : 'fa-thumbtack'}"></i>
             <span class="ntr_pinname">${escapeHTML(p.name)}<small>${escapeHTML(what)}</small></span>
-            <button type="button" class="menu_button m_pin_edit${pinOpen === p.id ? ' on' : ''}" title="Settings"><i class="fa-solid fa-gear"></i></button>
-            <button type="button" class="menu_button m_pin_move" title="Move with Edit Layout"><i class="fa-solid fa-up-down-left-right"></i></button>
-            <button type="button" class="menu_button danger_button m_pin_del" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            <button type="button" class="menu_button m_pin_edit${pinOpen === p.id ? ' on' : ''}" title="Settings" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+            <button type="button" class="menu_button m_pin_move" title="Move with Edit Layout" aria-label="Move with Edit Layout"><i class="fa-solid fa-up-down-left-right"></i></button>
+            <button type="button" class="menu_button danger_button m_pin_del" title="Delete" aria-label="Delete"><i class="fa-solid fa-trash"></i></button>
           </div>`;
       if (pinOpen !== p.id) return row;
       return row + `
@@ -2527,8 +2528,8 @@ await (async () => {
         <div class="ntr_partbody">${body}</div>
       </div>`;
   }
-  // A group of settings: a small label, then the settings in a soft card.
-  const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
+  // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
+  const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon}"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
   const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   function subHead(sec, title) {

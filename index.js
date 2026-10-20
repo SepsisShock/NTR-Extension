@@ -797,8 +797,8 @@ await (async () => {
       if (place.sel !== it.id) { place.sel = it.id; drawPlace(); return; }
       const start = placeGet(it);
       const grip = e.target.closest('.cb_place_grip')?.dataset.g || '';
-      // A foreground picture's place is the open character's, so the drag keeps whose it is (see endPlacement).
-      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false, fg: it.pos ? fgData() : null };
+      // A foreground picture's place belongs to the open chat, so the drag keeps whose it is (see endPlacement).
+      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false, fg: it.pos ? { data: fgData(), owner: fgOwner() } : null };
       if (it.lay) Object.assign(place.drag, { r0: layRect(it), px0: e.clientX, py0: e.clientY, edge0: settings()[lk(phoneNow(), 'BarEdge')] });
       else place.drag.r0 = placeRect(it);
       place.drag.edge = place.drag.edge0;
@@ -973,10 +973,10 @@ await (async () => {
 
   function endPlacement() {
     if (!place.on) return;
-    // A drag still going (Escape before letting go) was never let go, so it was never saved: it goes back where it was.
-    // A foreground picture after the chat changed goes back in its own character's data, not the new one's.
+    // A drag not let go yet (Escape in the middle of one) isn't saved, so it goes back where it started. A foreground
+    // picture whose chat has changed meanwhile goes back in that chat's data, not the new one's.
     const d = place.drag;
-    if (d?.fg && d.fg !== fgData()) Object.assign(d.fg, { [d.it.pos + 'X']: d.start.x, [d.it.pos + 'Y']: d.start.y });
+    if (d?.fg && d.fg.owner !== fgOwner()) Object.assign(d.fg.data, { [d.it.pos + 'X']: d.start.x, [d.it.pos + 'Y']: d.start.y });
     else if (d) placeSet(d.it, d.start);
     place.on = false;
     place.drag = null;
@@ -1202,6 +1202,9 @@ await (async () => {
     for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
     r.scope = 'char';
   }
+
+  // Whose foreground pictures are showing: the group's in a group chat, otherwise the character's.
+  const fgOwner = () => (ctx().groupId ? 'group:' + ctx().groupId : currentKey());
 
   function currentKey() {
     const c = ctx();

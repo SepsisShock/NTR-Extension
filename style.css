@@ -74,6 +74,7 @@
   display: none;
   cursor: ew-resize;
   pointer-events: auto;
+  touch-action: none;
   z-index: 1;
 }
 #ntr_edge:hover { background: rgba(255, 255, 255, 0.08); }

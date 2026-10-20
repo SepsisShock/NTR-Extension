@@ -39,7 +39,9 @@ start() {
   # Its own session, and none of this shell's output: a leftover writer would keep `$(st.sh start)` or a pipe open.
   # Not holding setup's lock either, or the next command would wait for the server to stop.
   (cd "$ST_DIR" && exec setsid nohup node server.js) > "$ST_LOG" 2>&1 < /dev/null 9>&- &
+  local pid=$!
   if ! timeout 120 bash -c "until curl -sf -o /dev/null http://127.0.0.1:$PORT; do sleep 1; done"; then
+    kill "$pid" 2>/dev/null || true
     echo "SillyTavern didn't start; last lines of $ST_LOG:"; tail -20 "$ST_LOG"; exit 1
   fi
   echo "SillyTavern is up at http://127.0.0.1:$PORT"
@@ -124,8 +126,10 @@ bench() {
   # The version the runs must find loaded, from the installed manifest.
   if [ "$ref" != none ]; then flags+=(--ntr "$(node -p "require('$EXT_DIR/manifest.json').version")"); fi
   start
+  # Stops the server however bench ends: done, a failed step or Ctrl-C.
+  trap stop EXIT
   if [ -n "$full" ]; then
-    [ "$ref" != none ] || { echo "full needs the extension"; stop; exit 1; }
+    [ "$ref" != none ] || { echo "full needs the extension"; exit 1; }
     # Test images from SillyTavern's own content: its three largest backgrounds for the banner, Seraphina for the foreground.
     local img="${NTR_BENCH:-/tmp/ntr-bench}/img" banners=() f
     rm -rf "$img" && mkdir -p "$img"
@@ -135,10 +139,9 @@ bench() {
     done < <(ls -S "$ST_DIR/default/content/backgrounds" | grep -iE '\.(png|jpe?g|webp)$' | head -3)
     cp "$ST_DIR/default/content/default_Seraphina.png" "$img/fg.png"
     sed -e "s#@BANNERS@#${banners[*]}#" -e "s#@IMG@#$img#g" "$here/bench-full.txt" | node "$here/driver.cjs" \
-      || { echo "turning on NTR's features failed"; stop; exit 1; }
+      || { echo "turning on NTR's features failed"; exit 1; }
   fi
-  node "$here/bench.cjs" run "$name" --runs "$runs" "${flags[@]}" || { stop; exit 1; }
-  stop
+  node "$here/bench.cjs" run "$name" --runs "$runs" "${flags[@]}"
 }
 
 case "${1:-}" in setup | hook) ;; *) wait_setup ;; esac

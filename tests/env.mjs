@@ -46,7 +46,7 @@ Object.assign(globalThis, {
   fetch: async () => ({ ok: true, json: async () => ({}), text: async () => '' }),
 });
 
-// Node only reads .js as a module inside a "type": "module" package, so the files are copied as .mjs (like CI's
+// The files are copied as .mjs so Node always loads them as modules, without guessing from their syntax (like CI's
 // parse check). They sit two folders down so regex.js finds a stand-in for SillyTavern's regex engine.
 const dir = mkdtempSync(join(tmpdir(), 'ntr-test-'));
 process.on('exit', () => rmSync(dir, { recursive: true, force: true }));

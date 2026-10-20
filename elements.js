@@ -1064,6 +1064,8 @@
     file.onchange = async () => {
       const f = file.files[0];
       const i = pending;
+      // Cleared now, so the same picture can be picked again while this one uploads.
+      file.value = '';
       if (!f || i < 0) return;
       try {
         // The row is kept from before the upload: picking another icon meanwhile changes pending.
@@ -1073,7 +1075,6 @@
         console.error('[NTR menu bar icon upload]', e);
         toastr.error(e.message || 'Upload failed', 'Menu Bar Icons');
       }
-      file.value = '';
     };
     render();
   }

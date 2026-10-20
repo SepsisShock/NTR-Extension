@@ -1906,6 +1906,12 @@ await (async () => {
         right: 'auto', bottom: 'auto', margin: '0', 'z-index': '35',
       });
     }
+    // The chat panel's and the menu bar's places go straight into the rules that use them, not into variables on :root.
+    // Every drag step rewrites this stylesheet, and a changed :root variable makes the browser restyle the whole page,
+    // long chat included. For the same reason, broad selectors (.mes, *) don't belong in it.
+    const put = (text) => text.replace(/var\((--ntr-[cb][xywh])\)/g, (m, k) => (k in root ? put(root[k]) : m));
+    css = put(css);
+    for (const k of Object.keys(root)) if (/^--ntr-[cb][xywh]$/.test(k)) delete root[k];
     return `\n      @media (width ${phone ? '<=' : '>'} 1000px) {${cssRule('html:root', root)}${css}\n      }\n`;
   }
 

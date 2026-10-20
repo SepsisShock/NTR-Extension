@@ -1,10 +1,11 @@
 // Nitwit Tavern Redesign: Elements module: Reasoning Block, Message Details, Scrollbar, Cursor, Menu Bar Icons and
-// Quick Replies. Loaded by index.js before NTR starts, so its styles are there from the first draw. If this file
-// breaks, the rest of the extension keeps working, with SillyTavern's own look for these parts.
+// Quick Replies. Loaded by index.js before NTR starts, so its styles are there from the first draw, unless it takes
+// over 5 seconds; then it restyles when it arrives. If this file breaks, the rest of the extension keeps working, with
+// SillyTavern's own look for these parts.
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.69.16';
+  const ELEMENTS_VERSION = '2.69.17';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -797,7 +798,6 @@
     `);
   }
 
-  // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
   // Message Details: a tick adds or removes a detail from a spot, and a Style sets all of them. Either may change the
   // Style shown.
   function bindMessageDetails(overlay, s) {
@@ -824,6 +824,7 @@
     onPills(overlay, 'mdsep', (v) => { s.mdSep = v; apply(); });
   }
 
+  // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
   function bindReasoningBg(overlay, s, onChange) {
     const syncRows = () => {
       onChange();
@@ -1062,15 +1063,18 @@
     }));
     file.onchange = async () => {
       const f = file.files[0];
-      if (!f || pending < 0) return;
+      const i = pending;
+      // Cleared now, so the same picture can be picked again while this one uploads.
+      file.value = '';
+      if (!f || i < 0) return;
       try {
+        // The row is kept from before the upload: picking another icon meanwhile changes pending.
         const url = await uploadImage(f, 'baricon', { max: 128 });
-        set(pending, url, await hasClear(url) ? 'tint' : 'full');
+        set(i, url, await hasClear(url) ? 'tint' : 'full');
       } catch (e) {
         console.error('[NTR menu bar icon upload]', e);
         toastr.error(e.message || 'Upload failed', 'Menu Bar Icons');
       }
-      file.value = '';
     };
     render();
   }

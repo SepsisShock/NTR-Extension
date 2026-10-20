@@ -10,7 +10,7 @@
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
     media, escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
     askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, ROT_KEYS, BANNER_LOOK_KEYS, startChar } = A;
-  const openMenu = () => A.openMenu();
+  const openCombinedModal = () => A.openMenu();
 
   const CSS = `
       #cb_banner { width: 100%; height: var(--cb-h, 120px); position: relative; overflow: hidden; display: block; border-radius: 10px; margin-bottom: var(--cb-gap, 10px); }
@@ -159,7 +159,8 @@
     });
   }
 
-  // Char uses the character's own banner (saved in its card), Global the shared one. Off is one switch for every character.
+  // The Global or Char choice is saved per character: Char uses the character's own banner (saved in its card), Global the
+  // shared one. Off is one switch for every character.
   const BANNER_NOTE = {
     global: 'Global shows the shared banner on every character that doesn\'t have its own (Char).',
     char: 'Char gives this character its own banner. Its images and settings are saved in its card.',
@@ -471,7 +472,7 @@
     stopRotation(); // the arrows restart the rotation timer
     save();
     updateBanner();
-    if (document.getElementById('cb_modal_overlay')) openMenu();
+    if (document.getElementById('cb_modal_overlay')) openCombinedModal();
   }
 
   async function addFiles(files) {
@@ -696,7 +697,7 @@
       s.bannerOn = this.checked;
       save();
       render();
-      openMenu();
+      openCombinedModal();
     };
     onPills(overlay, 'bscope', (v) => {
       if (key) {
@@ -707,7 +708,7 @@
       if (BANNER_NOTE[v]) toastr.info(BANNER_NOTE[v], 'Banner');
       save();
       render();
-      openMenu();
+      openCombinedModal();
     });
     const rotSet = (k, v) => { if (ownKind) r[k] = v; else s[ROT_KEYS[k]] = v; save(); updateBanner(); };
     overlay.querySelector('#m_b_rot').onchange = function() {
@@ -736,7 +737,7 @@
       save();
       updateBanner();
       deleteFileIfUnused(old);
-      openMenu();
+      openCombinedModal();
     };
     const vfile = overlay.querySelector('#m_b_vfile');
     const vup = overlay.querySelector('#m_b_vup');
@@ -753,7 +754,7 @@
       } catch (e) {
         console.error('[NTR banner video]', e);
         toastr.error(e.message || 'Video upload failed', 'Banner');
-        openMenu();
+        openCombinedModal();
       }
     };
     overlay.querySelector('#m_b_vurl').onclick = async () => {
@@ -828,7 +829,7 @@
         deleteFileIfUnused(old);
         save();
         ensureFg();
-        openMenu();
+        openCombinedModal();
       };
     });
 
@@ -840,7 +841,7 @@
         save();
         ensureFg();
         deleteFileIfUnused(old);
-        openMenu(); 
+        openCombinedModal(); 
       };
     });
 
@@ -858,7 +859,7 @@
         
         save();
         ensureFg();
-        openMenu();
+        openCombinedModal();
       } catch (e) {
         console.error('[NTR fg upload]', e);
         toastr.error(e.message || 'Foreground upload failed', 'Foreground');
@@ -896,15 +897,15 @@
       if (!url) return;
       src.images.push({ url, pos: 45 });
       src.idx = src.images.length - 1;
-      save(); updateBanner(); openMenu();
+      save(); updateBanner(); openCombinedModal();
     };
-    fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openMenu(); }};
-    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openMenu(); };
+    fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openCombinedModal(); }};
+    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openCombinedModal(); };
     if (n > 0) {
       overlay.querySelector('#m_b_prev').onclick = () => step(-1);
       overlay.querySelector('#m_b_next').onclick = () => step(1);
       overlay.querySelectorAll('.cb_thumb').forEach((t) => {
-        t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openMenu(); };
+        t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openCombinedModal(); };
       });
       const strip = overlay.querySelector('.cb_thumbs');
       const act = strip?.querySelector('.active');

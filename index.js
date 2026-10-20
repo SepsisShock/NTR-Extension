@@ -393,6 +393,7 @@ await (async () => {
     return s;
   }
 
+  // ===== Pop-out pictures and foreground images =====
   function setPopStatus(prefix, msg) {
     popMsg[prefix] = msg;
     const el = document.getElementById(`m_${prefix}_pstat`);
@@ -474,6 +475,36 @@ await (async () => {
       if (el) el.value = s[`${prefix}${key}`];
       if (lab) lab.textContent = s[`${prefix}${key}`];
     }
+  }
+
+  function syncPopouts() {
+    const s = settings();
+    const layer = ensurePopLayer();
+    layoutPop();
+    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+      const el = layer.querySelector(`#cb_pop_${prefix}`);
+      const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
+      let src = on ? popSrcFor(flag) : null;
+      if (!src && on && prefix === 'ai') {
+        const c = ctx();
+        const ch = c.groupId ? null : c.characters?.[c.characterId];
+        if (ch?.avatar) src = `/characters/${encodeURIComponent(ch.avatar)}`;
+      }
+      if (!src) {
+        el.style.display = 'none';
+        if (on && popMsg[prefix] !== 'No avatar found in this chat yet.') setPopStatus(prefix, 'No avatar found in this chat yet.');
+        continue;
+      }
+      const full = fullResUrl(src);
+      if (el.dataset.want !== full) {
+        el.dataset.want = full;
+        el.dataset.thumb = src;
+        setPopStatus(prefix, 'Loading image...');
+        el.src = full;
+      }
+      el.style.display = 'block';
+    }
+    drawPlace();
   }
 
   // ===== Edit Placement =====
@@ -1006,798 +1037,6 @@ await (async () => {
     const ov = document.getElementById('cb_modal_overlay');
     syncLayoutPage(ov);
     if (ov) ov.style.display = '';
-  }
-
-  function syncPopouts() {
-    const s = settings();
-    const layer = ensurePopLayer();
-    layoutPop();
-    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-      const el = layer.querySelector(`#cb_pop_${prefix}`);
-      const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
-      let src = on ? popSrcFor(flag) : null;
-      if (!src && on && prefix === 'ai') {
-        const c = ctx();
-        const ch = c.groupId ? null : c.characters?.[c.characterId];
-        if (ch?.avatar) src = `/characters/${encodeURIComponent(ch.avatar)}`;
-      }
-      if (!src) {
-        el.style.display = 'none';
-        if (on && popMsg[prefix] !== 'No avatar found in this chat yet.') setPopStatus(prefix, 'No avatar found in this chat yet.');
-        continue;
-      }
-      const full = fullResUrl(src);
-      if (el.dataset.want !== full) {
-        el.dataset.want = full;
-        el.dataset.thumb = src;
-        setPopStatus(prefix, 'Loading image...');
-        el.src = full;
-      }
-      el.style.display = 'block';
-    }
-    drawPlace();
-  }
-
-  // The Enable switches are sliders that still click on and off: every page and part switch (ntr_pswitch), and the
-  // avatar switches. They're styled through an id because a class alone would rank below SillyTavern's own checkbox
-  // styles, which would turn them back into square checkboxes.
-  const SWITCHES = ['#cb_modal_overlay .ntr_pswitch', '#m_ai_on', '#m_us_on'];
-  const switches = (state) => SWITCHES.map((sel) => sel + state).join(', ');
-
-  function updateAvatarStyle() {
-    let styleEl = document.getElementById('aw_dynamic_style');
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = 'aw_dynamic_style';
-      document.head.appendChild(styleEl);
-    }
-
-    const s = settings();
-    
-    let cssString = `
-      /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) can leave a
-         fixed box with no height, which hid pop-outs and foreground images. */
-      #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
-      #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
-      #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
-      #cb_place_layer { position: fixed; z-index: 9990; display: none; pointer-events: none; }
-      #cb_place_layer .cb_place_grid { position: absolute; inset: 0; display: none; background-image: linear-gradient(to right, rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.14) 1px, transparent 1px); }
-      .cb_place_box { position: absolute; display: none; box-sizing: border-box; outline: 2px dashed rgba(255,255,255,.6); outline-offset: -2px; background: rgba(255,255,255,.04); pointer-events: auto; cursor: pointer; touch-action: none; }
-      .cb_place_box > span { position: absolute; left: 4px; top: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; white-space: nowrap; display: none; }
-      .cb_place_box.cb_sel { z-index: 1; cursor: grab; outline: 2px solid var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
-      .cb_place_box.cb_sel > span { display: block; }
-      .cb_place_box[data-id^="lay"] > span { left: 20px; }
-      .cb_place_box.cb_dragging { cursor: grabbing; }
-      .cb_place_grip { position: absolute; display: none; width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 2px solid #000; background: var(--SmartThemeQuoteColor, #6cf); touch-action: none; }
-      .cb_place_grip.cb_on { display: block; }
-      .cb_place_grip[data-g="n"], .cb_place_grip[data-g="s"] { left: calc(50% - 7px); cursor: ns-resize; }
-      .cb_place_grip[data-g="e"], .cb_place_grip[data-g="w"] { top: calc(50% - 7px); cursor: ew-resize; }
-      .cb_place_grip[data-g*="n"] { top: 0; }
-      .cb_place_grip[data-g*="s"] { top: calc(100% - 14px); }
-      .cb_place_grip[data-g*="w"] { left: 0; }
-      .cb_place_grip[data-g*="e"] { left: calc(100% - 14px); }
-      .cb_place_grip[data-g="ne"], .cb_place_grip[data-g="sw"] { cursor: nesw-resize; }
-      .cb_place_grip[data-g="nw"], .cb_place_grip[data-g="se"] { cursor: nwse-resize; }
-      #cb_place_pill { position: absolute; z-index: 2; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 10px; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 8px 8px 8px 14px; border-radius: 22px; background: rgba(0,0,0,0.85); color: #fff; font-size: 13px; line-height: 1.2; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-      #cb_place_pill.cb_place_top { bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)); }
-      #cb_place_pill.cb_place_mid { bottom: auto; top: calc(50% - 22px); }
-      #cb_place_pill .cb_place_name { font-weight: bold; white-space: nowrap; }
-      #cb_place_pill label { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
-      #cb_place_pill input[type="checkbox"] { margin: 0; accent-color: var(--SmartThemeQuoteColor, #6cf); }
-      #cb_place_pill .cb_place_gridset { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-      #cb_place_pill input[type="range"] { width: 90px; margin: 0; }
-      #cb_place_pill button { border: none; border-radius: 999px; padding: 5px 12px; cursor: pointer; background: rgba(255,255,255,.15); color: #fff; white-space: nowrap; }
-      #cb_place_pill button:disabled { opacity: .4; cursor: default; }
-      #cb_place_pill button.cb_place_main { font-weight: bold; background: var(--SmartThemeQuoteColor, #6cf); color: #000; }
-      .cb_col { display: flex; flex-direction: column; gap: 8px; }
-      .cb_grp { flex-direction: column; gap: 8px; }
-      .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
-      .cb_sub { font-size: 0.75em; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--SmartThemeBorderColor, #444); }
-      
-
-      .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
-      .cb_dim { opacity: .4; pointer-events: none; filter: grayscale(.5); transition: opacity .15s; }
-      .cb_hint { font-size: .8em; opacity: .7; margin: 4px 0 6px; }
-      .cb_err { color: #ff8a8a; }
-      .cb_warn { color: #ffd479; }
-      .cb_code { white-space: pre-wrap; font-family: monospace; font-size: .85em; background: rgba(0,0,0,.25); padding: 6px 8px; border-radius: 6px; margin-top: 8px; }
-      .cb_pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
-      .cb_pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 999px; border: 1px solid var(--SmartThemeBorderColor, #555); background: rgba(0,0,0,.2); cursor: pointer; user-select: none; font-size: .9em; transition: background .15s, border-color .15s; }
-      .cb_pill input, .cb_posgrid input, .cb_defdot input { margin: 0; cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #6cf); }
-      ${switches('')} {
-        appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0 6px 0 0;
-        border: 1px solid var(--SmartThemeBorderColor, #888); border-radius: 999px; background: rgba(0,0,0,.3); cursor: pointer;
-        outline: none; box-shadow: none; transform: none; align-self: center; vertical-align: middle; transition: background .15s, border-color .15s;
-      }
-      ${switches('::before')} {
-        content: ''; position: absolute; top: 50%; left: .14em; width: .8em; height: .8em; border-radius: 50%;
-        background: var(--SmartThemeBodyColor, #ccc); opacity: .6; box-shadow: none; clip-path: none; transform: translateY(-50%); transition: left .15s, background .15s, opacity .15s;
-      }
-      ${switches(':checked')} { background: var(--SmartThemeQuoteColor, #6cf); border-color: var(--SmartThemeQuoteColor, #6cf); }
-      ${switches(':checked::before')} { left: calc(100% - .94em); background: #fff; opacity: 1; }
-      ${switches(':focus-visible')} { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
-      .cb_pill:has(input:checked) { border-color: var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
-      .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
-      .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
-      .cb_posgrid label:hover { background: rgba(255,255,255,.08); }
-      .cb_fadegrid label.cb_fon { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 35%, transparent); }
-      .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
-      .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
-      .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
-      .cb_ovrow .cb_plab { padding-left: 26px; }
-      .m_l_note { padding-left: 26px; }
-      .ntr_rbpat_lines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
-      .cb_ovrow.cb_sep { border-top: 1px solid rgba(255,255,255,.18); margin-top: 8px; padding-top: 12px; }
-      .cb_ovrow:has(+ .cb_sep) { border-bottom: 0; }
-      .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
-      .cb_cur_row { display: flex; align-items: center; gap: 6px; }
-      .cb_cur_row .menu_button { margin: 0; padding: 4px 8px; }
-      @media (pointer: coarse) { .cb_cur_row .menu_button { min-width: 40px; min-height: 40px; } }
-      .cb_cur_prev { width: 40px; height: 40px; flex: none; border-radius: 8px; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
-      .cb_cur_prev img { max-width: 32px; max-height: 32px; }
-      .cb_cur_prev i { opacity: .35; }
-      .cb_cur_prev.ntr_rd_pic { width: 72px; height: 48px; }
-      .cb_cur_prev.ntr_rd_pic img { max-width: 68px; max-height: 44px; }
-      /* Speakers and their faces (cast.js), and Visual Novel's lists, which use the same rows. */
-      .cb_defdot { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; cursor: pointer; }
-      .cb_spk { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; }
-      .cb_spk + .cb_spk { margin-top: 6px; }
-      .cb_spk_row { display: flex; align-items: center; gap: 6px; }
-      .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { margin: 0; padding: 4px 8px; }
-      .cb_spk_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-      .cb_spk_name small { display: block; opacity: .6; font-size: .8em; }
-      .cb_thumbbox { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
-      .cb_thumbbox img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-      .cb_thumbbox i { opacity: .35; }
-      .cb_spk_head { padding: 0 0 6px 2px; }
-      .cb_spk_head .cb_spk_name { font-weight: bold; }
-      .cb_faces_row { cursor: pointer; user-select: none; padding: 4px; margin-bottom: 4px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, #444); transition: background .15s, border-color .15s; }
-      .cb_faces_row:hover, .cb_faces_row:focus-visible { background: rgba(255,255,255,.06); border-color: var(--SmartThemeQuoteColor, #6cf); outline: none; }
-      .cb_faces_row > .fa-solid { padding: 0 8px; opacity: .8; }
-      .cb_faces_row + .cb_emo_grid { margin: 0 0 8px; }
-      .cb_full_row { padding: 0 5px; }
-      .cb_emo_grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
-      .cb_emo_cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: rgba(0,0,0,.2); }
-      .cb_emo_cell .cb_thumbbox { width: 64px; height: 64px; }
-      .cb_emo_label { font-size: .8em; text-align: center; word-break: break-word; }
-      .cb_emo_row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-      .cb_dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
-      .ntr_mdgrid { display: grid; grid-template-columns: minmax(0, 1.7fr) repeat(4, minmax(0, 1fr)); gap: 2px 4px; align-items: center; margin: 8px 0; font-size: .9em; }
-      .ntr_mdgrid .ntr_mdh { font-size: .8em; opacity: .7; text-align: center; line-height: 1.2; }
-      .ntr_mdgrid label { display: flex; justify-content: center; margin: 0; cursor: pointer; }
-      .ntr_mdgrid input { margin: 0; }
-      .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
-      .cb_dfield input { margin: 0; font-family: monospace; }
-      .ntr_rd_books { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
-      .ntr_rd_books label { position: relative; cursor: pointer; }
-      .ntr_rd_books input { position: absolute; opacity: 0; pointer-events: none; }
-      .ntr_rd_books span { display: block; width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); box-sizing: border-box; }
-      .ntr_rd_books label:hover span { border-color: rgba(255,255,255,.6); }
-      .ntr_rd_books input:checked + span { border-color: var(--SmartThemeQuoteColor, #6cf); box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
-      .ntr_rd_books input:focus-visible + span { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
-      .cb_cur_name { flex: 1; min-width: 0; }
-      .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
-    `;
-
-    // Asked even while NTR is off, so Elements can let go of its custom cursor.
-    const elCss = callModule('elements', 'css', s) || '';
-    if (isOn()) {
-      const chatCss = layoutChatCss(s) + namesCss(s) + (callModule('decor', 'css', s) || '');
-      cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + (chatCss ? chatCss + '\n' : '');
-    }
-    // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
-    // repainted all of it, avatar fades included.
-    if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
-
-    cssString += callModule('avatars', 'css', s) || '';
-
-    styleEl.textContent = cssString;
-    applyLayout();
-    callModule('avatars', 'sync');
-    syncGoogleFonts();
-    callModule('elements', 'sync');
-    syncPopouts();
-    syncPins();
-    callModule('decor', 'sync');
-    window.NTR.reader?.relayout();
-  }
-
-  // Banner rotation, and its height, gap, transparent areas and video sound, follow the Global / Char switch: Char uses
-  // the character's own copy, Global these settings.
-  const ROT_KEYS = { rotate: 'bannerRotate', rotateSec: 'bannerRotateSec', rotateFx: 'bannerRotateFx', rotateOrder: 'bannerRotateOrder' };
-  const BANNER_LOOK_KEYS = { height: 'bannerHeight', gap: 'bannerGap', backdrop: 'bannerBackdrop', videoSound: 'bannerVideoSound' };
-  // A character switched to Char starts on the Global kind, rotation and look settings.
-  function startChar(r) {
-    const s = settings();
-    r.mode = s.bannerMode;
-    for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
-    for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
-    r.scope = 'char';
-  }
-
-  // Whose foreground pictures are showing: the group's in a group chat, otherwise the character's.
-  const fgOwner = () => (ctx().groupId ? 'group:' + ctx().groupId : currentKey());
-
-  function currentKey() {
-    const c = ctx();
-    if (c.groupId) return null;
-    const ch = c.characters?.[c.characterId];
-    return ch?.avatar || null;
-  }
-
-  const peek = (key) => {
-    const s = settings();
-    const d = cardData(key);
-    let r;
-    if (d) {
-      if (!d.banner || typeof d.banner !== 'object') {
-        if (s.chars[key]) { d.banner = structuredClone(s.chars[key]); cleanBanner(d.banner); legacyMoved.add(key); scheduleCardFlush(key); }
-        else d.banner = defaultBanner();
-      }
-      r = d.banner;
-    } else {
-      if (!s.chars[key]) s.chars[key] = defaultBanner();
-      r = s.chars[key];
-      if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
-    }
-    const def = defaultBanner();
-    for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
-    if (!Array.isArray(r.images)) r.images = [];
-    // Before 2.3 Global had no images of its own, so a Global character with its own images, link or video
-    // becomes Char and keeps showing them. Checked once per banner, so switching to Global later sticks.
-    if (!r.sharedChecked) {
-      const own = r.scope !== 'char' && (r.images.length || r.youtubeUrl || r.video);
-      if (own) startChar(r);
-      r.sharedChecked = true;
-      if (own && d) scheduleCardFlush(key);
-    }
-    return r;
-  };
-
-  // Images, YouTube link and video: Char uses the character's own, Global the shared banner in the settings.
-  const bannerSrc = (r) => (r && r.scope === 'char' ? r : settings().bannerGlobal);
-  function getYouTubeId(url) {
-    const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
-    return match ? match[1] : null;
-  }
-
-  // The header banner and foreground images live in overlays.js, loaded once either is on (or the menu opens).
-  const overlaysWanted = (s = settings()) => isOn() && !!(s.bannerOn || s.fgEnabled);
-  function renderOverlays() {
-    const m = window.NTR.overlays;
-    if (m) m.render();
-    else if (overlaysWanted()) loadModule('overlays').then((x) => x?.render());
-  }
-
-  function renderAll() {
-    try {
-      updateAvatarStyle();
-    } catch (e) {
-      console.error('[NTR render]', e);
-    }
-    renderOverlays();
-  }
-
-  const readDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-  const loadImg = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
-
-  // ===== Uploads =====
-  // Every upload lands in user/files as <prefix>_<time>_<random>.<ext>. The prefixes are how the extension
-  // recognizes its own files when it cleans up (see OWN_FILE).
-  const MIME_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/webm': 'webm' };
-  async function uploadBase64(b64, ext, prefix) {
-    const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const res = await fetch('/api/files/upload', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ name, data: b64 }) });
-    if (!res.ok) {
-      const why = (await res.text().catch(() => '')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
-      throw new Error(`Upload failed (${res.status})${why ? `: ${why}` : ''}`);
-    }
-    const j = await res.json();
-    return '/' + String(j.path).replace(/^\/+/, '');
-  }
-
-  // Theme files can carry their images inline (base64), so they work on another install.
-  async function uploadDataUrl(dataUrl, prefix = 'ntr') {
-    const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(String(dataUrl || ''));
-    if (!m || !MIME_EXT[m[1]]) throw new Error('Unsupported embedded file');
-    return uploadBase64(m[2], MIME_EXT[m[1]], prefix);
-  }
-
-  // Images over `max` px on their longer side (or `maxWidth` wide) are shrunk first: photos stay JPEG, the rest become
-  // PNG so transparency survives. Other image types become PNG too, so the file always matches its name. GIFs go as
-  // they are, to keep their animation.
-  async function uploadImage(f, prefix, { max = 0, maxWidth = 0 } = {}) {
-    let url = String(await readDataURL(f));
-    if (f.type !== 'image/gif') {
-      const i = await loadImg(url).catch(() => { throw new Error('That file didn\'t load as an image.'); });
-      if (!i.width || !i.height) throw new Error('That file didn\'t load as an image.');
-      const k = Math.min(1, max ? max / Math.max(i.width, i.height) : 1, maxWidth ? maxWidth / i.width : 1);
-      if (k < 1 || !['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) {
-        const c = document.createElement('canvas');
-        c.width = Math.round(i.width * k); c.height = Math.round(i.height * k);
-        c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
-        url = c.toDataURL(f.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
-      }
-    }
-    return uploadDataUrl(url, prefix);
-  }
-
-  // ===== Questions in the menu =====
-  // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
-  // One question at a time. Without a button to show it under, SillyTavern's own popup asks instead.
-  // A new question closes the open one as if Cancel was pressed, so code waiting on it never hangs.
-  function askBox(anchor, html, cancel) {
-    document.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
-    // Below the button's whole row, not inside it, so a row of buttons keeps its layout.
-    let row = anchor;
-    const inRow = (el) => { const cs = getComputedStyle(el); return /flex|grid/.test(cs.display) && !cs.flexDirection.startsWith('column'); };
-    while (row.parentElement && inRow(row.parentElement)) row = row.parentElement;
-    const box = document.createElement('div');
-    box.className = 'ntr_tpanel ntr_ask';
-    box.innerHTML = html;
-    box.ntrCancel = cancel;
-    row.after(box);
-    return box;
-  }
-  const askBtns = (ok, danger) => `
-    <div class="cb_actions">
-      <button class="menu_button ntr_ask_ok${danger ? ' danger_button' : ''}">${ok}</button>
-      <button class="menu_button ntr_ask_cancel">Cancel</button>
-    </div>`;
-
-  // A small menu under a button, like Move to folder on the Regex page. The button sits in a .ntr_menu box, and `html`
-  // is the menu's buttons. A second click on the same button closes it; a page closes it on any other click.
-  function popMenu(anchor, html) {
-    const had = anchor.parentElement.querySelector('.ntr_pop');
-    closePops(anchor.closest('.ntr_page') || document);
-    if (had) return null;
-    const pop = document.createElement('div');
-    pop.className = 'ntr_pop';
-    pop.innerHTML = html;
-    pop.ntrAnchor = anchor;
-    anchor.parentElement.appendChild(pop);
-    anchor.setAttribute('aria-expanded', 'true');
-    return pop;
-  }
-  function closePops(scope = document) {
-    scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
-  }
-
-  // Dragging by a grip (.ntr_grip), with a mouse or a finger, on the Regexes and Agents pages. A copy of what's dragged
-  // follows the pointer and its own place in the list becomes the gap that shows where it lands. Near the top or bottom
-  // of the menu the page scrolls, even while the pointer stays still. Escape puts it back.
-  //   pick(grip): what the grip drags, as { item, kind, scope } (scope: the box it stays in), or null.
-  //   place(el, drag, after): moves drag.item to where the pointer is, over el; after(box) says if the pointer is in the
-  //     lower half of box. Returns a header to light up as where it goes, if any.
-  //   done(drag): the drag is over; drag.moved is false for a click or Escape.
-  // Gives back { busy() }, true while dragging, so a page doesn't redraw under it.
-  function dragSort(page, { pick, place, done }) {
-    let drag = null;
-    let raf = 0;
-    const unlit = () => page.querySelectorAll('.ntr_drop').forEach((el) => el.classList.remove('ntr_drop'));
-    const follow = () => {
-      if (!drag.ghost) {
-        const r = drag.item.getBoundingClientRect();
-        const g = drag.item.cloneNode(true);
-        g.classList.add('ntr_ghost');
-        g.setAttribute('aria-hidden', 'true');
-        for (const el of [g, ...g.querySelectorAll('[id], [data-id]')]) [...el.attributes].forEach((x) => { if (x.name === 'id' || x.name.startsWith('data-')) el.removeAttribute(x.name); });
-        g.style.width = `${r.width}px`;
-        g.style.left = '0px';
-        g.style.top = '0px';
-        page.appendChild(g);
-        // A transformed menu moves "fixed" boxes with it, so measure where 0, 0 landed and allow for it.
-        const o = g.getBoundingClientRect();
-        drag.ghost = g;
-        drag.at = { x: r.left - o.left, dy: drag.y - r.top, oy: o.top };
-        drag.item.classList.add('ntr_dragging');
-      }
-      drag.ghost.style.left = `${drag.at.x}px`;
-      drag.ghost.style.top = `${drag.y - drag.at.dy - drag.at.oy}px`;
-    };
-    const aim = () => {
-      unlit();
-      const el = document.elementFromPoint(drag.x, drag.y);
-      if (!el || !drag.scope.contains(el)) return;
-      const after = (box) => { const r = box.getBoundingClientRect(); return drag.y > r.top + r.height / 2; };
-      place(el, drag, after)?.classList.add('ntr_drop');
-    };
-    const scroll = () => {
-      raf = 0;
-      const body = drag && page.closest('.ntr_body');
-      if (!body) return;
-      const r = body.getBoundingClientRect();
-      const step = drag.y < r.top + 40 ? -12 : drag.y > r.bottom - 40 ? 12 : 0;
-      const was = body.scrollTop;
-      if (step) body.scrollTop += step;
-      if (body.scrollTop === was) return;
-      aim();
-      raf = requestAnimationFrame(scroll);
-    };
-    // Only the finger (or mouse) that started the drag moves or drops it, so a second finger can't.
-    const onMove = (e) => {
-      if (e.pointerId !== drag.pointer) return;
-      drag.moved = true;
-      drag.x = e.clientX;
-      drag.y = e.clientY;
-      follow();
-      aim();
-      if (!raf) raf = requestAnimationFrame(scroll);
-    };
-    const end = (keep) => {
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      document.removeEventListener('pointercancel', onUp);
-      document.removeEventListener('keydown', onKey, true);
-      cancelAnimationFrame(raf);
-      raf = 0;
-      const d = drag;
-      drag = null;
-      d.ghost?.remove();
-      d.item.classList.remove('ntr_dragging');
-      unlit();
-      d.moved = keep && d.moved;
-      done(d);
-    };
-    const onUp = (e) => { if (e.pointerId === drag.pointer) end(true); };
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } };
-    page.addEventListener('pointerdown', (e) => {
-      const grip = e.target.closest('.ntr_grip');
-      if (drag || !grip || e.button !== 0) return;
-      const p = pick(grip);
-      if (!p) return;
-      e.preventDefault();
-      closePops(page);
-      drag = { ...p, scope: p.scope || page, moved: false, ghost: null, x: e.clientX, y: e.clientY, pointer: e.pointerId };
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-      document.addEventListener('pointercancel', onUp);
-      document.addEventListener('keydown', onKey, true);
-    });
-    return { busy: () => !!drag };
-  }
-
-  // Resolves to true for the main button, false for Cancel.
-  function askYes(anchor, text, ok, { danger = false } = {}) {
-    if (!anchor) {
-      const c = ctx();
-      if (typeof c.callGenericPopup === 'function' && c.POPUP_TYPE) return c.callGenericPopup(escapeHTML(text), c.POPUP_TYPE.CONFIRM).then((r) => r === c.POPUP_RESULT?.AFFIRMATIVE || r === 1);
-      return Promise.resolve(confirm(text));
-    }
-    return new Promise((res) => {
-      const cancel = () => { box.remove(); res(false); };
-      const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`, cancel);
-      box.querySelector('.ntr_ask_ok').onclick = () => { box.remove(); res(true); };
-      box.querySelector('.ntr_ask_cancel').onclick = cancel;
-    });
-  }
-
-  // A text field. `check(text)` resolves to { value } to accept or { error } to show a red hint and keep asking.
-  // Resolves to the accepted value, or null on Cancel.
-  function askText(anchor, { label, value = '', ok = 'Add', check = (v) => ({ value: v }) }) {
-    if (!anchor) {
-      const c = ctx();
-      if (typeof c.callGenericPopup !== 'function' || !c.POPUP_TYPE) return Promise.resolve(null);
-      return c.callGenericPopup(escapeHTML(label), c.POPUP_TYPE.INPUT, value).then(async (raw) => {
-        if (typeof raw !== 'string') return null;
-        const r = await check(raw.trim());
-        if (r.error) { toastr.warning(r.error); return null; }
-        return r.value;
-      });
-    }
-    return new Promise((res) => {
-      const cancel = () => { box.remove(); res(null); };
-      const box = askBox(anchor, `
-        <label>${escapeHTML(label)} <input type="text" class="text_pole ntr_ask_input" value="${escapeHTML(value)}"></label>
-        <div class="ntr_terr"></div>
-        ${askBtns(ok, false)}`, cancel);
-      const input = box.querySelector('.ntr_ask_input');
-      const err = box.querySelector('.ntr_terr');
-      const okBtn = box.querySelector('.ntr_ask_ok');
-      const done = async () => {
-        if (okBtn.disabled) return;
-        okBtn.disabled = true;
-        okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        const r = await check(input.value.trim());
-        okBtn.disabled = false;
-        okBtn.innerHTML = ok;
-        if (r.error) { err.textContent = r.error; input.focus(); return; }
-        box.remove();
-        res(r.value);
-      };
-      input.oninput = () => { err.textContent = ''; };
-      input.onkeydown = (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); done(); }
-        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
-      };
-      okBtn.onclick = done;
-      box.querySelector('.ntr_ask_cancel').onclick = cancel;
-      input.focus();
-      input.select();
-    });
-  }
-
-  // Videos (mp4 or webm) are sent as they are. Resolves to the file's path, or '' if it isn't an mp4 or webm, or it's
-  // very big and the person cancels. `btn` shows a spinner while it uploads.
-  async function uploadVideo(f, prefix, title, btn) {
-    let ext = (f.name.split('.').pop() || '').toLowerCase();
-    if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
-    if (!ext) { toastr.warning('Use an mp4 or webm video.', title); return ''; }
-    if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
-    const data = String(await readDataURL(f));
-    return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
-  }
-
-  // Ask for a link instead of an upload, under `anchor` (the Link button). Resolves to a checked http(s) URL that
-  // loaded, or '' if cancelled. Like uploadHere, a link for the open chat that finishes checking after the chat
-  // changed would land on the wrong character, so '' comes back. `perChat` false skips this for global settings.
-  const askUrl = (anchor, label, load, failMsg, perChat = true) => {
-    const st = store();
-    return askText(anchor, {
-      label,
-      check: async (raw) => {
-        const u = cUrl(raw);
-        if (!/^https?:\/\//i.test(u)) return { error: 'Paste a full link that starts with http:// or https://' };
-        try { await load(u); } catch (e) { return { error: failMsg }; }
-        return { value: u };
-      },
-    }).then((u) => {
-      if (!u) return '';
-      if (!perChat || store() === st) return u;
-      toastr.warning('The chat changed before the link was checked, so it was not saved. Paste it again.', 'Link');
-      return '';
-    });
-  };
-  const askImageUrl = (label = 'Image', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste an image link (https://...)`, loadImg,
-    'That link did not load as an image. Check it and try again.', perChat);
-
-  // Ask for a video link (mp4 or webm).
-  const loadVideo = (u) => new Promise((res, rej) => {
-    const v = document.createElement('video');
-    v.muted = true;
-    v.preload = 'metadata';
-    const done = (ok) => { clearTimeout(t); v.removeAttribute('src'); v.load(); ok ? res() : rej(new Error('Video did not load')); };
-    const t = setTimeout(() => done(false), 15000);
-    v.onloadedmetadata = () => done(true);
-    v.onerror = () => done(false);
-    v.src = u;
-  });
-  const askVideoUrl = (label = 'Video', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
-    'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
-
-  // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
-  // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
-  // global settings.
-  async function uploadHere(upload, perChat = true) {
-    const st = store();
-    const path = await upload();
-    if (!path || !perChat || store() === st) return path;
-    deleteFileIfUnused(path);
-    toastr.warning('The chat changed before the upload finished, so it was not saved. Upload it again.', 'Upload');
-    return '';
-  }
-
-  function openCombinedModal() {
-    const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
-    document.getElementById('cb_modal_overlay')?.remove();
-    const s = settings();
-    // Reasoning Block Design is part of Elements now.
-    if (s.uiPage === 'reasoning') s.uiPage = 'elements';
-    // Visual Novel Mode's settings are part of Reader Mode's page now.
-    if (s.uiPage === 'vn') s.uiPage = 'reader';
-    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
-
-    const overlay = document.createElement('div');
-    overlay.id = 'cb_modal_overlay';
-    overlay.className = 'cb_popup_overlay';
-
-    overlay.innerHTML = `
-      <div class="cb_popup_content">
-        <div class="cb_popup_header">
-          <button class="cb_hbtn ntr_navbtn" title="Show the sections"><i class="fa-solid fa-bars"></i></button>
-          <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
-          <span class="ntr_hbtns">
-            <button class="cb_hbtn" id="m_wand"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="right" title="Dock right"><i class="fa-solid fa-right-long"></i></button>
-            <button class="cb_close_btn" title="Close">&times;</button>
-          </span>
-        </div>
-        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. To turn it back on, open its bar on the Extensions page and press Switch on.</div>'}
-        <div class="ntr_main">
-        <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
-        <div class="ntr_shade"></div>
-        <div class="ntr_body">
-
-        ${themesSectionHtml(s)}
-        ${layoutSectionHtml(s)}
-
-        ${overlaysSectionHtml(s)}
-
-        ${lookPageHtml('avatars', s)}
-
-        ${lookPageHtml('elements', s)}
-        ${lookPageHtml('text', s)}
-        ${lookPageHtml('decor', s)}
-        ${agentsSectionHtml(s)}
-
-        ${regexSectionHtml(s)}
-        ${readerSectionHtml(s)}
-        </div>
-        </div>
-      </div>
-      <div id="ntr_edge" title="Drag to resize"></div>
-      <div id="ntr_preview"></div>`;
-
-    document.body.appendChild(overlay);
-
-    bindCollapses(overlay, s);
-    // Rotation waits while the Overlays page is open, showing the picked image, and starts a fresh count
-    // when another page is picked or the menu closes.
-    // The banner's rotation waits while the Overlays page is open (see overlays.js).
-    const rotRestart = () => window.NTR.overlays?.rotRestart(s);
-    bindPages(overlay, s, rotRestart);
-
-    setupPanel(overlay, prevScroll);
-
-    const close = () => { overlay.remove(); syncPopouts(); rotRestart(); };
-    overlay.querySelector('.cb_close_btn').onclick = close;
-    
-    window.NTR.overlays?.bind(overlay, s);
-
-    bindThemes(overlay, s);
-    bindLayout(overlay, s);
-    bindWand(overlay, s);
-    bindVNSection(overlay, s);
-    bindReader(overlay, s);
-    bindRegexPage(overlay, s);
-    window.NTR.agents?.bind(overlay, s);
-    window.NTR.cast?.bind(overlay, s);
-    bindRows(overlay, s);
-    callModule('decor', 'bind', overlay, s);
-    callModule('text', 'bind', overlay, s);
-    callModule('elements', 'bind', overlay, s);
-
-    callModule('avatars', 'bind', overlay, s);
-  }
-
-  // ===== Shared UI helpers =====
-  // The menu's pages, in the order of the icon column: id, icon, short name for the column, full name.
-  // The only place they're written: the column and each page's title both read them from here.
-  const PAGES = [
-    ['themes', 'fa-bookmark', 'Themes', 'Themes'],
-    ['reader', 'fa-book-open', 'Reader', 'Reader Mode'],
-    ['layout', 'fa-table-cells-large', 'Layout', 'Layout'],
-    ['display', 'fa-palette', 'Decor', 'UI Decor'],
-    ['text', 'fa-text-height', 'Text', 'Text Formatting'],
-    ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
-    ['elements', 'fa-shapes', 'Elements', 'Elements'],
-    ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
-    ['regex', 'fa-code', 'Regexes', 'Regexes'],
-    ['agents', 'fa-robot', 'Agents', 'Agents'],
-  ];
-  // Lines in the column: Themes and Reader Mode, then your look (Layout to Overlays), then the pages that work on the chat itself.
-  const NAV_SEP = new Set(['layout', 'regex']);
-  // Pages that show what's planned and do nothing yet. Their icon stays greyed.
-  const SOON = new Set();
-  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
-    `<button class="ntr_navi${id === cur ? ' on' : ''}${SOON.has(id) ? ' ntr_off' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
-    + '<div class="ntr_navfill"></div>';
-  // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
-  // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
-  // `wait` names the module a page is still loading, which fills it in when it arrives (see fillIn).
-  function pageHtml(sec, body, { sw = null, legend = false, note = '', wait = '' } = {}) {
-    const [, icon, , title] = PAGES.find(([id]) => id === sec);
-    return `
-      <section class="ntr_page${(sw && !sw[1]) || SOON.has(sec) ? ' ntr_off' : ''}" data-page="${sec}"${wait ? ` data-ntr-wait="${wait}"` : ''}${settings().uiPage === sec ? '' : ' hidden'}>
-        <div class="ntr_phead">
-          <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
-          <h3 class="ntr_ptitle">${title}</h3>
-          ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
-          ${legend ? `<div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>` : ''}
-        </div>
-        ${note}
-        <div class="ntr_pbody">${body}</div>
-      </section>`;
-  }
-  // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
-  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title.
-  function pagePart(title, sw, fold, body) {
-    return `
-      <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
-        <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
-          ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
-          <h4 class="ntr_parttitle">${title}</h4>
-          <input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">
-        </div>
-        <div class="ntr_partbody">${body}</div>
-      </div>`;
-  }
-  // A group of settings: a small label, then the settings in a soft card.
-  const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
-  // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
-  function subHead(sec, title) {
-    if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
-    return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
-  }
-  // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
-  const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
-    ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
-  const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
-  const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
-  function pills(name, opts, cur) {
-    return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
-  }
-  const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
-  function posGrid(name, cur) {
-    return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
-  }
-  function onPills(root, name, fn) {
-    root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
-  }
-  function bindCollapses(overlay, s) {
-    overlay.querySelectorAll('.cb_collapse_toggle[data-sec]').forEach((h) => {
-      const sec = h.dataset.sec;
-      const content = h.nextElementSibling;
-      const icon = h.querySelector('.cb_chevron');
-      const apply = (open) => {
-        content.style.display = open ? 'block' : 'none';
-        h.classList.toggle('ntr_open', open);
-        h.setAttribute('aria-expanded', open ? 'true' : 'false');
-        icon.classList.toggle('fa-chevron-down', open);
-        icon.classList.toggle('fa-chevron-right', !open);
-      };
-      apply(!!s.uiOpen[sec]);
-      h.addEventListener('click', (e) => {
-        if (e.target.closest('input')) return;
-        const open = content.style.display === 'none';
-        s.uiOpen[sec] = open;
-        save();
-        apply(open);
-      });
-      h.addEventListener('keydown', (e) => { if (e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click(); } });
-    });
-  }
-
-  // The icon column switches pages. On a phone or a narrow panel it hides behind the menu button.
-  function bindPages(overlay, s, onSwitch) {
-    const content = overlay.querySelector('.cb_popup_content');
-    overlay.querySelectorAll('.ntr_navi').forEach((b) => {
-      b.onclick = () => {
-        content.classList.remove('ntr_navopen');
-        if (b.dataset.page === s.uiPage) return;
-        s.uiPage = b.dataset.page;
-        save();
-        showPage(overlay, s.uiPage);
-        overlay.querySelector('.ntr_body').scrollTop = 0;
-        onSwitch();
-      };
-    });
-    overlay.querySelector('.ntr_navbtn').onclick = () => content.classList.toggle('ntr_navopen');
-    overlay.querySelector('.ntr_shade').onclick = () => content.classList.remove('ntr_navopen');
-    overlay.addEventListener('change', (e) => { if (e.target.classList.contains('ntr_pswitch')) syncPageOff(overlay); });
-    syncPageOff(overlay);
-  }
-  function showPage(overlay, page) {
-    overlay.querySelectorAll('.ntr_page').forEach((p) => { p.hidden = p.dataset.page !== page; });
-    overlay.querySelectorAll('.ntr_navi').forEach((b) => b.classList.toggle('on', b.dataset.page === page));
-  }
-  // A switched-off section greys out: its icon in the column, its title, and its settings. A page made of parts greys
-  // out each part on its own, and its icon only when every part is off.
-  function syncPageOff(overlay) {
-    if (!overlay) return;
-    overlay.querySelectorAll('.ntr_part').forEach((p) => p.classList.toggle('ntr_off', !p.querySelector('.ntr_pswitch').checked));
-    overlay.querySelectorAll('.ntr_page').forEach((p) => {
-      const sw = p.querySelector('.ntr_phead .ntr_pswitch');
-      const parts = [...p.querySelectorAll('.ntr_part .ntr_pswitch')];
-      const soon = SOON.has(p.dataset.page);
-      p.classList.toggle('ntr_off', soon || (!!sw && !sw.checked));
-      const off = soon || (sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked));
-      overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
-    });
   }
 
   // ===== Layout =====
@@ -2607,6 +1846,771 @@ await (async () => {
       if (m[1] === 'from') p.show = t.value === 'agents' ? 'always' : 'reading';
       changed();
       if (m[1] === 'from' || m[1] === 'place') render();
+    });
+  }
+
+  // ===== NTR's main stylesheet (aw_dynamic_style) =====
+  // The Enable switches are sliders that still click on and off: every page and part switch (ntr_pswitch), and the
+  // avatar switches. They're styled through an id because a class alone would rank below SillyTavern's own checkbox
+  // styles, which would turn them back into square checkboxes.
+  const SWITCHES = ['#cb_modal_overlay .ntr_pswitch', '#m_ai_on', '#m_us_on'];
+  const switches = (state) => SWITCHES.map((sel) => sel + state).join(', ');
+
+  function updateAvatarStyle() {
+    let styleEl = document.getElementById('aw_dynamic_style');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'aw_dynamic_style';
+      document.head.appendChild(styleEl);
+    }
+
+    const s = settings();
+    
+    let cssString = `
+      /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) can leave a
+         fixed box with no height, which hid pop-outs and foreground images. */
+      #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
+      #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
+      #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
+      #cb_place_layer { position: fixed; z-index: 9990; display: none; pointer-events: none; }
+      #cb_place_layer .cb_place_grid { position: absolute; inset: 0; display: none; background-image: linear-gradient(to right, rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.14) 1px, transparent 1px); }
+      .cb_place_box { position: absolute; display: none; box-sizing: border-box; outline: 2px dashed rgba(255,255,255,.6); outline-offset: -2px; background: rgba(255,255,255,.04); pointer-events: auto; cursor: pointer; touch-action: none; }
+      .cb_place_box > span { position: absolute; left: 4px; top: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; white-space: nowrap; display: none; }
+      .cb_place_box.cb_sel { z-index: 1; cursor: grab; outline: 2px solid var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
+      .cb_place_box.cb_sel > span { display: block; }
+      .cb_place_box[data-id^="lay"] > span { left: 20px; }
+      .cb_place_box.cb_dragging { cursor: grabbing; }
+      .cb_place_grip { position: absolute; display: none; width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 2px solid #000; background: var(--SmartThemeQuoteColor, #6cf); touch-action: none; }
+      .cb_place_grip.cb_on { display: block; }
+      .cb_place_grip[data-g="n"], .cb_place_grip[data-g="s"] { left: calc(50% - 7px); cursor: ns-resize; }
+      .cb_place_grip[data-g="e"], .cb_place_grip[data-g="w"] { top: calc(50% - 7px); cursor: ew-resize; }
+      .cb_place_grip[data-g*="n"] { top: 0; }
+      .cb_place_grip[data-g*="s"] { top: calc(100% - 14px); }
+      .cb_place_grip[data-g*="w"] { left: 0; }
+      .cb_place_grip[data-g*="e"] { left: calc(100% - 14px); }
+      .cb_place_grip[data-g="ne"], .cb_place_grip[data-g="sw"] { cursor: nesw-resize; }
+      .cb_place_grip[data-g="nw"], .cb_place_grip[data-g="se"] { cursor: nwse-resize; }
+      #cb_place_pill { position: absolute; z-index: 2; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 10px; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 8px 8px 8px 14px; border-radius: 22px; background: rgba(0,0,0,0.85); color: #fff; font-size: 13px; line-height: 1.2; pointer-events: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+      #cb_place_pill.cb_place_top { bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)); }
+      #cb_place_pill.cb_place_mid { bottom: auto; top: calc(50% - 22px); }
+      #cb_place_pill .cb_place_name { font-weight: bold; white-space: nowrap; }
+      #cb_place_pill label { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+      #cb_place_pill input[type="checkbox"] { margin: 0; accent-color: var(--SmartThemeQuoteColor, #6cf); }
+      #cb_place_pill .cb_place_gridset { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+      #cb_place_pill input[type="range"] { width: 90px; margin: 0; }
+      #cb_place_pill button { border: none; border-radius: 999px; padding: 5px 12px; cursor: pointer; background: rgba(255,255,255,.15); color: #fff; white-space: nowrap; }
+      #cb_place_pill button:disabled { opacity: .4; cursor: default; }
+      #cb_place_pill button.cb_place_main { font-weight: bold; background: var(--SmartThemeQuoteColor, #6cf); color: #000; }
+      .cb_col { display: flex; flex-direction: column; gap: 8px; }
+      .cb_grp { flex-direction: column; gap: 8px; }
+      .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
+      .cb_sub { font-size: 0.75em; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--SmartThemeBorderColor, #444); }
+      
+
+      .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
+      .cb_dim { opacity: .4; pointer-events: none; filter: grayscale(.5); transition: opacity .15s; }
+      .cb_hint { font-size: .8em; opacity: .7; margin: 4px 0 6px; }
+      .cb_err { color: #ff8a8a; }
+      .cb_warn { color: #ffd479; }
+      .cb_code { white-space: pre-wrap; font-family: monospace; font-size: .85em; background: rgba(0,0,0,.25); padding: 6px 8px; border-radius: 6px; margin-top: 8px; }
+      .cb_pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+      .cb_pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 999px; border: 1px solid var(--SmartThemeBorderColor, #555); background: rgba(0,0,0,.2); cursor: pointer; user-select: none; font-size: .9em; transition: background .15s, border-color .15s; }
+      .cb_pill input, .cb_posgrid input, .cb_defdot input { margin: 0; cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #6cf); }
+      ${switches('')} {
+        appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0 6px 0 0;
+        border: 1px solid var(--SmartThemeBorderColor, #888); border-radius: 999px; background: rgba(0,0,0,.3); cursor: pointer;
+        outline: none; box-shadow: none; transform: none; align-self: center; vertical-align: middle; transition: background .15s, border-color .15s;
+      }
+      ${switches('::before')} {
+        content: ''; position: absolute; top: 50%; left: .14em; width: .8em; height: .8em; border-radius: 50%;
+        background: var(--SmartThemeBodyColor, #ccc); opacity: .6; box-shadow: none; clip-path: none; transform: translateY(-50%); transition: left .15s, background .15s, opacity .15s;
+      }
+      ${switches(':checked')} { background: var(--SmartThemeQuoteColor, #6cf); border-color: var(--SmartThemeQuoteColor, #6cf); }
+      ${switches(':checked::before')} { left: calc(100% - .94em); background: #fff; opacity: 1; }
+      ${switches(':focus-visible')} { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
+      .cb_pill:has(input:checked) { border-color: var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
+      .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
+      .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
+      .cb_posgrid label:hover { background: rgba(255,255,255,.08); }
+      .cb_fadegrid label.cb_fon { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 35%, transparent); }
+      .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+      .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
+      .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
+      .cb_ovrow .cb_plab { padding-left: 26px; }
+      .m_l_note { padding-left: 26px; }
+      .ntr_rbpat_lines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
+      .cb_ovrow.cb_sep { border-top: 1px solid rgba(255,255,255,.18); margin-top: 8px; padding-top: 12px; }
+      .cb_ovrow:has(+ .cb_sep) { border-bottom: 0; }
+      .cb_cur_slot { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; margin-bottom: 6px; }
+      .cb_cur_row { display: flex; align-items: center; gap: 6px; }
+      .cb_cur_row .menu_button { margin: 0; padding: 4px 8px; }
+      @media (pointer: coarse) { .cb_cur_row .menu_button { min-width: 40px; min-height: 40px; } }
+      .cb_cur_prev { width: 40px; height: 40px; flex: none; border-radius: 8px; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+      .cb_cur_prev img { max-width: 32px; max-height: 32px; }
+      .cb_cur_prev i { opacity: .35; }
+      .cb_cur_prev.ntr_rd_pic { width: 72px; height: 48px; }
+      .cb_cur_prev.ntr_rd_pic img { max-width: 68px; max-height: 44px; }
+      /* Speakers and their faces (cast.js), and Visual Novel's lists, which use the same rows. */
+      .cb_defdot { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; cursor: pointer; }
+      .cb_spk { border-radius: 8px; background: rgba(0,0,0,.15); padding: 6px; }
+      .cb_spk + .cb_spk { margin-top: 6px; }
+      .cb_spk_row { display: flex; align-items: center; gap: 6px; }
+      .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { margin: 0; padding: 4px 8px; }
+      .cb_spk_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+      .cb_spk_name small { display: block; opacity: .6; font-size: .8em; }
+      .cb_thumbbox { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+      .cb_thumbbox img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+      .cb_thumbbox i { opacity: .35; }
+      .cb_spk_head { padding: 0 0 6px 2px; }
+      .cb_spk_head .cb_spk_name { font-weight: bold; }
+      .cb_faces_row { cursor: pointer; user-select: none; padding: 4px; margin-bottom: 4px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, #444); transition: background .15s, border-color .15s; }
+      .cb_faces_row:hover, .cb_faces_row:focus-visible { background: rgba(255,255,255,.06); border-color: var(--SmartThemeQuoteColor, #6cf); outline: none; }
+      .cb_faces_row > .fa-solid { padding: 0 8px; opacity: .8; }
+      .cb_faces_row + .cb_emo_grid { margin: 0 0 8px; }
+      .cb_full_row { padding: 0 5px; }
+      .cb_emo_grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+      .cb_emo_cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; background: rgba(0,0,0,.2); }
+      .cb_emo_cell .cb_thumbbox { width: 64px; height: 64px; }
+      .cb_emo_label { font-size: .8em; text-align: center; word-break: break-word; }
+      .cb_emo_row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .cb_dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+      .ntr_mdgrid { display: grid; grid-template-columns: minmax(0, 1.7fr) repeat(4, minmax(0, 1fr)); gap: 2px 4px; align-items: center; margin: 8px 0; font-size: .9em; }
+      .ntr_mdgrid .ntr_mdh { font-size: .8em; opacity: .7; text-align: center; line-height: 1.2; }
+      .ntr_mdgrid label { display: flex; justify-content: center; margin: 0; cursor: pointer; }
+      .ntr_mdgrid input { margin: 0; }
+      .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
+      .cb_dfield input { margin: 0; font-family: monospace; }
+      .ntr_rd_books { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+      .ntr_rd_books label { position: relative; cursor: pointer; }
+      .ntr_rd_books input { position: absolute; opacity: 0; pointer-events: none; }
+      .ntr_rd_books span { display: block; width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); box-sizing: border-box; }
+      .ntr_rd_books label:hover span { border-color: rgba(255,255,255,.6); }
+      .ntr_rd_books input:checked + span { border-color: var(--SmartThemeQuoteColor, #6cf); box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
+      .ntr_rd_books input:focus-visible + span { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
+      .cb_cur_name { flex: 1; min-width: 0; }
+      .cb_cur_name small { display: block; opacity: .6; font-size: .8em; }
+    `;
+
+    // Asked even while NTR is off, so Elements can let go of its custom cursor.
+    const elCss = callModule('elements', 'css', s) || '';
+    if (isOn()) {
+      const chatCss = layoutChatCss(s) + namesCss(s) + (callModule('decor', 'css', s) || '');
+      cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + (chatCss ? chatCss + '\n' : '');
+    }
+    // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
+    // repainted all of it, avatar fades included.
+    if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
+
+    cssString += callModule('avatars', 'css', s) || '';
+
+    styleEl.textContent = cssString;
+    applyLayout();
+    callModule('avatars', 'sync');
+    syncGoogleFonts();
+    callModule('elements', 'sync');
+    syncPopouts();
+    syncPins();
+    callModule('decor', 'sync');
+    window.NTR.reader?.relayout();
+  }
+
+  // ===== Banner settings and the open character =====
+  // Banner rotation, and its height, gap, transparent areas and video sound, follow the Global / Char switch: Char uses
+  // the character's own copy, Global these settings.
+  const ROT_KEYS = { rotate: 'bannerRotate', rotateSec: 'bannerRotateSec', rotateFx: 'bannerRotateFx', rotateOrder: 'bannerRotateOrder' };
+  const BANNER_LOOK_KEYS = { height: 'bannerHeight', gap: 'bannerGap', backdrop: 'bannerBackdrop', videoSound: 'bannerVideoSound' };
+  // A character switched to Char starts on the Global kind, rotation and look settings.
+  function startChar(r) {
+    const s = settings();
+    r.mode = s.bannerMode;
+    for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
+    for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
+    r.scope = 'char';
+  }
+
+  // Whose foreground pictures are showing: the group's in a group chat, otherwise the character's.
+  const fgOwner = () => (ctx().groupId ? 'group:' + ctx().groupId : currentKey());
+
+  function currentKey() {
+    const c = ctx();
+    if (c.groupId) return null;
+    const ch = c.characters?.[c.characterId];
+    return ch?.avatar || null;
+  }
+
+  const peek = (key) => {
+    const s = settings();
+    const d = cardData(key);
+    let r;
+    if (d) {
+      if (!d.banner || typeof d.banner !== 'object') {
+        if (s.chars[key]) { d.banner = structuredClone(s.chars[key]); cleanBanner(d.banner); legacyMoved.add(key); scheduleCardFlush(key); }
+        else d.banner = defaultBanner();
+      }
+      r = d.banner;
+    } else {
+      if (!s.chars[key]) s.chars[key] = defaultBanner();
+      r = s.chars[key];
+      if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
+    }
+    const def = defaultBanner();
+    for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
+    if (!Array.isArray(r.images)) r.images = [];
+    // Before 2.3 Global had no images of its own, so a Global character with its own images, link or video
+    // becomes Char and keeps showing them. Checked once per banner, so switching to Global later sticks.
+    if (!r.sharedChecked) {
+      const own = r.scope !== 'char' && (r.images.length || r.youtubeUrl || r.video);
+      if (own) startChar(r);
+      r.sharedChecked = true;
+      if (own && d) scheduleCardFlush(key);
+    }
+    return r;
+  };
+
+  // Images, YouTube link and video: Char uses the character's own, Global the shared banner in the settings.
+  const bannerSrc = (r) => (r && r.scope === 'char' ? r : settings().bannerGlobal);
+  function getYouTubeId(url) {
+    const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+    return match ? match[1] : null;
+  }
+
+  // ===== Drawing everything =====
+  // The header banner and foreground images live in overlays.js, loaded once either is on (or the menu opens).
+  const overlaysWanted = (s = settings()) => isOn() && !!(s.bannerOn || s.fgEnabled);
+  function renderOverlays() {
+    const m = window.NTR.overlays;
+    if (m) m.render();
+    else if (overlaysWanted()) loadModule('overlays').then((x) => x?.render());
+  }
+
+  function renderAll() {
+    try {
+      updateAvatarStyle();
+    } catch (e) {
+      console.error('[NTR render]', e);
+    }
+    renderOverlays();
+  }
+
+  // ===== Uploads =====
+  // Every upload lands in user/files as <prefix>_<time>_<random>.<ext>. The prefixes are how the extension
+  // recognizes its own files when it cleans up (see OWN_FILE).
+  const MIME_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'video/mp4': 'mp4', 'video/webm': 'webm' };
+  async function uploadBase64(b64, ext, prefix) {
+    const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const res = await fetch('/api/files/upload', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ name, data: b64 }) });
+    if (!res.ok) {
+      const why = (await res.text().catch(() => '')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+      throw new Error(`Upload failed (${res.status})${why ? `: ${why}` : ''}`);
+    }
+    const j = await res.json();
+    return '/' + String(j.path).replace(/^\/+/, '');
+  }
+
+  // Theme files can carry their images inline (base64), so they work on another install.
+  async function uploadDataUrl(dataUrl, prefix = 'ntr') {
+    const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(String(dataUrl || ''));
+    if (!m || !MIME_EXT[m[1]]) throw new Error('Unsupported embedded file');
+    return uploadBase64(m[2], MIME_EXT[m[1]], prefix);
+  }
+
+  const readDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+  const loadImg = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+
+  // Images over `max` px on their longer side (or `maxWidth` wide) are shrunk first: photos stay JPEG, the rest become
+  // PNG so transparency survives. Other image types become PNG too, so the file always matches its name. GIFs go as
+  // they are, to keep their animation.
+  async function uploadImage(f, prefix, { max = 0, maxWidth = 0 } = {}) {
+    let url = String(await readDataURL(f));
+    if (f.type !== 'image/gif') {
+      const i = await loadImg(url).catch(() => { throw new Error('That file didn\'t load as an image.'); });
+      if (!i.width || !i.height) throw new Error('That file didn\'t load as an image.');
+      const k = Math.min(1, max ? max / Math.max(i.width, i.height) : 1, maxWidth ? maxWidth / i.width : 1);
+      if (k < 1 || !['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(i.width * k); c.height = Math.round(i.height * k);
+        c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
+        url = c.toDataURL(f.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.92);
+      }
+    }
+    return uploadDataUrl(url, prefix);
+  }
+
+  // ===== Questions in the menu =====
+  // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
+  // One question at a time. Without a button to show it under, SillyTavern's own popup asks instead.
+  // A new question closes the open one as if Cancel was pressed, so code waiting on it never hangs.
+  function askBox(anchor, html, cancel) {
+    document.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
+    // Below the button's whole row, not inside it, so a row of buttons keeps its layout.
+    let row = anchor;
+    const inRow = (el) => { const cs = getComputedStyle(el); return /flex|grid/.test(cs.display) && !cs.flexDirection.startsWith('column'); };
+    while (row.parentElement && inRow(row.parentElement)) row = row.parentElement;
+    const box = document.createElement('div');
+    box.className = 'ntr_tpanel ntr_ask';
+    box.innerHTML = html;
+    box.ntrCancel = cancel;
+    row.after(box);
+    return box;
+  }
+  const askBtns = (ok, danger) => `
+    <div class="cb_actions">
+      <button class="menu_button ntr_ask_ok${danger ? ' danger_button' : ''}">${ok}</button>
+      <button class="menu_button ntr_ask_cancel">Cancel</button>
+    </div>`;
+
+  // A small menu under a button, like Move to folder on the Regex page. The button sits in a .ntr_menu box, and `html`
+  // is the menu's buttons. A second click on the same button closes it; a page closes it on any other click.
+  function popMenu(anchor, html) {
+    const had = anchor.parentElement.querySelector('.ntr_pop');
+    closePops(anchor.closest('.ntr_page') || document);
+    if (had) return null;
+    const pop = document.createElement('div');
+    pop.className = 'ntr_pop';
+    pop.innerHTML = html;
+    pop.ntrAnchor = anchor;
+    anchor.parentElement.appendChild(pop);
+    anchor.setAttribute('aria-expanded', 'true');
+    return pop;
+  }
+  function closePops(scope = document) {
+    scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
+  }
+
+  // Dragging by a grip (.ntr_grip), with a mouse or a finger, on the Regexes and Agents pages. A copy of what's dragged
+  // follows the pointer and its own place in the list becomes the gap that shows where it lands. Near the top or bottom
+  // of the menu the page scrolls, even while the pointer stays still. Escape puts it back.
+  //   pick(grip): what the grip drags, as { item, kind, scope } (scope: the box it stays in), or null.
+  //   place(el, drag, after): moves drag.item to where the pointer is, over el; after(box) says if the pointer is in the
+  //     lower half of box. Returns a header to light up as where it goes, if any.
+  //   done(drag): the drag is over; drag.moved is false for a click or Escape.
+  // Gives back { busy() }, true while dragging, so a page doesn't redraw under it.
+  function dragSort(page, { pick, place, done }) {
+    let drag = null;
+    let raf = 0;
+    const unlit = () => page.querySelectorAll('.ntr_drop').forEach((el) => el.classList.remove('ntr_drop'));
+    const follow = () => {
+      if (!drag.ghost) {
+        const r = drag.item.getBoundingClientRect();
+        const g = drag.item.cloneNode(true);
+        g.classList.add('ntr_ghost');
+        g.setAttribute('aria-hidden', 'true');
+        for (const el of [g, ...g.querySelectorAll('[id], [data-id]')]) [...el.attributes].forEach((x) => { if (x.name === 'id' || x.name.startsWith('data-')) el.removeAttribute(x.name); });
+        g.style.width = `${r.width}px`;
+        g.style.left = '0px';
+        g.style.top = '0px';
+        page.appendChild(g);
+        // A transformed menu moves "fixed" boxes with it, so measure where 0, 0 landed and allow for it.
+        const o = g.getBoundingClientRect();
+        drag.ghost = g;
+        drag.at = { x: r.left - o.left, dy: drag.y - r.top, oy: o.top };
+        drag.item.classList.add('ntr_dragging');
+      }
+      drag.ghost.style.left = `${drag.at.x}px`;
+      drag.ghost.style.top = `${drag.y - drag.at.dy - drag.at.oy}px`;
+    };
+    const aim = () => {
+      unlit();
+      const el = document.elementFromPoint(drag.x, drag.y);
+      if (!el || !drag.scope.contains(el)) return;
+      const after = (box) => { const r = box.getBoundingClientRect(); return drag.y > r.top + r.height / 2; };
+      place(el, drag, after)?.classList.add('ntr_drop');
+    };
+    const scroll = () => {
+      raf = 0;
+      const body = drag && page.closest('.ntr_body');
+      if (!body) return;
+      const r = body.getBoundingClientRect();
+      const step = drag.y < r.top + 40 ? -12 : drag.y > r.bottom - 40 ? 12 : 0;
+      const was = body.scrollTop;
+      if (step) body.scrollTop += step;
+      if (body.scrollTop === was) return;
+      aim();
+      raf = requestAnimationFrame(scroll);
+    };
+    // Only the finger (or mouse) that started the drag moves or drops it, so a second finger can't.
+    const onMove = (e) => {
+      if (e.pointerId !== drag.pointer) return;
+      drag.moved = true;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      follow();
+      aim();
+      if (!raf) raf = requestAnimationFrame(scroll);
+    };
+    const end = (keep) => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      document.removeEventListener('keydown', onKey, true);
+      cancelAnimationFrame(raf);
+      raf = 0;
+      const d = drag;
+      drag = null;
+      d.ghost?.remove();
+      d.item.classList.remove('ntr_dragging');
+      unlit();
+      d.moved = keep && d.moved;
+      done(d);
+    };
+    const onUp = (e) => { if (e.pointerId === drag.pointer) end(true); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } };
+    page.addEventListener('pointerdown', (e) => {
+      const grip = e.target.closest('.ntr_grip');
+      if (drag || !grip || e.button !== 0) return;
+      const p = pick(grip);
+      if (!p) return;
+      e.preventDefault();
+      closePops(page);
+      drag = { ...p, scope: p.scope || page, moved: false, ghost: null, x: e.clientX, y: e.clientY, pointer: e.pointerId };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+      document.addEventListener('keydown', onKey, true);
+    });
+    return { busy: () => !!drag };
+  }
+
+  // Resolves to true for the main button, false for Cancel.
+  function askYes(anchor, text, ok, { danger = false } = {}) {
+    if (!anchor) {
+      const c = ctx();
+      if (typeof c.callGenericPopup === 'function' && c.POPUP_TYPE) return c.callGenericPopup(escapeHTML(text), c.POPUP_TYPE.CONFIRM).then((r) => r === c.POPUP_RESULT?.AFFIRMATIVE || r === 1);
+      return Promise.resolve(confirm(text));
+    }
+    return new Promise((res) => {
+      const cancel = () => { box.remove(); res(false); };
+      const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`, cancel);
+      box.querySelector('.ntr_ask_ok').onclick = () => { box.remove(); res(true); };
+      box.querySelector('.ntr_ask_cancel').onclick = cancel;
+    });
+  }
+
+  // A text field. `check(text)` resolves to { value } to accept or { error } to show a red hint and keep asking.
+  // Resolves to the accepted value, or null on Cancel.
+  function askText(anchor, { label, value = '', ok = 'Add', check = (v) => ({ value: v }) }) {
+    if (!anchor) {
+      const c = ctx();
+      if (typeof c.callGenericPopup !== 'function' || !c.POPUP_TYPE) return Promise.resolve(null);
+      return c.callGenericPopup(escapeHTML(label), c.POPUP_TYPE.INPUT, value).then(async (raw) => {
+        if (typeof raw !== 'string') return null;
+        const r = await check(raw.trim());
+        if (r.error) { toastr.warning(r.error); return null; }
+        return r.value;
+      });
+    }
+    return new Promise((res) => {
+      const cancel = () => { box.remove(); res(null); };
+      const box = askBox(anchor, `
+        <label>${escapeHTML(label)} <input type="text" class="text_pole ntr_ask_input" value="${escapeHTML(value)}"></label>
+        <div class="ntr_terr"></div>
+        ${askBtns(ok, false)}`, cancel);
+      const input = box.querySelector('.ntr_ask_input');
+      const err = box.querySelector('.ntr_terr');
+      const okBtn = box.querySelector('.ntr_ask_ok');
+      const done = async () => {
+        if (okBtn.disabled) return;
+        okBtn.disabled = true;
+        okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        const r = await check(input.value.trim());
+        okBtn.disabled = false;
+        okBtn.innerHTML = ok;
+        if (r.error) { err.textContent = r.error; input.focus(); return; }
+        box.remove();
+        res(r.value);
+      };
+      input.oninput = () => { err.textContent = ''; };
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); done(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+      };
+      okBtn.onclick = done;
+      box.querySelector('.ntr_ask_cancel').onclick = cancel;
+      input.focus();
+      input.select();
+    });
+  }
+
+  // Videos (mp4 or webm) are sent as they are. Resolves to the file's path, or '' if it isn't an mp4 or webm, or it's
+  // very big and the person cancels. `btn` shows a spinner while it uploads.
+  async function uploadVideo(f, prefix, title, btn) {
+    let ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
+    if (!ext) { toastr.warning('Use an mp4 or webm video.', title); return ''; }
+    if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+    const data = String(await readDataURL(f));
+    return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
+  }
+
+  // Ask for a link instead of an upload, under `anchor` (the Link button). Resolves to a checked http(s) URL that
+  // loaded, or '' if cancelled. Like uploadHere, a link for the open chat that finishes checking after the chat
+  // changed would land on the wrong character, so '' comes back. `perChat` false skips this for global settings.
+  const askUrl = (anchor, label, load, failMsg, perChat = true) => {
+    const st = store();
+    return askText(anchor, {
+      label,
+      check: async (raw) => {
+        const u = cUrl(raw);
+        if (!/^https?:\/\//i.test(u)) return { error: 'Paste a full link that starts with http:// or https://' };
+        try { await load(u); } catch (e) { return { error: failMsg }; }
+        return { value: u };
+      },
+    }).then((u) => {
+      if (!u) return '';
+      if (!perChat || store() === st) return u;
+      toastr.warning('The chat changed before the link was checked, so it was not saved. Paste it again.', 'Link');
+      return '';
+    });
+  };
+  const askImageUrl = (label = 'Image', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste an image link (https://...)`, loadImg,
+    'That link did not load as an image. Check it and try again.', perChat);
+
+  // Ask for a video link (mp4 or webm).
+  const loadVideo = (u) => new Promise((res, rej) => {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.preload = 'metadata';
+    const done = (ok) => { clearTimeout(t); v.removeAttribute('src'); v.load(); ok ? res() : rej(new Error('Video did not load')); };
+    const t = setTimeout(() => done(false), 15000);
+    v.onloadedmetadata = () => done(true);
+    v.onerror = () => done(false);
+    v.src = u;
+  });
+  const askVideoUrl = (label = 'Video', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
+    'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
+
+  // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
+  // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
+  // global settings.
+  async function uploadHere(upload, perChat = true) {
+    const st = store();
+    const path = await upload();
+    if (!path || !perChat || store() === st) return path;
+    deleteFileIfUnused(path);
+    toastr.warning('The chat changed before the upload finished, so it was not saved. Upload it again.', 'Upload');
+    return '';
+  }
+
+  function openCombinedModal() {
+    const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
+    document.getElementById('cb_modal_overlay')?.remove();
+    const s = settings();
+    // Reasoning Block Design is part of Elements now.
+    if (s.uiPage === 'reasoning') s.uiPage = 'elements';
+    // Visual Novel Mode's settings are part of Reader Mode's page now.
+    if (s.uiPage === 'vn') s.uiPage = 'reader';
+    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cb_modal_overlay';
+    overlay.className = 'cb_popup_overlay';
+
+    overlay.innerHTML = `
+      <div class="cb_popup_content">
+        <div class="cb_popup_header">
+          <button class="cb_hbtn ntr_navbtn" title="Show the sections"><i class="fa-solid fa-bars"></i></button>
+          <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
+          <span class="ntr_hbtns">
+            <button class="cb_hbtn" id="m_wand"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="right" title="Dock right"><i class="fa-solid fa-right-long"></i></button>
+            <button class="cb_close_btn" title="Close">&times;</button>
+          </span>
+        </div>
+        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. To turn it back on, open its bar on the Extensions page and press Switch on.</div>'}
+        <div class="ntr_main">
+        <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
+        <div class="ntr_shade"></div>
+        <div class="ntr_body">
+
+        ${themesSectionHtml(s)}
+        ${layoutSectionHtml(s)}
+
+        ${overlaysSectionHtml(s)}
+
+        ${lookPageHtml('avatars', s)}
+
+        ${lookPageHtml('elements', s)}
+        ${lookPageHtml('text', s)}
+        ${lookPageHtml('decor', s)}
+        ${agentsSectionHtml(s)}
+
+        ${regexSectionHtml(s)}
+        ${readerSectionHtml(s)}
+        </div>
+        </div>
+      </div>
+      <div id="ntr_edge" title="Drag to resize"></div>
+      <div id="ntr_preview"></div>`;
+
+    document.body.appendChild(overlay);
+
+    bindCollapses(overlay, s);
+    // Rotation waits while the Overlays page is open, showing the picked image, and starts a fresh count
+    // when another page is picked or the menu closes.
+    // The banner's rotation waits while the Overlays page is open (see overlays.js).
+    const rotRestart = () => window.NTR.overlays?.rotRestart(s);
+    bindPages(overlay, s, rotRestart);
+
+    setupPanel(overlay, prevScroll);
+
+    const close = () => { overlay.remove(); syncPopouts(); rotRestart(); };
+    overlay.querySelector('.cb_close_btn').onclick = close;
+    
+    window.NTR.overlays?.bind(overlay, s);
+
+    bindThemes(overlay, s);
+    bindLayout(overlay, s);
+    bindWand(overlay, s);
+    bindVNSection(overlay, s);
+    bindReader(overlay, s);
+    bindRegexPage(overlay, s);
+    window.NTR.agents?.bind(overlay, s);
+    window.NTR.cast?.bind(overlay, s);
+    bindRows(overlay, s);
+    callModule('decor', 'bind', overlay, s);
+    callModule('text', 'bind', overlay, s);
+    callModule('elements', 'bind', overlay, s);
+
+    callModule('avatars', 'bind', overlay, s);
+  }
+
+  // ===== Shared UI helpers =====
+  // The menu's pages, in the order of the icon column: id, icon, short name for the column, full name.
+  // The only place they're written: the column and each page's title both read them from here.
+  const PAGES = [
+    ['themes', 'fa-bookmark', 'Themes', 'Themes'],
+    ['reader', 'fa-book-open', 'Reader', 'Reader Mode'],
+    ['layout', 'fa-table-cells-large', 'Layout', 'Layout'],
+    ['display', 'fa-palette', 'Decor', 'UI Decor'],
+    ['text', 'fa-text-height', 'Text', 'Text Formatting'],
+    ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
+    ['elements', 'fa-shapes', 'Elements', 'Elements'],
+    ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
+    ['regex', 'fa-code', 'Regexes', 'Regexes'],
+    ['agents', 'fa-robot', 'Agents', 'Agents'],
+  ];
+  // Lines in the column: Themes and Reader Mode, then your look (Layout to Overlays), then the pages that work on the chat itself.
+  const NAV_SEP = new Set(['layout', 'regex']);
+  // Pages that show what's planned and do nothing yet. Their icon stays greyed.
+  const SOON = new Set();
+  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
+    `<button class="ntr_navi${id === cur ? ' on' : ''}${SOON.has(id) ? ' ntr_off' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
+    + '<div class="ntr_navfill"></div>';
+  // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
+  // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
+  // `wait` names the module a page is still loading, which fills it in when it arrives (see fillIn).
+  function pageHtml(sec, body, { sw = null, legend = false, note = '', wait = '' } = {}) {
+    const [, icon, , title] = PAGES.find(([id]) => id === sec);
+    return `
+      <section class="ntr_page${(sw && !sw[1]) || SOON.has(sec) ? ' ntr_off' : ''}" data-page="${sec}"${wait ? ` data-ntr-wait="${wait}"` : ''}${settings().uiPage === sec ? '' : ' hidden'}>
+        <div class="ntr_phead">
+          <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
+          <h3 class="ntr_ptitle">${title}</h3>
+          ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
+          ${legend ? `<div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>` : ''}
+        </div>
+        ${note}
+        <div class="ntr_pbody">${body}</div>
+      </section>`;
+  }
+  // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
+  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title.
+  function pagePart(title, sw, fold, body) {
+    return `
+      <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
+        <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
+          ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
+          <h4 class="ntr_parttitle">${title}</h4>
+          <input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">
+        </div>
+        <div class="ntr_partbody">${body}</div>
+      </div>`;
+  }
+  // A group of settings: a small label, then the settings in a soft card.
+  const card = (label, inner) => `${label ? `<div class="ntr_glab">${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
+  // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
+  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
+  function subHead(sec, title) {
+    if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
+    return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
+  }
+  // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
+  const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
+    ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
+  const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
+  const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
+  function pills(name, opts, cur) {
+    return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
+  }
+  const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
+  function posGrid(name, cur) {
+    return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
+  }
+  function onPills(root, name, fn) {
+    root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
+  }
+  function bindCollapses(overlay, s) {
+    overlay.querySelectorAll('.cb_collapse_toggle[data-sec]').forEach((h) => {
+      const sec = h.dataset.sec;
+      const content = h.nextElementSibling;
+      const icon = h.querySelector('.cb_chevron');
+      const apply = (open) => {
+        content.style.display = open ? 'block' : 'none';
+        h.classList.toggle('ntr_open', open);
+        h.setAttribute('aria-expanded', open ? 'true' : 'false');
+        icon.classList.toggle('fa-chevron-down', open);
+        icon.classList.toggle('fa-chevron-right', !open);
+      };
+      apply(!!s.uiOpen[sec]);
+      h.addEventListener('click', (e) => {
+        if (e.target.closest('input')) return;
+        const open = content.style.display === 'none';
+        s.uiOpen[sec] = open;
+        save();
+        apply(open);
+      });
+      h.addEventListener('keydown', (e) => { if (e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click(); } });
+    });
+  }
+
+  // The icon column switches pages. On a phone or a narrow panel it hides behind the menu button.
+  function bindPages(overlay, s, onSwitch) {
+    const content = overlay.querySelector('.cb_popup_content');
+    overlay.querySelectorAll('.ntr_navi').forEach((b) => {
+      b.onclick = () => {
+        content.classList.remove('ntr_navopen');
+        if (b.dataset.page === s.uiPage) return;
+        s.uiPage = b.dataset.page;
+        save();
+        showPage(overlay, s.uiPage);
+        overlay.querySelector('.ntr_body').scrollTop = 0;
+        onSwitch();
+      };
+    });
+    overlay.querySelector('.ntr_navbtn').onclick = () => content.classList.toggle('ntr_navopen');
+    overlay.querySelector('.ntr_shade').onclick = () => content.classList.remove('ntr_navopen');
+    overlay.addEventListener('change', (e) => { if (e.target.classList.contains('ntr_pswitch')) syncPageOff(overlay); });
+    syncPageOff(overlay);
+  }
+  function showPage(overlay, page) {
+    overlay.querySelectorAll('.ntr_page').forEach((p) => { p.hidden = p.dataset.page !== page; });
+    overlay.querySelectorAll('.ntr_navi').forEach((b) => b.classList.toggle('on', b.dataset.page === page));
+  }
+  // A switched-off section greys out: its icon in the column, its title, and its settings. A page made of parts greys
+  // out each part on its own, and its icon only when every part is off.
+  function syncPageOff(overlay) {
+    if (!overlay) return;
+    overlay.querySelectorAll('.ntr_part').forEach((p) => p.classList.toggle('ntr_off', !p.querySelector('.ntr_pswitch').checked));
+    overlay.querySelectorAll('.ntr_page').forEach((p) => {
+      const sw = p.querySelector('.ntr_phead .ntr_pswitch');
+      const parts = [...p.querySelectorAll('.ntr_part .ntr_pswitch')];
+      const soon = SOON.has(p.dataset.page);
+      p.classList.toggle('ntr_off', soon || (!!sw && !sw.checked));
+      const off = soon || (sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked));
+      overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
     });
   }
 

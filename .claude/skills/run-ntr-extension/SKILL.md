@@ -105,6 +105,27 @@ diff /tmp/main.txt /tmp/branch.txt
 
 To try new code on the running server without resetting the data, `st.sh install` is enough; no restart.
 
+### Scenario checks
+
+`scenarios.cjs` checks how the NTR menu copes when its files load late or fail, the controls on the Text Formatting, Avatars and UI Decor pages, and NTR's style tags across many settings. It prints one line per check. Use it to show a branch behaves the same as `main`, for example after moving code between files:
+
+```bash
+git fetch origin main
+bash .claude/skills/run-ntr-extension/st.sh reset origin/main
+bash .claude/skills/run-ntr-extension/st.sh start
+node .claude/skills/run-ntr-extension/scenarios.cjs main
+bash .claude/skills/run-ntr-extension/st.sh reset
+bash .claude/skills/run-ntr-extension/st.sh start
+node .claude/skills/run-ntr-extension/scenarios.cjs branch
+diff -r /tmp/ntr-scenarios/main /tmp/ntr-scenarios/branch
+```
+
+- Each scenario starts in a fresh page from NTR's default settings, so one scenario's settings don't reach the next. Card data and chats aren't reset, so start each run from `st.sh reset`.
+- Letters after the name run only those scenarios: `scenarios.cjs branch KPS`. Compare runs of the same letters.
+- Results go to `/tmp/ntr-scenarios/<name>/` (`NTR_SCENARIOS`): `out.txt`, the menu's HTML and the full style tags, with NTR's version number replaced by `V` so different versions compare.
+- A scenario that holds back or blocks a file the installed version doesn't have is skipped and prints `skipped: no <file>.js`.
+- If a scenario can't finish, it prints `FAILED` and the script exits 1.
+
 ### Speed test
 
 `st.sh bench` measures how much work SillyTavern does with NTR, so a change can be checked for slowdowns before a release. Each run starts from the clean data, opens Seraphina's chat in a fresh page and measures:

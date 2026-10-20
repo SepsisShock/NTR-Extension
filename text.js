@@ -4,7 +4,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const TEXT_VERSION = '2.69.13';
+  const TEXT_VERSION = '2.69.14';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { askImageUrl, card, deleteFileIfUnused, escapeHTML, onPills, pageHtml, pills, rangeNum, save, subHead, uploadImage } = A;

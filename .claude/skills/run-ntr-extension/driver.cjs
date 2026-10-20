@@ -83,15 +83,16 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
     // (`menu reader rd_vn vn_guide`). Menus from before the icon column (2.7 and older) expand sections the same way.
     async menu(rest) {
       await page.evaluate(() => { window.toastr?.clear(); window.NTR.api.openMenu(); });
+      // A page or part from a file that loads when the menu opens fills in a moment later, so each gets up to 5 seconds.
       for (const sec of rest.split(/\s+/).filter(Boolean)) {
-        const ok = await page.evaluate((sec) => {
+        const ok = await page.waitForFunction((sec) => {
           const nav = document.querySelector(`#cb_modal_overlay .ntr_navi[data-page="${sec}"]`);
           if (nav) { nav.click(); return true; }
           const h = document.querySelector(`#cb_modal_overlay .cb_collapse_toggle[data-sec="${sec}"]`);
           if (!h) return !!document.querySelector(`#cb_modal_overlay [data-sec="${sec}"]`);
           if (h.nextElementSibling.style.display === 'none') h.click();
           return true;
-        }, sec);
+        }, sec, { timeout: 5000 }).then(() => true, () => false);
         if (!ok) throw new Error('no menu section ' + sec);
       }
       await sleep(400);

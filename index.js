@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.13';
+  const VERSION = '2.69.14';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -4045,6 +4045,8 @@ await (async () => {
       content.classList.add('ntr_float');
       Object.assign(content.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
     }
+    // The size set here, so setupPanel saves only a size the user dragged the panel to.
+    content.ntrSetSize = content.style.width + 'x' + content.style.height;
     syncCompact(content);
   }
 
@@ -4053,6 +4055,18 @@ await (async () => {
     const compact = isNarrow() || content.getBoundingClientRect().width < 400;
     content.classList.toggle('ntr_compact', compact);
     if (!compact) content.classList.remove('ntr_navopen');
+  }
+
+  // A drag also ends when the browser takes the gesture over (pointercancel), so it never stays on the next tap.
+  function dragEnds(move, up) {
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
+  }
+  function dragEnded(move, up) {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.removeEventListener('pointercancel', up);
   }
 
   function setupPanel(overlay, prevScroll) {
@@ -4093,16 +4107,14 @@ await (async () => {
         } else preview.style.display = 'none';
       };
       const up = () => {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
+        dragEnded(move, up);
         preview.style.display = 'none';
         if (zone) P.dock = zone;
         else { P.dock = 'float'; P.x = parseFloat(content.style.left) || 0; P.y = parseFloat(content.style.top) || 0; }
         save();
         panelLayout(overlay);
       };
-      document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
+      dragEnds(move, up);
     });
 
     edge.addEventListener('pointerdown', (e) => {
@@ -4113,22 +4125,27 @@ await (async () => {
         panelLayout(overlay);
       };
       const up = () => {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
+        dragEnded(move, up);
         save();
       };
-      document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
+      dragEnds(move, up);
     });
 
+    // Closing, hiding or a smaller window also changes the panel's size; only the user's own resize is saved.
     if (window.ResizeObserver) {
       let t = null;
-      new ResizeObserver(() => {
+      const ro = new ResizeObserver(() => {
+        if (!content.isConnected) { ro.disconnect(); clearTimeout(t); return; }
         syncCompact(content);
         if (P.dock !== 'float' || !content.classList.contains('ntr_float')) return;
+        if (content.style.width + 'x' + content.style.height === content.ntrSetSize) return;
         clearTimeout(t);
-        t = setTimeout(() => { P.fw = Math.round(content.offsetWidth); P.fh = Math.round(content.offsetHeight); save(); }, 300);
-      }).observe(content);
+        t = setTimeout(() => {
+          if (!content.isConnected || !content.offsetWidth) return;
+          P.fw = Math.round(content.offsetWidth); P.fh = Math.round(content.offsetHeight); save();
+        }, 300);
+      });
+      ro.observe(content);
     }
   }
 

@@ -84,7 +84,14 @@ const styleText = () => {
     const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
     const errors = [];
     page.on('pageerror', (e) => { if (!/Internal S/.test(e.message)) errors.push(e.message); });
-    page.on('console', (m) => { if (m.type() === 'error' && !/horde|favicon|Failed to load resource|Internal S/i.test(m.text())) errors.push(m.text().slice(0, 160)); });
+    // A failed load counts as noise only by its address, or when the scenario blocked it itself.
+    const blocked = new Set();
+    page.on('console', (m) => {
+      if (m.type() !== 'error' || /horde|favicon|Internal S/i.test(m.text())) return;
+      const url = m.text().startsWith('Failed to load resource') ? m.location()?.url || '' : '';
+      if (url && (blocked.has(url) || /\/api\/horde\/|favicon/i.test(url))) return;
+      errors.push(m.text().slice(0, 160) + (url ? ' (' + url + ')' : ''));
+    });
     const gates = {};
     // seq: what each request for a file gets in turn, after the settings reload: 'abort', 'hold' (until release) or 'ok'.
     const seqs = {};
@@ -92,21 +99,22 @@ const styleText = () => {
     const release = (n, how = 'ok') => { gates[n]?.open(how); };
     await page.route(/\/third-party\/NTR-Extension\/\w+\.js/, async (route) => {
       const n = route.request().url().match(/\/(\w+)\.js/)[1];
+      const block = () => { blocked.add(route.request().url()); return route.abort(); };
       reqs[n] = (reqs[n] || 0) + 1;
       if (seqs[n]?.length) {
         const a = seqs[n].shift();
-        if (a === 'abort') return route.abort();
+        if (a === 'abort') return block();
         if (a === 'hold') {
           let open; const p = new Promise((r) => { open = r; }); gates[n] = { p, open };
           const how = await p;
           delete gates[n];
-          if (how === 'abort') return route.abort();
+          if (how === 'abort') return block();
         }
         return route.continue();
       }
       if (gates[n]) {
         const how = await gates[n].p;
-        if (how === 'abort') return route.abort();
+        if (how === 'abort') return block();
       }
       return route.continue();
     });

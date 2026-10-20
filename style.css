@@ -289,15 +289,15 @@
 }
 .ntr_tpanel input[type="text"] { margin: 4px 0 0; width: 100%; box-sizing: border-box; }
 
-/* NTR icon: icon.svg used as a mask, so it takes the color of the text around it */
+/* NTR icon: assets/brand/ntr-icon.svg used as a mask, so it takes the color of the text around it */
 .ntr_icon {
   display: inline-block;
   width: 1.15em;
   height: 1.15em;
   vertical-align: -0.2em;
   background-color: currentColor;
-  -webkit-mask: url('icon.svg') center / contain no-repeat;
-  mask: url('icon.svg') center / contain no-repeat;
+  -webkit-mask: url('assets/brand/ntr-icon.svg') center / contain no-repeat;
+  mask: url('assets/brand/ntr-icon.svg') center / contain no-repeat;
 }
 
 /* Extensions page drawer */

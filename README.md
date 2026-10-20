@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="logo.svg" width="120" alt="Nitwit Tavern Redesign logo">
+<img src="assets/brand/ntr-logo.svg" width="120" alt="Nitwit Tavern Redesign logo">
 
 # NITWIT TAVERN REDESIGN
 

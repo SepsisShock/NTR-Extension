@@ -7,7 +7,7 @@
 #   st.sh start | stop   start in the background (waits until it answers) | stop
 #   st.sh reset [ref]    stop, put back the clean data, install the extension (start again afterwards)
 #   st.sh lazy on|off    SillyTavern's lazy character loading (restart to apply)
-#   st.sh bench <name> [ref|none] [full] [vn] [phone] [runs=N]
+#   st.sh bench <name> [ref|none] [full] [vn] [phone] [cpu=N] [runs=N]
 #                        speed test on clean data (see SKILL.md); stops the server when done
 #   st.sh bench table <name> [name...]   compare saved results
 #
@@ -115,10 +115,10 @@ bench() {
   local here; here="$(dirname "${BASH_SOURCE[0]}")"
   if [ "${1:-}" = table ]; then shift; node "$here/bench.cjs" table "$@"; return; fi
   local name="${1:-}" ref="" full="" runs=3 flags=()
-  [ -n "$name" ] || { echo "usage: st.sh bench <name> [ref|none] [full] [vn] [phone] [runs=N]"; exit 1; }
+  [ -n "$name" ] || { echo "usage: st.sh bench <name> [ref|none] [full] [vn] [phone] [cpu=N] [runs=N]"; exit 1; }
   shift
   for a in "$@"; do
-    case "$a" in full) full=1 ;; vn) flags+=(--vn) ;; phone) flags+=(--phone) ;; runs=*) runs="${a#runs=}" ;; *) ref="$a" ;; esac
+    case "$a" in full) full=1 ;; vn) flags+=(--vn) ;; phone) flags+=(--phone) ;; cpu=*) flags+=(--cpu "${a#cpu=}") ;; runs=*) runs="${a#runs=}" ;; *) ref="$a" ;; esac
   done
   if [ "$ref" = none ]; then reset; rm -rf "$EXT_DIR"; echo "no extension installed"; else reset "$ref"; fi
   # The version the runs must find loaded, from the installed manifest.

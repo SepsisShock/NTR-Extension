@@ -518,7 +518,7 @@ await (async () => {
   // Layout settings by their full names, for the layout being edited.
   const layNames = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [lk(phoneNow(), k), x]));
   const placeKind = (it) => (it.lay ? 'lay' : it.pin ? 'pin' : it.pos ? 'fg' : 'pop');
-  const place = { on: false, sel: null, drag: null, undo: [] };
+  const place = { on: false, sel: null, drag: null, undo: [], dirty: false, frame: 0 };
   let placeTouchGuard = false;
 
   function syncFgSliders(pos) {
@@ -837,11 +837,13 @@ await (async () => {
       } else if (e.type === 'pointerup') {
         // A tap on the picked item picks the next one under it, so a picture over the chat panel can still be picked.
         // They go round in drawing order, top first, which picking doesn't change, so every outline there gets a turn.
+        // It reads the outlines as drawn, so a draw still waiting for its frame goes first.
+        if (place.dirty) drawPlaceNow();
         const under = new Set(document.elementsFromPoint(e.clientX, e.clientY).filter((el) => el.classList.contains('cb_place_box')).map((el) => el.dataset.id));
         const ids = placeItems().map((p) => p.id).reverse().filter((id) => under.has(id));
         if (ids.length > 1) place.sel = ids[(ids.indexOf(d.it.id) + 1) % ids.length];
       }
-      drawPlace();
+      drawPlaceNow();
     };
     window.addEventListener('pointerup', end, true);
     window.addEventListener('pointercancel', end, true);
@@ -854,16 +856,30 @@ await (async () => {
     if (place.undo.length > 20) place.undo.shift();
   }
 
+  // While Edit Layout is open, the outlines are drawn at most once a frame, however often something asks: a drag step
+  // moves things that several parts follow, and each of them asked for a draw of its own.
   function drawPlace() {
+    if (!place.on) return;
+    place.dirty = true;
+    if (!place.frame) place.frame = requestAnimationFrame(placeFrame);
+  }
+  // A draw asked for while this runs gets the next frame, and finds nothing left to do once this one has drawn.
+  function placeFrame() {
+    place.frame = 0;
+    if (place.dirty) drawPlaceNow();
+  }
+
+  function drawPlaceNow() {
+    place.dirty = false;
     if (!place.on) return;
     const layer = document.getElementById('cb_place_layer');
     if (!layer) return;
     const s = settings();
     const small = [];
-    for (const it of placeItems()) {
-      const box = layer.querySelector(`.cb_place_box[data-id="${it.id}"]`);
-      if (!box) continue;
-      const r = placeRect(it);
+    // Every outline is measured before any is moved: measuring after a move makes the browser work out the layout again.
+    const items = placeItems().map((it) => ({ it, box: layer.querySelector(`.cb_place_box[data-id="${it.id}"]`) })).filter((x) => x.box);
+    for (const x of items) x.r = placeRect(x.it);
+    for (const { it, box, r } of items) {
       box.style.display = r ? 'block' : 'none';
       if (!r) continue;
       if (r.height < window.innerHeight * 0.3) small.push(r);
@@ -875,7 +891,7 @@ await (async () => {
       }
     }
     // The bar says which layout a move changes: Layout parts and Pinned Blocks are kept for each, the rest for both.
-    const sel = placeItems().find((it) => it.id === place.sel && placeRect(it));
+    const sel = items.find((x) => x.it.id === place.sel && x.r)?.it;
     const lay = phoneNow() ? 'Phone' : 'Desktop';
     layer.querySelector('.cb_place_name').textContent = sel ? `${sel.label} (${sel.lay || sel.pin ? lay : 'Both Layouts'})` : `Editing ${lay}: tap an outline to pick it`;
     layer.querySelector('#cb_place_snap').checked = !!s.placeSnap;
@@ -933,7 +949,7 @@ await (async () => {
     setPlaceTouchGuard(true);
     // A block still in its message moves with the chat, so the outlines follow any scroll, like Page Down in Reader Mode.
     document.addEventListener('scroll', drawPlace, true);
-    drawPlace();
+    drawPlaceNow();
     return true;
   }
 
@@ -942,6 +958,9 @@ await (async () => {
     place.on = false;
     place.drag = null;
     place.undo = [];
+    cancelAnimationFrame(place.frame);
+    place.frame = 0;
+    place.dirty = false;
     const layer = document.getElementById('cb_place_layer');
     if (layer) layer.style.display = 'none';
     setPlaceTouchGuard(false);

@@ -82,23 +82,25 @@ const startupWatch = (limit) => {
   };
   requestAnimationFrame(hook);
 };
-// NTR's files fetched before NTR started (its core and the look modules): when the last one finished arriving.
+// NTR's files that arrived before NTR started (its core and the look modules): when the last one did.
 const startupFiles = () => {
   const m = window.__ntrStartup;
   if (m.ntrStarted == null) return null;
   const files = performance.getEntriesByType('resource')
-    .filter((e) => /\/third-party\/NTR-Extension\/\w+\.js/.test(e.name) && e.startTime < m.ntrStarted);
+    .filter((e) => /\/third-party\/NTR-Extension\/\w+\.js/.test(e.name) && e.responseEnd <= m.ntrStarted);
   return files.length ? Math.round(Math.max(...files.map((e) => e.responseEnd))) : null;
 };
 
 // Run in the page while a drag goes on: pointer moves, layouts aside, and how long each waits for the next frame,
-// timed from the oldest of the moves Chromium merged into it.
+// timed from the oldest of the moves Chromium merged into it to when the frame's callbacks run. Not the frame's own
+// start time: a long task can push the callbacks well past it, and moves that came in meanwhile wait too.
 const startMoves = () => {
   const d = window.__ntrDrag = { moves: 0, waiting: [], delays: [], on: true };
   d.onMove = (e) => { d.moves++; d.waiting.push((e.getCoalescedEvents?.()[0] || e).timeStamp); };
   window.addEventListener('pointermove', d.onMove, { capture: true, passive: true });
-  const loop = (t) => {
-    for (const ts of d.waiting) d.delays.push(Math.max(0, t - ts));
+  const loop = () => {
+    const t = performance.now();
+    for (const ts of d.waiting) d.delays.push(t - ts);
     d.waiting = [];
     if (d.on) requestAnimationFrame(loop);
   };
@@ -366,6 +368,7 @@ function table(names) {
     [`${label}: busy (ms)`, (r) => r[k]?.busy],
     [`${label}: layouts per move`, (r) => r[k]?.layoutsPerMove],
     [`${label}: restyles per move`, (r) => r[k]?.restylesPerMove],
+    [`${label}: frames`, (r) => r[k]?.frames],
     [`${label}: 95% of frames under (ms)`, (r) => r[k]?.p95],
     [`${label}: frames over 50 ms`, (r) => r[k]?.slow],
     [`${label}: delay until the next frame, 95% under (ms)`, (r) => r[k]?.delayP95],

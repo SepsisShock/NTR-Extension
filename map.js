@@ -1,12 +1,13 @@
 // Nitwit Tavern Redesign: Maps module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const MAP_VERSION = '2.69.26';
+  const MAP_VERSION = '2.69.27';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead } = A;
+  const { ovLabel } = A.look;
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -112,8 +113,8 @@
   function open(opts = {}) {
     if (!A.store()) { toastr.info('Open a character chat first. Maps are saved per character.', 'Maps'); return; }
     const all = maps();
-    if (!all.length) { toastr.info('No maps yet. Add one in the menu under Visual Novel Mode, Maps.', 'Maps'); return; }
-    if (!opts.edit && !all.some((m) => m.url)) { toastr.info('Upload a map image first.', 'Maps'); return; }
+    if (!all.length) { toastr.info('No maps yet. Add one on the Reader Mode page, under Visual Novel.', 'Maps'); return; }
+    if (!opts.edit && !all.some((m) => m.url)) { toastr.info('Upload a map picture first.', 'Maps'); return; }
     ensureStyle();
     close(true);
     if (opts.fromMenu) A.closeMenu();
@@ -124,10 +125,10 @@
     el.innerHTML = `
       <div class="ntr_map_panel">
         <div class="ntr_map_head">
-          <button type="button" class="ntr_map_hb" data-a="back" title="Back"><i class="fa-solid fa-arrow-left"></i></button>
+          <button type="button" class="ntr_map_hb" data-a="back" title="Back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
           <span class="ntr_map_title"></span>
-          <button type="button" class="ntr_map_hb" data-a="edit" title="Edit pins"><i class="fa-solid fa-pen"></i></button>
-          <button type="button" class="ntr_map_hb" data-a="close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          <button type="button" class="ntr_map_hb" data-a="edit" title="Edit Pins" aria-label="Edit Pins"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="ntr_map_hb" data-a="close" title="Close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="ntr_map_view"></div>
         <div class="ntr_map_foot"></div>
@@ -183,12 +184,12 @@
       ? 'Editing: click the map to drop a pin, drag pins to move them, click a pin to link it.'
       : 'Faded pins are places the story hasn\'t visited yet.';
     const box = el.querySelector('.ntr_map_view');
-    if (!media(m.url)) { box.innerHTML = '<div class="ntr_map_empty">This map has no image yet. Upload one in the menu under Visual Novel Mode, Maps.</div>'; return; }
+    if (!media(m.url)) { box.innerHTML = '<div class="ntr_map_empty">This map has no picture yet. Upload one on the Reader Mode page, under Visual Novel.</div>'; return; }
     box.innerHTML = `<div class="ntr_map_canvas"><img alt="" draggable="false"><div class="ntr_map_pins"></div><div class="ntr_map_pop"></div></div>`;
     const canvas = box.querySelector('.ntr_map_canvas');
     const img = canvas.querySelector('img');
     img.src = media(m.url);
-    img.onerror = () => { box.innerHTML = '<div class="ntr_map_empty">The map image failed to load.</div>'; };
+    img.onerror = () => { box.innerHTML = '<div class="ntr_map_empty">The map picture failed to load.</div>'; };
     img.addEventListener('click', (e) => {
       if (!view.edit) { hidePop(); return; }
       const r = img.getBoundingClientRect();
@@ -289,8 +290,8 @@
       const others = maps().filter((x) => x.id !== m.id);
       pop.innerHTML = `
         <div class="ntr_pop_t">Pin</div>
-        <div style="margin-top:6px;"><small>Place</small>${locs.length ? pills('mappl', [['', 'None'], ...locs.map((l) => [l.id, escapeHTML(l.name)])], p.loc || '') : '<div class="cb_hint">Add locations in the menu first.</div>'}</div>
-        <div style="margin-top:6px;"><small>Opens map</small>${others.length ? pills('mapmp', [['', 'None'], ...others.map((x) => [x.id, escapeHTML(x.name || 'Map')])], p.map || '') : '<div class="cb_hint">Add another map to link one.</div>'}</div>
+        <div style="margin-top:6px;"><small>Location</small>${locs.length ? pills('mappl', [['', 'None'], ...locs.map((l) => [l.id, escapeHTML(l.name)])], p.loc || '') : '<div class="cb_hint">Add locations on the Reader Mode page first.</div>'}</div>
+        <div style="margin-top:6px;"><small>Opens Map</small>${others.length ? pills('mapmp', [['', 'None'], ...others.map((x) => [x.id, escapeHTML(x.name || 'Map')])], p.map || '') : '<div class="cb_hint">Add another map to link one.</div>'}</div>
         <div class="ntr_pop_b">
           <button type="button" class="menu_button danger_button" data-a="del"><i class="fa-solid fa-trash"></i> Delete</button>
           <button type="button" class="menu_button" data-a="done"><i class="fa-solid fa-check"></i> Done</button>
@@ -309,7 +310,7 @@
       <div class="ntr_pop_t">${escapeHTML(pinName(p))}</div>
       <div class="ntr_pop_s">${here ? 'You are here' : visited ? 'Visited' : 'Not visited yet'}</div>
       <div class="ntr_pop_b">
-        ${l ? '<button type="button" class="menu_button" data-a="go"><i class="fa-solid fa-person-walking"></i> Go here</button>' : ''}
+        ${l ? '<button type="button" class="menu_button" data-a="go"><i class="fa-solid fa-person-walking"></i> Go Here</button>' : ''}
         ${sub ? `<button type="button" class="menu_button" data-a="sub"><i class="fa-solid fa-map"></i> Open ${escapeHTML(sub.name || 'map')}</button>` : ''}
       </div>`;
     const go = pop.querySelector('[data-a="go"]');
@@ -335,30 +336,32 @@
     return all.map((m) => {
       const id = escapeHTML(m.id);
       return `<div class="cb_spk"><div class="cb_spk_row">
-        <label class="cb_defdot" title="Start map"><input type="radio" name="cbr_maproot" value="${id}" ${root && root.id === m.id ? 'checked' : ''}></label>
+        <label class="cb_defdot" title="Start map"><input type="radio" name="cbr_maproot" value="${id}" aria-label="Start Map" ${root && root.id === m.id ? 'checked' : ''}></label>
         <div class="cb_thumbbox cb_wide">${media(m.url) ? `<img src="${escapeHTML(media(m.url))}" alt="">` : '<i class="fa-solid fa-map"></i>'}</div>
-        <input type="text" class="text_pole m_m_name" data-id="${id}" value="${escapeHTML(m.name)}" style="flex:1;min-width:0;margin:0;">
-        <button class="menu_button m_m_up" data-id="${id}" title="Upload map image"><i class="fa-solid fa-upload"></i></button>
-        <button class="menu_button m_m_url" data-id="${id}" title="Use a link for the map image"><i class="fa-solid fa-link"></i></button>
-        <button class="menu_button m_m_edit" data-id="${id}" title="Edit pins" ${m.url ? '' : 'disabled'}><i class="fa-solid fa-location-dot"></i></button>
-        <button class="menu_button danger_button m_m_del" data-id="${id}" title="Delete map"><i class="fa-solid fa-trash"></i></button>
+        <input type="text" class="text_pole m_m_name" data-id="${id}" aria-label="Map Name" value="${escapeHTML(m.name)}" style="flex:1;min-width:0;margin:0;">
+        <button class="menu_button m_m_up" data-id="${id}" title="Upload map picture" aria-label="Upload map picture"><i class="fa-solid fa-upload"></i></button>
+        <button class="menu_button m_m_url" data-id="${id}" title="Use a link for the map picture" aria-label="Use a link for the map picture"><i class="fa-solid fa-link"></i></button>
+        <button class="menu_button m_m_edit" data-id="${id}" title="Edit Pins" aria-label="Edit Pins" ${m.url ? '' : 'disabled'}><i class="fa-solid fa-location-dot"></i></button>
+        <button class="menu_button danger_button m_m_del" data-id="${id}" title="Delete map" aria-label="Delete map"><i class="fa-solid fa-trash"></i></button>
       </div><div class="cb_hint" style="margin:4px 0 0 32px;">${m.pins.length} pin${m.pins.length === 1 ? '' : 's'}</div></div>`;
     }).join('');
   }
 
   function sectionHtml(s) {
     return `
-      ${subHead('vn_map', 'Maps ' + TAG)}
+      ${subHead('vn_map', 'Maps ' + TAG, 'fa-map')}
       <div class="cb_collapse_content">
-        <label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Enable maps (adds a Map button to the dialogue box)</span></label>
+        <label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Show Maps</span></label>
+        <div class="cb_hint">Adds a Map button to the dialogue box.</div>
         <div id="m_map_body" class="${s.nodeMaps ? '' : 'cb_dim'}">
-          <div class="cb_hint">Upload a map, then use the pin button to click spots on it. Link a pin to one of this character's locations, or to another map (city, then building, then room). Places tagged in the chat count as visited; the current one glows. The dot marks the map that opens first.</div>
+          <div class="cb_hint">Use the pin button to place pins on a map, each linked to a location or another map. Tagged locations count as visited; the current one glows. The dot marks the start map.</div>
           <div id="m_m_list"></div>
           <div class="cb_row" style="margin-top:8px;">
-            <input type="text" id="m_m_new" class="text_pole" placeholder="Add a map (e.g. City)" style="flex:1;margin:0;">
+            <input type="text" id="m_m_new" class="text_pole" placeholder="New Map" aria-label="New Map" style="flex:1;margin:0;">
             <button id="m_m_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
           </div>
-          <label class="cb_dfield" style="margin-top:8px;"><span>"Go here" text ({place} becomes the place's name)</span><input type="text" id="m_m_go" class="text_pole" value="${escapeHTML(s.mapGoText)}"></label>
+          ${ovLabel('Go Here Text', `<input type="text" id="m_m_go" class="text_pole" style="width:100%;margin:0;" value="${escapeHTML(s.mapGoText)}">`)}
+          <div class="cb_hint" style="margin-bottom:0;">{place} becomes the location's name. Picking Go Here puts this in the input box. Shared by all characters.</div>
         </div>
         <input type="file" id="m_m_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
       </div>`;
@@ -375,7 +378,7 @@
     const go = overlay.querySelector('#m_m_go');
     if (go) go.onchange = () => {
       const v = go.value.trim();
-      if (!v) { go.value = s.mapGoText; toastr.warning('The "Go here" text can\'t be empty.', 'Maps'); return; }
+      if (!v) { go.value = s.mapGoText; toastr.warning('Go Here Text can\'t be empty.', 'Maps'); return; }
       s.mapGoText = v; save();
     };
     const file = overlay.querySelector('#m_m_file');
@@ -397,7 +400,7 @@
       box.querySelectorAll('.m_m_up').forEach((b) => { b.onclick = () => { pending = b.dataset.id; file.click(); }; });
       box.querySelectorAll('.m_m_url').forEach((b) => {
         b.onclick = async () => {
-          const url = await askImageUrl('Map image', b);
+          const url = await askImageUrl('Map Picture', b);
           if (url) setMapImage(b.dataset.id, url);
         };
       });
@@ -405,7 +408,7 @@
       box.querySelectorAll('.m_m_del').forEach((b) => {
         b.onclick = async () => {
           const m = mapById(b.dataset.id);
-          if (!m || !(await A.askYes(b, `Delete the map "${m.name}"${m.url ? ', its image' : ''} and its pins?`, 'Delete', { danger: true }))) return;
+          if (!m || !(await A.askYes(b, `Delete the map "${m.name}"${m.url ? ', its picture' : ''} and its pins?`, 'Delete', { danger: true }))) return;
           const v = D();
           v.maps = maps().filter((x) => x !== m);
           for (const x of v.maps) x.pins = x.pins.filter((p) => p.map !== m.id || p.loc).map((p) => (p.map === m.id ? { ...p, map: '' } : p));
@@ -436,7 +439,7 @@
     const add = () => {
       const inp = overlay.querySelector('#m_m_new');
       const nm = inp.value.trim();
-      if (!nm) return;
+      if (!nm) { toastr.info('Type a name first.', 'Maps'); inp.focus(); return; }
       if (!A.store()) { toastr.warning('Open a character chat first. Maps are saved per character.', 'Maps'); return; }
       const m = { id: VN().newId('map'), name: nm, url: '', pins: [] };
       maps().push(m);

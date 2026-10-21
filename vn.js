@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.69.26';
+  const VN_VERSION = '2.69.27';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -410,7 +410,8 @@
   }
 
   // Menu sub-sections that live in their own lazy-loaded files (map.js, opening.js).
-  const SUB_LABEL = { map: 'Maps', opening: 'Opening video' };
+  const SUB_LABEL = { map: 'Maps', opening: 'Opening Video' };
+  const SUB_ICON = { map: 'fa-map', opening: 'fa-clapperboard' };
   function subSection(name, sec, title, s) {
     const m = window.NTR[name];
     if (m) {
@@ -418,11 +419,11 @@
     }
     const err = A.moduleError ? A.moduleError(name) : '';
     const off = name === 'map' && !s.nodeMaps;
-    const toggle = name === 'map' ? `<label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Enable maps</span></label>` : '';
+    const toggle = name === 'map' ? `<label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Show Maps</span></label>` : '';
     const msg = err ? `${SUB_LABEL[name]} failed to load: ${err}` : off ? 'Its settings appear here once it\'s switched on.' : 'Loading...';
     // The menu loads it itself, so its settings are there in any Reader Mode style, not only once Visual Novel plays.
     if (!err && !off && A.isOn()) loadSub(name);
-    return `${subHead(sec, title)}<div class="cb_collapse_content" data-ntr-wait="${name}">${toggle}<div class="cb_hint">${escapeHTML(msg)}</div></div>`;
+    return `${subHead(sec, title, SUB_ICON[name])}<div class="cb_collapse_content" data-ntr-wait="${name}">${toggle}<div class="cb_hint">${escapeHTML(msg)}</div></div>`;
   }
 
   function loadSub(name, retry = false) {

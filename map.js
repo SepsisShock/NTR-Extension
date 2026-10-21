@@ -184,12 +184,12 @@
       ? 'Editing: click the map to drop a pin, drag pins to move them, click a pin to link it.'
       : 'Faded pins are places the story hasn\'t visited yet.';
     const box = el.querySelector('.ntr_map_view');
-    if (!media(m.url)) { box.innerHTML = '<div class="ntr_map_empty">This map has no image yet. Upload one in the menu under Visual Novel Mode, Maps.</div>'; return; }
+    if (!media(m.url)) { box.innerHTML = '<div class="ntr_map_empty">This map has no picture yet. Upload one on the Reader Mode page, under Visual Novel.</div>'; return; }
     box.innerHTML = `<div class="ntr_map_canvas"><img alt="" draggable="false"><div class="ntr_map_pins"></div><div class="ntr_map_pop"></div></div>`;
     const canvas = box.querySelector('.ntr_map_canvas');
     const img = canvas.querySelector('img');
     img.src = media(m.url);
-    img.onerror = () => { box.innerHTML = '<div class="ntr_map_empty">The map image failed to load.</div>'; };
+    img.onerror = () => { box.innerHTML = '<div class="ntr_map_empty">The map picture failed to load.</div>'; };
     img.addEventListener('click', (e) => {
       if (!view.edit) { hidePop(); return; }
       const r = img.getBoundingClientRect();
@@ -290,7 +290,7 @@
       const others = maps().filter((x) => x.id !== m.id);
       pop.innerHTML = `
         <div class="ntr_pop_t">Pin</div>
-        <div style="margin-top:6px;"><small>Location</small>${locs.length ? pills('mappl', [['', 'None'], ...locs.map((l) => [l.id, escapeHTML(l.name)])], p.loc || '') : '<div class="cb_hint">Add locations in the menu first.</div>'}</div>
+        <div style="margin-top:6px;"><small>Location</small>${locs.length ? pills('mappl', [['', 'None'], ...locs.map((l) => [l.id, escapeHTML(l.name)])], p.loc || '') : '<div class="cb_hint">Add locations on the Reader Mode page first.</div>'}</div>
         <div style="margin-top:6px;"><small>Opens Map</small>${others.length ? pills('mapmp', [['', 'None'], ...others.map((x) => [x.id, escapeHTML(x.name || 'Map')])], p.map || '') : '<div class="cb_hint">Add another map to link one.</div>'}</div>
         <div class="ntr_pop_b">
           <button type="button" class="menu_button danger_button" data-a="del"><i class="fa-solid fa-trash"></i> Delete</button>

@@ -292,7 +292,7 @@
     const f = document.createElement('iframe');
     f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1${st.muted ? '&mute=1' : ''}&origin=${origin}`;
     f.allow = 'autoplay; encrypted-media';
-    f.title = 'Opening video';
+    f.title = 'Opening Video';
     st.iframe = f;
     st.media.appendChild(f);
     const hello = () => {

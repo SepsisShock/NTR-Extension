@@ -4,12 +4,13 @@
 // The header banner above the chat (images that can rotate, a YouTube loop or a video) and the foreground images beside
 // the chat panel, with their page in the menu. Their settings, card data and Edit Placement stay in index.js.
 (() => {
-  const OVERLAYS_VERSION = '2.69.23';
+  const OVERLAYS_VERSION = '2.69.24';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
     media, escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
     askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, ROT_KEYS, BANNER_LOOK_KEYS, startChar } = A;
+  const { ovLabel } = A.look;
   const openCombinedModal = () => A.openMenu();
 
   const CSS = `
@@ -25,6 +26,7 @@
       @media (hover: none) { #cb_banner .cb_snd { opacity: 1; } }
       .cb_thumbs { position: relative; display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 6px; }
       .cb_thumb { flex: none; width: 64px; height: 40px; object-fit: cover; border-radius: 4px; border: 2px solid transparent; cursor: pointer; opacity: 0.7; }
+      .cb_thumbbtn { flex: none; padding: 0; margin: 0; border: 0; background: none; line-height: 0; cursor: pointer; }
       .cb_thumb.active { border-color: var(--SmartThemeQuoteColor, #6cf); opacity: 1; }
       #cb_banner .cb_wall { position: absolute; background-size: cover; background-position: center; background-repeat: no-repeat; pointer-events: none; z-index: 0; }
       #cb_banner .cb_img, #cb_banner .cb_yt { position: relative; z-index: 1; }
@@ -139,9 +141,9 @@
       <button class="cb_nav_btn cb_snd" style="display: none;"></button>
       <div class="cb_wall" style="display: none;"></div>
       <div class="cb_nav">
-        <button class="cb_nav_btn cb_nav_prev" title="Previous image"><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="cb_nav_btn cb_nav_prev" title="Previous Picture" aria-label="Previous Picture"><i class="fa-solid fa-chevron-left"></i></button>
         <span class="cb_nav_count"></span>
-        <button class="cb_nav_btn cb_nav_next" title="Next image"><i class="fa-solid fa-chevron-right"></i></button>
+        <button class="cb_nav_btn cb_nav_next" title="Next Picture" aria-label="Next Picture"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     `;
     banner.querySelector('.cb_nav_prev').onclick = (e) => { e.stopPropagation(); step(-1); };
@@ -155,15 +157,15 @@
     if (!img || img.dataset.watched) return;
     img.dataset.watched = '1';
     img.addEventListener('error', () => {
-      if (img.getAttribute('src')) toastr.error(`Banner image failed to load: ${img.getAttribute('src')}`, 'Banner');
+      if (img.getAttribute('src')) toastr.error(`Banner picture failed to load: ${img.getAttribute('src')}`, 'Banner');
     });
   }
 
   // The Global or Char choice is saved per character: Char uses the character's own banner (saved in its card), Global the
   // shared one. Off is one switch for every character.
   const BANNER_NOTE = {
-    global: 'Global shows the shared banner on every character that doesn\'t have its own (Char).',
-    char: 'Char gives this character its own banner. Its images and settings are saved in its card.',
+    global: 'Global shows the shared banner on every character without its own.',
+    char: 'This Character gives it its own banner, saved in its card.',
   };
   function bannerKind(r) {
     const s = settings();
@@ -494,7 +496,7 @@
     }
     save();
     updateBanner();
-    if (added) toastr.success(`Added ${added} of ${files.length}. Total: ${r.images.length}`, 'Banner');
+    if (added) toastr.success(`Added ${added} of ${files.length} pictures.`, 'Banner');
   }
 
   async function removeCurrentBanner(anchor) {
@@ -502,7 +504,7 @@
     const r = bannerSrc(key ? peek(key) : null);
     const i = pickedIdx(r);
     const im = r.images[i];
-    if (!im || !(await askYes(anchor, 'Remove this banner image?', 'Remove', { danger: true }))) return;
+    if (!im || !(await askYes(anchor, 'Remove this picture from the banner?', 'Remove', { danger: true }))) return;
     r.images.splice(i, 1);
     r.idx = pickedIdx({ idx: i, images: r.images });
     save();
@@ -517,7 +519,7 @@
     if (!w) return '';
     const h = (A.banFree?.() && banner?.offsetHeight) || currentLook().height;
     const ratio = (w / h).toFixed(1);
-    return `Your banner is currently ${w} × ${h} px (${ratio}:1). For sharp results use images at least ${w * 2} × ${Math.round(h * 2 * 1.3)} px. A little taller than the banner's shape gives the Crop slider room to work.`;
+    return `Now ${w} × ${h} px (${ratio}:1). For a sharp banner use pictures at least ${w * 2} × ${Math.round(h * 2 * 1.3)} px; a little taller leaves room for Crop Position.`;
   }
 
   // What the page shows: the open character's banner (Char) or the shared one (Global), and its foreground images.
@@ -532,148 +534,133 @@
     const bl = bannerLook(ownKind ? r : null);
     const btag = ownKind ? ' ' + TAG : '';
     const src = bannerSrc(ownKind ? r : null);
-    const shared = ownKind ? '' : '<div class="cb_hint">This is the shared banner. Changes show on every character set to Global.</div>';
     const n = src.images.length;
     const picked = pickedIdx(src);
     const curImg = src.images[picked] || null;
-    return { F, chatOpen, key, r, ownKind, kind, ro, bl, btag, src, shared, n, picked, curImg };
+    return { F, chatOpen, key, r, ownKind, kind, ro, bl, btag, src, n, picked, curImg };
   }
 
   function sectionHtml(s) {
-    const { F, chatOpen, key, r, ownKind, kind, ro, bl, btag, src, shared, n, picked, curImg } = menuState(s);
+    const { F, chatOpen, key, r, ownKind, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
+    const free = A.banFree?.();
+    const sl = (id, label, valId, val, unit, attrs, extra = '') => `
+              <div class="cb_row" style="margin-top: 10px;"><label for="${id}">${label}</label><span><span id="${valId}" class="ntr_slval">${val}</span>${unit}</span></div>
+              <input type="range" id="${id}" ${attrs} value="${val}"${extra}>`;
     return pageHtml('fg', `
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
             ${card('Source', `
-            <div><strong>Banner:</strong>${pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'Char', BANNER_NOTE.char]], ownKind ? 'char' : 'global')}</div>
-              <div style="margin-top: 10px;">
-                <strong>Kind:</strong>${ownKind ? ' ' + TAG : ''}${pills('bmode', [['image', 'Image Gallery'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind)}
-                ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}
-              </div>`)}
+              ${ovLabel('Banner', pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'This Character', BANNER_NOTE.char]], ownKind ? 'char' : 'global'))}
+              ${ovLabel('Kind' + (ownKind ? ' ' + TAG : ''), pills('bmode', [['image', 'Pictures'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind))}
+              ${ownKind ? '' : '<div class="cb_hint" style="margin-bottom: 0;">Banner changes show on every character set to Global.</div>'}`, 'fa-photo-film')}
 
-            <!-- Image Controls -->
+            <!-- Picture Controls -->
             <div id="m_b_img_controls" style="display: ${kind === 'image' ? 'block' : 'none'};">
-              ${card('Images' + btag, `
-              ${shared}
+              ${card('Pictures' + btag, `
               <div class="cb_actions">
                 <button id="m_b_up" class="menu_button"><i class="fa-solid fa-plus"></i> Add</button>
-                <button id="m_b_url" class="menu_button" title="Add an image from a link"><i class="fa-solid fa-link"></i> Link</button>
-                <button id="m_b_del" class="menu_button danger_button" ${!n ? 'disabled' : ''}><i class="fa-solid fa-trash-can"></i> Del</button>
+                <button id="m_b_url" class="menu_button" title="Add a picture from a link"><i class="fa-solid fa-link"></i> Link</button>
+                <button id="m_b_del" class="menu_button danger_button" ${!n ? 'disabled' : ''}><i class="fa-solid fa-trash-can"></i> Remove</button>
               </div>
               <input type="file" id="m_b_file" accept="image/png,image/jpeg,image/gif,image/webp,.png,.jpg,.jpeg,.gif,.webp" multiple hidden>
 
               ${n > 0 ? `
               <div class="cb_carousel_nav">
-                <button id="m_b_prev" class="menu_button" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>
-                <span>Image <b>${picked + 1}</b> of <b>${n}</b></span>
-                <button id="m_b_next" class="menu_button" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>
+                <button id="m_b_prev" class="menu_button" title="Previous Picture" aria-label="Previous Picture" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>
+                <span>Picture <b>${picked + 1}</b> of <b>${n}</b></span>
+                <button id="m_b_next" class="menu_button" title="Next Picture" aria-label="Next Picture" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>
               </div>
-              <div class="cb_thumbs">${src.images.map((im, i) => `<img class="cb_thumb${i === picked ? ' active' : ''}" data-i="${i}" src="${escapeHTML(media(im.url))}" alt="">`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No images yet</div>`}
+              <div class="cb_thumbs">${src.images.map((im, i) => `<button type="button" class="cb_thumbbtn" data-i="${i}" aria-label="Picture ${i + 1}"${i === picked ? ' aria-current="true"' : ''}><img class="cb_thumb${i === picked ? ' active' : ''}" src="${escapeHTML(media(im.url))}" alt=""></button>`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No pictures yet</div>`}
 
-              ${curImg ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_pval" class="ntr_slval">${cardNum(curImg.pos, 'bannerPos', 45)}</span>${numRange('bannerPos')[3]}</span></div>
-              <input type="range" id="m_b_p" ${rangeAttrs('bannerPos')} value="${cardNum(curImg.pos, 'bannerPos', 45)}">
-              ` : ''}`)}
+              ${curImg ? sl('m_b_p', `Crop Position${btag}`, 'm_b_pval', cardNum(curImg.pos, 'bannerPos', 45), numRange('bannerPos')[3], rangeAttrs('bannerPos')) : ''}`, 'fa-images')}
 
               ${card('Rotation' + (ownKind ? ' ' + TAG : ''), `
-                <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate through images</span></label>
+                <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate Pictures</span></label>
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
-                  <div class="cb_row" style="margin-top: 8px;"><label>Every:</label><span><span id="m_b_rot_val" class="ntr_slval">${ro.rotateSec}</span>${numRange('bannerRotateSec')[3]}</span></div>
-                  <input type="range" id="m_b_rot_sec" ${rangeAttrs('bannerRotateSec')} value="${ro.rotateSec}">
-                  <div style="margin-top: 8px;"><strong>Change:</strong>${pills('brfx', [['fade', 'Crossfade'], ['swap', 'Instant']], ro.rotateFx)}</div>
-                  <div style="margin-top: 8px;"><strong>Order:</strong>${pills('brord', [['order', 'In order'], ['shuffle', 'Shuffled']], ro.rotateOrder)}</div>
+                  ${sl('m_b_rot_sec', 'Every', 'm_b_rot_val', ro.rotateSec, numRange('bannerRotateSec')[3], rangeAttrs('bannerRotateSec'))}
+                  ${ovLabel('Transition', pills('brfx', [['fade', 'Crossfade'], ['swap', 'Instant']], ro.rotateFx))}
+                  ${ovLabel('Order', pills('brord', [['order', 'In Order'], ['shuffle', 'Shuffled']], ro.rotateOrder))}
                 </div>
-                ${n < 2 ? '<div class="cb_hint">Rotation needs 2 or more images.</div>' : ''}
-                ${ownKind ? '' : '<div class="cb_hint">Changes every character set to Global.</div>'}`)}
+                ${n < 2 ? '<div class="cb_hint" style="margin-bottom: 0;">Needs 2 or more pictures.</div>' : ''}`, 'fa-arrows-rotate')}
             </div>
 
             <!-- YouTube Controls -->
             <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
               ${card('YouTube Loop' + btag, `
-              <label><strong>YouTube Video URL:</strong></label>
-              ${shared}
-              <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">`)}
+              ${ovLabel('YouTube Link', `<input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">`)}`, 'fa-circle-play')}
             </div>
 
             <!-- Video Controls -->
             <div id="m_b_vid_controls" style="display: ${kind === 'video' ? 'block' : 'none'};">
               ${card('Video' + btag, `
-              ${shared}
               <div class="cb_row">
                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${src.video ? escapeHTML(String(src.video).split('/').pop()) : '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
-                <button id="m_b_vup" class="menu_button" style="margin:0;" title="Upload a video"><i class="fa-solid fa-upload"></i></button>
-                <button id="m_b_vurl" class="menu_button" style="margin:0;" title="Use a link to a video"><i class="fa-solid fa-link"></i></button>
-                <button id="m_b_vdel" class="menu_button danger_button" style="margin:0;" title="Remove the video" ${!src.video ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
+                <button id="m_b_vup" class="menu_button" style="margin:0;" title="Upload a video" aria-label="Upload a video"><i class="fa-solid fa-upload"></i></button>
+                <button id="m_b_vurl" class="menu_button" style="margin:0;" title="Use a link to a video" aria-label="Use a link to a video"><i class="fa-solid fa-link"></i></button>
+                <button id="m_b_vdel" class="menu_button danger_button" style="margin:0;" title="Remove the video" aria-label="Remove the video" ${!src.video ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
               </div>
               <input type="file" id="m_b_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
-              ${src.video ? `
-              <div class="cb_row" style="margin-top: 10px;"><label>Crop:${btag}</label><span><span id="m_b_vpval" class="ntr_slval">${cardNum(src.videoPos, 'bannerVideoPos', 50)}</span>${numRange('bannerVideoPos')[3]}</span></div>
-              <input type="range" id="m_b_vp" ${rangeAttrs('bannerVideoPos')} value="${cardNum(src.videoPos, 'bannerVideoPos', 50)}">` : ''}
-              <div class="cb_hint">Loops without controls. The speaker button on the banner turns sound on or off, and your choice is remembered. Until you've clicked somewhere on the page, browsers may keep it muted.</div>`)}
+              ${src.video ? sl('m_b_vp', `Crop Position${btag}`, 'm_b_vpval', cardNum(src.videoPos, 'bannerVideoPos', 50), numRange('bannerVideoPos')[3], rangeAttrs('bannerVideoPos')) : ''}
+              <div class="cb_hint" style="margin-bottom: 0;">Loops with no controls. The banner's speaker button turns sound on or off and remembers it. Browsers may keep it muted until you click the page.</div>`, 'fa-film')}
             </div>
 
-            ${card('Layout', `
-              ${A.banFree?.() ? '<div class="cb_hint">The banner is Floating on the Layout page, so it sits where Edit Layout puts it: Lock to top, Overlap, Banner Height, Gap and Overlap Offset don\'t apply.</div>' : ''}
-              <div class="${A.banFree?.() ? 'cb_dim' : ''}">
-              <label class="checkbox_label" ${!key ? 'style="opacity:0.5;pointer-events:none;"' : ''}>
-                <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}><span>Lock to top ${TAG}</span>
+            ${card('Placement', `
+              ${free ? '<div class="cb_hint">Floating on the Layout page, so Edit Layout places it. Lock to Top, Overlap, Height, Gap and Push Messages Down don\'t apply.</div>' : ''}
+              <div class="${free ? 'cb_dim' : ''}">
+              <label class="checkbox_label${key ? '' : ' cb_dim'}">
+                <input type="checkbox" id="m_b_lock" ${r.locked ? 'checked' : ''}${key ? '' : ' disabled'}><span>Lock to Top ${TAG}</span>
               </label>
-              <label class="checkbox_label" style="margin-top: 6px;${!key ? 'opacity:0.5;pointer-events:none;' : ''}">
-                <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}><span>Overlap messages ${TAG}</span>
+              <div class="cb_hint">Unticked, it scrolls with the messages.</div>
+              <label class="checkbox_label${key ? '' : ' cb_dim'}" style="margin-top: 6px;">
+                <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}${key ? '' : ' disabled'}><span>Overlap Messages ${TAG}</span>
               </label>
 
-            <div class="cb_row" style="margin-top: 15px;"><label>Banner Height:${btag}</label><span><span id="m_b_hval" class="ntr_slval">${bl.height}</span>${numRange('bannerHeight')[3]}</span></div>
-            <input type="range" id="m_b_h" ${rangeAttrs('bannerHeight')} value="${bl.height}">
+            ${sl('m_b_h', `Height${btag}`, 'm_b_hval', bl.height, numRange('bannerHeight')[3], rangeAttrs('bannerHeight'))}
             <div id="m_b_guide" class="cb_hint" style="margin-top: 4px;">${escapeHTML(bannerGuideText())}</div>
 
-            <div id="m_b_gap_wrapper" style="${r.overlap ? 'opacity: 0.5; pointer-events: none;' : ''}">
-              <div class="cb_row" style="margin-top: 10px;"><label>Gap Below Banner:${btag}</label><span><span id="m_b_gapval" class="ntr_slval">${bl.gap}</span>${numRange('bannerGap')[3]}</span></div>
-              <input type="range" id="m_b_gap" ${rangeAttrs('bannerGap')} value="${bl.gap}">
+            <div id="m_b_gap_wrapper" class="${r.overlap ? 'cb_dim' : ''}">
+              ${sl('m_b_gap', `Gap Below${btag}`, 'm_b_gapval', bl.gap, numRange('bannerGap')[3], rangeAttrs('bannerGap'))}
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
-              <div class="cb_row" style="margin-top: 10px;"><label>Overlap Offset (Push Messages Down): ${TAG}</label><span><span id="m_b_oval" class="ntr_slval">${cardNum(r.overlapOffset, 'bannerOffset', 0)}</span>${numRange('bannerOffset')[3]}</span></div>
-              <input type="range" id="m_b_offset" ${rangeAttrs('bannerOffset')} value="${cardNum(r.overlapOffset, 'bannerOffset', 0)}" ${!key ? 'disabled' : ''}>
+              ${sl('m_b_offset', `Push Messages Down ${TAG}`, 'm_b_oval', cardNum(r.overlapOffset, 'bannerOffset', 0), numRange('bannerOffset')[3], rangeAttrs('bannerOffset'), !key ? ' disabled' : '')}
             </div>
             </div>
 
-            <div style="margin-top: 10px;"><strong>Transparent areas show:${btag}</strong>${pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat panel tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper')}</div>
-            ${ownKind ? '' : '<div class="cb_hint">Height, gap and transparent areas change every character set to Global.</div>'}`)}
-          `)}
+            ${ovLabel('Transparent Areas' + btag, pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat Panel Tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper'))}`, 'fa-ruler-combined')}
+          `, 'fa-panorama')}
 
-          ${pagePart('Foreground Images', ['m_f_enable', s.fgEnabled], '', `
+          ${pagePart('Foreground Pictures', ['m_f_enable', s.fgEnabled], 'fg_fore', `
             ${card('', `
-            <div class="cb_row"><label>Opacity:</label><span><span id="m_f_oval" class="ntr_slval">${rangeNum(s, 'fgOpacity')}</span>${numRange('fgOpacity')[3]}</span></div>
-            <input type="range" id="m_f_o" ${rangeAttrs('fgOpacity')} value="${rangeNum(s, 'fgOpacity')}">
-            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide these in Visual Novel Mode</span></label>
+            ${sl('m_f_o', 'Opacity', 'm_f_oval', rangeNum(s, 'fgOpacity'), numRange('fgOpacity')[3], rangeAttrs('fgOpacity'))}
+            <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide in Visual Novel Mode</span></label>
             <button type="button" id="m_f_place" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
-            <div class="cb_hint" style="margin-bottom: 0;">Hides the menu so you can drag the images on screen. Each one stays tied to its side. Press Done to come back.</div>`)}
+            <div class="cb_hint" style="margin-bottom: 0;">Hides the menu while you drag the pictures. Each stays tied to its side.</div>`)}
 
-            <div class="ntr_glab">Images ${TAG}</div>
-            ${chatOpen ? '' : '<div class="cb_hint" style="margin-bottom: 8px;">Open a character chat first. Foreground images are saved per character.</div>'}
+            <div class="ntr_glab">Pictures ${TAG}</div>
+            ${chatOpen ? '' : '<div class="cb_hint" style="margin-bottom: 8px;">Open a character chat first.</div>'}
             <div class="ntr_fgrid">
               ${['Left', 'Center', 'Right'].map(pos => `
                 <div class="cb_col ntr_card" style="align-items: center; text-align: center;">
-                  <strong>${pos} ${TAG}</strong>
+                  <strong>${pos}</strong>
                   <div style="width:100%; height:80px; background:rgba(0,0,0,0.3); border-radius:4px; margin:5px 0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img id="m_f_img_${pos}" src="${escapeHTML(media(F[pos]))}" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
+                    <img id="m_f_img_${pos}" src="${escapeHTML(media(F[pos]))}" alt="" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
                     <span id="m_f_none_${pos}" style="display:${F[pos] ? 'none' : 'block'}; opacity:0.5; font-size:12px;">Empty</span>
                   </div>
                   <div style="display:flex; gap:5px; width:100%;">
-                    <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-upload"></i></button>
-                    <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link for the ${pos} image" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
-                    <button class="menu_button danger_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Clear ${pos} image" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
+                    <button class="menu_button m_f_up" data-pos="${pos}" style="flex:1; padding:4px;" title="Upload" aria-label="Upload ${pos} picture" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-upload"></i></button>
+                    <button class="menu_button m_f_url" data-pos="${pos}" style="flex:1; padding:4px;" title="Use a link" aria-label="Use a link for the ${pos} picture" ${!chatOpen ? 'disabled' : ''}><i class="fa-solid fa-link"></i></button>
+                    <button class="menu_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Remove picture" aria-label="Remove ${pos} picture" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-rotate-left"></i></button>
                   </div>
-                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>Size:</label><span><span id="m_f_s_${pos}val" class="ntr_slval">${cardNum(F[pos + 'Scale'], 'fgScale', 100)}</span>${numRange('fgScale')[3]}</span></div>
-                  <input type="range" class="m_f_scale" data-pos="${pos}" ${rangeAttrs('fgScale')} value="${cardNum(F[pos + 'Scale'], 'fgScale', 100)}" style="width:100%;">
-                  ${[['X', 'Left/Right'], ['Y', 'Up/Down']].map(([ax, name]) => `
-                  <div class="cb_row" style="width:100%; margin-top:6px;"><label>${name}:</label><span><span id="m_f_${ax}_${pos}val" class="ntr_slval">${cardNum(F[pos + ax], 'fg' + ax, 0)}</span>${numRange('fg' + ax)[3]}</span></div>
-                  <input type="range" id="m_f_${ax}_${pos}" class="m_f_move" data-pos="${pos}" data-ax="${ax}" ${rangeAttrs('fg' + ax)} value="${cardNum(F[pos + ax], 'fg' + ax, 0)}" style="width:100%;">`).join('')}
-                  <div style="width:100%; margin-top:6px; text-align:left;"><small>In Visual Novel Mode, sit:</small>${pills('fgl' + pos, [['behind', 'Behind sprites'], ['front', 'In front']], F[pos + 'Layer'])}</div>
+                  <div style="width:100%; text-align:left;">
+                  ${sl(`m_f_s_${pos}`, 'Size', `m_f_s_${pos}val`, cardNum(F[pos + 'Scale'], 'fgScale', 100), numRange('fgScale')[3], `class="m_f_scale" data-pos="${pos}" ${rangeAttrs('fgScale')}`, ' style="width:100%;"')}
+                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, `m_f_${ax}_${pos}val`, cardNum(F[pos + ax], 'fg' + ax, 0), numRange('fg' + ax)[3], `class="m_f_move" data-pos="${pos}" data-ax="${ax}" ${rangeAttrs('fg' + ax)}`, ' style="width:100%;"')).join('')}
+                  ${ovLabel('In Visual Novel Mode', pills('fgl' + pos, [['behind', 'Behind Sprites'], ['front', 'In Front']], F[pos + 'Layer']))}
+                  </div>
                 </div>
               `).join('')}
             </div>
             <input type="file" id="m_f_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-          `)}
+          `, 'fa-clone')}
         `, { legend: true });
   }
 
@@ -691,7 +678,7 @@
     if (!key) {
       const ch = overlay.querySelector('input[name="cbr_bscope"][value="char"]');
       ch.disabled = true;
-      ch.closest('label').style.cssText = 'opacity:0.5;pointer-events:none;';
+      ch.closest('label').classList.add('cb_dim');
     }
     overlay.querySelector('#m_b_enable').onchange = function() {
       s.bannerOn = this.checked;
@@ -822,7 +809,8 @@
     overlay.querySelectorAll('.m_f_url').forEach(btn => {
       btn.onclick = async () => {
         const pos = btn.dataset.pos;
-        const url = await askImageUrl(`${pos} foreground image`, btn);
+        // The columns are narrow, so the question goes under all three.
+        const url = await askImageUrl(`${pos} Foreground Picture`, btn.closest('.ntr_fgrid'));
         if (!url) return;
         const old = F[pos];
         F[pos] = url;
@@ -871,8 +859,7 @@
       
       overlay.querySelector('#m_b_overlap').onchange = function() { 
         r.overlap = this.checked; 
-        overlay.querySelector('#m_b_gap_wrapper').style.opacity = r.overlap ? '0.5' : '1';
-        overlay.querySelector('#m_b_gap_wrapper').style.pointerEvents = r.overlap ? 'none' : 'auto';
+        overlay.querySelector('#m_b_gap_wrapper').classList.toggle('cb_dim', r.overlap);
         overlay.querySelector('#m_b_offset_wrapper').style.display = r.overlap ? 'block' : 'none';
         save(); 
         render(); 
@@ -893,7 +880,7 @@
     const fi = overlay.querySelector('#m_b_file');
     overlay.querySelector('#m_b_up').onclick = () => fi.click();
     overlay.querySelector('#m_b_url').onclick = async () => {
-      const url = await askImageUrl('Banner image', overlay.querySelector('#m_b_url'), src !== settings().bannerGlobal);
+      const url = await askImageUrl('Banner Picture', overlay.querySelector('#m_b_url'), src !== settings().bannerGlobal);
       if (!url) return;
       src.images.push({ url, pos: 45 });
       src.idx = src.images.length - 1;
@@ -904,7 +891,7 @@
     if (n > 0) {
       overlay.querySelector('#m_b_prev').onclick = () => step(-1);
       overlay.querySelector('#m_b_next').onclick = () => step(1);
-      overlay.querySelectorAll('.cb_thumb').forEach((t) => {
+      overlay.querySelectorAll('.cb_thumbbtn').forEach((t) => {
         t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openCombinedModal(); };
       });
       const strip = overlay.querySelector('.cb_thumbs');

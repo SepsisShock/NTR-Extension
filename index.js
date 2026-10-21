@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.70.0';
+  const VERSION = '2.71.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -387,7 +387,8 @@ await (async () => {
     if (!s.themeLookV5) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV5 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
-    if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
+    // The template is copied into cards, which check a list like a theme's, so it keeps to the same limits.
+    if (!validEmotions(s.emotions)) s.emotions = fixEmotions(s.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
     if (!Array.isArray(s.layPins)) s.layPins = [];
     if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
@@ -3123,6 +3124,12 @@ await (async () => {
     v.emoImgs = emo;
     v.customSpk = Array.isArray(v.customSpk) ? v.customSpk.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : [];
     v.hiddenSpk = Array.isArray(v.hiddenSpk) ? v.hiddenSpk.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : [];
+    // This character's own emotion list (see emoSet), checked like a theme's. A list that doesn't pass is dropped, so
+    // the character follows the template. Cleaned in place: the menu edits these objects.
+    if (validEmotions(v.emotions)) {
+      for (const e of v.emotions) { for (const k of Object.keys(e)) if (k !== 'id' && k !== 'name') delete e[k]; e.name = e.name.trim(); }
+      if (!v.emotions.some((e) => e.id === v.emoDefault)) v.emoDefault = v.emotions[0].id;
+    } else { delete v.emotions; delete v.emoDefault; }
     v.locations = cList(v.locations, 500, (l) => cNamed(l, 'loc'));
     v.locDefault = cUrl(v.locDefault);
     v.cgs = cList(v.cgs, 500, (g) => cNamed(g, 'cg'));
@@ -3192,7 +3199,7 @@ await (async () => {
     const b = d.banner;
     const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl && !b.video && b.scope !== 'char');
     const vn = d.vn || {};
-    return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.customSpk || []).length && !(vn.hiddenSpk || []).length && !(vn.locations || []).length
+    return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.emotions || []).length && !(vn.customSpk || []).length && !(vn.hiddenSpk || []).length && !(vn.locations || []).length
       && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt) && !(d.regex?.folders || []).length;
   }
 
@@ -3251,6 +3258,15 @@ await (async () => {
     }
     legacyMigrate(st);
     return st;
+  }
+
+  // The open chat's emotions: its own list (in the card, or the group's), or the template (the global list) when it has
+  // none or no chat is open.
+  function emoSet() {
+    const s = settings();
+    const v = store()?.vn;
+    if (v && Array.isArray(v.emotions)) return { emotions: v.emotions, emoDefault: v.emoDefault, own: true };
+    return { emotions: s.emotions, emoDefault: s.emoDefault, own: false };
   }
 
   function fgData() {
@@ -3567,6 +3583,15 @@ await (async () => {
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
   const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbArrowSym: 16, rbCss: 2000, rbBtnCss: 2000, rbArrowCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
+  // An emotion list cut down to what validEmotions takes: good ids, names up to 100 characters, no repeats, 100 at most.
+  function fixEmotions(v) {
+    const ids = new Set(), names = new Set();
+    const out = (Array.isArray(v) ? v : []).filter(isObj)
+      .map((e) => ({ id: cRef(e.id), name: typeof e.name === 'string' ? e.name.trim().slice(0, 100) : '' }))
+      .filter((e) => e.id && e.name && !ids.has(e.id) && !names.has(e.name.toLowerCase()) && ids.add(e.id) && names.add(e.name.toLowerCase()))
+      .slice(0, 100);
+    return out.length ? out : structuredClone(DEFAULTS.emotions);
+  }
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;
     const ids = new Set(), names = new Set();
@@ -4695,7 +4720,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),

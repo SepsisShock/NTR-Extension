@@ -3,7 +3,7 @@
 // Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
 // If this file breaks, the rest of the extension keeps working.
 (() => {
-  const CAST_VERSION = '2.70.0';
+  const CAST_VERSION = '2.71.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
@@ -21,13 +21,23 @@
     const d = CDEF();
     for (const k of Object.keys(d)) if (st.vn[k] === undefined) st.vn[k] = d[k];
     if (Object.keys(st.vn.avatars).length) mergeOldFaces(st.vn);
+    // A character with faces keeps its own emotion list, so a later change to the template can't strand its faces.
+    if (!Array.isArray(st.vn.emotions) && Object.values(st.vn.emoImgs).some((m) => m && Object.keys(m).length)) { ownList(st.vn); save(); }
     return st.vn;
+  }
+  // The open chat's emotions (A.emoSet): its own list, or the template.
+  const E = () => A.emoSet();
+  // Gives a chat its own emotion list, a copy of the template.
+  function ownList(v) {
+    const s = settings();
+    v.emotions = s.emotions.map((e) => ({ id: e.id, name: e.name }));
+    v.emoDefault = s.emoDefault;
   }
 
   // Speakers used to have a separate face picture next to their emotion images. The face is the emotion images now:
   // a speaker who has emotion images loses the old copy (file included); one who has none gets it as their default emotion.
   function mergeOldFaces(v) {
-    const s = settings();
+    const s = Array.isArray(v.emotions) ? v : settings();
     const olds = [];
     for (const k of Object.keys(v.avatars)) {
       const u = v.avatars[k];
@@ -138,7 +148,7 @@
 
   // The speaker's default emotion face, or their first face in list order.
   function defaultFace(key) {
-    const s = settings();
+    const s = E();
     const imgs = D().emoImgs[key] || {};
     if (imgs[s.emoDefault]) return imgs[s.emoDefault];
     const e = s.emotions.find((x) => imgs[x.id]);
@@ -171,12 +181,12 @@
 
   function findEmo(name) {
     const k = lc(name);
-    return k ? settings().emotions.find((e) => e.name.toLowerCase() === k) : null;
+    return k ? E().emotions.find((e) => e.name.toLowerCase() === k) : null;
   }
 
   // Face for an emotion > default face > base face > nothing (null)
   function faceSrc(name, emoName) {
-    const s = settings();
+    const s = E();
     const imgs = D().emoImgs[lc(name)] || {};
     const e = findEmo(emoName);
     if (e && imgs[e.id]) return media(imgs[e.id]) || null;
@@ -288,7 +298,7 @@
     return info;
   }
 
-  const hasFaces = (key) => { const imgs = D().emoImgs[key] || {}; return settings().emotions.some((e) => imgs[e.id]); };
+  const hasFaces = (key) => { const imgs = D().emoImgs[key] || {}; return E().emotions.some((e) => imgs[e.id]); };
 
   // Faces: each message's avatar shows its writer's face for that message's emotion, or their main face without a tag.
   // Speakers without faces keep SillyTavern's picture. SillyTavern puts its own picture back when it redraws a message,
@@ -296,7 +306,7 @@
   let facesShown = false;
   function drawFaces() {
     const s = settings();
-    const on = A.isOn() && s.emoFaces && !!A.store();
+    const on = A.isOn() && s.avatarEnabled && s.emoFaces && !!A.store();
     if (!on && !facesShown) return;
     facesShown = on;
     const chat = ctx().chat || [];
@@ -335,7 +345,7 @@
   function drawStage() {
     const s = settings();
     let el = document.getElementById('ntr_cast_stage');
-    const on = A.isOn() && s.emoStage && !s.nodeEnabled && !!A.store();
+    const on = A.isOn() && s.avatarEnabled && s.emoStage && !s.nodeEnabled && !!A.store();
     if (!on) { if (el) el.style.display = 'none'; spots.clear(); return; }
     if (!el) {
       el = document.createElement('div');
@@ -393,9 +403,18 @@
   // ----- Hiding tags in the chat: the emotion part of speaker tags, Emotion tags and scene tags -----
   // A reply being written can end partway through a tag; that part is hidden too until the reply is done.
   let writing = false;
+  // In the chat it follows Avatar Management's switch; Visual Novel Mode has its own.
+  const hideOn = (s) => A.isOn() && s.nodeHideEmo && (s.avatarEnabled || s.nodeEnabled);
+  // Hidden tags are taken out of the page's text, so once hiding goes off they only come back with a redraw (restoreTags).
+  let tagsHidden = false;
+  function restoreTags() {
+    if (!tagsHidden || hideOn(settings())) return;
+    tagsHidden = false;
+    if (typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
+  }
   function cleanTags(els) {
     const s = settings();
-    if (!A.isOn() || !s.nodeHideEmo) return;
+    if (!hideOn(s)) return;
     const live = writing && document.querySelector('#chat .mes.last_mes .mes_text');
     // Only messages that hold a tag are worth a closer look. A reply being written also counts if it has an open
     // speaker tag, since its emotion part may be only half written.
@@ -423,13 +442,13 @@
         let val = n.nodeValue;
         if (emoRe && val.includes(s.delimEmo)) val = val.replace(emoRe, '$1$2');
         if (val.includes(s.delimNarOpen)) val = val.replace(locRe, '');
-        if (val !== n.nodeValue) n.nodeValue = val;
+        if (val !== n.nodeValue) { n.nodeValue = val; tagsHidden = true; }
       }
       if (el !== live || !last) continue;
       let val = last.nodeValue;
       if (openEmoRe) val = val.replace(openEmoRe, '$1');
       val = val.replace(openLocRe, '');
-      if (val !== last.nodeValue) last.nodeValue = val;
+      if (val !== last.nodeValue) { last.nodeValue = val; tagsHidden = true; }
     }
   }
 
@@ -463,12 +482,12 @@
 
   // ----- The tag instructions for the model, while faces or the stage are on and Visual Novel Mode is off -----
   const INJECT_KEY = 'ntr_emo';
-  const promptText = (s) => `End every reply with ${s.delimNarOpen}${s.emoWord}:Name${s.delimNarClose} for the emotion of the character speaking, using one of: ${s.emotions.map((e) => e.name).join(', ')}.`;
+  const promptText = (s) => `End every reply with ${s.delimNarOpen}${s.emoWord}:Name${s.delimNarClose} for the emotion of the character speaking, using one of: ${E().emotions.map((e) => e.name).join(', ')}.`;
   function updateInjection() {
     const c = ctx();
     if (typeof c.setExtensionPrompt !== 'function') return;
     const s = settings();
-    const on = A.isOn() && !s.nodeEnabled && s.emoSource === 'tags' && s.emoInject && (s.emoFaces || s.emoStage);
+    const on = A.isOn() && s.avatarEnabled && !s.nodeEnabled && s.emoSource === 'tags' && s.emoInject && (s.emoFaces || s.emoStage);
     try { c.setExtensionPrompt(INJECT_KEY, on ? promptText(s) : '', 1, 1, false, 0); } catch (e) { console.error('[NTR] Could not set the emotion instructions', e); }
   }
 
@@ -479,10 +498,12 @@
     ensure();
     updateInjection();
     cleanTags();
+    restoreTags();
     schedule();
   }
   function teardown() {
     updateInjection();
+    restoreTags();
     drawFaces();
     drawStage();
   }
@@ -501,22 +522,23 @@
     const nHidden = (D().hiddenSpk || []).length;
     const restore = nHidden ? `<div class="cb_hint"><a href="#" class="m_spk_unhide">Restore ${nHidden} hidden speaker${nHidden === 1 ? '' : 's'}</a></div>` : '';
     if (!list.length) return `<div class="cb_hint">No one here yet. ${s.nodeAutoSpk ? 'Add a speaker, or they join once tagged in the chat.' : 'Add a speaker or let them join automatically.'}</div>${restore}`;
+    const L = E();
     return list.map(({ key, name, custom }) => {
       const base = baseFace(name);
       const stPic = stAvatar(key);
-      const faceEmo = (() => { const im = D().emoImgs[key] || {}; return s.emotions.find((e) => e.id === s.emoDefault && im[e.id]) || s.emotions.find((e) => im[e.id]); })();
-      const n = s.emotions.length;
+      const faceEmo = (() => { const im = D().emoImgs[key] || {}; return L.emotions.find((e) => e.id === L.emoDefault && im[e.id]) || L.emotions.find((e) => im[e.id]); })();
+      const n = L.emotions.length;
       const full = D().sprites[key];
       const imgs = D().emoImgs[key] || {};
-      const cnt = s.emotions.filter((e) => imgs[e.id]).length;
+      const cnt = L.emotions.filter((e) => imgs[e.id]).length;
       const open = spkOpen.has(key);
       const k = escapeHTML(key);
-      const grid = !open ? '' : `<div class="cb_emo_grid">${s.emotions.map((e) => {
+      const grid = !open ? '' : `<div class="cb_emo_grid">${L.emotions.map((e) => {
         const src = imgs[e.id];
         const id = escapeHTML(e.id);
         return `<div class="cb_emo_cell">
             ${thumbBox(src)}
-            <div class="cb_emo_label">${escapeHTML(e.name)}${e.id === s.emoDefault ? ' ★' : ''}</div>
+            <div class="cb_emo_label">${escapeHTML(e.name)}${e.id === L.emoDefault ? ' ★' : ''}</div>
             <div style="display:flex;gap:4px;">
               <button class="menu_button m_spk_up" data-key="${k}" data-emo="${id}" title="Upload ${escapeHTML(e.name)} Face" aria-label="Upload ${escapeHTML(e.name)} Face"><i class="fa-solid fa-upload"></i></button>
               <button class="menu_button m_spk_url" data-key="${k}" data-emo="${id}" title="Use a link for the ${escapeHTML(e.name)} Face" aria-label="Use a link for the ${escapeHTML(e.name)} Face"><i class="fa-solid fa-link"></i></button>
@@ -547,19 +569,21 @@
     }).join('') + restore;
   }
 
-  function emoRowsHtml(s) {
-    return s.emotions.map((e) => {
+  function emoRowsHtml() {
+    const L = E();
+    return L.emotions.map((e) => {
       const id = escapeHTML(e.id);
-      const isDef = e.id === s.emoDefault;
+      const isDef = e.id === L.emoDefault;
       return `<div class="cb_emo_row">
         <label class="cb_defdot" title="Use as Default"><input type="radio" name="cbr_emodef" value="${id}" aria-label="Default Emotion" ${isDef ? 'checked' : ''}></label>
-        <input type="text" class="text_pole m_emo_name" data-id="${id}" aria-label="Emotion Name" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
+        <input type="text" class="text_pole m_emo_name" data-id="${id}" aria-label="Emotion Name" maxlength="100" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
         <button class="menu_button danger_button m_emo_del" data-id="${id}" title="${isDef ? 'Pick a different default before deleting this one' : 'Delete Emotion'}" aria-label="Delete ${escapeHTML(e.name)}" ${isDef ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
       </div>`;
     }).join('');
   }
 
-  // Stays usable with NTR Avatars switched off (ntr_keepon): faces are for SillyTavern's own avatars too.
+  // The emotion data stays editable with Avatar Management switched off (ntr_keepon), since Visual Novel Mode uses it too.
+  // What In the Chat shows on SillyTavern's chat follows the page's switch (ntr_pagefx), like the rest of the page.
   function partHtml(s) {
     const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const sl = (key, label) => {
@@ -578,28 +602,34 @@
         <div><strong>Emotion Source:</strong>${pills('emosrc', [['tags', 'Tags'], ['agent', 'Agent (Soon)', 'An agent will read each reply and pick the emotion. Not ready yet.']], s.emoSource === 'agent' ? 'agent' : 'tags')}</div>
         ${subHead('av_chat', 'In the Chat', 'fa-message')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">A message's emotion comes from <code>${tag}</code>, or a speaker tag with the writer's name. Without one, the main face shows.</div>
-          ${ck('m_emo_faces', s.emoFaces, 'Emotion Faces on Chat Avatars')}
-          ${ck('m_emo_stage', s.emoStage, 'Stage Behind the Chat')}
-          <div class="cb_hint">The last three speakers, by full body or face.</div>
-          <div id="m_emo_stagebody" class="${s.emoStage ? '' : 'cb_dim'}">
-            ${sl('emoStageScale', 'Stage Size:')}
-            ${sl('emoStageOpacity', 'Stage Opacity:')}
+          <div class="ntr_pagefx">
+            <div class="cb_hint">A message's emotion comes from <code>${tag}</code>, or a speaker tag with the writer's name. Without one, the main face shows.</div>
+            ${ck('m_emo_faces', s.emoFaces, 'Emotion Faces on Chat Avatars')}
+            ${ck('m_emo_stage', s.emoStage, 'Stage Behind the Chat')}
+            <div class="cb_hint">The last three speakers, by full body or face.</div>
+            <div id="m_emo_stagebody" class="${s.emoStage ? '' : 'cb_dim'}">
+              ${sl('emoStageScale', 'Stage Size:')}
+              ${sl('emoStageOpacity', 'Stage Opacity:')}
+            </div>
+            ${ck('m_emo_inj', s.emoInject, 'Ask the Model for Emotion Tags')}
+            <div class="cb_hint">With Visual Novel Mode on, its own stage and instructions replace Stage and the Emotion tag request.</div>
           </div>
           <div style="margin-top:8px;">${ck('m_emo_keepface', s.nodeSpriteBase, 'Stage Keeps Main Face')}</div>
-          <div class="cb_hint">Also in Visual Novel Mode.</div>
           ${ck('m_emo_hide', s.nodeHideEmo, 'Hide Emotion and Scene Tags')}
-          ${ck('m_emo_inj', s.emoInject, 'Ask the Model for Emotion Tags')}
-          <div class="cb_hint">With Visual Novel Mode on, its own stage and instructions replace Stage and the Emotion tag request.</div>
+          <div class="cb_hint">Also in Visual Novel Mode.</div>
         </div>
-        ${subHead('av_emo_list', 'Emotion List', 'fa-list-ul')}
+        ${subHead('av_emo_list', 'Emotion List ' + TAG, 'fa-list-ul')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">Names are shared by all characters. Pictures are set per character under Speakers.</div>
+          <div id="m_emo_state" class="cb_plab"></div>
           <div class="cb_hint">The dot marks the default, used when a tag has no emotion or one not on this list.</div>
           <div id="m_emo_list"></div>
           <div class="cb_row" style="margin-top:6px;">
-            <input type="text" id="m_emo_new" class="text_pole" placeholder="New Emotion" style="flex:1;margin:0;">
+            <input type="text" id="m_emo_new" class="text_pole" placeholder="New Emotion" maxlength="100" style="flex:1;margin:0;">
             <button id="m_emo_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
+          </div>
+          <div id="m_emo_tpl" class="cb_row" style="margin-top:6px;flex-wrap:wrap;justify-content:flex-start;gap:6px;">
+            <button id="m_emo_reset" class="menu_button" style="margin:0;white-space:nowrap;"><i class="fa-solid fa-rotate-left"></i> Reset to Template</button>
+            <button id="m_emo_savetpl" class="menu_button" style="margin:0;white-space:nowrap;"><i class="fa-solid fa-floppy-disk"></i> Save as Template</button>
           </div>
         </div>
         ${subHead('av_spk', 'Speakers ' + TAG, 'fa-users')}
@@ -649,30 +679,49 @@
     const spkBox = overlay.querySelector('#m_spk_list');
     if (!emoBox || !spkBox) return;
 
-    // Emotion list
+    // Emotion list. Edits go to the open chat's own list, which starts as a copy of the template on its first edit, or
+    // to the template itself with no chat open. A card checks its list on the way in (cleanVn): at most 100 emotions,
+    // names up to 100 characters.
+    const T = () => {
+      if (!A.store()) return s;
+      const v = D();
+      if (!Array.isArray(v.emotions)) ownList(v);
+      return v;
+    };
+    const renderState = () => {
+      const c = ctx();
+      const chat = !!A.store();
+      const own = chat && E().own;
+      const who = c.groupId ? (c.groups || []).find((g) => g.id === c.groupId)?.name : c.name2;
+      overlay.querySelector('#m_emo_state').textContent = !chat ? 'Editing the Template' : own ? `Own List: ${who || 'This Chat'}` : 'Following the Template';
+      overlay.querySelector('#m_emo_tpl').style.display = own ? '' : 'none';
+    };
     const renderEmo = () => {
-      emoBox.innerHTML = emoRowsHtml(s);
-      onPills(emoBox, 'emodef', (v) => { s.emoDefault = v; save(); renderEmo(); renderSpk(); changed(); });
+      emoBox.innerHTML = emoRowsHtml();
+      renderState();
+      onPills(emoBox, 'emodef', (v) => { T().emoDefault = v; save(); renderEmo(); renderSpk(); changed(); });
       emoBox.querySelectorAll('.m_emo_name').forEach((inp) => {
         inp.onchange = () => {
-          const e = s.emotions.find((x) => x.id === inp.dataset.id);
+          const id = inp.dataset.id;
           const nm = inp.value.trim();
-          if (!nm || s.emotions.some((x) => x !== e && x.name.toLowerCase() === nm.toLowerCase())) {
+          if (!nm || E().emotions.some((x) => x.id !== id && x.name.toLowerCase() === nm.toLowerCase())) {
             toastr.warning('Emotion names need to be unique and not empty.', 'Emotions');
-            inp.value = e.name;
+            inp.value = E().emotions.find((x) => x.id === id)?.name || '';
             return;
           }
-          e.name = nm; save(); renderSpk(); changed();
+          T().emotions.find((x) => x.id === id).name = nm;
+          save(); renderEmo(); renderSpk(); changed();
         };
       });
       emoBox.querySelectorAll('.m_emo_del').forEach((b) => {
         b.onclick = async () => {
           const id = b.dataset.id;
-          if (id === s.emoDefault) return;
-          const e = s.emotions.find((x) => x.id === id);
+          if (id === E().emoDefault) return;
+          const e = E().emotions.find((x) => x.id === id);
           const used = Object.values(D().emoImgs).some((m) => m[id]);
           if (used && !(await A.askYes(b, `Delete "${e.name}" and the faces uploaded for it?`, 'Delete', { danger: true }))) return;
-          s.emotions = s.emotions.filter((x) => x.id !== id);
+          const L = T();
+          L.emotions = L.emotions.filter((x) => x.id !== id);
           const olds = [];
           for (const m of Object.values(D().emoImgs)) { if (m[id]) olds.push(m[id]); delete m[id]; }
           save(); renderEmo(); renderSpk(); changed();
@@ -684,10 +733,28 @@
       const inp = overlay.querySelector('#m_emo_new');
       const nm = inp.value.trim();
       if (!nm) return;
-      if (s.emotions.some((x) => x.name.toLowerCase() === nm.toLowerCase())) { toastr.warning('That emotion already exists.', 'Emotions'); return; }
-      s.emotions.push({ id: newId('emo'), name: nm });
+      if (E().emotions.some((x) => x.name.toLowerCase() === nm.toLowerCase())) { toastr.warning('That emotion already exists.', 'Emotions'); return; }
+      if (E().emotions.length >= 100) { toastr.warning('A list holds up to 100 emotions.', 'Emotions'); return; }
+      T().emotions.push({ id: newId('emo'), name: nm });
       inp.value = '';
       save(); renderEmo(); renderSpk(); changed();
+    };
+    // Reset drops the chat's own list, so it follows the template again. Faces stay, by emotion: one whose emotion
+    // isn't on the template comes back if that emotion does. A character with faces gets a fresh copy (see D).
+    overlay.querySelector('#m_emo_reset').onclick = async function() {
+      if (!(await A.askYes(this, 'Replace this list with the template?', 'Replace'))) return;
+      const v = D();
+      delete v.emotions;
+      delete v.emoDefault;
+      D();
+      save(); renderEmo(); renderSpk(); changed();
+    };
+    overlay.querySelector('#m_emo_savetpl').onclick = async function() {
+      if (!(await A.askYes(this, 'Make this list the template? Characters following it change too.', 'Save'))) return;
+      const L = E();
+      s.emotions = L.emotions.map((e) => ({ id: e.id, name: e.name }));
+      s.emoDefault = L.emoDefault;
+      save(); renderEmo(); changed();
     };
     overlay.querySelector('#m_emo_add').onclick = addEmo;
     overlay.querySelector('#m_emo_new').onkeydown = (e) => { if (e.key === 'Enter') addEmo(); };
@@ -802,8 +869,8 @@
     chk('#m_emo_keepface', 'nodeSpriteBase', changed);
     chk('#m_emo_inj', 'emoInject', updateInjection);
     chk('#m_emo_hide', 'nodeHideEmo', () => {
-      if (s.nodeHideEmo) cleanTags();
-      else if (typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
+      cleanTags();
+      restoreTags();
     });
     overlay.querySelectorAll('.m_emo_sl').forEach((sl) => {
       sl.oninput = function() {

@@ -158,3 +158,28 @@ test('group chat data is cleaned too', () => {
     context.groupId = undefined;
   }
 });
+
+test("a card's own emotion list is checked like a theme's", () => {
+  const list = [{ id: 'emo_a', name: ' Happy ', extra: '<b>' }, { id: 'emo_b', name: 'Sad' }];
+  const good = card({ vn: { emotions: list, emoDefault: 'emo_x' } }).vn;
+  assert.deepEqual(good.emotions, [{ id: 'emo_a', name: 'Happy' }, { id: 'emo_b', name: 'Sad' }]);
+  // Cleaned in place: the menu edits these objects.
+  assert.equal(good.emotions, list);
+  assert.equal(good.emoDefault, 'emo_a');
+  assert.equal(api.emoSet().own, true);
+  const bad = [
+    [{ id: 'emo_a', name: 'Happy' }, { id: 'emo_a', name: 'Sad' }],
+    [{ id: 'emo_a', name: 'Happy' }, { id: 'emo_b', name: 'happy' }],
+    [{ id: 'bad id!', name: 'Happy' }],
+    [{ id: 'emo_a', name: long(101) }],
+    Array.from({ length: 101 }, (_, i) => ({ id: `emo_${i}`, name: `E${i}` })),
+    [],
+    'Happy',
+  ];
+  for (const emotions of bad) {
+    const v = card({ vn: { emotions, emoDefault: 'emo_a' } }).vn;
+    assert.ok(!('emotions' in v) && !('emoDefault' in v), JSON.stringify(emotions).slice(0, 60));
+    assert.equal(api.emoSet().own, false);
+    assert.equal(api.emoSet().emotions, context.extensionSettings.chatvisuals.emotions);
+  }
+});

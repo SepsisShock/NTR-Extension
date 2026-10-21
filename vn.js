@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.70.0';
+  const VN_VERSION = '2.71.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -350,7 +350,8 @@
     const v = V();
     const loc = (v.locations.find((l) => l.name) || {}).name || 'Place';
     const cg = ((v.cgs || []).find((g) => g.name) || {}).name || 'Scene';
-    const emo = (s.emotions.find((e) => e.id !== s.emoDefault) || s.emotions[0] || {}).name || 'Happy';
+    const L = A.emoSet();
+    const emo = (L.emotions.find((e) => e.id !== L.emoDefault) || L.emotions[0] || {}).name || 'Happy';
     const spk = (C.speakers().find((x) => x.name !== ctx().name1) || {}).name || 'Name';
     const no = s.delimNarOpen, nc = s.delimNarClose;
     const rows = [
@@ -386,7 +387,7 @@
   function buildPrompt(s) {
     const sp = `${s.delimSpkOpen}Name${s.delimEmo}Emotion${s.delimSpkClose}`;
     const nr = `${s.delimNarOpen}${s.narratorWord}${s.delimNarClose}`;
-    let p = `Format every line as ${sp}: for characters or ${nr}: for narration. Emotions: ${s.emotions.map((e) => e.name).join(', ')}.`;
+    let p = `Format every line as ${sp}: for characters or ${nr}: for narration. Emotions: ${A.emoSet().emotions.map((e) => e.name).join(', ')}.`;
     const v = V();
     const locs = v.locations.map((l) => l.name).filter(Boolean);
     if (locs.length || v.locDefault) p += ` Mark scene changes with ${s.delimNarOpen}${s.locWord}:Name${s.delimNarClose}${locs.length ? ' using: ' + locs.join(', ') : ''}.`;
@@ -458,7 +459,7 @@
                   <button class="menu_button m_art_url" data-k="${k}" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button></span>`;
     return `
-            <div class="cb_hint ntr_keepon" style="margin: 0 0 10px;">Emotions, speakers, faces and full bodies are on the <a href="#" class="m_n_tocast">Avatars</a> page, under Emotions.</div>
+            <div class="cb_hint ntr_keepon" style="margin: 0 0 10px;">Emotions, speakers, faces and full bodies are set on the <a href="#" class="m_n_tocast">Avatars</a> page, under Emotions.</div>
 
             ${subHead('vn_guide', 'How to Write Your Card', 'fa-circle-question')}
             <div class="cb_collapse_content">

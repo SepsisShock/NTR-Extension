@@ -141,9 +141,9 @@
       <button class="cb_nav_btn cb_snd" style="display: none;"></button>
       <div class="cb_wall" style="display: none;"></div>
       <div class="cb_nav">
-        <button class="cb_nav_btn cb_nav_prev" title="Previous image"><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="cb_nav_btn cb_nav_prev" title="Previous Picture" aria-label="Previous Picture"><i class="fa-solid fa-chevron-left"></i></button>
         <span class="cb_nav_count"></span>
-        <button class="cb_nav_btn cb_nav_next" title="Next image"><i class="fa-solid fa-chevron-right"></i></button>
+        <button class="cb_nav_btn cb_nav_next" title="Next Picture" aria-label="Next Picture"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     `;
     banner.querySelector('.cb_nav_prev').onclick = (e) => { e.stopPropagation(); step(-1); };
@@ -551,7 +551,7 @@
             ${card('Source', `
               ${ovLabel('Banner', pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'This Character', BANNER_NOTE.char]], ownKind ? 'char' : 'global'))}
               ${ovLabel('Kind' + (ownKind ? ' ' + TAG : ''), pills('bmode', [['image', 'Pictures'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind))}
-              ${ownKind ? '' : '<div class="cb_hint" style="margin-bottom: 0;">Changes here show on every character set to Global.</div>'}`, 'fa-photo-film')}
+              ${ownKind ? '' : '<div class="cb_hint" style="margin-bottom: 0;">Banner changes show on every character set to Global.</div>'}`, 'fa-photo-film')}
 
             <!-- Picture Controls -->
             <div id="m_b_img_controls" style="display: ${kind === 'image' ? 'block' : 'none'};">
@@ -586,8 +586,7 @@
             <!-- YouTube Controls -->
             <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
               ${card('YouTube Loop' + btag, `
-              <label for="m_b_yt_url" class="cb_plab">YouTube Link</label>
-              <input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">`, 'fa-circle-play')}
+              ${ovLabel('YouTube Link', `<input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">`)}`, 'fa-circle-play')}
             </div>
 
             <!-- Video Controls -->
@@ -679,7 +678,7 @@
     if (!key) {
       const ch = overlay.querySelector('input[name="cbr_bscope"][value="char"]');
       ch.disabled = true;
-      ch.closest('label').style.cssText = 'opacity:0.5;pointer-events:none;';
+      ch.closest('label').classList.add('cb_dim');
     }
     overlay.querySelector('#m_b_enable').onchange = function() {
       s.bannerOn = this.checked;

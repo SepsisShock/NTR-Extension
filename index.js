@@ -2374,8 +2374,8 @@ await (async () => {
       return '';
     });
   };
-  const askImageUrl = (label = 'Image', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste an image link (https://...)`, loadImg,
-    'That link did not load as an image. Check it and try again.', perChat);
+  const askImageUrl = (label = 'Picture', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste a picture link (https://...)`, loadImg,
+    'That link did not load as a picture. Check it and try again.', perChat);
 
   // Ask for a video link (mp4 or webm).
   const loadVideo = (u) => new Promise((res, rej) => {

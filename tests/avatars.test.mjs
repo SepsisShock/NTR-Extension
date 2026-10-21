@@ -57,3 +57,15 @@ test('facing fades longer than the picture meet without a hard line, and 100% St
   assert.match(window.NTR.avatars.css(s), /rgba\(0,0,0,1\) 60%, rgba\(0,0,0,0\) 60%, rgba\(0,0,0,0\) 100%\)/);
   Object.assign(s, { aiFadeBot: 0, aiFadeStr: 50 });
 });
+
+test('a Filter goes on the avatar box, Old TV adds its lines, and None or 0% has none', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'backdrop', aiShape: 'none', usEnabled: false, aiFilter: 'bw', aiFilterStr: 50 });
+  assert.match(window.NTR.avatars.css(s), /filter: grayscale\(0\.5\) !important;/);
+  s.aiFilter = 'oldtv';
+  assert.match(window.NTR.avatars.css(s), /\.avatar::after \{ content: '' !important;[^}]*repeating-linear-gradient/);
+  s.aiFilterStr = 0;
+  assert.doesNotMatch(window.NTR.avatars.css(s), /filter:|::after/);
+  Object.assign(s, { aiFilter: 'none', aiFilterStr: 100 });
+  assert.doesNotMatch(window.NTR.avatars.css(s), /filter:|::after/);
+});

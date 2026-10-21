@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.71.0';
+  const VERSION = '2.72.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -23,18 +23,18 @@ await (async () => {
     // AI Settings
     aiStyle: 'inline', aiPopX: 0, aiPopY: 0,
     aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiFocus: 0, aiScale: 100, aiPad: 140, 
-    aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
+    aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0, aiFadeStr: 50,
-    aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape',
+    aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape', aiFilter: 'none', aiFilterStr: 100, aiCssOn: false, aiCss: '',
     
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
     usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usFocus: 0, usScale: 100, usPad: 140, 
-    usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
+    usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0, usFadeStr: 50,
-    usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape',
+    usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape', usFilter: 'none', usFilterStr: 100, usCssOn: false, usCss: '',
 
     // Foreground Settings
     fgEnabled: false,
@@ -221,6 +221,11 @@ await (async () => {
 
   // Avatar Management's Shape choices (see avatars.js). A saved Shape is checked against them (PICK_KEYS).
   const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['heart', 'Heart'], ['star', 'Star']];
+  // Avatar Management's Filter choices (see avatars.js). A saved Filter is checked against them (PICK_KEYS).
+  const FILTER_OPTS = [['none', 'None'], ['soft', 'Soft'], ['vintage', 'Vintage'], ['bw', 'Black and White'], ['noir', 'Noir'], ['warm', 'Warm'],
+    ['cool', 'Cool'], ['faded', 'Faded'], ['dreamy', 'Dreamy'], ['oldtv', 'Old TV']];
+  // Soft's blur at Filter Strength 100%, in px. Blur turned into Soft keeps its amount (see upgradeLook).
+  const SOFT_MAX = 6;
   // An SVG path as a mask, drawn in a 100 x 100 box stretched over its frame. Avatar Management's Heart and Star
   // (avatars.js) and the Speech Bubble tails cut with it.
   const svgMask = (d) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${d}"/></svg>`)}")`;
@@ -239,6 +244,13 @@ await (async () => {
     if (o.ovAvatarOn) o.ovAvatarOn = false;
     // Rounded was a Shape of its own: a square with corners a fifth of its width.
     for (const p of ['ai', 'us']) if (o[p + 'Shape'] === 'rounded') { o[p + 'Shape'] = 'square'; put(p + 'Corner', 20); }
+    // Blur became the Soft Filter, with Filter Strength set to the same amount of blur.
+    for (const p of ['ai', 'us']) {
+      if (!(p + 'Blur' in o)) continue;
+      const b = Number(o[p + 'Blur']) || 0;
+      if (b > 0) { put(p + 'Filter', 'soft'); put(p + 'FilterStr', Math.min(100, Math.round(b / SOFT_MAX * 100))); }
+      delete o[p + 'Blur'];
+    }
     // Avatar fades are a % of the picture, so they keep their share of it at any Image Scale and message height. Pixel
     // fades become a % of the picture at Scale 100 (300px wide), taken as a portrait 1.5 times as tall as wide. A smaller
     // Scale made pixel fades swallow the picture, so its own Scale would carry that over.
@@ -385,6 +397,8 @@ await (async () => {
     if (!s.themeLookV4) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV4 = true; }
     // Saved themes with Fade as their pattern move it to its own switch.
     if (!s.themeLookV5) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV5 = true; }
+    // Saved themes with an avatar Blur get the Soft Filter instead.
+    if (!s.themeLookV6) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV6 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
     // The template is copied into cards, which check a list like a theme's, so it keeps to the same limits.
@@ -1949,6 +1963,12 @@ await (async () => {
       .ntr_tile input:checked + .ntr_tile_face > * { opacity: 1; }
       .ntr_tile input:focus-visible + .ntr_tile_face { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
       .ntr_tile_text { font-size: .8em; }
+      .ntr_tiles.ntr_named { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); width: auto; }
+      .ntr_named .ntr_tile { flex-direction: column; align-items: stretch; gap: 3px; }
+      .ntr_named .ntr_tile_face { width: 100%; height: 36px; overflow: hidden; padding: 0; }
+      .ntr_named .ntr_tile_face > * { opacity: 1; }
+      .ntr_tile_name { font-size: .75em; text-align: center; line-height: 1.2; opacity: .85; }
+      .ntr_tile input:checked ~ .ntr_tile_name { opacity: 1; font-weight: bold; }
       .cb_fadegrid label.cb_fon { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 35%, transparent); box-shadow: inset 0 0 0 1px var(--SmartThemeQuoteColor, #6cf); }
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
@@ -2000,6 +2020,7 @@ await (async () => {
         .cb_posgrid { grid-template-columns: repeat(3, 40px); }
         .cb_posgrid label { width: 40px; height: 40px; }
         .ntr_tile_face { height: 44px; }
+        .ntr_named .ntr_tile_face { height: 44px; }
         .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { min-width: 40px; min-height: 40px; }
         .cb_defdot { width: 40px; height: 40px; }
         .cb_emo_grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
@@ -2576,9 +2597,9 @@ await (async () => {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
   // Tiles: pick-one choices shown as pictures. Each option is [value, name, face]; the face is its picture's HTML, or
-  // the name is shown when it has none. Bound with onPills, like pills.
-  function tiles(name, label, opts, cur) {
-    return `<div class="ntr_tiles" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span></label>`).join('')}</div>`;
+  // the name is shown when it has none. Named tiles also show the name under the picture. Bound with onPills, like pills.
+  function tiles(name, label, opts, cur, named = false) {
+    return `<div class="ntr_tiles${named ? ' ntr_named' : ''}" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span>${named ? `<span class="ntr_tile_name">${escapeHTML(l)}</span>` : ''}</label>`).join('')}</div>`;
   }
   const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
   function posGrid(name, cur) {
@@ -2918,7 +2939,7 @@ await (async () => {
   }
   PICK_KEYS.rbBgPos = POS_GRID.map(([v]) => v);
   for (const p of ['ai', 'us']) {
-    Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v), [p + 'RotateMode']: ['shape', 'both'] });
+    Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v), [p + 'RotateMode']: ['shape', 'both'], [p + 'Filter']: FILTER_OPTS.map(([v]) => v) });
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
@@ -2966,6 +2987,9 @@ await (async () => {
     const c = String(get(k) || '').slice(0, 2000).trim();
     return c ? `${sel} { ${c} }` : '';
   }).filter(Boolean).join('\n');
+  // A Custom CSS box, k its setting, and the last line under each one.
+  const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
+  const CSS_NOTE = 'Add <code>!important</code> if a setting doesn\'t take. Saved in themes; CSS from someone else\'s theme arrives switched off.';
   function cssTag(id, v) {
     let el = document.getElementById(id);
     if (!v) { el?.remove(); return; }
@@ -3565,7 +3589,7 @@ await (async () => {
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
       [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'ShiftX']: [0, 100, 1, '%'], [p + 'Zoom']: [100, 200, 5, '%'], [p + 'Rotate']: [-180, 180, 1, '°'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
-      [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'Blur']: [0, 20, 1, 'px'],
+      [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'FilterStr']: [0, 100, 1, '%'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
       [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],
@@ -3581,7 +3605,7 @@ await (async () => {
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.
   const cardNum = (v, k, d) => cNum(v, d, NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
-  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbArrowSym: 16, rbCss: 2000, rbBtnCss: 2000, rbArrowCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, mapGoText: 200 };
+  const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbArrowSym: 16, rbCss: 2000, rbBtnCss: 2000, rbArrowCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, aiCss: 2000, usCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   // An emotion list cut down to what validEmotions takes: good ids, names up to 100 characters, no repeats, 100 at most.
   function fixEmotions(v) {
@@ -3937,6 +3961,8 @@ await (async () => {
       const cursorCssIn = String(rbPart.ovCursorCss || '').slice(0, 2000).trim();
       const qrCssIn = String(rbPart.ovQrCss || '').slice(0, 2000).trim();
       const cssIn = (part) => `This theme has Custom CSS for ${part}. It comes in switched off: check it under Elements, ${part}, Advanced: Custom CSS, then tick it.`;
+      const pfpPart = secs.includes('pfp') ? cleanLookSection('pfp', j.sections.pfp) : {};
+      const avCssIn = [['ai', 'AI'], ['us', 'User']].map(([p, side]) => [side, String(pfpPart[p + 'Css'] || '').slice(0, 2000).trim()]).filter(([, c]) => c);
       panel.innerHTML = `
         <div class="ntr_tpanel">
           <strong><i class="fa-solid fa-fw fa-file-import ntr_glab_icon"></i>Import Theme</strong>
@@ -3951,6 +3977,8 @@ await (async () => {
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(cursorCssIn)}</pre>` : ''}
           ${qrCssIn ? `<div class="cb_hint">${cssIn('Quick Replies')}</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(qrCssIn)}</pre>` : ''}
+          ${avCssIn.map(([side, c]) => `<div class="cb_hint">This theme has Custom CSS for the ${side} avatar. It comes in switched off: check it under Avatars, ${side} Avatar, Advanced: Custom CSS, then tick it.</div>
+          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(c)}</pre>`).join('')}
           ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Avatars, Emotions, Tags and Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add Theme</button>
@@ -3967,6 +3995,7 @@ await (async () => {
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
         for (const k of ['ovScrollCss', 'ovCursorCss', 'ovQrCss']) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
+        for (const k of ['aiCss', 'usCss']) if (data.pfp && String(data.pfp[k] || '').trim()) data.pfp[k + 'On'] = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s pictures...', 'Themes');
           const r = await unpackFiles(data);
@@ -4749,7 +4778,7 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
       COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, ovLabel,
       RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
-      cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
+      cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, SOFT_MAX, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
     },
   };

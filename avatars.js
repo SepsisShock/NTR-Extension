@@ -5,12 +5,12 @@
 // layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
 // shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.71.0';
+  const AVATARS_VERSION = '2.72.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
     startPlacement, tiles } = A;
-  const { POS_GRID, SHAPE_OPTS, castPartHtml, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
+  const { CSS_NOTE, FILTER_OPTS, POS_GRID, SHAPE_OPTS, SOFT_MAX, castPartHtml, cssTag, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
@@ -41,6 +41,52 @@
   };
   const shapeTiles = (prefix, cur) => tiles(`${prefix}shape`, 'Shape', SHAPE_OPTS.map(([v, l]) => [v, l,
     SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur);
+
+  // Filters, at a Filter Strength s from 0 to 1: the picture's CSS filter, and a layer over it, a color tint or Old TV's
+  // lines. k sizes Soft's and Dreamy's blur for a smaller picture (the menu's previews).
+  const r3 = (x) => +x.toFixed(3);
+  const FILTERS = {
+    soft: { fx: (s, k = 1) => `blur(${r3(SOFT_MAX * s * k)}px)` },
+    vintage: { fx: (s) => `sepia(${r3(0.6 * s)}) contrast(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.2 * s)})` },
+    bw: { fx: (s) => `grayscale(${r3(s)})` },
+    noir: { fx: (s) => `grayscale(${r3(s)}) contrast(${r3(1 + 0.6 * s)}) brightness(${r3(1 - 0.15 * s)})` },
+    warm: { fx: (s) => `saturate(${r3(1 + 0.15 * s)})`, layer: (s) => `background: rgba(255, 140, 40, ${r3(0.45 * s)}); mix-blend-mode: soft-light;` },
+    cool: { fx: (s) => `saturate(${r3(1 - 0.1 * s)})`, layer: (s) => `background: rgba(40, 120, 255, ${r3(0.45 * s)}); mix-blend-mode: soft-light;` },
+    faded: { fx: (s) => `contrast(${r3(1 - 0.3 * s)}) brightness(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.4 * s)})` },
+    dreamy: { fx: (s, k = 1) => `blur(${r3(1.5 * s * k)}px) brightness(${r3(1 + 0.12 * s)}) saturate(${r3(1 + 0.2 * s)})` },
+    oldtv: { fx: (s) => `contrast(${r3(1 + 0.2 * s)}) saturate(${r3(1 - 0.3 * s)})`,
+      layer: (s) => `background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, ${r3(0.35 * s)}) 0 1px, transparent 1px 3px);` },
+  };
+  // A side's Filter as CSS: the filter rule for its box, and its layer's rule (for the box's ::after), if any.
+  function filterCss(s, prefix) {
+    const f = FILTERS[s[`${prefix}Filter`]];
+    const str = rangeNum(s, prefix + 'FilterStr') / 100;
+    if (!f || !str) return { rule: '', layer: '' };
+    return { rule: `filter: ${f.fx(str)} !important;`,
+      layer: f.layer ? `content: '' !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; z-index: 1 !important; ${f.layer(str)}` : '' };
+  }
+  // The Filter tiles: each shows that side's newest picture in the chat with the filter on, or a sample without one.
+  function filterTiles(prefix, cur) {
+    const imgs = document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
+    const src = imgs[imgs.length - 1]?.getAttribute('src');
+    const face = (v) => {
+      const f = FILTERS[v];
+      const fx = f ? `filter: ${f.fx(1, 0.25)};` : '';
+      const pic = src ? `<img src="${escapeHTML(src)}" alt="" style="display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; ${fx}">`
+        : `<span style="display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #d98a6a, #e8c27a 45%, #6a9ad9); ${fx}"></span>`;
+      return `<span style="position: relative; display: block; width: 100%; height: 100%; isolation: isolate;">${pic}${f?.layer ? `<span style="position: absolute; inset: 0; ${f.layer(1)}"></span>` : ''}</span>`;
+    };
+    return tiles(`${prefix}filter`, 'Filter', FILTER_OPTS.map(([v, l]) => [v, l, face(v)]), cur, true);
+  }
+  // Custom CSS for each side's avatar box (the frame, on Pop Out), in its own style tag so a typo can't break the
+  // others. Gone while NTR, Avatar Management or that side is off.
+  function syncAvatarCss() {
+    const s = settings();
+    for (const [p, flag] of [['ai', 'false'], ['us', 'true']]) {
+      const c = isOn() && s.avatarEnabled && ntrAvatars(s, p) && s[p + 'CssOn'] ? String(s[p + 'Css'] || '').slice(0, 2000).trim() : '';
+      cssTag(`ntr_av_css_${p}`, c ? `${s[p + 'Style'] === 'popout' ? `#cb_popf_${p}` : `#chat .mes[is_user="${flag}"] .avatar`} { ${c} }` : '');
+    }
+  }
 
   // Shape Only turns the shape and turns the picture back inside it, so the picture is made bigger by this much to still
   // fill the turned shape's corners. A circle needs none.
@@ -85,7 +131,7 @@
     const botFade = n('FadeBot');
     const leftFade = n('FadeLeft');
     const rightFade = n('FadeRight');
-    const blurAmount = n('Blur');
+    const fx = filterCss(s, prefix);
     const zoom = n('Zoom') / 100;
     const turn = n('Rotate');
     const turnCss = turn ? ` rotate(${turn}deg)` : '';
@@ -103,7 +149,8 @@
 
     const justify = h === 'l' ? 'flex-start' : (h === 'r' ? 'flex-end' : 'center');
     const align = h === 'l' ? 'left' : (h === 'r' ? 'right' : 'center');
-    const filterRule = blurAmount > 0 ? `filter: blur(${blurAmount}px) !important;` : '';
+    const filterRule = fx.rule;
+    const layerCss = (sel) => (fx.layer ? `${sel}::after { ${fx.layer} }` : '');
 
     const shared = `
       .mes[is_user="${isUserStr}"] .mes_block { ${padCss} }
@@ -125,8 +172,9 @@
           border-radius: ${shape ? frameR : '0'};
           ${OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;` : ''}
           transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px))${turnCss};
-          ${blurAmount > 0 ? `filter: blur(${blurAmount}px);` : ''}
+          ${filterRule}
         }
+        ${layerCss(`#cb_popf_${prefix}`)}
         #cb_pop_${prefix} { ${imgPlaceCss(s, prefix, 'max(100cqw, 100cqh * var(--cb-ar, 0.6667))', 'var(--cb-ar, 0.6667)')} }
         ${shared}
       `;
@@ -215,6 +263,7 @@
         ${maskCss}
         ${filterRule}
       }
+      ${layerCss(`#chat .mes[is_user="${isUserStr}"] .avatar`)}
       ${imgCss}
     `;
     }
@@ -227,8 +276,9 @@
         overflow: hidden !important; container-type: size !important; border-radius: ${framed ? frameR : '0'} !important;
         display: block !important; background: transparent !important; border: none !important;
         ${maskCss}
-        ${filterRule} 
+        ${filterRule}
       }
+      ${layerCss(`#chat .mes[is_user="${isUserStr}"] .avatar`)}
       ${imgCss}
       ${shared}
     `;
@@ -261,8 +311,10 @@
     pre.src = full;
   }
 
-  // Every chat avatar picture on screen, after a restyle: its shape and width once it has loaded, and the full-size picture.
+  // After a restyle: every chat avatar picture on screen gets its shape and width once it has loaded, and the full-size
+  // picture; and each side's Custom CSS follows the settings.
   function syncAvatarImgs() {
+    syncAvatarCss();
     document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); fullAvatar(img); });
   }
   // A chat avatar picture that just loaded.
@@ -373,8 +425,13 @@
           <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
           + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set its length. Lit cells have a fade on.</div>')}
 
-        <div class="cb_sub">Effects</div>
-        ${slider('bl', 'Blur', 'Blur:')}
+        <div class="cb_sub">Filter</div>
+        ${filterTiles(prefix, FILTERS[s[`${prefix}Filter`]] ? s[`${prefix}Filter`] : 'none')}
+        <div id="m_${prefix}_fxwrap" class="${FILTERS[s[`${prefix}Filter`]] ? '' : 'cb_dim'}">${slider('fx', 'FilterStr', 'Filter Strength:')}</div>
+
+        <div class="cb_sub">Advanced: Custom CSS</div>
+        ${ovRow(s, `${prefix}CssOn`, `${title} Avatar CSS`, customCssBox(s, `${prefix}Css`, 'border: 2px solid white;&#10;box-shadow: 0 0 12px black;')
+          + `<div class="cb_hint">CSS properties for this avatar, without a selector. ${CSS_NOTE}</div>`)}
 
         <button type="button" id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px; width: max-content;"><i class="fa-solid fa-rotate-left"></i> Reset ${title} Avatar</button>
         </div>
@@ -420,6 +477,7 @@
         col.querySelector(`#m_${prefix}_rmwrap`).classList.toggle('cb_dim', !shaped);
         col.querySelector(`#m_${prefix}_rmoff`).style.display = shaped ? 'none' : '';
         col.querySelector(`#m_${prefix}_fswrap`).classList.toggle('cb_dim', !anyFade(s, prefix));
+        col.querySelector(`#m_${prefix}_fxwrap`).classList.toggle('cb_dim', !FILTERS[s[`${prefix}Filter`]]);
         col.querySelector(`#m_${prefix}_crwrap`).classList.toggle('cb_dim', !cornersOn);
         col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
         col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
@@ -446,6 +504,11 @@
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); syncScale(); updateAvatarStyle(); });
       onPills(col, `${prefix}rmode`, (v) => { s[`${prefix}RotateMode`] = v; save(); syncScale(); updateAvatarStyle(); });
+      onPills(col, `${prefix}filter`, (v) => { s[`${prefix}Filter`] = v; save(); syncScale(); updateAvatarStyle(); });
+      col.querySelectorAll('.m_css').forEach((box) => {
+        box.oninput = () => { s[box.dataset.key] = box.value.slice(0, 2000); syncAvatarCss(); };
+        box.onchange = save;
+      });
       // One slider for the fade picked on the fade grid.
       const fadeSl = col.querySelector(`#m_${prefix}_fade`);
       let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`)?.value || 'bc';
@@ -488,7 +551,7 @@
       const sliders = [
         { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'sx', key: 'ShiftX' }, { id: 'zm', key: 'Zoom' },
         { id: 'rt', key: 'Rotate' }, { id: 'pad', key: 'Pad' }, { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
-        { id: 'fs', key: 'FadeStr' }, { id: 'bl', key: 'Blur' }
+        { id: 'fs', key: 'FadeStr' }, { id: 'fx', key: 'FilterStr' }
       ];
       
       sliders.forEach(({ id, key }) => {

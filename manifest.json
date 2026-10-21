@@ -5,7 +5,7 @@
   "css": "style.css",
   "hooks": { "clean": "onClean" },
   "author": "SepsisShock",
-  "version": "2.69.30",
+  "version": "2.69.31",
   "homePage": "https://github.com/SepsisShock/NTR-Extension",
   "description": "Restyles and extends SillyTavern: header banners, avatars and emotions, Visual Novel Mode, Layout, UI Decor with Speech Bubbles, Elements, themes, a Regexes page, Reader Mode and Agents. Open the menu from the Extensions page, the wand menu (optional) or /ntr."
 }

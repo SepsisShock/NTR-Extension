@@ -5,7 +5,7 @@
 // layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
 // shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.69.30';
+  const AVATARS_VERSION = '2.69.31';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
@@ -224,17 +224,7 @@
     fullAvatar(img);
   }
 
-  // SillyTavern's own chat avatars in a side's Shape, where NTR Avatars is off for that side.
-  function stShapeCss(flag, shape, corner, focus) {
-    const [w, h] = shape === 'rectangle' ? ['calc(var(--avatar-base-width) * 1.2)', 'calc(var(--avatar-base-height) * 1.8)'] : ['var(--avatar-base-width)', 'var(--avatar-base-height)'];
-    const outline = OUTLINES[shape];
-    const r = shape === 'round' ? 'var(--avatar-base-border-radius-round)' : outline ? '0' : `calc(${w} * ${corner / 100})`;
-    return `\n      #chat .mes[is_user="${flag}"] .avatar, #chat .mes[is_user="${flag}"] .avatar img { width: ${w} !important; height: ${h} !important; border-radius: ${r} !important; object-fit: cover !important; object-position: 50% ${focus}% !important; }\n`
-      + (outline ? `      #chat .mes[is_user="${flag}"] .avatar img { border: none !important; box-shadow: none !important; -webkit-mask: ${outline} center / 100% 100% no-repeat !important; mask: ${outline} center / 100% 100% no-repeat !important; }\n` : '');
-  }
-
-  // NTR Avatars on each side, and SillyTavern's own chat avatars in a side's Shape where NTR Avatars is off. The Shape
-  // part counts with Avatar Management switched off too.
+  // NTR Avatars on each side. A side that's switched off keeps SillyTavern's own avatar.
   function avatarsCss(s) {
     let css = '';
     if (isOn() && s.avatarEnabled) {
@@ -250,11 +240,6 @@
 
         ${getAvatarCss(prefix, flag, s)}
       `;
-      }
-    }
-    if (isOn()) {
-      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-        if (!ntrAvatars(s, prefix) && SHAPES[s[prefix + 'Shape']]) css += stShapeCss(flag, s[prefix + 'Shape'], rangeNum(s, prefix + 'Corner'), rangeNum(s, prefix + 'Focus'));
       }
     }
     return css;
@@ -286,13 +271,12 @@
       <div class="ntr_colwrap">
       <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on">${title} Avatar</label></div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
-        <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}
-          <div class="cb_hint" style="margin: 4px 0 0;">Also shapes ST's own chat avatar while switched off.</div></div>
+        <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
+        <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}</div>
         <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
         <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Only for Rectangle and Square.</div>
         <div id="m_${prefix}_fowrap" class="${cropCuts(s, prefix) ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Crop Focus:')}</div>
         <div class="cb_hint" style="margin: 0;">0% keeps the top of a cut-off picture, 100% the bottom. Shape None only cuts on Backdrop with Fill or Original.</div>
-        <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.30';
+  const VERSION = '2.69.31';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -232,12 +232,9 @@ await (async () => {
     const msgs = (fn) => { for (const p of ['Ai', 'Us']) fn(p); };
     // NTR Avatars had its own see-through, 15px rounded messages.
     const ntrAv = (p) => o.avatarEnabled !== false && o[p.toLowerCase() + 'Enabled'] !== false;
-    // Avatar Shape was one setting for SillyTavern's chat avatars and only showed where NTR Avatars was off. Each side
-    // has its own Shape now, so it moves to those sides.
-    if (o.ovAvatarOn) {
-      for (const p of ['Ai', 'Us']) if (!ntrAv(p)) put(p.toLowerCase() + 'Shape', o.ovAvatar);
-      o.ovAvatarOn = false;
-    }
+    // Avatar Shape was one setting for SillyTavern's chat avatars where NTR Avatars was off. NTR leaves SillyTavern's
+    // avatars alone now, so it just switches off.
+    if (o.ovAvatarOn) o.ovAvatarOn = false;
     // Rounded was a Shape of its own: a square with corners a fifth of its width.
     for (const p of ['ai', 'us']) if (o[p + 'Shape'] === 'rounded') { o[p + 'Shape'] = 'square'; put(p + 'Corner', 20); }
     // Avatar fades are a % of the picture, so they keep their share of it at any Image Scale and message height. Pixel
@@ -258,8 +255,6 @@ await (async () => {
     if ('chatTransparent' in o) {
       put('ovPanelBgOn', !!o.chatTransparent);
       put('ovPanelBg', 'clear');
-      // Avatar Shape was in UI Display then, so UI Display's switch turned it off too. It's in Avatar Management now.
-      if (o.ovEnabled === false) o.ovAvatarOn = false;
       delete o.chatTransparent;
     }
     // Chat Style is now made of the message settings, with Bubbles' own 10px corners, 1px line and 5px space (the defaults).
@@ -2632,7 +2627,7 @@ await (async () => {
   }
 
   // ===== Look helpers the look pages share (UI Decor is in decor.js; its keys start with ov, from its old name UI Display) =====
-  // SillyTavern's round avatars are the absence of a class. Avatar Shape lives in Avatar Management but keeps these keys.
+  // The old Avatar Shape's values, checked only so old settings and themes still load.
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
 
   // UI Decor's switch, with decor.js loaded. Without decor.js, the parts of UI Decor the core builds stay SillyTavern's

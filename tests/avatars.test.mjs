@@ -17,8 +17,8 @@ test('Avatar Management builds its CSS, and none while NTR is off', () => {
   const css = window.NTR.avatars.css(s);
   // The AI side's Backdrop lays out the message.
   assert.match(css, /\.mes\[is_user="false"\] \{ position: relative !important; padding: 0 !important;/);
-  // NTR Avatars off on the User side: SillyTavern's own avatar, cut to a Heart.
-  assert.match(css, /#chat \.mes\[is_user="true"\] \.avatar img \{ border: none !important; box-shadow: none !important; -webkit-mask: url\("data:image\/svg\+xml,/);
+  // NTR Avatars off on the User side: SillyTavern's own avatar, untouched, whatever its Shape.
+  assert.doesNotMatch(css, /is_user="true"/);
   s.masterEnabled = false;
   assert.equal(window.NTR.avatars.css(s), '');
   s.masterEnabled = true;

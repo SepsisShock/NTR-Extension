@@ -247,6 +247,7 @@
   opacity: 0.6;
 }
 .ntr_glab_icon { margin-right: 6px; font-size: 1.2em; color: var(--SmartThemeQuoteColor, #6cf); }
+.ntr_fold .ntr_glab_icon { font-size: 1em; }
 .ntr_page .ntr_card,
 .ntr_glab + .cb_collapse_content,
 .ntr_fold,

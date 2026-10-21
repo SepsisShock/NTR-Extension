@@ -3,7 +3,7 @@
 // Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
 // If this file breaks, the rest of the extension keeps working.
 (() => {
-  const CAST_VERSION = '2.69.21';
+  const CAST_VERSION = '2.69.22';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
@@ -517,9 +517,9 @@
             ${thumbBox(src)}
             <div class="cb_emo_label">${escapeHTML(e.name)}${e.id === s.emoDefault ? ' ★' : ''}</div>
             <div style="display:flex;gap:4px;">
-              <button class="menu_button m_spk_up" data-key="${k}" data-emo="${id}" title="Upload ${escapeHTML(e.name)}"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button m_spk_url" data-key="${k}" data-emo="${id}" title="Use a link for ${escapeHTML(e.name)}"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button danger_button m_spk_clr" data-key="${k}" data-emo="${id}" title="Clear" ${src ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+              <button class="menu_button m_spk_up" data-key="${k}" data-emo="${id}" title="Upload ${escapeHTML(e.name)} Face" aria-label="Upload ${escapeHTML(e.name)} Face"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button m_spk_url" data-key="${k}" data-emo="${id}" title="Use a link for the ${escapeHTML(e.name)} Face" aria-label="Use a link for the ${escapeHTML(e.name)} Face"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button danger_button m_spk_clr" data-key="${k}" data-emo="${id}" title="Remove ${escapeHTML(e.name)} Face" aria-label="Remove ${escapeHTML(e.name)} Face" ${src ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>`;
       }).join('')}</div>`;
@@ -527,9 +527,9 @@
       return `<div class="cb_spk">
         <div class="cb_spk_row cb_spk_head">
           <span class="cb_spk_name">${escapeHTML(name)}</span>
-          <button class="menu_button danger_button m_spk_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove speaker' : 'Hide speaker (restorable)'}"><i class="fa-solid fa-xmark"></i></button>
+          <button class="menu_button danger_button m_spk_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove Speaker' : 'Hide Speaker'}" aria-label="${custom ? 'Remove' : 'Hide'} ${escapeHTML(name)}"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="cb_spk_row cb_faces_row m_spk_exp" data-key="${k}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open'} faces">
+        <div class="cb_spk_row cb_faces_row m_spk_exp" data-key="${k}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open'} Faces">
           ${thumbBox(base)}
           <span class="cb_spk_name">Faces<small>${escapeHTML(facesTxt)}</small></span>
           <i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i>
@@ -538,9 +538,9 @@
         <div class="cb_spk_row cb_full_row">
           ${thumbBox(full)}
           <span class="cb_spk_name">Full Body<small>${full ? 'used on stage for every emotion' : 'none: the stage uses the faces'}</small></span>
-          <button class="menu_button m_spk_up" data-key="${k}" data-emo="" data-full="1" title="Upload full body (stage picture)"><i class="fa-solid fa-upload"></i></button>
-          <button class="menu_button m_spk_url" data-key="${k}" data-emo="" data-full="1" title="Use a link for the full body"><i class="fa-solid fa-link"></i></button>
-          <button class="menu_button danger_button m_spk_clr" data-key="${k}" data-emo="" data-full="1" title="Remove full body" ${full ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+          <button class="menu_button m_spk_up" data-key="${k}" data-emo="" data-full="1" title="Upload Full Body" aria-label="Upload Full Body"><i class="fa-solid fa-upload"></i></button>
+          <button class="menu_button m_spk_url" data-key="${k}" data-emo="" data-full="1" title="Use a link for the Full Body" aria-label="Use a link for the Full Body"><i class="fa-solid fa-link"></i></button>
+          <button class="menu_button danger_button m_spk_clr" data-key="${k}" data-emo="" data-full="1" title="Remove Full Body" aria-label="Remove Full Body" ${full ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>`;
     }).join('') + restore;
@@ -551,9 +551,9 @@
       const id = escapeHTML(e.id);
       const isDef = e.id === s.emoDefault;
       return `<div class="cb_emo_row">
-        <label class="cb_defdot" title="Use as default"><input type="radio" name="cbr_emodef" value="${id}" ${isDef ? 'checked' : ''}></label>
-        <input type="text" class="text_pole m_emo_name" data-id="${id}" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
-        <button class="menu_button danger_button m_emo_del" data-id="${id}" title="${isDef ? 'Pick a different default before deleting this one' : 'Delete emotion'}" ${isDef ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
+        <label class="cb_defdot" title="Use as Default"><input type="radio" name="cbr_emodef" value="${id}" aria-label="Default Emotion" ${isDef ? 'checked' : ''}></label>
+        <input type="text" class="text_pole m_emo_name" data-id="${id}" aria-label="Emotion Name" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
+        <button class="menu_button danger_button m_emo_del" data-id="${id}" title="${isDef ? 'Pick a different default before deleting this one' : 'Delete Emotion'}" aria-label="Delete ${escapeHTML(e.name)}" ${isDef ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
       </div>`;
     }).join('');
   }
@@ -570,68 +570,71 @@
     const df = (key, label) => `<label class="cb_dfield"><span>${label}</span><input type="text" class="text_pole m_d_in" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="16"></label>`;
     const tag = escapeHTML(`${s.delimNarOpen}${s.emoWord}:Happy${s.delimNarClose}`);
     return `<div class="ntr_keepon">
-      ${subHead('av_emo', 'Emotions')}
+      ${subHead('av_emo', 'Emotions', 'fa-face-smile')}
       <div class="cb_collapse_content">
-        <div class="cb_hint">Each speaker's face per emotion, and a full body for the stage. Visual Novel Mode uses them, and with it off they can show in the chat.</div>
-        <div><strong>Emotion source:</strong>${pills('emosrc', [['tags', 'Tags'], ['agent', 'Agent (coming later)', 'An agent will read each reply and pick the emotion. Not ready yet.']], s.emoSource === 'agent' ? 'agent' : 'tags')}</div>
-        ${subHead('av_chat', 'In the Chat')}
+        <div class="cb_hint">Faces per emotion and a full body for each speaker. Visual Novel Mode uses them; with it off, In the Chat can show them.</div>
+        <div><strong>Emotion Source:</strong>${pills('emosrc', [['tags', 'Tags'], ['agent', 'Agent (Soon)', 'An agent will read each reply and pick the emotion. Not ready yet.']], s.emoSource === 'agent' ? 'agent' : 'tags')}</div>
+        ${subHead('av_chat', 'In the Chat', 'fa-message')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">For the chat with Visual Novel Mode off. A message's emotion comes from <code>${tag}</code>, or from a speaker tag with the writer's name. Without one, the speaker's main face shows.</div>
-          ${ck('m_emo_faces', s.emoFaces, 'Faces on chat avatars: each message shows its writer\'s face for that message\'s emotion')}
-          ${ck('m_emo_stage', s.emoStage, 'Stage behind the chat: the last speakers\' full bodies, left, center and right')}
+          <div class="cb_hint">A message's emotion comes from <code>${tag}</code>, or a speaker tag with the writer's name. Without one, the main face shows.</div>
+          ${ck('m_emo_faces', s.emoFaces, 'Emotion Faces on Chat Avatars')}
+          ${ck('m_emo_stage', s.emoStage, 'Stage Behind the Chat')}
+          <div class="cb_hint">The last three speakers, by full body or face.</div>
           <div id="m_emo_stagebody" class="${s.emoStage ? '' : 'cb_dim'}">
-            ${sl('emoStageScale', 'Stage size:')}
-            ${sl('emoStageOpacity', 'Stage opacity:')}
+            ${sl('emoStageScale', 'Stage Size:')}
+            ${sl('emoStageOpacity', 'Stage Opacity:')}
           </div>
-          <div style="margin-top:8px;">${ck('m_emo_keepface', s.nodeSpriteBase, 'Stages keep the main face instead of changing with the emotion (also in Visual Novel Mode)')}</div>
-          ${ck('m_emo_hide', s.nodeHideEmo, 'Hide emotion and scene tags in the chat')}
-          ${ck('m_emo_inj', s.emoInject, 'Ask the model for the Emotion tag in every request while faces or the stage are on')}
-          <div class="cb_hint">The stage hides while Visual Novel Mode is on, which has its own. It sends its own instructions then too.</div>
+          <div style="margin-top:8px;">${ck('m_emo_keepface', s.nodeSpriteBase, 'Stage Keeps Main Face')}</div>
+          <div class="cb_hint">Also in Visual Novel Mode.</div>
+          ${ck('m_emo_hide', s.nodeHideEmo, 'Hide Emotion and Scene Tags')}
+          ${ck('m_emo_inj', s.emoInject, 'Ask the Model for Emotion Tags')}
+          <div class="cb_hint">With Visual Novel Mode on, its own stage and instructions replace Stage and the Emotion tag request.</div>
         </div>
-        ${subHead('av_emo_list', 'Emotion List')}
+        ${subHead('av_emo_list', 'Emotion List', 'fa-list-ul')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">The dot marks the default. It's used when a tag has no emotion, or one that isn't on this list.</div>
+          <div class="cb_hint">The dot marks the default, used when a tag has no emotion or one not on this list.</div>
           <div id="m_emo_list"></div>
           <div class="cb_row" style="margin-top:6px;">
-            <input type="text" id="m_emo_new" class="text_pole" placeholder="New emotion" style="flex:1;margin:0;">
+            <input type="text" id="m_emo_new" class="text_pole" placeholder="New Emotion" style="flex:1;margin:0;">
             <button id="m_emo_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
           </div>
         </div>
-        ${subHead('av_spk', 'Speakers ' + TAG)}
+        ${subHead('av_spk', 'Speakers ' + TAG, 'fa-users')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">Character cards and your persona are matched by name automatically. Open a speaker's faces with the arrow to give them a picture per emotion. The narrator never gets a picture.</div>
-          <label class="checkbox_label"><input type="checkbox" id="m_spk_auto" ${s.nodeAutoSpk ? 'checked' : ''}><span>Auto-add speakers from the card, persona and chat</span></label>
+          <div class="cb_hint">On chat avatars, speakers without faces use their card or persona picture. The narrator never gets one.</div>
+          <label class="checkbox_label"><input type="checkbox" id="m_spk_auto" ${s.nodeAutoSpk ? 'checked' : ''}><span>Add Speakers Automatically</span></label>
+          <div class="cb_hint">From the card, your persona and speaker tags in the chat.</div>
           <div id="m_spk_list"></div>
           <div class="cb_row" style="margin-top:8px;">
-            <input type="text" id="m_spk_new" class="text_pole" placeholder="Add a speaker (e.g. an NPC)" style="flex:1;margin:0;">
+            <input type="text" id="m_spk_new" class="text_pole" placeholder="New Speaker" style="flex:1;margin:0;">
             <button id="m_spk_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-user-plus"></i> Add</button>
           </div>
           <input type="file" id="m_spk_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         </div>
-        ${subHead('av_tags', 'Tags & Delimiters (change the symbols)')}
+        ${subHead('av_tags', 'Tags and Delimiters', 'fa-hashtag')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">The symbols and keywords for every tag, for emotions and for Visual Novel Mode.</div>
+          <div class="cb_hint">Shared with Visual Novel Mode.</div>
           <div class="cb_dgrid">
-            ${df('delimSpkOpen', 'Speaker open')}${df('delimSpkClose', 'Speaker close')}
-            ${df('delimNarOpen', 'Narrator open')}${df('delimNarClose', 'Narrator close')}
-            ${df('delimEmo', 'Emotion separator')}${df('narratorWord', 'Narrator keyword')}
-            ${df('emoWord', 'Emotion keyword')}${df('locWord', 'Location keyword')}
+            ${df('delimSpkOpen', 'Speaker Open')}${df('delimSpkClose', 'Speaker Close')}
+            ${df('delimNarOpen', 'Narrator Open')}${df('delimNarClose', 'Narrator Close')}
+            ${df('delimEmo', 'Emotion Separator')}${df('narratorWord', 'Narrator Keyword')}
+            ${df('emoWord', 'Emotion Keyword')}${df('locWord', 'Location Keyword')}
           </div>
-          <div class="cb_sub">Scene keywords</div>
+          <div class="cb_sub">Scene Keywords</div>
           <div class="cb_dgrid">
-            ${df('choiceWord', 'Choice keyword')}${df('choiceSep', 'Choice separator')}
-            ${df('effectWord', 'Effect keyword')}${df('weatherWord', 'Weather keyword')}
-            ${df('fxShake', 'Effect: shake')}${df('fxFlash', 'Effect: flash')}
-            ${df('fxFade', 'Effect: fade')}${df('cgWord', 'CG keyword')}
-            ${df('wxRain', 'Weather: rain')}${df('wxSnow', 'Weather: snow')}
-            ${df('wxClear', 'Weather: clear')}${df('enterWord', 'Enter keyword')}
-            ${df('exitWord', 'Exit keyword')}
+            ${df('choiceWord', 'Choice Keyword')}${df('choiceSep', 'Choice Separator')}
+            ${df('effectWord', 'Effect Keyword')}${df('weatherWord', 'Weather Keyword')}
+            ${df('fxShake', 'Effect: Shake')}${df('fxFlash', 'Effect: Flash')}
+            ${df('fxFade', 'Effect: Fade')}${df('cgWord', 'CG Keyword')}
+            ${df('wxRain', 'Weather: Rain')}${df('wxSnow', 'Weather: Snow')}
+            ${df('wxClear', 'Weather: Clear')}${df('enterWord', 'Enter Keyword')}
+            ${df('exitWord', 'Exit Keyword')}
           </div>
           <div id="m_d_preview" class="cb_code"></div>
           <div id="m_d_msg" class="cb_hint"></div>
           <div class="cb_actions">
             <button id="m_d_apply" class="menu_button"><i class="fa-solid fa-check"></i> Apply</button>
-            <button id="m_d_reset" class="menu_button"><i class="fa-solid fa-rotate-left"></i> Reset to defaults</button>
+            <button id="m_d_reset" class="menu_button"><i class="fa-solid fa-rotate-left"></i> Reset to Defaults</button>
           </div>
         </div>
       </div>
@@ -695,13 +698,15 @@
       spkBox.querySelectorAll('.m_spk_up').forEach((b) => { b.onclick = () => { pending = { key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }; sFile.click(); }; });
       spkBox.querySelectorAll('.m_spk_url').forEach((b) => {
         b.onclick = async () => {
-          const url = await askImageUrl(b.dataset.full ? 'Full body' : 'Face', b);
+          const url = await askImageUrl(b.dataset.full ? 'Full Body' : 'Face', b);
           if (url) setSpkImage({ key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }, url);
         };
       });
       spkBox.querySelectorAll('.m_spk_clr').forEach((b) => {
-        b.onclick = () => {
+        b.onclick = async () => {
           const { key, emo, full } = b.dataset;
+          // A face's buttons sit in a narrow cell, so its question goes under the whole grid.
+          if (!(await A.askYes(full ? b : b.closest('.cb_emo_grid'), `Remove this ${full ? 'full body' : 'face'}? Its file is deleted unless something else uses it.`, 'Remove', { danger: true }))) return;
           let old;
           if (full) { old = D().sprites[key]; delete D().sprites[key]; }
           else if (D().emoImgs[key]) { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }
@@ -816,8 +821,8 @@
     const preview = () => {
       const d = readD();
       overlay.querySelector('#m_d_preview').textContent =
-        `${d.delimSpkOpen}Rafe${d.delimEmo}Neutral${d.delimSpkClose}: "Dialogue." ${d.delimNarOpen}${d.emoWord}:Happy${d.delimNarClose}\n${d.delimNarOpen}${d.narratorWord}${d.delimNarClose}: Narration.\n${d.delimNarOpen}${d.locWord}:Tavern${d.delimNarClose}`
-        + `\n${d.delimNarOpen}${d.choiceWord}: Stay ${d.choiceSep} Leave${d.delimNarClose}\n${d.delimNarOpen}${d.effectWord}:${d.fxShake}${d.delimNarClose} ${d.delimNarOpen}${d.weatherWord}:${d.wxRain}${d.delimNarClose} ${d.delimNarOpen}${d.cgWord}:First Kiss${d.delimNarClose}`;
+        `${d.delimSpkOpen}Name${d.delimEmo}Neutral${d.delimSpkClose}: "Dialogue." ${d.delimNarOpen}${d.emoWord}:Happy${d.delimNarClose}\n${d.delimNarOpen}${d.narratorWord}${d.delimNarClose}: Narration.\n${d.delimNarOpen}${d.locWord}:Market${d.delimNarClose}`
+        + `\n${d.delimNarOpen}${d.choiceWord}: Stay ${d.choiceSep} Leave${d.delimNarClose}\n${d.delimNarOpen}${d.effectWord}:${d.fxShake}${d.delimNarClose} ${d.delimNarOpen}${d.weatherWord}:${d.wxRain}${d.delimNarClose} ${d.delimNarOpen}${d.cgWord}:Ending${d.delimNarClose}`;
       const { errs, warns } = validateDelims(d);
       overlay.querySelector('#m_d_msg').innerHTML = errs.map((x) => `<div class="cb_err">${escapeHTML(x)}</div>`).join('') + warns.map((x) => `<div class="cb_warn">${escapeHTML(x)}</div>`).join('');
     };
@@ -831,7 +836,8 @@
     };
     dIns.forEach((i) => { i.oninput = preview; });
     overlay.querySelector('#m_d_apply').onclick = () => applyD(readD());
-    overlay.querySelector('#m_d_reset').onclick = () => {
+    overlay.querySelector('#m_d_reset').onclick = async function() {
+      if (!(await A.askYes(this, 'Reset all tags and delimiters to defaults?', 'Reset'))) return;
       dIns.forEach((i) => { i.value = A.DEFAULTS[i.dataset.key]; });
       preview();
       applyD(readD());

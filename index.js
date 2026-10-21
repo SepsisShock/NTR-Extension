@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.21';
+  const VERSION = '2.69.22';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -414,16 +414,16 @@ await (async () => {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       el.onerror = () => {
         if (el.dataset.thumb && el.getAttribute('src') !== el.dataset.thumb) {
-          setPopStatus(prefix, 'Full-size file failed to load, trying the thumbnail...');
+          setPopStatus(prefix, 'Full-size picture didn\'t load. Using the thumbnail.');
           el.src = el.dataset.thumb;
         } else {
-          setPopStatus(prefix, 'Image failed to load: ' + (el.getAttribute('src') || 'no source'));
+          setPopStatus(prefix, 'Picture failed to load: ' + (el.getAttribute('src') || 'no source'));
           console.warn(`[NTR pop out] (${prefix}) ${popMsg[prefix]}`);
         }
       };
       el.onload = () => {
         const fell = el.dataset.want !== el.dataset.thumb && el.getAttribute('src') === el.dataset.thumb;
-        setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} image${fell ? ' (thumbnail fallback)' : ''}`);
+        setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} picture${fell ? ' (thumbnail)' : ''}`);
         drawPlace();
       };
     }
@@ -1933,7 +1933,7 @@ await (async () => {
       .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
       .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
       .cb_posgrid label:hover { background: rgba(255,255,255,.08); }
-      .cb_fadegrid label.cb_fon { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 35%, transparent); }
+      .cb_fadegrid label.cb_fon { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 35%, transparent); box-shadow: inset 0 0 0 1px var(--SmartThemeQuoteColor, #6cf); }
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
       .cb_ovrow .m_o_body.cb_flat { padding-left: 0; }
@@ -1983,6 +1983,9 @@ await (async () => {
         .ntr_mdgrid label { min-height: 40px; align-items: center; }
         .cb_posgrid { grid-template-columns: repeat(3, 40px); }
         .cb_posgrid label { width: 40px; height: 40px; }
+        .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { min-width: 40px; min-height: 40px; }
+        .cb_defdot { width: 40px; height: 40px; }
+        .cb_emo_grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
       }
       .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
       .cb_dfield input { margin: 0; font-family: monospace; }
@@ -2539,9 +2542,11 @@ await (async () => {
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
   const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
-  function subHead(sec, title) {
-    if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
-    return `<div class="ntr_glab" data-sec="${sec}">${title}</div>`;
+  // An optional Font Awesome icon goes before the title, like card's.
+  function subHead(sec, title, icon = '') {
+    const ic = icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : '';
+    if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${ic}${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
+    return `<div class="ntr_glab" data-sec="${sec}">${ic}${title}</div>`;
   }
   // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
   const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
@@ -2553,7 +2558,7 @@ await (async () => {
   }
   const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
   function posGrid(name, cur) {
-    return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
+    return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" aria-label="${l}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
   }
   function onPills(root, name, fn) {
     root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });

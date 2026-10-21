@@ -5,7 +5,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.69.20';
+  const ELEMENTS_VERSION = '2.69.21';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -13,7 +13,7 @@
   const { COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
     RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
     cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, bubblesOn, bubRight, restyle: updateAvatarStyle,
-    rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal } = A.look;
+    rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal, ovLabel } = A.look;
 
   // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color,
   // and Chrome drops the -webkit- parts when it sees it, so Firefox gets it on its own.
@@ -162,7 +162,7 @@
   // Styles set where each detail goes. SillyTavern is where it puts them itself.
   const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
   const MD_PRESETS = {
-    st: ['SillyTavern', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
+    st: ['ST', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
     messenger: ['Messenger', mdSpots([], [], ['time'], [])],
     row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
     footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],
@@ -690,6 +690,9 @@
     renderCursor();
   }
 
+  // The last line under each Custom CSS box.
+  const CSS_NOTE = 'Add <code>!important</code> if a setting doesn\'t take. Saved in themes; CSS from someone else\'s theme arrives switched off.';
+
   function reasoningPartHtml(s) {
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => `
@@ -700,102 +703,102 @@
     const pickRow = (title, inner, attrs = '') => `
           <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
     const patLine = (k, label) => `<label class="checkbox_label"><input type="checkbox" class="m_rb_patline" data-key="${k}" ${s[k] ? 'checked' : ''}><span>${label}</span></label>`;
-    const fxOpts = [['none', 'None', 'SillyTavern\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
+    const fxOpts = [['none', 'None', 'ST\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
     const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
     return pagePart('Reasoning Block', ['m_rb_enable', s.rbEnabled], 'el_reasoning', `
-          <div class="cb_hint">Only changes how the block looks. To show reasoning boxes, make sure "Request model reasoning" in AI Response Configuration (Chat Completion), or "Auto-Parse" under Reasoning in AI Response Formatting (Text Completion) are enabled.</div>
-          <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look. Settings without a tick start on ST's look.</div>
+          <div class="cb_hint">Only changes the look. Reasoning shows when ST's "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) is on.</div>
+          <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look.</div>
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
-            <div class="cb_hint" style="margin-top:6px;">Leave a box empty to use ST's own wording.</div>
+            <div class="cb_hint" style="margin-top:6px;">Empty uses ST's wording.</div>
             ${label('rbThink', 'While Thinking')}
-            ${label('rbDone', 'Finished', '<div class="cb_hint">Note: {time} shows "12 seconds", "a minute", etc.</div>')}
+            ${label('rbDone', 'Finished', '<div class="cb_hint">{time} becomes the thinking time.</div>')}
             ${label('rbSome', 'Finished, Time Unknown')}
             <div class="cb_ovrow cb_sep">
               <div>Typewriter Effect</div>
-              <div class="m_o_body cb_flat">${pills('rbtyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']], s.rbTyping)}<div class="cb_hint">Types the label out live, with looping dots while thinking. Off with ST Reduced Motion enabled.</div></div>
+              <div class="m_o_body cb_flat">${pills('rbtyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']], s.rbTyping)}<div class="cb_hint">Off with ST's Reduced Motion.</div></div>
             </div>
           </div>
           ${card('Reasoning Button', `
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
-          ${ovRow(s, 'rbBtnAlphaOn', 'Background Color Opacity', rangeSlider(s, 'rbBtnOpacity'))}
-          ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
+          ${ovRow(s, 'rbBtnAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBtnOpacity'))}
+          ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'ST\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
           ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders, s.rbBtnBorder))}
-          ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor') + '<div class="cb_hint">Without this, the border follows the button\'s text color.</div>')}
-          ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow uses the Border Color, or the button\'s text color without one. Shadow is black.</div>')}`)}
+          ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor'))}
+          ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}`)}
           ${card('Reasoning Box', `
-          ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor') + '<div class="cb_hint">SillyTavern\'s box has no background.</div>')}
-          ${ovRow(s, 'rbBoxAlphaOn', 'Background Color Opacity', rangeSlider(s, 'rbBoxOpacity'))}
+          ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor'))}
+          ${ovRow(s, 'rbBoxAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBoxOpacity'))}
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + `<div class="cb_hint">${FONT_NOTE}</div>`)}
-          ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">SillyTavern shows reasoning colors at 50%. 100% is full color, 0% is grey.</div>')}
+          ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">ST\'s is 50%. 0% is grey.</div>')}
           ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', pills('rbboxshape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']], s.rbBoxShape))}
           ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')], s.rbBorderStyle))}
-          ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder') + '<div class="cb_hint">Without this, the border follows the text color.</div>')}
-          ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow uses the Border Color, or the text color without one. Shadow is black.</div>')}
-          ${subHead('rb_bgimg', 'Background Image')}
+          ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder'))}
+          ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}
+          ${subHead('rb_bgimg', 'Background Picture')}
           <div class="cb_collapse_content">
           <div class="cb_cur_slot">
             <div class="cb_cur_row">
               <div class="cb_cur_prev ntr_rd_pic" id="m_rbbg_prev"></div>
-              <span class="cb_cur_name">Picture<small>Shows behind the reasoning text, in every reasoning box.</small></span>
-              <button class="menu_button" id="m_rbbg_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button" id="m_rbbg_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button" id="m_rbbg_clr" title="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+              <span class="cb_cur_name">Picture</span>
+              <button class="menu_button" id="m_rbbg_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button" id="m_rbbg_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button" id="m_rbbg_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
             </div>
             <input type="file" id="m_rbbg_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           </div>
           <div class="m_rbbg_rows">
-          ${pickRow('Fit', pills('rbbgfit', [['cover', 'Cover'], ['tile', 'Tile']], s.rbBgFit) + '<div class="cb_hint">Cover fills the box, cropping the picture. Tile repeats it.</div>')}
-          ${pickRow('Position', posGrid('rbbgpos', s.rbBgPos) + '<div class="cb_hint">The part of the picture that stays in view when the box crops it.</div>', ' data-rbbg="cover"')}
-          ${pickRow('Tile Size', rangeSlider(s, 'rbBgTile') + '<div class="cb_hint">The width of each tile.</div>', ' data-rbbg="tile"')}
-          ${pickRow('Opacity', rangeSlider(s, 'rbBgOpacity') + '<div class="cb_hint">Lower lets the chat, or the Box Color, show through the picture. If your Box CSS makes the box scroll, the picture scrolls away with the text.</div>')}
-          ${ovRow(s, 'rbBgTintOn', 'Readability Tint', rangeSlider(s, 'rbBgTint') + '<div class="cb_hint">Darkens the picture behind light reasoning text, or lightens it behind dark text, so the text stays easy to read.</div>')}
+          ${pickRow('Fit', pills('rbbgfit', [['cover', 'Cover'], ['tile', 'Tile']], s.rbBgFit))}
+          ${pickRow('Keep in View', posGrid('rbbgpos', s.rbBgPos), ' data-rbbg="cover"')}
+          ${pickRow('Tile Size', rangeSlider(s, 'rbBgTile'), ' data-rbbg="tile"')}
+          ${pickRow('Picture Opacity', rangeSlider(s, 'rbBgOpacity') + '<div class="cb_hint">If your Box CSS makes the box scroll, the picture scrolls with the text.</div>')}
+          ${ovRow(s, 'rbBgTintOn', 'Readability Tint', rangeSlider(s, 'rbBgTint') + '<div class="cb_hint">Darkens the picture behind light text, or lightens it behind dark text.</div>')}
           </div>
           </div>
           ${subHead('rb_pattern', 'Background Pattern')}
           <div class="cb_collapse_content">
           ${pickRow('Pattern', pills('rbpat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers']], s.rbPat))}
           ${pickRow('Lines', `<div class="ntr_rbpat_lines">${patLine('rbPatH', 'Horizontal')}${patLine('rbPatV', 'Vertical')}${patLine('rbPatR', 'Diagonal /')}${patLine('rbPatL', 'Diagonal \\')}</div>`
-            + '<button class="menu_button" id="m_rb_patreset" style="margin:6px 0 0;">Reset</button><div class="cb_hint">Mix them: Horizontal and Vertical make a grid, both diagonals make diamonds. Horizontal follows the text lines.</div>', ' data-rbpat="lines"')}
-          ${pickRow('Pattern Shade', pills('rbpatshade', [['light', 'Lighter'], ['dark', 'Darker']], s.rbPatShade) + '<div class="cb_hint">Darker flips it: dark dots or squares on the box color.</div>', ' data-rbpat="drawn"')}
-          <div data-rbpat="drawn">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor') + '<div class="cb_hint">Without this, the pattern is a shade of the Box Color.</div>')}</div>
-          ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">How thick the lines are, or how big the dots are. Checkers doesn't use it.</div>`, ' data-rbpat="drawn"')}
-          ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Spacing of the pattern. Notebook and Horizontal lines follow the text lines instead.</div>`, ' data-rbpat="drawn"')}
-          ${ovRow(s, 'rbPatFadeOn', 'Fade', '<div class="cb_hint">The box\'s background turns see-through on one side: the Box Color, the pattern and the Background Image. The text stays.</div><div class="cb_hint m_rb_fadeneed">Nothing to fade yet. Pick a Box Color, a pattern or a Background Image.</div>')}
+            + '<button class="menu_button" id="m_rb_patreset" style="margin:6px 0 0;">Reset Lines</button>', ' data-rbpat="lines"')}
+          ${pickRow('Pattern Shade', pills('rbpatshade', [['light', 'Lighter'], ['dark', 'Darker']], s.rbPatShade), ' data-rbpat="drawn"')}
+          <div data-rbpat="drawn">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor'))}</div>
+          ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">Line thickness, or dot size. Checkers doesn't use it.</div>`, ' data-rbpat="drawn"')}
+          ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Notebook and Horizontal lines follow the text lines instead.</div>`, ' data-rbpat="drawn"')}
+          ${ovRow(s, 'rbPatFadeOn', 'Fade', '<div class="cb_hint">Fades the Box Color, pattern and picture toward one side. The text stays.</div><div class="cb_hint m_rb_fadeneed">Nothing to fade yet. Pick a Box Color, a pattern or a Background Picture.</div>')}
           <div class="m_rb_fade ${s.rbPatFadeOn ? '' : 'cb_dim'}">
-          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">The side that turns see-through. The center fades from the middle out.</div>')}
-          ${pickRow('Reach', rangeSlider(s, 'rbPatFadeReach') + '<div class="cb_hint">How far into the box the fade goes, in lines of text. Past it, the background is solid. A small box fades across its whole size.</div>')}
-          ${pickRow('Softness', rangeSlider(s, 'rbPatFadeSoft') + '<div class="cb_hint">How much of the Reach blends. Lower stays see-through longer, then turns solid with a sharper edge.</div>')}
+          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">Center fades from the middle out.</div>')}
+          ${pickRow('Reach', rangeSlider(s, 'rbPatFadeReach') + '<div class="cb_hint">How far the fade goes, in lines of text.</div>')}
+          ${pickRow('Softness', rangeSlider(s, 'rbPatFadeSoft') + '<div class="cb_hint">Lower stays see-through longer, with a sharper edge.</div>')}
           </div>
           </div>`)}
           ${card('Reasoning Arrow', `
-          ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'SillyTavern\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Image']], s.rbArrow))}
-          ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼', 16) + '<div class="cb_hint">Any character or emoji, or a few of them. Empty shows SillyTavern\'s arrow.</div>', ' data-rbarrow="symbol"')}
+          ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'ST\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']], s.rbArrow))}
+          ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼', 16) + '<div class="cb_hint">Empty shows ST\'s arrow.</div>', ' data-rbarrow="symbol"')}
           <div class="cb_cur_slot" data-rbarrow="image">
             <div class="cb_cur_row">
               <div class="cb_cur_prev" id="m_rba_prev"></div>
-              <span class="cb_cur_name">Picture<small>Square works best; 64×64 px is plenty. Empty shows SillyTavern's arrow.</small></span>
-              <button class="menu_button" id="m_rba_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button" id="m_rba_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button" id="m_rba_clr" title="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+              <span class="cb_cur_name">Picture<small>Empty shows ST's arrow.</small></span>
+              <button class="menu_button" id="m_rba_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button" id="m_rba_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button" id="m_rba_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
             </div>
             <input type="file" id="m_rba_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           </div>
-          <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Without this, the arrow follows the button\'s text color. Color emoji keep their own colors.</div>')}</div>
+          <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Color emoji keep their own colors.</div>')}</div>
           <div data-rbarrow="shown">
-          ${ovRow(s, 'rbArrowSizeOn', 'Arrow Size', rangeSlider(s, 'rbArrowSize') + '<div class="cb_hint">1x is SillyTavern\'s size. The button makes room for it.</div>')}
-          ${pickRow('Turn', pills('rbarrowturn', [['flip', 'Flip', 'SillyTavern\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']], s.rbArrowTurn) + '<div class="cb_hint">How the arrow turns when the block closes. Quarter Turn is for symbols that point right, like ▶: they point down while the block is open.</div>')}
-          ${pickRow('While Thinking', pills('rbarrowanim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']], s.rbArrowAnim) + '<div class="cb_hint">Moves the arrow until the thinking is done. Off with ST Reduced Motion enabled.</div>')}
+          ${ovRow(s, 'rbArrowSizeOn', 'Arrow Size', rangeSlider(s, 'rbArrowSize'))}
+          ${pickRow('Turn', pills('rbarrowturn', [['flip', 'Flip', 'ST\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']], s.rbArrowTurn) + '<div class="cb_hint">When the block closes. Quarter Turn suits symbols that point right, like ▶.</div>')}
+          ${pickRow('While Thinking', pills('rbarrowanim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']], s.rbArrowAnim) + '<div class="cb_hint">Off with ST\'s Reduced Motion.</div>')}
           </div>`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
-            ${ovRow(s, 'rbBtnCssOn', 'Button CSS', cssBox('rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;') + '<div class="cb_hint">CSS for the reasoning button, like <code>text-transform: uppercase;</code>.</div>')}
-            ${ovRow(s, 'rbCssOn', 'Box CSS', cssBox('rbCss', 'letter-spacing: 1px;&#10;& em { color: gold; }') + '<div class="cb_hint">CSS for the reasoning box, like <code>letter-spacing: 1px;</code>. Use <code>&amp; em { ... }</code> for italics.</div>')}
-            ${ovRow(s, 'rbArrowCssOn', 'Arrow CSS', cssBox('rbArrowCss', 'opacity: .7;') + '<div class="cb_hint">CSS for the reasoning arrow, like <code>opacity: .7;</code>. Use <code>&amp;::before { ... }</code> for a Symbol.</div>')}
-            <div class="cb_hint">Add <code>!important</code> if a setting doesn't take. To style the rest of SillyTavern, use SillyTavern's own Custom CSS in User Settings. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>
+            ${ovRow(s, 'rbBtnCssOn', 'Button CSS', cssBox('rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;'))}
+            ${ovRow(s, 'rbCssOn', 'Box CSS', cssBox('rbCss', 'letter-spacing: 1px;&#10;& em { color: gold; }') + '<div class="cb_hint">Use <code>&amp; em { }</code> for italics.</div>')}
+            ${ovRow(s, 'rbArrowCssOn', 'Arrow CSS', cssBox('rbArrowCss', 'opacity: .7;') + '<div class="cb_hint">Use <code>&amp;::before { }</code> for a Symbol.</div>')}
+            <div class="cb_hint">${CSS_NOTE}</div>
           </div>
-    `);
+    `, 'fa-brain');
   }
 
   // Message Details: a tick adds or removes a detail from a spot, and a Style sets all of them. Either may change the
@@ -858,7 +861,7 @@
         setImg(await uploadImage(file.files[0], 'rbbg', { maxWidth: 1600 }));
       } catch (e) {
         console.error('[NTR reasoning background upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Background Image');
+        toastr.error(e.message || 'Upload failed', 'Background Picture');
       }
       file.value = '';
     };
@@ -917,10 +920,10 @@
       <div class="cb_cur_slot">
         <div class="cb_cur_row">
           <div class="cb_cur_prev" id="m_cur_prev_${k}" data-icon="${icon}"></div>
-          <span class="cb_cur_name">${label}<small>${hint}</small></span>
-          <button class="menu_button m_cur_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
-          <button class="menu_button m_cur_url" data-k="${k}" data-label="${label} cursor" title="Use a link"><i class="fa-solid fa-link"></i></button>
-          <button class="menu_button m_cur_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button>
+          <span class="cb_cur_name">${label}${hint ? `<small>${hint}</small>` : ''}</span>
+          <button class="menu_button m_cur_up" data-k="${k}" title="Upload" aria-label="Upload a ${label} cursor"><i class="fa-solid fa-upload"></i></button>
+          <button class="menu_button m_cur_url" data-k="${k}" data-label="${label} cursor" title="Use a link" aria-label="Use a link for the ${label} cursor"><i class="fa-solid fa-link"></i></button>
+          <button class="menu_button m_cur_clr" data-k="${k}" title="Remove picture" aria-label="Remove the ${label} cursor"><i class="fa-solid fa-rotate-left"></i></button>
         </div>
       </div>`;
   }
@@ -928,35 +931,34 @@
   function scrollbarPartHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     return pagePart('Scrollbar', ['m_scroll_enable', s.ovScrollOn], 'el_scroll', `
-          <div class="cb_hint">Changes every scrollbar in SillyTavern. Phones mostly show their own scrollbars.</div>
+          <div class="cb_hint">Phones mostly keep their own scrollbars.</div>
           ${row('ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
-          ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar. SillyTavern leaves it see-through.</div>')}
+          ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar.</div>')}
           ${subHead('ov_scroll_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${row('ovScrollCssOn', 'Scrollbar CSS', customCssBox(s, 'ovScrollCss', '::-webkit-scrollbar { width: 6px; height: 6px; }&#10;::-webkit-scrollbar-thumb { border-radius: 0; }')
-              + '<div class="cb_hint">Whole CSS rules, like <code>::-webkit-scrollbar { width: 6px; }</code> for the width or <code>::-webkit-scrollbar-thumb { border-radius: 0; }</code> for square corners. Firefox ignores <code>::-webkit-scrollbar</code> rules. Add <code>!important</code> if a setting doesn\'t take. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
+              + `<div class="cb_hint">Whole CSS rules. Firefox ignores <code>::-webkit-scrollbar</code>. ${CSS_NOTE}</div>`)}
           </div>
-    `);
+    `, 'fa-arrows-up-down');
   }
 
   function cursorPartHtml(s) {
     return pagePart('Cursor', ['m_cur_enable', s.ovCursorOn], 'el_cursor', `
-          <div class="cb_hint">Your own pictures for the mouse cursor. Phones and tablets have no cursor.</div>
-          ${cursorSlot('ovCursorImg', 'Normal', 'Everywhere else.', 'fa-arrow-pointer')}
-          ${cursorSlot('ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system hand.', 'fa-hand-pointer')}
-          ${cursorSlot('ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system text cursor.', 'fa-i-cursor')}
-          ${cursorSlot('ovCursorDownImg', 'Click', 'While the mouse button is held down. Empty keeps the cursor you had.', 'fa-computer-mouse')}
-          <div class="cb_hint">The top-left corner of each picture is the spot that clicks. For Text, it's the middle.</div>
-          <div class="cb_hint">Size</div>
-          ${rangeSlider(s, 'ovCursorSize')}
-          <div class="cb_hint">Some browsers cut off cursors bigger than 32 px near the edge of the screen. Animated GIFs show only their first frame. Some sites don't allow their pictures to be resized: if Size does nothing for a link, upload the picture instead.</div>
+          <div class="cb_hint">Phones and tablets have no cursor.</div>
+          ${cursorSlot('ovCursorImg', 'Normal', '', 'fa-arrow-pointer')}
+          ${cursorSlot('ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system\'s.', 'fa-hand-pointer')}
+          ${cursorSlot('ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system\'s.', 'fa-i-cursor')}
+          ${cursorSlot('ovCursorDownImg', 'Click', 'While the button is held. Empty keeps the current cursor.', 'fa-computer-mouse')}
+          <div class="cb_hint">The top-left corner clicks; for Text, the middle.</div>
+          ${ovLabel('Size', rangeSlider(s, 'ovCursorSize'))}
+          <div class="cb_hint">Browsers may cut off cursors over 32 px near screen edges. GIFs show their first frame only. If Size does nothing for a link, upload the picture.</div>
           <input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${subHead('ov_cursor_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'ovCursorCssOn', 'Cursor CSS', customCssBox(s, 'ovCursorCss', '.mes_buttons .mes_button { cursor: help; }&#10;.swipe_left, .swipe_right { cursor: grab; }')
-              + '<div class="cb_hint">Whole CSS rules for anything the settings above don\'t cover, like <code>.mes_buttons .mes_button { cursor: help; }</code> for a different cursor on the message buttons. Add <code>!important</code> if a setting doesn\'t take. Works while Cursor is on. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.</div>')}
+              + `<div class="cb_hint">Whole CSS rules. ${CSS_NOTE}</div>`)}
           </div>
-    `);
+    `, 'fa-arrow-pointer');
   }
 
   // Menu Bar Icons: a row for each drawer on SillyTavern's menu bar, in bar order, then the saved pictures of drawers
@@ -984,18 +986,16 @@
         <div class="cb_cur_row">
           <span class="cb_cur_name">${name}<small class="m_mb_note"></small></span>
           ${r.id && !r.gone ? b('m_mb_up', 'fa-upload', 'Upload', 'Upload a picture for') + b('m_mb_url', 'fa-link', 'Use a link', 'Use a link for') : ''}
-          ${r.id ? b('m_mb_clr', 'fa-rotate-left', 'Remove image', 'Remove the picture for') : ''}
+          ${r.id ? b('m_mb_clr', 'fa-rotate-left', 'Remove picture', 'Remove the picture for') : ''}
         </div>
         <div class="m_mb_mode">${pills('mbmode' + i, [['tint', 'Tint', 'Uses the picture\'s shape in the theme\'s icon color.'], ['full', 'Full Color', 'Shows the picture as it is.']], s.mbIcons[r.id]?.mode)}</div>
       </div>`;
     }).join('');
     return pagePart('ST Menu Bar Icons', ['m_mb_enable', s.mbOn], 'el_mbicons', `
-          <div class="cb_hint">Your own pictures for the icons on the ST menu bar. Empty keeps ST's icon.</div>
           ${rows}
-          <div class="cb_hint">Tint colors the picture like SillyTavern's icons, so it needs a see-through background. Full Color shows the picture as it is. Icons for closed panels stay faded, like SillyTavern's.</div>
-          <div class="cb_hint" style="margin-bottom: 0;">Pictures fill the same square as SillyTavern's icons. Square pictures with a little empty space around them look best; 64×64 px is plenty. Animated GIFs keep moving.</div>
+          <div class="cb_hint" style="margin-bottom: 0;">Tint needs a see-through background. Icons for closed panels stay faded, like ST's.</div>
           <input type="file" id="m_mb_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-    `);
+    `, 'fa-window-maximize');
   }
 
   // Whether Tint suits a picture: it has see-through parts, checked small. A picture its site doesn't let other sites
@@ -1027,9 +1027,9 @@
         if (e && ok === null && !waiting.has(e.img)) { waiting.add(e.img); mbWait.get(e.img)?.then(render); }
         el.querySelector('.m_mb_note').textContent = !r.id ? 'This icon can\'t take a picture.'
           : r.gone ? 'Not on the menu bar right now. Kept in case it comes back.'
-          : ok === false ? 'Didn\'t load. SillyTavern\'s icon shows instead.'
+          : ok === false ? 'Didn\'t load. ST\'s icon shows instead.'
           : ok === 'plain' && e.mode === 'tint' ? 'Its site doesn\'t allow Tint, so it shows in Full Color. Upload the picture to tint it.'
-          : e && r.api ? 'While not connected, SillyTavern\'s warning shows instead.' : '';
+          : e && r.api ? 'While not connected, ST\'s warning shows instead.' : '';
         const clr = el.querySelector('.m_mb_clr');
         if (clr) clr.disabled = !e;
         el.querySelector('.m_mb_mode').hidden = !e || r.gone;
@@ -1087,44 +1087,43 @@
     const grid = `<div class="ntr_mdgrid"><span></span>${MD_SPOTS.map(([, , label]) => `<span class="ntr_mdh">${label}</span>`).join('')}
       ${MD_ITEMS.map(([id, label]) => `<span>${label}</span>${MD_SPOTS.map(([, key, spot]) => `<label title="${label}: ${spot}"><input type="checkbox" class="m_md_cell" data-key="${key}" data-item="${id}" ${mdList(s, key).includes(id) ? 'checked' : ''}></label>`).join('')}`).join('')}</div>`;
     return pagePart('Message Details', ['m_md_enable', s.mdOn], 'el_md', `
-          ${hint('Moves and restyles the details on each message, like its number, time and token count. While this is on, the ticks below decide which details show, in place of SillyTavern\'s Message Timer, Timestamps, Message IDs and Message Token Count.')}
+          ${hint('Moves and restyles each message\'s details. While on, the ticks below replace ST\'s Message Timer, Timestamps, Message IDs and Message Token Count.')}
           ${pickRow('Style', pills('mdpreset', [...Object.entries(MD_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], mdPreset(s))
-            + hint('A style sets where each detail goes. SillyTavern puts them where SillyTavern does. Change a tick after that and it shows Custom.'))}
+            + hint('Changing a tick after makes it Custom.'))}
           ${grid}
-          ${hint('Avatar is under the picture. Name Row is after the name. Corner is at the end of the text, on its last line when there\'s room, like a messaging app; with Speech Bubbles it sits inside the bubble. A message ending in something other than text, like a table or an HTML block, shows its Corner details at the end of Below instead. Below is under the message. Tokens only show for messages SillyTavern counted, which it does while its Message Token Count (User Settings) is ticked.')}
+          ${hint('Corner sits at the end of the text, inside the bubble with Speech Bubbles. A message ending in a table or HTML moves it to the end of Below. Tokens show only while ST\'s Message Token Count is on.')}
           ${pickRow('Date', pills('mddate', [['long', 'Long'], ['short', 'Short']], s.mdDate))}
-          ${pickRow('Separator', pills('mdsep', [['dot', '·'], ['bar', '|'], ['slash', '/'], ['space', 'Space']], s.mdSep) + hint('Between details in the same spot. The Avatar spot puts each on its own line, and date and time stay together.'))}
-          ${row('mdSizeOn', 'Size', rangeSlider(s, 'mdSize') + hint('1x is SillyTavern\'s size for each spot.'))}
+          ${pickRow('Separator', pills('mdsep', [['dot', '·'], ['bar', '|'], ['slash', '/'], ['space', 'Space']], s.mdSep) + hint('Avatar stacks them one per line. Date and time stay together.'))}
+          ${row('mdSizeOn', 'Size', rangeSlider(s, 'mdSize'))}
           ${row('mdColorOn', 'Color', ovColor(s, 'mdColor'))}
-          ${row('mdOpacityOn', 'Opacity', rangeSlider(s, 'mdOpacity') + hint('SillyTavern shows its details at 70%.'))}
-          ${row('mdPillOn', 'Background', ovColor(s, 'mdPill') + hint('A rounded background behind the details, so they stay easy to read over pictures.'))}
-    `);
+          ${row('mdOpacityOn', 'Opacity', rangeSlider(s, 'mdOpacity') + hint('ST\'s is 70%.'))}
+          ${row('mdPillOn', 'Background', ovColor(s, 'mdPill'))}
+    `, 'fa-clock');
   }
 
   function qrPartHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const hint = (t) => `<div class="cb_hint">${t}</div>`;
     return pagePart('Quick Replies', ['m_qr_enable', s.ovQrOn], 'el_qr', `
-          ${hint('Changes the buttons of SillyTavern\'s Quick Reply bar, above the send bar, and its pop-out window. A set\'s own color from Quick Reply\'s settings still shows behind its buttons.')}
-          ${subHead('ov_qr_btn', 'Buttons')}
+          ${hint('Restyles ST\'s Quick Reply bar and pop-out. A set\'s own color still shows behind its buttons.')}
+          ${card('Buttons', `
           ${ovShapeRow(s, 'Qr')}
-          ${ovBgRow(s, 'Qr', hint('SillyTavern\'s buttons have no background of their own.'))}
+          ${ovBgRow(s, 'Qr')}
           ${ovBorderRow(s, 'Qr')}
           ${row('ovQrTextOn', 'Text Color', ovColor(s, 'ovQrText'))}
-          ${row('ovQrHoverOn', 'Hover Color', ovColor(s, 'ovQrHover') + hint('The background while the mouse is over a button.'))}
-          ${row('ovQrSizeOn', 'Text Size', rangeSlider(s, 'ovQrSize'))}
-          ${subHead('ov_qr_bar', 'Bar')}
-          ${row('ovQrWrapOn', 'Layout', ovPick(s, 'ovQrWrap', [['wrap', 'Wrap into Rows'], ['scroll', 'One Scrolling Row']])
-            + hint('One Scrolling Row keeps the bar one button high; scroll sideways for the rest. SillyTavern wraps them.'))}
+          ${row('ovQrHoverOn', 'Hover Background', ovColor(s, 'ovQrHover'))}
+          ${row('ovQrSizeOn', 'Text Size', rangeSlider(s, 'ovQrSize'))}`)}
+          ${card('Bar', `
+          ${row('ovQrWrapOn', 'Rows', ovPick(s, 'ovQrWrap', [['wrap', 'Wrap into Rows'], ['scroll', 'One Scrolling Row']]))}
           ${row('ovQrGapOn', 'Gap', rangeSlider(s, 'ovQrGap'))}
           ${row('ovQrAlignOn', 'Alignment', ovPick(s, 'ovQrAlign', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']]))}
-          ${row('ovQrOpacityOn', 'Bar Opacity', rangeSlider(s, 'ovQrOpacity') + hint('SillyTavern shows the bar at 70%.'))}
+          ${row('ovQrOpacityOn', 'Bar Opacity', rangeSlider(s, 'ovQrOpacity') + hint('ST\'s is 70%.'))}`)}
           ${subHead('ov_qr_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${row('ovQrCssOn', 'Quick Replies CSS', customCssBox(s, 'ovQrCss', '#qr--bar .qr--button { font-weight: bold; }&#10;#qr--bar .qr--button:hover { transform: scale(1.05); }')
-              + hint('Whole CSS rules for anything the settings above don\'t cover, like <code>#qr--bar .qr--button { font-weight: bold; }</code>. The bar is <code>#qr--bar</code>, the pop-out window <code>#qr--popout</code> and each button <code>.qr--button</code>. Add <code>!important</code> if a setting doesn\'t take. Works while Quick Replies is on. Saved in themes. Themes from someone else bring their CSS switched off, so you can check it before turning it on.'))}
+              + hint(`Whole CSS rules. The bar is <code>#qr--bar</code>, the pop-out <code>#qr--popout</code>, each button <code>.qr--button</code>. ${CSS_NOTE}`))}
           </div>
-    `);
+    `, 'fa-reply');
   }
 
   document.addEventListener('pointerover', onCursorOver, true);

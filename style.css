@@ -234,6 +234,8 @@
 .ntr_parthead:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; border-radius: 6px; }
 .ntr_parttitle { flex: 1; margin: 0; padding: 0; border: 0; color: inherit; font-size: 1.15em; font-weight: 700; }
 .ntr_part.ntr_off .ntr_parttitle { opacity: 0.45; }
+.ntr_part_icon { color: var(--SmartThemeQuoteColor, #6cf); }
+.ntr_part.ntr_off .ntr_part_icon { opacity: 0.45; }
 .ntr_part.ntr_off .ntr_partbody { opacity: 0.38; filter: grayscale(1); pointer-events: none; transition: opacity 0.15s; }
 
 .ntr_glab {

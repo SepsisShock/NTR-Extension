@@ -265,7 +265,7 @@
     return ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
   }
 
-  function getColHtml(prefix, title, icon, s) {
+  function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
     const shaped = !!SHAPES[s[`${prefix}Shape`]];
     const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
@@ -281,7 +281,7 @@
 
     return `
       <div class="ntr_colwrap">
-      <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on"><i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>${title} Avatar</label></div>
+      <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on">${title} Avatar</label></div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
         <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}
           <div class="cb_hint" style="margin: 4px 0 0;">Also shapes ST's own chat avatar while switched off.</div></div>
@@ -331,8 +331,8 @@
             ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
               + '<div class="cb_hint">Hide removes avatars, names and timestamps, pop-outs included. Message Details (Elements) still shows its details where ticked, except under the avatar.</div>'))}
             <div class="ntr_cols">
-              ${getColHtml('ai', 'AI', 'fa-masks-theater', s)}
-              ${getColHtml('us', 'User', 'fa-user-pen', s)}
+              ${getColHtml('ai', 'AI', s)}
+              ${getColHtml('us', 'User', s)}
             </div>
             ${castPartHtml()}
         `, { sw: ['m_a_enable', s.avatarEnabled], legend: true });

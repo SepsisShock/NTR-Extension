@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.31';
+  const VERSION = '2.70.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -3101,6 +3101,12 @@ await (async () => {
     v.emoImgs = emo;
     v.customSpk = Array.isArray(v.customSpk) ? v.customSpk.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : [];
     v.hiddenSpk = Array.isArray(v.hiddenSpk) ? v.hiddenSpk.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : [];
+    // This character's own emotion list (see emoSet), checked like a theme's. A list that doesn't pass is dropped, so
+    // the character follows the template. Cleaned in place: the menu edits these objects.
+    if (validEmotions(v.emotions)) {
+      for (const e of v.emotions) { for (const k of Object.keys(e)) if (k !== 'id' && k !== 'name') delete e[k]; e.name = e.name.trim(); }
+      if (!v.emotions.some((e) => e.id === v.emoDefault)) v.emoDefault = v.emotions[0].id;
+    } else { delete v.emotions; delete v.emoDefault; }
     v.locations = cList(v.locations, 500, (l) => cNamed(l, 'loc'));
     v.locDefault = cUrl(v.locDefault);
     v.cgs = cList(v.cgs, 500, (g) => cNamed(g, 'cg'));
@@ -3170,7 +3176,7 @@ await (async () => {
     const b = d.banner;
     const bannerEmpty = !b || (!(b.images || []).length && b.locked !== false && !b.overlap && !b.overlapOffset && !b.youtubeUrl && !b.video && b.scope !== 'char');
     const vn = d.vn || {};
-    return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.customSpk || []).length && !(vn.hiddenSpk || []).length && !(vn.locations || []).length
+    return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.emotions || []).length && !(vn.customSpk || []).length && !(vn.hiddenSpk || []).length && !(vn.locations || []).length
       && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt) && !(d.regex?.folders || []).length;
   }
 
@@ -3229,6 +3235,15 @@ await (async () => {
     }
     legacyMigrate(st);
     return st;
+  }
+
+  // The open chat's emotions: its own list (in the card, or the group's), or the template (the global list) when it has
+  // none or no chat is open.
+  function emoSet() {
+    const s = settings();
+    const v = store()?.vn;
+    if (v && Array.isArray(v.emotions)) return { emotions: v.emotions, emoDefault: v.emoDefault, own: true };
+    return { emotions: s.emotions, emoDefault: s.emoDefault, own: false };
   }
 
   function fgData() {
@@ -4673,7 +4688,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),

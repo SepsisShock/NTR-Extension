@@ -465,6 +465,7 @@
             ${subHead('vn_play', 'Playback', 'fa-forward-step')}
             <div class="cb_collapse_content">
               ${ck('m_n_user', s.nodeUserMsgs, 'Include My Messages')}
+              <div class="cb_hint">Yours plays when you send, then the reply takes over.</div>
               ${ck('m_n_split', s.nodeSplitUntagged, 'Play Untagged Messages')}
               <div class="cb_hint">Quotes become the character's lines; the rest is narration.</div>
               ${ck('m_n_tw', s.nodeTypewriter, 'Typewriter Effect')}
@@ -649,7 +650,7 @@
         });
         box.querySelectorAll(`.m_${L.c}_clr`).forEach((b) => {
           b.onclick = async () => {
-            if (!(await A.askYes(b.closest('.cb_spk'), REMOVE_PIC, 'Remove', { danger: true }))) return;
+            if (!(await A.askYes(b, REMOVE_PIC, 'Remove', { danger: true }))) return;
             let old;
             if (b.dataset.id === DEF_ID) { old = v[L.def.key]; v[L.def.key] = ''; }
             else { const x = find(b.dataset.id); if (!x) return; old = x.url; x.url = ''; }
@@ -661,7 +662,7 @@
           b.onclick = async () => {
             const x = find(b.dataset.id);
             const pinned = L.key === 'locations' && (v.maps || []).some((mp) => (mp.pins || []).some((p) => p.loc === x?.id));
-            if (!x || !(await A.askYes(b, `Delete the ${L.name} "${x.name}"${x.url ? ` and its ${L.picDel}` : ''}?${pinned ? ' Map pins linked to it lose their place.' : ''}`, 'Delete', { danger: true }))) return;
+            if (!x || !(await A.askYes(b, `Delete the ${L.name} "${x.name}"${x.url ? ` and its ${L.picDel}` : ''}?${pinned ? ' Map pins linked to it are removed or unlinked.' : ''}`, 'Delete', { danger: true }))) return;
             v[L.key] = v[L.key].filter((y) => y !== x);
             if (L.onDelete) L.onDelete(v, x);
             save(); render(); refreshAll();
@@ -736,6 +737,8 @@
       b.onclick = async () => {
         if (!(await A.askYes(b.closest('.cb_art_row'), REMOVE_PIC, 'Remove', { danger: true }))) return;
         const k = b.dataset.k;
+        // Its pill may have left Custom while the question was open.
+        if (s[k === 'artBgImg' ? 'artBg' : 'artSprite'] !== 'custom') return;
         const old = s[k];
         s[k] = '';
         save(); renderArt(); refreshAll(); updateStage();

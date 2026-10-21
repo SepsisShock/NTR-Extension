@@ -499,7 +499,7 @@
     const list = speakers();
     const nHidden = (D().hiddenSpk || []).length;
     const restore = nHidden ? `<div class="cb_hint"><a href="#" class="m_spk_unhide">Restore ${nHidden} hidden speaker${nHidden === 1 ? '' : 's'}</a></div>` : '';
-    if (!list.length) return `<div class="cb_hint">No speakers yet. Add one below${s.nodeAutoSpk ? ', or they show up once tagged in the chat' : ''}.</div>${restore}`;
+    if (!list.length) return `<div class="cb_hint">No one here yet. ${s.nodeAutoSpk ? 'Add a speaker, or they join once tagged in the chat.' : 'Add a speaker or let them join automatically.'}</div>${restore}`;
     return list.map(({ key, name, custom }) => {
       const base = baseFace(name);
       const stPic = stAvatar(key);

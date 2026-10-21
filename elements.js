@@ -5,11 +5,11 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.69.28';
+  const ELEMENTS_VERSION = '2.69.29';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
-    pills, posGrid, onPills, pageHtml, pagePart, subHead, card } = A;
+    pills, posGrid, onPills, pageHtml, pagePart, subHead, card, reducedMotion } = A;
   const { COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
     RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
     cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, bubblesOn, bubRight, restyle: updateAvatarStyle,
@@ -371,8 +371,7 @@
   const RB_TYPE_MS = 45, RB_DOT_MS = 350;
   const rbAnim = new WeakMap();
   const rbKey = new WeakMap();
-  const rbMotion = (s) => isOn() && s.rbEnabled && s.rbTyping !== 'off' && !ctx().powerUserSettings?.reduced_motion
-    && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const rbMotion = (s) => isOn() && s.rbEnabled && s.rbTyping !== 'off' && !reducedMotion();
   function rbNewAnim(text, state) {
     const loop = state === 'think' && text.endsWith('...');
     return { text, state, n: 1, loop, base: loop ? text.slice(0, -3) : text, dots: 3, done: false, timer: 0 };

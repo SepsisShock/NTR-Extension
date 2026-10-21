@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.69.28';
+  const READER_VERSION = '2.69.29';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -423,8 +423,7 @@
   // happened yet, for First, Last, a typed page and the like, which go straight to their page.
   let flipEnd = null;
   const dropFlip = () => flipEnd?.(false);
-  const flipOn = () => booked() && settings().rdFlip !== false && !ctx().powerUserSettings?.reduced_motion
-    && !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const flipOn = () => booked() && settings().rdFlip !== false && !A.reducedMotion();
   function flip(d, act) {
     // A turn while one is still going finishes that one at once.
     flipEnd?.();

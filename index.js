@@ -1985,6 +1985,7 @@ await (async () => {
         .cb_posgrid label { width: 40px; height: 40px; }
         .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { min-width: 40px; min-height: 40px; }
         .cb_defdot { width: 40px; height: 40px; }
+        .cb_emo_grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
       }
       .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
       .cb_dfield input { margin: 0; font-family: monospace; }

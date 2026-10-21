@@ -517,8 +517,8 @@
             ${thumbBox(src)}
             <div class="cb_emo_label">${escapeHTML(e.name)}${e.id === s.emoDefault ? ' ★' : ''}</div>
             <div style="display:flex;gap:4px;">
-              <button class="menu_button m_spk_up" data-key="${k}" data-emo="${id}" title="Upload ${escapeHTML(e.name)}" aria-label="Upload ${escapeHTML(e.name)} Face"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button m_spk_url" data-key="${k}" data-emo="${id}" title="Use a link for ${escapeHTML(e.name)}" aria-label="Use a link for the ${escapeHTML(e.name)} Face"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button m_spk_up" data-key="${k}" data-emo="${id}" title="Upload ${escapeHTML(e.name)} Face" aria-label="Upload ${escapeHTML(e.name)} Face"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button m_spk_url" data-key="${k}" data-emo="${id}" title="Use a link for the ${escapeHTML(e.name)} Face" aria-label="Use a link for the ${escapeHTML(e.name)} Face"><i class="fa-solid fa-link"></i></button>
               <button class="menu_button danger_button m_spk_clr" data-key="${k}" data-emo="${id}" title="Remove ${escapeHTML(e.name)} Face" aria-label="Remove ${escapeHTML(e.name)} Face" ${src ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>`;
@@ -529,7 +529,7 @@
           <span class="cb_spk_name">${escapeHTML(name)}</span>
           <button class="menu_button danger_button m_spk_rm" data-key="${k}" data-custom="${custom ? '1' : ''}" title="${custom ? 'Remove Speaker' : 'Hide Speaker'}" aria-label="${custom ? 'Remove' : 'Hide'} ${escapeHTML(name)}"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="cb_spk_row cb_faces_row m_spk_exp" data-key="${k}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open'} faces">
+        <div class="cb_spk_row cb_faces_row m_spk_exp" data-key="${k}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open'} Faces">
           ${thumbBox(base)}
           <span class="cb_spk_name">Faces<small>${escapeHTML(facesTxt)}</small></span>
           <i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i>
@@ -551,9 +551,9 @@
       const id = escapeHTML(e.id);
       const isDef = e.id === s.emoDefault;
       return `<div class="cb_emo_row">
-        <label class="cb_defdot" title="Use as default"><input type="radio" name="cbr_emodef" value="${id}" aria-label="Default Emotion" ${isDef ? 'checked' : ''}></label>
+        <label class="cb_defdot" title="Use as Default"><input type="radio" name="cbr_emodef" value="${id}" aria-label="Default Emotion" ${isDef ? 'checked' : ''}></label>
         <input type="text" class="text_pole m_emo_name" data-id="${id}" aria-label="Emotion Name" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
-        <button class="menu_button danger_button m_emo_del" data-id="${id}" title="${isDef ? 'Pick a different default before deleting this one' : 'Delete emotion'}" aria-label="Delete ${escapeHTML(e.name)}" ${isDef ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
+        <button class="menu_button danger_button m_emo_del" data-id="${id}" title="${isDef ? 'Pick a different default before deleting this one' : 'Delete Emotion'}" aria-label="Delete ${escapeHTML(e.name)}" ${isDef ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
       </div>`;
     }).join('');
   }
@@ -601,7 +601,7 @@
         </div>
         ${subHead('av_spk', 'Speakers ' + TAG, 'fa-users')}
         <div class="cb_collapse_content">
-          <div class="cb_hint">Speakers without faces use their card or persona picture. The narrator never gets one.</div>
+          <div class="cb_hint">On chat avatars, speakers without faces use their card or persona picture. The narrator never gets one.</div>
           <label class="checkbox_label"><input type="checkbox" id="m_spk_auto" ${s.nodeAutoSpk ? 'checked' : ''}><span>Add Speakers Automatically</span></label>
           <div class="cb_hint">From the card, your persona and speaker tags in the chat.</div>
           <div id="m_spk_list"></div>
@@ -698,14 +698,15 @@
       spkBox.querySelectorAll('.m_spk_up').forEach((b) => { b.onclick = () => { pending = { key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }; sFile.click(); }; });
       spkBox.querySelectorAll('.m_spk_url').forEach((b) => {
         b.onclick = async () => {
-          const url = await askImageUrl(b.dataset.full ? 'Full body' : 'Face', b);
+          const url = await askImageUrl(b.dataset.full ? 'Full Body' : 'Face', b);
           if (url) setSpkImage({ key: b.dataset.key, emo: b.dataset.emo, full: !!b.dataset.full }, url);
         };
       });
       spkBox.querySelectorAll('.m_spk_clr').forEach((b) => {
         b.onclick = async () => {
           const { key, emo, full } = b.dataset;
-          if (!(await A.askYes(b, `Remove this ${full ? 'full body' : 'face'}? Its file is deleted unless something else uses it.`, 'Remove', { danger: true }))) return;
+          // A face's buttons sit in a narrow cell, so its question goes under the whole grid.
+          if (!(await A.askYes(full ? b : b.closest('.cb_emo_grid'), `Remove this ${full ? 'full body' : 'face'}? Its file is deleted unless something else uses it.`, 'Remove', { danger: true }))) return;
           let old;
           if (full) { old = D().sprites[key]; delete D().sprites[key]; }
           else if (D().emoImgs[key]) { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }

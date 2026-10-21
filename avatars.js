@@ -5,11 +5,11 @@
 // layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
 // shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.70.0';
+  const AVATARS_VERSION = '2.71.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
-    startPlacement } = A;
+    startPlacement, tiles } = A;
   const { POS_GRID, SHAPE_OPTS, castPartHtml, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
@@ -33,6 +33,41 @@
     star: svgMask(`M${STAR.join('L')}Z`),
   };
 
+  // The Shape tiles' pictures: Circle, Rectangle and Square drawn as boxes, Heart and Star cut by their outlines.
+  const SHAPE_FACES = {
+    round: 'width: 22px; height: 22px; border-radius: 50%;', rectangle: 'width: 15px; height: 22px; border-radius: 2px;', square: 'width: 20px; height: 20px; border-radius: 2px;',
+    heart: `width: 24px; height: 24px; -webkit-mask: ${OUTLINES.heart} center / 100% 100% no-repeat; mask: ${OUTLINES.heart} center / 100% 100% no-repeat;`,
+    star: `width: 24px; height: 24px; -webkit-mask: ${OUTLINES.star} center / 100% 100% no-repeat; mask: ${OUTLINES.star} center / 100% 100% no-repeat;`,
+  };
+  const shapeTiles = (prefix, cur) => tiles(`${prefix}shape`, 'Shape', SHAPE_OPTS.map(([v, l]) => [v, l,
+    SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur);
+
+  // Shape Only turns the shape and turns the picture back inside it, so the picture is made bigger by this much to still
+  // fill the turned shape's corners. A circle needs none.
+  function turnCover(shape, turn) {
+    if (!shape || shape === 'round' || !turn) return 1;
+    const a = turn * Math.PI / 180, c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a)), h = SHAPES[shape];
+    return Math.max(c + h * sn, sn / h + c);
+  }
+  // Whether a side's Rotation turns the shape alone (Shape Only), and not the picture with it.
+  const shapeOnly = (s, prefix) => !!SHAPES[s[`${prefix}Shape`]] && s[`${prefix}RotateMode`] !== 'both' && rangeNum(s, prefix + 'Rotate') !== 0;
+
+  // Where the picture sits in its box, w wide (and ar its shape, if given). Shift Left/Right and Up/Down pick which part
+  // of a picture bigger than its box shows: the picture's point at those %s goes on the box's point at the same %s, so
+  // 0% shows its left or top edge and 100% its right or bottom. Zoom makes it bigger around that point. Shape Only turns
+  // it back around the box's middle, a little bigger so the turned shape's corners stay filled. cqw and cqh are 1% of
+  // the box's width and height.
+  function imgPlaceCss(s, prefix, w, ar) {
+    const x = rangeNum(s, prefix + 'ShiftX'), y = rangeNum(s, prefix + 'Focus'), zoom = rangeNum(s, prefix + 'Zoom') / 100;
+    const turn = rangeNum(s, prefix + 'Rotate');
+    const back = shapeOnly(s, prefix)
+      ? ` translate(${50 - x}cqw, ${50 - y}cqh) rotate(${-turn}deg) scale(${+turnCover(s[`${prefix}Shape`], turn).toFixed(4)}) translate(${x - 50}cqw, ${y - 50}cqh)` : '';
+    return `left: ${x}% !important; right: auto !important; top: ${y}% !important; bottom: auto !important;`
+      + ` transform-origin: ${x}% ${y}% !important; transform: translate(-${x}%, -${y}%)${back}${zoom !== 1 ? ` scale(${zoom})` : ''} !important;`
+      + ` width: ${w} !important; height: auto !important; max-width: none !important; max-height: none !important;`
+      + (ar ? ` aspect-ratio: ${ar} !important;` : '');
+  }
+
   function getAvatarCss(prefix, isUserStr, s) {
     const v = s[`${prefix}Side`][0]; 
     const h = s[`${prefix}Side`][1]; 
@@ -51,6 +86,9 @@
     const leftFade = n('FadeLeft');
     const rightFade = n('FadeRight');
     const blurAmount = n('Blur');
+    const zoom = n('Zoom') / 100;
+    const turn = n('Rotate');
+    const turnCss = turn ? ` rotate(${turn}deg)` : '';
     
     const width = Math.floor(scale * 3); 
     // A shape is a frame Image Scale sizes: its width, and its height from the shape. Corners are a % of the width.
@@ -78,16 +116,18 @@
       const hA = `left: calc(var(--cb-cl, 0px) + var(--cb-cw, 100vw) * ${h === 'l' ? 0 : h === 'r' ? 1 : 0.5}); right: auto;`;
       const tx = h === 'c' ? '-50%' : h === 'r' ? '-100%' : '0px';
       const ty = v === 'c' ? '-50%' : v === 'b' ? '-100%' : '0px';
+      // The frame is the shape, or the picture's own shape for None, and the picture fills it.
       return `
         .mes[is_user="${isUserStr}"] .avatar { display: none !important; }
-        #cb_pop_${prefix} {
+        #cb_popf_${prefix} {
           ${vA} ${hA}
-          width: ${width}px; height: ${shape ? frameH + 'px' : 'auto'};
-          ${shape ? `object-fit: cover; object-position: 50% ${n('Focus')}%; border-radius: ${frameR};` : ''}
+          width: ${width}px; ${shape ? `height: ${frameH}px;` : 'aspect-ratio: var(--cb-ar, 0.6667);'}
+          border-radius: ${shape ? frameR : '0'};
           ${OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;` : ''}
-          transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px));
+          transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px))${turnCss};
           ${blurAmount > 0 ? `filter: blur(${blurAmount}px);` : ''}
         }
+        #cb_pop_${prefix} { ${imgPlaceCss(s, prefix, 'max(100cqw, 100cqh * var(--cb-ar, 0.6667))', 'var(--cb-ar, 0.6667)')} }
         ${shared}
       `;
     }
@@ -105,15 +145,30 @@
     const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
       + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
       + ` height: min(100%, ${boxH}) !important;${boxAR ? ` aspect-ratio: ${boxAR} !important;` : ''}`
-      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'}) !important;`;
+      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'})${turnCss} !important;`;
     const boxW = boxAR ? 'auto' : noneW;
 
-    const hMask = `linear-gradient(to right, transparent 0%, black ${leftFade}%, black ${100 - rightFade}%, transparent 100%)`;
-    const vMask = `linear-gradient(to bottom, transparent 0%, black ${topFade}%, black ${100 - botFade}%, transparent 100%)`;
+    // Fade Strength bends every fade the same way. At 50% a fade goes evenly from gone at the edge to all there where it
+    // ends; lower keeps more of the picture in it (0%: no fade), higher less (100%: the faded part is gone). u is the
+    // place in a fade, 0 at the edge and 1 where it ends.
+    const str = n('FadeStr') / 100;
+    const bend = str / (1 - str);
+    // Each stop: [u, how much of the picture shows there]. 100% is a hard edge where the fade ends.
+    const stops = str >= 1 ? [[0, 0], [1, 0], [1, 1]]
+      : (bend === 1 ? [0, 1] : Array.from({ length: 9 }, (_, i) => i / 8)).map((u) => [u, +Math.pow(u, bend).toFixed(3)]);
+    // A side's fade, as stops from its edge in, len % long. The far side's are counted from 100%.
+    const band = (len, far) => stops.map(([u, a]) => `rgba(0,0,0,${a}) ${+(far ? 100 - u * len : u * len).toFixed(2)}%`);
+    // Two facing fades longer than the picture are shortened alike, so they meet without a hard line.
+    const pair = (a, b, dir) => {
+      const k = a + b > 100 ? 100 / (a + b) : 1;
+      return `linear-gradient(${dir}, ${[...band(a * k, false), ...band(b * k, true).reverse()].join(', ')})`;
+    };
+    const hMask = pair(leftFade, rightFade, 'to right');
+    const vMask = pair(topFade, botFade, 'to bottom');
     // A corner fade is a rounded fade from that corner, reaching its % of the picture's width and height.
     const corners = [['TL', '0% 0%'], ['TR', '100% 0%'], ['BL', '0% 100%'], ['BR', '100% 100%']]
       .filter(([k]) => n('Fade' + k) > 0)
-      .map(([k, at]) => `radial-gradient(${n('Fade' + k)}% ${n('Fade' + k)}% at ${at}, transparent 0%, black 100%)`);
+      .map(([k, at]) => `radial-gradient(${n('Fade' + k)}% ${n('Fade' + k)}% at ${at}, ${band(100, false).join(', ')})`);
     const masks = [...(OUTLINES[shape] ? [OUTLINES[shape]] : []), hMask, vMask, ...corners].join(', ');
     // The fades go on the avatar's box, which is what shows of the picture.
     const maskCss = `-webkit-mask-image: ${masks} !important; -webkit-mask-composite: source-in !important;`
@@ -123,18 +178,9 @@
     // The image is sized to the picture itself: Fill covers the box and gets cropped by it, Fit fits inside it, Original
     // keeps the picture's own size. 100cqw and 100cqh are the box's width and height.
     const imgW = fit === 'contain' ? `min(100cqw, 100cqh * ${ar})` : fit === 'original' ? 'auto' : `max(100cqw, 100cqh * ${ar})`;
-    // Crop Focus picks which part of a picture taller than its box stays: 0% the top, 100% the bottom. Sideways, In Line
-    // and shapes keep the picture centered and None follows Position.
-    const ih = framed || style === 'inline' ? 'c' : h;
-    const focus = n('Focus');
-    const imgBoxCss = (ih === 'l' ? 'left: 0 !important; right: auto !important;' : ih === 'r' ? 'left: auto !important; right: 0 !important;' : 'left: 50% !important; right: auto !important;')
-      + ` top: ${focus}% !important; bottom: auto !important;`
-      + ` transform: translate(${ih === 'c' ? '-50%' : '0'}, -${focus}%) !important;`
-      + ` width: ${imgW} !important; height: auto !important; max-width: none !important; max-height: none !important;`
-      + (fit === 'original' ? '' : ` aspect-ratio: ${ar} !important;`);
     const imgCss = `
       #chat .mes[is_user="${isUserStr}"] .avatar img {
-        position: absolute !important; ${imgBoxCss}
+        position: absolute !important; ${imgPlaceCss(s, prefix, imgW, fit === 'original' ? '' : ar)}
         display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
         -webkit-mask-image: none !important; mask-image: none !important;
         object-fit: fill !important;
@@ -165,6 +211,7 @@
         width: ${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
+        ${turn ? `transform: rotate(${turn}deg) !important;` : ''}
         ${maskCss}
         ${filterRule}
       }
@@ -245,13 +292,26 @@
     return css;
   }
 
-  // Whether a side's picture can get cut off, so Crop Focus has something to do: any Shape, or None on Backdrop with
-  // Fill or Original, where a short message cuts it.
-  function cropCuts(s, prefix) {
-    if (SHAPES[s[`${prefix}Shape`]]) return true;
+  // Which ways a side's picture is bigger than its box, so Shift Left/Right and Up/Down have something to do. A Shape
+  // cuts a picture that's taller or wider than it (the newest one in the chat, or a portrait while there's none). None
+  // only gets cut on Backdrop with Fill or Original: a short message cuts the bottom off, and a narrow one the sides
+  // (the box is at most 80% of the message wide). Zoom, and Shape Only
+  // turned, make it bigger both ways.
+  function shiftRoom(s, prefix) {
+    const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
+    if (rangeNum(s, prefix + 'Zoom') > 100 || turnCover(shapeOnly(s, prefix) && shape, rangeNum(s, prefix + 'Rotate')) > 1) return { x: true, y: true };
+    if (shape) {
+      const imgs = document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
+      const img = imgs[imgs.length - 1];
+      const ar = img?.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 2 / 3;
+      const box = 1 / SHAPES[shape];
+      return { x: ar > box + 0.01, y: ar < box - 0.01 };
+    }
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
-    return ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
+    const cut = ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
+    return { x: cut, y: cut };
   }
+  const anyFade = (s, prefix) => Object.values(FADE_PARTS).some(([key]) => rangeNum(s, prefix + key) > 0);
 
   function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
@@ -267,33 +327,15 @@
     // The fade grid starts on the first fade that's on, or Bottom.
     const fadeCur = Object.keys(FADE_PARTS).find((v) => rangeNum(s, prefix + FADE_PARTS[v][0]) > 0) || 'bc';
 
+    const room = shiftRoom(s, prefix);
+
     return `
       <div class="ntr_colwrap">
       <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on">${title} Avatar</label></div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
-        <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}</div>
-        <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
-        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Only for Rectangle and Square.</div>
-        <div id="m_${prefix}_fowrap" class="${cropCuts(s, prefix) ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Crop Focus:')}</div>
-        <div class="cb_hint" style="margin: 0;">0% keeps the top of a cut-off picture, 100% the bottom. Shape None only cuts on Backdrop with Fill or Original.</div>
-
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
-        ${grp('inline backdrop', `<div id="m_${prefix}_fitwrap" class="${shaped ? 'cb_dim' : ''}"><strong>Picture Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>
-          <div id="m_${prefix}_fithint" class="cb_hint" style="margin: 0;${shaped ? '' : ' display: none;'}">Only for Shape None. A Shape is always filled.</div>`)}
-        ${grp('backdrop', `<div id="m_${prefix}_fitnone" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">In a short message, Fit shrinks the picture to show all of it; Fill and Original get cut off.</div>`)}
-
-        <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Picture Size:')}</div>
-        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${scaleOff ? '' : ' display: none;'}">Original uses the picture's own size.</div>
-        <div id="m_${prefix}_padwrap" class="${style === 'inline' ? 'cb_dim' : ''}">${slider('pad', 'Pad', 'Text Padding:')}</div>
-
-        ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
-          + fadeGrid(prefix, s, fadeCur)
-          + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval" class="ntr_slval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
-          <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">
-          <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
-          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set its fade. Lit cells have a fade on.</div>')}
 
         ${grp('popout', `<div class="cb_sub">Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
@@ -301,6 +343,35 @@
           <div id="m_${prefix}_pstat" class="cb_hint" style="margin: 0;">${escapeHTML(popMsg[prefix] || '')}</div>`
           + slider('ox', 'PopX', 'Move Horizontal:')
           + slider('oy', 'PopY', 'Move Vertical:'))}
+
+        <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Picture Size:')}</div>
+        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${scaleOff ? '' : ' display: none;'}">Original uses the picture's own size.</div>
+        <div id="m_${prefix}_padwrap" class="${style === 'inline' ? 'cb_dim' : ''}">${slider('pad', 'Pad', 'Text Padding:')}</div>
+
+        <div class="cb_sub">Shape</div>
+        ${shapeTiles(prefix, s[`${prefix}Shape`])}
+        <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
+        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Only for Rectangle and Square.</div>
+        ${slider('rt', 'Rotate', 'Rotation:')}
+        <div id="m_${prefix}_rmwrap" class="${shaped ? '' : 'cb_dim'}"><strong>Rotate:</strong>${pills(`${prefix}rmode`, [['shape', 'Shape Only'], ['both', 'Shape and Picture']], s[`${prefix}RotateMode`] === 'both' ? 'both' : 'shape')}</div>
+        <div id="m_${prefix}_rmoff" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">Shape None turns the whole picture.</div>
+
+        <div class="cb_sub">Picture</div>
+        ${grp('inline backdrop', `<div id="m_${prefix}_fitwrap" class="${shaped ? 'cb_dim' : ''}"><strong>Picture Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>
+          <div id="m_${prefix}_fithint" class="cb_hint" style="margin: 0;${shaped ? '' : ' display: none;'}">Only for Shape None. A Shape is always filled.</div>`)}
+        ${grp('backdrop', `<div id="m_${prefix}_fitnone" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">In a short message, Fit shrinks the picture to show all of it; Fill and Original get cut off.</div>`)}
+        ${slider('zm', 'Zoom', 'Zoom:')}
+        <div id="m_${prefix}_fowrap" class="${room.y ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Shift Up/Down:')}</div>
+        <div id="m_${prefix}_sxwrap" class="${room.x ? '' : 'cb_dim'}">${slider('sx', 'ShiftX', 'Shift Left/Right:')}</div>
+        <div id="m_${prefix}_shint" class="cb_hint" style="margin: 0;${room.x && room.y ? ' display: none;' : ''}">Zoom in to shift a picture that already fits.</div>
+
+        ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
+          + fadeGrid(prefix, s, fadeCur)
+          + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade Length:</label><span><span id="m_${prefix}_fadeval" class="ntr_slval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
+          <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">
+          <div id="m_${prefix}_fswrap" class="${anyFade(s, prefix) ? '' : 'cb_dim'}">${slider('fs', 'FadeStr', 'Fade Strength:')}</div>
+          <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
+          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set its length. Lit cells have a fade on.</div>')}
 
         <div class="cb_sub">Effects</div>
         ${slider('bl', 'Blur', 'Blur:')}
@@ -337,11 +408,18 @@
       const label = prefix === 'ai' ? 'AI' : 'User';
 
       // Corners are for Rectangle and Square. Picture Fit is off with a Shape, which the picture always fills. Picture Size is off for Original, which keeps the
-      // picture's own size. Text Padding is off for In Line, which never puts the avatar under the text.
+      // picture's own size. Text Padding is off for In Line, which never puts the avatar under the text. Rotate is for a
+      // Shape, the Shift sliders for a picture bigger than its box, and Fade Strength for a fade that's on.
       const syncScale = () => {
         const shaped = !!SHAPES[s[`${prefix}Shape`]];
         const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
-        col.querySelector(`#m_${prefix}_fowrap`).classList.toggle('cb_dim', !cropCuts(s, prefix));
+        const room = shiftRoom(s, prefix);
+        col.querySelector(`#m_${prefix}_fowrap`).classList.toggle('cb_dim', !room.y);
+        col.querySelector(`#m_${prefix}_sxwrap`).classList.toggle('cb_dim', !room.x);
+        col.querySelector(`#m_${prefix}_shint`).style.display = room.x && room.y ? 'none' : '';
+        col.querySelector(`#m_${prefix}_rmwrap`).classList.toggle('cb_dim', !shaped);
+        col.querySelector(`#m_${prefix}_rmoff`).style.display = shaped ? 'none' : '';
+        col.querySelector(`#m_${prefix}_fswrap`).classList.toggle('cb_dim', !anyFade(s, prefix));
         col.querySelector(`#m_${prefix}_crwrap`).classList.toggle('cb_dim', !cornersOn);
         col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
         col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
@@ -367,6 +445,7 @@
       overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); syncScale(); updateAvatarStyle(); });
+      onPills(col, `${prefix}rmode`, (v) => { s[`${prefix}RotateMode`] = v; save(); syncScale(); updateAvatarStyle(); });
       // One slider for the fade picked on the fade grid.
       const fadeSl = col.querySelector(`#m_${prefix}_fade`);
       let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`)?.value || 'bc';
@@ -375,12 +454,13 @@
         const val = rangeNum(s, prefix + FADE_PARTS[v][0]);
         fadeSl.value = val;
         col.querySelector(`#m_${prefix}_fadeval`).textContent = val;
-        col.querySelector(`#m_${prefix}_fadelab`).textContent = `${FADE_PARTS[v][1]} Fade:`;
+        col.querySelector(`#m_${prefix}_fadelab`).textContent = `${FADE_PARTS[v][1]} Fade Length:`;
       });
       fadeSl.oninput = function() {
         s[prefix + FADE_PARTS[fadeAt][0]] = Number(this.value);
         col.querySelector(`#m_${prefix}_fadeval`).textContent = this.value;
         col.querySelector(`input[name="cbr_${prefix}fade"][value="${fadeAt}"]`).closest('label').classList.toggle('cb_fon', Number(this.value) > 0);
+        syncScale();
         updateAvatarStyle();
       };
       fadeSl.onchange = save;
@@ -391,6 +471,7 @@
         fadeSl.value = 0;
         col.querySelector(`#m_${prefix}_fadeval`).textContent = 0;
         col.querySelectorAll(`input[name="cbr_${prefix}fade"]`).forEach((r) => r.closest('label').classList.remove('cb_fon'));
+        syncScale();
         updateAvatarStyle();
       };
 
@@ -405,16 +486,27 @@
       };
       
       const sliders = [
-        { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'pad', key: 'Pad' },
-        { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
-        { id: 'bl', key: 'Blur' }
+        { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'sx', key: 'ShiftX' }, { id: 'zm', key: 'Zoom' },
+        { id: 'rt', key: 'Rotate' }, { id: 'pad', key: 'Pad' }, { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
+        { id: 'fs', key: 'FadeStr' }, { id: 'bl', key: 'Blur' }
       ];
       
       sliders.forEach(({ id, key }) => {
         const el = overlay.querySelector(`#m_${prefix}_${id}`);
+        // Dragging Rotation sticks at 0, so it's easy to set straight again. Arrow keys and typed values go in as they are.
+        if (key === 'Rotate') {
+          const end = () => { delete el.dataset.drag; };
+          el.onpointerdown = () => {
+            el.dataset.drag = '1';
+            window.addEventListener('pointerup', end, { once: true });
+            window.addEventListener('pointercancel', end, { once: true });
+          };
+        }
         el.oninput = function() {
+          if (key === 'Rotate' && this.dataset.drag && Math.abs(Number(this.value)) <= 3) this.value = 0;
           s[`${prefix}${key}`] = Number(this.value);
           overlay.querySelector(`#m_${prefix}_${id}val`).textContent = this.value;
+          if (key === 'Zoom' || key === 'Rotate') syncScale();
           updateAvatarStyle();
         };
         el.onchange = save;

@@ -10,7 +10,7 @@
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
     startPlacement, tiles } = A;
-  const { CSS_NOTE, FILTER_OPTS, POS_GRID, SHAPE_OPTS, SOFT_MAX, castPartHtml, cssTag, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
+  const { CSS_NOTE, FILTER_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
@@ -42,16 +42,13 @@
   const shapeTiles = (prefix, cur) => tiles(`${prefix}shape`, 'Shape', SHAPE_OPTS.map(([v, l]) => [v, l,
     SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur);
 
-  // Filters, at a Filter Strength s from 0 to 1: the picture's CSS filter, and a layer over it, a color tint or Old TV's
-  // lines. k sizes Soft's and Dreamy's blur for a smaller picture (the menu's previews).
+  // Filters, at a Filter Strength s from 0 to 1: the picture's CSS filter, and Old TV's lines in a layer over it. k sizes
+  // Dreamy's blur for a smaller picture (the menu's previews).
   const r3 = (x) => +x.toFixed(3);
   const FILTERS = {
-    soft: { fx: (s, k = 1) => `blur(${r3(SOFT_MAX * s * k)}px)` },
-    vintage: { fx: (s) => `sepia(${r3(0.6 * s)}) contrast(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.2 * s)})` },
+    piss: { fx: (s) => `sepia(${r3(0.6 * s)}) contrast(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.2 * s)})` },
     bw: { fx: (s) => `grayscale(${r3(s)})` },
     noir: { fx: (s) => `grayscale(${r3(s)}) contrast(${r3(1 + 0.6 * s)}) brightness(${r3(1 - 0.15 * s)})` },
-    warm: { fx: (s) => `saturate(${r3(1 + 0.15 * s)})`, layer: (s) => `background: rgba(255, 140, 40, ${r3(0.45 * s)}); mix-blend-mode: soft-light;` },
-    cool: { fx: (s) => `saturate(${r3(1 - 0.1 * s)})`, layer: (s) => `background: rgba(40, 120, 255, ${r3(0.45 * s)}); mix-blend-mode: soft-light;` },
     faded: { fx: (s) => `contrast(${r3(1 - 0.3 * s)}) brightness(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.4 * s)})` },
     dreamy: { fx: (s, k = 1) => `blur(${r3(1.5 * s * k)}px) brightness(${r3(1 + 0.12 * s)}) saturate(${r3(1 + 0.2 * s)})` },
     oldtv: { fx: (s) => `contrast(${r3(1 + 0.2 * s)}) saturate(${r3(1 - 0.3 * s)})`,
@@ -74,7 +71,7 @@
       const fx = f ? `filter: ${f.fx(1, 0.25)};` : '';
       const pic = src ? `<img src="${escapeHTML(src)}" alt="" style="display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; ${fx}">`
         : `<span style="display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #d98a6a, #e8c27a 45%, #6a9ad9); ${fx}"></span>`;
-      return `<span style="position: relative; display: block; width: 100%; height: 100%; isolation: isolate;">${pic}${f?.layer ? `<span style="position: absolute; inset: 0; ${f.layer(1)}"></span>` : ''}</span>`;
+      return `<span style="position: relative; display: block; width: 100%; height: 100%;">${pic}${f?.layer ? `<span style="position: absolute; inset: 0; ${f.layer(1)}"></span>` : ''}</span>`;
     };
     return tiles(`${prefix}filter`, 'Filter', FILTER_OPTS.map(([v, l]) => [v, l, face(v)]), cur, true);
   }

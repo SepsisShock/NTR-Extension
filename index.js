@@ -222,10 +222,7 @@ await (async () => {
   // Avatar Management's Shape choices (see avatars.js). A saved Shape is checked against them (PICK_KEYS).
   const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['heart', 'Heart'], ['star', 'Star']];
   // Avatar Management's Filter choices (see avatars.js). A saved Filter is checked against them (PICK_KEYS).
-  const FILTER_OPTS = [['none', 'None'], ['soft', 'Soft'], ['vintage', 'Vintage'], ['bw', 'Black and White'], ['noir', 'Noir'], ['warm', 'Warm'],
-    ['cool', 'Cool'], ['faded', 'Faded'], ['dreamy', 'Dreamy'], ['oldtv', 'Old TV']];
-  // Soft's blur at Filter Strength 100%, in px. Blur turned into Soft keeps its amount (see upgradeLook).
-  const SOFT_MAX = 6;
+  const FILTER_OPTS = [['none', 'None'], ['piss', 'Piss'], ['bw', 'Black and White'], ['noir', 'Noir'], ['faded', 'Faded'], ['dreamy', 'Dreamy'], ['oldtv', 'Old TV']];
   // An SVG path as a mask, drawn in a 100 x 100 box stretched over its frame. Avatar Management's Heart and Star
   // (avatars.js) and the Speech Bubble tails cut with it.
   const svgMask = (d) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${d}"/></svg>`)}")`;
@@ -244,13 +241,8 @@ await (async () => {
     if (o.ovAvatarOn) o.ovAvatarOn = false;
     // Rounded was a Shape of its own: a square with corners a fifth of its width.
     for (const p of ['ai', 'us']) if (o[p + 'Shape'] === 'rounded') { o[p + 'Shape'] = 'square'; put(p + 'Corner', 20); }
-    // Blur became the Soft Filter, with Filter Strength set to the same amount of blur.
-    for (const p of ['ai', 'us']) {
-      if (!(p + 'Blur' in o)) continue;
-      const b = Number(o[p + 'Blur']) || 0;
-      if (b > 0) { put(p + 'Filter', 'soft'); put(p + 'FilterStr', Math.min(100, Math.round(b / SOFT_MAX * 100))); }
-      delete o[p + 'Blur'];
-    }
+    // Avatar Blur is gone; Filter took its place.
+    for (const p of ['ai', 'us']) delete o[p + 'Blur'];
     // Avatar fades are a % of the picture, so they keep their share of it at any Image Scale and message height. Pixel
     // fades become a % of the picture at Scale 100 (300px wide), taken as a portrait 1.5 times as tall as wide. A smaller
     // Scale made pixel fades swallow the picture, so its own Scale would carry that over.
@@ -397,7 +389,7 @@ await (async () => {
     if (!s.themeLookV4) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV4 = true; }
     // Saved themes with Fade as their pattern move it to its own switch.
     if (!s.themeLookV5) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV5 = true; }
-    // Saved themes with an avatar Blur get the Soft Filter instead.
+    // Saved themes drop the avatar Blur.
     if (!s.themeLookV6) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV6 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
@@ -4778,7 +4770,7 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
       COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, ovLabel,
       RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
-      cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, SOFT_MAX, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
+      cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
     },
   };

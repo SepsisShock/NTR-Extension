@@ -2975,9 +2975,15 @@ await (async () => {
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
   // Shown only while a pick has a certain value, like Roundness under Rounded.
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
-  // A small label above a control. The label is plain text, so it's also given to the first control as its name.
-  const ovLabel = (label, inner) => `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${
-    inner.replace(/<(input|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${escapeHTML(label)}"`)}`;
+  // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
+  // radio group, anything else on its first control. A pill keeps its own text as its name.
+  const ovLabel = (label, inner) => {
+    const n = escapeHTML(label);
+    const named = /^\s*<div class="cb_pills"/.test(inner)
+      ? inner.replace('<div class="cb_pills"', `<div class="cb_pills" role="radiogroup" aria-label="${n}"`)
+      : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
+    return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
+  };
 
   // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
   const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
@@ -3730,7 +3736,7 @@ await (async () => {
     const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
     // The menu fills empty colors with SillyTavern's own (see bindRows), so those count as default too.
     const atDefault = (k) => JSON.stringify(s[k]) === JSON.stringify(DEFAULTS[k]) || (k in COLOR_FROM && s[k] === stColor(k));
-    // Unsaved: the look differs from the selected theme, or from the default look when None is selected.
+    // Unsaved: the look differs from the selected theme, or from the default look when Default Look is selected.
     const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };
     const shown = () => { sel.value = active() ? s.themeActive : ''; };
 
@@ -4401,7 +4407,7 @@ await (async () => {
             <button class="menu_button" id="m_rd_clr" title="Use the built-in book" aria-label="Use the built-in book"><i class="fa-solid fa-rotate-left"></i></button>
           </div>
           <div class="cb_hint" style="margin:6px 0 0;">Cover Color</div>
-          <div class="ntr_rd_books" role="radiogroup" aria-label="Built-in book color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookKey(s) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
+          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookKey(s) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
           <div class="cb_hint">Also puts back the built-in page areas and replaces your own picture.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
@@ -4456,11 +4462,12 @@ await (async () => {
       save();
       updateAvatarStyle();
       deleteFileIfUnused(old);
-      if (url) renderPic(); else openCombinedModal();
+      // Your own picture: no cover dot stays picked, so any dot can be picked to go back.
+      if (url) { overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; }); renderPic(); } else openCombinedModal();
     };
     overlay.querySelector('#m_rd_up').onclick = () => file.click();
     overlay.querySelector('#m_rd_url').onclick = async function() {
-      const url = await askImageUrl('Book picture', this, false);
+      const url = await askImageUrl('Book Picture', this, false);
       if (url) setPic(url);
     };
     // With your own picture set, going back deletes it and resets the page areas, so it asks first.
@@ -4481,7 +4488,7 @@ await (async () => {
         setPic(await uploadImage(file.files[0], 'book', { max: 3000 }));
       } catch (e) {
         console.error('[NTR book upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Book picture');
+        toastr.error(e.message || 'Upload failed', 'Book Picture');
       }
       file.value = '';
     };

@@ -195,7 +195,7 @@
     const file = overlay.querySelector('#m_plate_file');
     overlay.querySelector('#m_plate_up').onclick = () => file.click();
     overlay.querySelector('#m_plate_url').onclick = async function() {
-      const url = await askImageUrl('Nameplate picture', this, false);
+      const url = await askImageUrl('Nameplate Picture', this, false);
       if (url) setImg(url);
     };
     overlay.querySelector('#m_plate_clr').onclick = () => setImg('');

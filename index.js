@@ -2962,7 +2962,7 @@ await (async () => {
     }
   }
 
-  const FONT_NOTE = 'A font on your device, or a Google Fonts name or link (needs a connection). Type the name exactly.';
+  const FONT_NOTE = 'Fonts: a font on your device, or a Google Fonts name or link (needs a connection). Type the name exactly.';
 
   // Pick-one rows of UI Decor (and the rows that moved from it to Layout and Avatars): the radio name is the key in lower case, with "o" in front.
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);

@@ -585,7 +585,7 @@
 
   // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
-    return pageHtml('elements', '<div class="cb_hint">Tick a setting to change it; untick it to go back to ST\'s look.</div>' + reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
+    return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
   }
 
   // Elements' CSS, in the order it has always been written: Scrollbar, Cursor, Menu Bar Icons, Quick Replies, Message
@@ -707,6 +707,7 @@
     const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
     return pagePart('Reasoning Block', ['m_rb_enable', s.rbEnabled], 'el_reasoning', `
           <div class="cb_hint">Only changes the look. Reasoning shows when ST's "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) is on.</div>
+          <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look.</div>
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}

@@ -4,11 +4,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-### In Line avatar: spacing and look
-In Line looks too bulky next to the text.
-
-- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
-
 ### Independent, customizable "favorites" bar
 
 ### Agents: follow-ups
@@ -139,9 +134,9 @@ Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI
 
 - Open questions: where the editor opens; how automatic scene detection works; whether pinned facts belong to one branch or the whole chat.
 
-## Visual Novel Mode (Low Priority)
+## Visual Novel Mode (Low Priority, Needs Overhaul)
 
-Will be worked on when the main part is done, unless there are bugs or issues to take care of. Needs updating as there have been many changes since this was written and may be out of date.
+Visual Novel Mode needs a complete overhaul before it gets any new features. The rest of NTR has changed a lot since it was built, and the plans below were written before those changes. Treat them as ideas to revisit during the overhaul, not as a to-do list. Until then, it only gets bug fixes.
 
 ### Flags and endings
 Keep the open-world feel, and let a card optionally have endings.

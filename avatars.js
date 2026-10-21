@@ -5,7 +5,7 @@
 // layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
 // shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.69.29';
+  const AVATARS_VERSION = '2.69.30';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
@@ -152,9 +152,12 @@
       #chat .mes[is_user="${isUserStr}"] { flex-direction: row !important; }
       ${stacked ? `#chat .mes[is_user="${isUserStr}"] { flex-wrap: wrap !important; }
       #chat .mes[is_user="${isUserStr}"] .mes_block { flex: 0 0 100% !important; }` : ''}
+      ${where === 'above' ? `/* SillyTavern keeps room for the swipe arrows under the newest message's avatar; above the text, that room goes under the text. */
+      #chat .last_mes[is_user="${isUserStr}"] .mesAvatarWrapper { padding-bottom: 0 !important; }
+      #chat .last_mes[is_user="${isUserStr}"] .mes_block { padding-bottom: var(--avatar-base-height) !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
         order: ${where === 'right' || where === 'below' ? 1 : 0} !important;
-        ${stacked ? 'flex: 0 0 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important;'
+        ${stacked ? `flex: 0 0 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important; margin-${where === 'above' ? 'bottom' : 'top'}: 6px !important;`
           : `align-self: ${v === 't' ? 'flex-start' : v === 'b' ? 'flex-end' : 'center'} !important;`}
       }
       #chat .mes[is_user="${isUserStr}"] .avatar {
@@ -265,7 +268,7 @@
     return ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
   }
 
-  function getColHtml(prefix, title, icon, s) {
+  function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
     const shaped = !!SHAPES[s[`${prefix}Shape`]];
     const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
@@ -281,15 +284,14 @@
 
     return `
       <div class="ntr_colwrap">
-      <div class="ntr_glab"><i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>${title} Avatar</div>
+      <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on">${title} Avatar</label></div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
         <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}
-          <div class="cb_hint" style="margin: 4px 0 0;">Also shapes ST's own chat avatar while NTR Avatar is off.</div></div>
+          <div class="cb_hint" style="margin: 4px 0 0;">Also shapes ST's own chat avatar while switched off.</div></div>
         <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
         <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Only for Rectangle and Square.</div>
         <div id="m_${prefix}_fowrap" class="${cropCuts(s, prefix) ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Crop Focus:')}</div>
         <div class="cb_hint" style="margin: 0;">0% keeps the top of a cut-off picture, 100% the bottom. Shape None only cuts on Backdrop with Fill or Original.</div>
-        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>NTR Avatar</span></label>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
@@ -332,11 +334,11 @@
             ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
               + '<div class="cb_hint">Hide removes avatars, names and timestamps, pop-outs included. Message Details (Elements) still shows its details where ticked, except under the avatar.</div>'))}
             <div class="ntr_cols">
-              ${getColHtml('ai', 'AI', 'fa-masks-theater', s)}
-              ${getColHtml('us', 'User', 'fa-user-pen', s)}
+              ${getColHtml('ai', 'AI', s)}
+              ${getColHtml('us', 'User', s)}
             </div>
             ${castPartHtml()}
-        `, { sw: ['m_a_enable', s.avatarEnabled], legend: true });
+        `, { sw: ['m_a_enable', s.avatarEnabled] });
   }
 
   // The Avatar Management page's switch and both columns.

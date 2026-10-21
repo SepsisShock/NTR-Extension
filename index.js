@@ -1,8 +1,10 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.29';
+  const VERSION = '2.69.30';
   const NTR_BASE = new URL('.', import.meta.url).href;
-  const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
+  const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
+  // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
+  const TAG_KEY = '<i class="fa-solid fa-tag ntr_tag" aria-hidden="true"></i> Marks settings saved per character.';
   const DEFAULTS = { 
     bannerOn: false,
     bannerMode: 'image', 
@@ -2521,7 +2523,7 @@ await (async () => {
           <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
           <h3 class="ntr_ptitle">${title}</h3>
           ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
-          ${legend ? `<div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>` : ''}
+          ${legend ? `<div class="cb_hint ntr_legend">${TAG_KEY}</div>` : ''}
         </div>
         ${note}
         <div class="ntr_pbody">${body}</div>
@@ -4261,7 +4263,7 @@ await (async () => {
     const label = MOD_LABEL[name];
     const msg = modError[name] ? `${label} failed to load: ` + escapeHTML(modError[name])
       : window.NTR[name] ? `${label} couldn't be drawn. The browser console has the details.` : `Loading ${label}.`;
-    return pageHtml(LOOK_MODULES[name], LOOK_KEEP[name]?.() || '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, legend: !!LOOK_KEEP[name] });
+    return pageHtml(LOOK_MODULES[name], LOOK_KEEP[name]?.() || '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, });
   }
   // Waits for the look modules, side by side and at most 5 seconds in all. SillyTavern waits for them behind its loading
   // screen, this wait included, so their styles are there from the first draw. One that takes longer arrives after NTR
@@ -4676,7 +4678,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, store, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),

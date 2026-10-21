@@ -3,11 +3,12 @@
 // Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
 // If this file breaks, the rest of the extension keeps working.
 (() => {
-  const CAST_VERSION = '2.69.29';
+  const CAST_VERSION = '2.69.30';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
   const TAG = A.TAG || '';
+  const TAG_KEY = A.TAG_KEY || '';
   const lc = (x) => String(x || '').trim().toLowerCase();
 
   // A speaker's pictures live in the card's Visual Novel data (or per group): emoImgs holds the faces (speaker, then
@@ -499,7 +500,7 @@
     const list = speakers();
     const nHidden = (D().hiddenSpk || []).length;
     const restore = nHidden ? `<div class="cb_hint"><a href="#" class="m_spk_unhide">Restore ${nHidden} hidden speaker${nHidden === 1 ? '' : 's'}</a></div>` : '';
-    if (!list.length) return `<div class="cb_hint">No speakers yet. Add one below${s.nodeAutoSpk ? ', or they show up once tagged in the chat' : ''}.</div>${restore}`;
+    if (!list.length) return `<div class="cb_hint">No one here yet. ${s.nodeAutoSpk ? 'Add a speaker, or they join once tagged in the chat.' : 'Add a speaker or let them join automatically.'}</div>${restore}`;
     return list.map(({ key, name, custom }) => {
       const base = baseFace(name);
       const stPic = stAvatar(key);
@@ -572,6 +573,7 @@
     return `<div class="ntr_keepon">
       ${subHead('av_emo', 'Emotions', 'fa-face-smile')}
       <div class="cb_collapse_content">
+        <div class="cb_hint">${TAG_KEY}</div>
         <div class="cb_hint">Faces per emotion and a full body for each speaker. Visual Novel Mode uses them; with it off, In the Chat can show them.</div>
         <div><strong>Emotion Source:</strong>${pills('emosrc', [['tags', 'Tags'], ['agent', 'Agent (Soon)', 'An agent will read each reply and pick the emotion. Not ready yet.']], s.emoSource === 'agent' ? 'agent' : 'tags')}</div>
         ${subHead('av_chat', 'In the Chat', 'fa-message')}
@@ -592,6 +594,7 @@
         </div>
         ${subHead('av_emo_list', 'Emotion List', 'fa-list-ul')}
         <div class="cb_collapse_content">
+          <div class="cb_hint">Names are shared by all characters. Pictures are set per character under Speakers.</div>
           <div class="cb_hint">The dot marks the default, used when a tag has no emotion or one not on this list.</div>
           <div id="m_emo_list"></div>
           <div class="cb_row" style="margin-top:6px;">

@@ -5,7 +5,7 @@
 // layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
 // shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.69.29';
+  const AVATARS_VERSION = '2.69.30';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
@@ -281,15 +281,14 @@
 
     return `
       <div class="ntr_colwrap">
-      <div class="ntr_glab"><i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>${title} Avatar</div>
+      <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on"><i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>${title} Avatar</label></div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
         <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}
-          <div class="cb_hint" style="margin: 4px 0 0;">Also shapes ST's own chat avatar while NTR Avatar is off.</div></div>
+          <div class="cb_hint" style="margin: 4px 0 0;">Also shapes ST's own chat avatar while switched off.</div></div>
         <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
         <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Only for Rectangle and Square.</div>
         <div id="m_${prefix}_fowrap" class="${cropCuts(s, prefix) ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Crop Focus:')}</div>
         <div class="cb_hint" style="margin: 0;">0% keeps the top of a cut-off picture, 100% the bottom. Shape None only cuts on Backdrop with Fill or Original.</div>
-        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>NTR Avatar</span></label>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>

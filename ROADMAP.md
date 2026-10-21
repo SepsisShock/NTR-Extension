@@ -4,11 +4,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 
 ## Planned
 
-### In Line avatar: spacing and look
-In Line looks too bulky next to the text.
-
-- [ ] Tighten the padding and space around the In Line avatar, and check how it sits beside the name, text and message buttons.
-
 ### Independent, customizable "favorites" bar
 
 ### Agents: follow-ups

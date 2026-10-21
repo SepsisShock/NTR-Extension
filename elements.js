@@ -703,7 +703,7 @@
     const pickRow = (title, inner, attrs = '') => `
           <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
     const patLine = (k, label) => `<label class="checkbox_label"><input type="checkbox" class="m_rb_patline" data-key="${k}" ${s[k] ? 'checked' : ''}><span>${label}</span></label>`;
-    const fxOpts = [['none', 'None', 'SillyTavern\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
+    const fxOpts = [['none', 'None', 'ST\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
     const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
     return pagePart('Reasoning Block', ['m_rb_enable', s.rbEnabled], 'el_reasoning', `
           <div class="cb_hint">Only changes the look. Reasoning shows when ST's "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) is on.</div>
@@ -723,7 +723,7 @@
           ${card('Reasoning Button', `
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
           ${ovRow(s, 'rbBtnAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBtnOpacity'))}
-          ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'SillyTavern\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
+          ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'ST\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
           ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders, s.rbBtnBorder))}
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor'))}
           ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}`)}
@@ -773,7 +773,7 @@
           </div>
           </div>`)}
           ${card('Reasoning Arrow', `
-          ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'SillyTavern\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']], s.rbArrow))}
+          ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'ST\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']], s.rbArrow))}
           ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼', 16) + '<div class="cb_hint">Empty shows ST\'s arrow.</div>', ' data-rbarrow="symbol"')}
           <div class="cb_cur_slot" data-rbarrow="image">
             <div class="cb_cur_row">
@@ -788,7 +788,7 @@
           <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Color emoji keep their own colors.</div>')}</div>
           <div data-rbarrow="shown">
           ${ovRow(s, 'rbArrowSizeOn', 'Arrow Size', rangeSlider(s, 'rbArrowSize'))}
-          ${pickRow('Turn', pills('rbarrowturn', [['flip', 'Flip', 'SillyTavern\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']], s.rbArrowTurn) + '<div class="cb_hint">When the block closes. Quarter Turn suits symbols that point right, like ▶.</div>')}
+          ${pickRow('Turn', pills('rbarrowturn', [['flip', 'Flip', 'ST\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']], s.rbArrowTurn) + '<div class="cb_hint">When the block closes. Quarter Turn suits symbols that point right, like ▶.</div>')}
           ${pickRow('While Thinking', pills('rbarrowanim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']], s.rbArrowAnim) + '<div class="cb_hint">Off with ST\'s Reduced Motion.</div>')}
           </div>`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
@@ -1027,9 +1027,9 @@
         if (e && ok === null && !waiting.has(e.img)) { waiting.add(e.img); mbWait.get(e.img)?.then(render); }
         el.querySelector('.m_mb_note').textContent = !r.id ? 'This icon can\'t take a picture.'
           : r.gone ? 'Not on the menu bar right now. Kept in case it comes back.'
-          : ok === false ? 'Didn\'t load. SillyTavern\'s icon shows instead.'
+          : ok === false ? 'Didn\'t load. ST\'s icon shows instead.'
           : ok === 'plain' && e.mode === 'tint' ? 'Its site doesn\'t allow Tint, so it shows in Full Color. Upload the picture to tint it.'
-          : e && r.api ? 'While not connected, SillyTavern\'s warning shows instead.' : '';
+          : e && r.api ? 'While not connected, ST\'s warning shows instead.' : '';
         const clr = el.querySelector('.m_mb_clr');
         if (clr) clr.disabled = !e;
         el.querySelector('.m_mb_mode').hidden = !e || r.gone;

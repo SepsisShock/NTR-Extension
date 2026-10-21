@@ -10,7 +10,7 @@
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
     startPlacement, tiles } = A;
-  const { CSS_NOTE, FILTER_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
+  const { CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
@@ -42,8 +42,8 @@
   const shapeTiles = (prefix, cur) => tiles(`${prefix}shape`, 'Shape', SHAPE_OPTS.map(([v, l]) => [v, l,
     SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur);
 
-  // Filters, at a Filter Strength s from 0 to 1: the picture's CSS filter, and Old TV's lines in a layer over it. k sizes
-  // Dreamy's blur for a smaller picture (the menu's previews).
+  // Filters, at a Filter Strength s from 0 to 1, as the picture's CSS filter. k sizes Dreamy's blur for a smaller
+  // picture (the menu's previews).
   const r3 = (x) => +x.toFixed(3);
   const FILTERS = {
     piss: { fx: (s) => `sepia(${r3(0.6 * s)}) contrast(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.2 * s)})` },
@@ -51,30 +51,45 @@
     noir: { fx: (s) => `grayscale(${r3(s)}) contrast(${r3(1 + 0.6 * s)}) brightness(${r3(1 - 0.15 * s)})` },
     faded: { fx: (s) => `contrast(${r3(1 - 0.3 * s)}) brightness(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.4 * s)})` },
     dreamy: { fx: (s, k = 1) => `blur(${r3(1.5 * s * k)}px) brightness(${r3(1 + 0.12 * s)}) saturate(${r3(1 + 0.2 * s)})` },
-    oldtv: { fx: (s) => `contrast(${r3(1 + 0.2 * s)}) saturate(${r3(1 - 0.3 * s)})`,
-      layer: (s) => `background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, ${r3(0.35 * s)}) 0 1px, transparent 1px 3px);` },
   };
-  // A side's Filter as CSS: the filter rule for its box, and its layer's rule (for the box's ::after), if any.
-  function filterCss(s, prefix) {
+  // Grainy's grain: noise drawn once into a small tile, its dark specks see-through between them.
+  const GRAIN = `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.4 0 0 0 -0.62"/></filter><rect width="120" height="120" filter="url(#g)"/></svg>')}")`;
+  // Textures: still layers over the picture, as their CSS background. Texture Strength is the layer's opacity.
+  const TEXTURES = {
+    scanlines: 'background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px);',
+    vhs: 'background: linear-gradient(to bottom, transparent 0 17%, rgba(255, 255, 255, 0.16) 17% 18.2%, transparent 18.2% 58%, rgba(255, 255, 255, 0.12) 58% 59%, transparent 59% 86%, rgba(255, 255, 255, 0.22) 86% 89%, transparent 89%),'
+      + ' linear-gradient(to right, rgba(255, 0, 80, 0.22), transparent 7% 93%, rgba(0, 220, 255, 0.22)),'
+      + ' repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0 1px, transparent 1px 4px);',
+    grainy: `background: ${GRAIN} 0 0 / 120px 120px repeat;`,
+    pixel: 'background: repeating-linear-gradient(to right, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px), repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px);',
+  };
+  // A side's Filter as the picture's filter rule, and its Texture as the rule for the layer over it (the box's ::after).
+  function lookCss(s, prefix) {
     const f = FILTERS[s[`${prefix}Filter`]];
-    const str = rangeNum(s, prefix + 'FilterStr') / 100;
-    if (!f || !str) return { rule: '', layer: '' };
-    return { rule: `filter: ${f.fx(str)} !important;`,
-      layer: f.layer ? `content: '' !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; z-index: 1 !important; ${f.layer(str)}` : '' };
-  }
-  // The Filter tiles: each shows that side's newest picture in the chat with the filter on, or a sample without one.
-  function filterTiles(prefix, cur) {
-    const imgs = document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
-    const src = imgs[imgs.length - 1]?.getAttribute('src');
-    const face = (v) => {
-      const f = FILTERS[v];
-      const fx = f ? `filter: ${f.fx(1, 0.25)};` : '';
-      const pic = src ? `<img src="${escapeHTML(src)}" alt="" style="display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; ${fx}">`
-        : `<span style="display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #d98a6a, #e8c27a 45%, #6a9ad9); ${fx}"></span>`;
-      return `<span style="position: relative; display: block; width: 100%; height: 100%;">${pic}${f?.layer ? `<span style="position: absolute; inset: 0; ${f.layer(1)}"></span>` : ''}</span>`;
+    const fStr = rangeNum(s, prefix + 'FilterStr') / 100;
+    const t = TEXTURES[s[`${prefix}Texture`]];
+    const tStr = rangeNum(s, prefix + 'TextureStr') / 100;
+    return {
+      filter: f && fStr ? `filter: ${f.fx(fStr)} !important;` : '',
+      layer: t && tStr ? `content: '' !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; z-index: 1 !important; opacity: ${r3(tStr)} !important; ${t}` : '',
     };
-    return tiles(`${prefix}filter`, 'Filter', FILTER_OPTS.map(([v, l]) => [v, l, face(v)]), cur, true);
   }
+  // The newest picture of a side in the chat, for the menu's previews.
+  const sidePic = (prefix) => {
+    const imgs = document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
+    return imgs[imgs.length - 1]?.getAttribute('src');
+  };
+  // A preview tile's picture: that side's newest picture, or a sample without one, with a filter on and a texture over it.
+  function previewFace(src, fx, layer) {
+    const pic = src ? `<img src="${escapeHTML(src)}" alt="" style="display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; ${fx}">`
+      : `<span style="display: block; width: 100%; height: 100%; background: linear-gradient(135deg, #d98a6a, #e8c27a 45%, #6a9ad9); ${fx}"></span>`;
+    return `<span style="position: relative; display: block; width: 100%; height: 100%;">${pic}${layer ? `<span style="position: absolute; inset: 0; ${escapeHTML(layer)}"></span>` : ''}</span>`;
+  }
+  // The Filter and Texture tiles. Each group previews only its own effect, at full strength.
+  const filterTiles = (prefix, cur) => tiles(`${prefix}filter`, 'Filter',
+    FILTER_OPTS.map(([v, l]) => [v, l, previewFace(sidePic(prefix), FILTERS[v] ? `filter: ${FILTERS[v].fx(1, 0.25)};` : '', '')]), cur, true);
+  const textureTiles = (prefix, cur) => tiles(`${prefix}texture`, 'Texture',
+    TEXTURE_OPTS.map(([v, l]) => [v, l, previewFace(sidePic(prefix), '', TEXTURES[v] || '')]), cur, true);
   // Custom CSS for each side's avatar box (the frame, on Pop Out), in its own style tag so a typo can't break the
   // others. Gone while NTR, Avatar Management or that side is off.
   function syncAvatarCss() {
@@ -128,7 +143,7 @@
     const botFade = n('FadeBot');
     const leftFade = n('FadeLeft');
     const rightFade = n('FadeRight');
-    const fx = filterCss(s, prefix);
+    const look = lookCss(s, prefix);
     const zoom = n('Zoom') / 100;
     const turn = n('Rotate');
     const turnCss = turn ? ` rotate(${turn}deg)` : '';
@@ -146,8 +161,7 @@
 
     const justify = h === 'l' ? 'flex-start' : (h === 'r' ? 'flex-end' : 'center');
     const align = h === 'l' ? 'left' : (h === 'r' ? 'right' : 'center');
-    const filterRule = fx.rule;
-    const layerCss = (sel) => (fx.layer ? `${sel}::after { ${fx.layer} }` : '');
+    const layerCss = (sel) => (look.layer ? `${sel}::after { ${look.layer} }` : '');
 
     const shared = `
       .mes[is_user="${isUserStr}"] .mes_block { ${padCss} }
@@ -169,10 +183,9 @@
           border-radius: ${shape ? frameR : '0'};
           ${OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;` : ''}
           transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px))${turnCss};
-          ${filterRule}
         }
         ${layerCss(`#cb_popf_${prefix}`)}
-        #cb_pop_${prefix} { ${imgPlaceCss(s, prefix, 'max(100cqw, 100cqh * var(--cb-ar, 0.6667))', 'var(--cb-ar, 0.6667)')} }
+        #cb_pop_${prefix} { ${imgPlaceCss(s, prefix, 'max(100cqw, 100cqh * var(--cb-ar, 0.6667))', 'var(--cb-ar, 0.6667)')} ${look.filter} }
         ${shared}
       `;
     }
@@ -229,6 +242,7 @@
         display: block !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
         -webkit-mask-image: none !important; mask-image: none !important;
         object-fit: fill !important;
+        ${look.filter}
       }`;
 
     if (style === 'inline') {
@@ -258,7 +272,6 @@
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
         ${turn ? `transform: rotate(${turn}deg) !important;` : ''}
         ${maskCss}
-        ${filterRule}
       }
       ${layerCss(`#chat .mes[is_user="${isUserStr}"] .avatar`)}
       ${imgCss}
@@ -273,7 +286,6 @@
         overflow: hidden !important; container-type: size !important; border-radius: ${framed ? frameR : '0'} !important;
         display: block !important; background: transparent !important; border: none !important;
         ${maskCss}
-        ${filterRule}
       }
       ${layerCss(`#chat .mes[is_user="${isUserStr}"] .avatar`)}
       ${imgCss}
@@ -426,6 +438,10 @@
         ${filterTiles(prefix, FILTERS[s[`${prefix}Filter`]] ? s[`${prefix}Filter`] : 'none')}
         <div id="m_${prefix}_fxwrap" class="${FILTERS[s[`${prefix}Filter`]] ? '' : 'cb_dim'}">${slider('fx', 'FilterStr', 'Filter Strength:')}</div>
 
+        <div class="cb_sub">Texture</div>
+        ${textureTiles(prefix, TEXTURES[s[`${prefix}Texture`]] ? s[`${prefix}Texture`] : 'none')}
+        <div id="m_${prefix}_txwrap" class="${TEXTURES[s[`${prefix}Texture`]] ? '' : 'cb_dim'}">${slider('tx', 'TextureStr', 'Texture Strength:')}</div>
+
         <div class="cb_sub">Advanced: Custom CSS</div>
         ${ovRow(s, `${prefix}CssOn`, `${title} Avatar CSS`, customCssBox(s, `${prefix}Css`, 'border: 2px solid white;&#10;box-shadow: 0 0 12px black;')
           + `<div class="cb_hint">CSS properties for this avatar, without a selector. ${CSS_NOTE}</div>`)}
@@ -475,6 +491,7 @@
         col.querySelector(`#m_${prefix}_rmoff`).style.display = shaped ? 'none' : '';
         col.querySelector(`#m_${prefix}_fswrap`).classList.toggle('cb_dim', !anyFade(s, prefix));
         col.querySelector(`#m_${prefix}_fxwrap`).classList.toggle('cb_dim', !FILTERS[s[`${prefix}Filter`]]);
+        col.querySelector(`#m_${prefix}_txwrap`).classList.toggle('cb_dim', !TEXTURES[s[`${prefix}Texture`]]);
         col.querySelector(`#m_${prefix}_crwrap`).classList.toggle('cb_dim', !cornersOn);
         col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
         col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
@@ -502,6 +519,7 @@
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); syncScale(); updateAvatarStyle(); });
       onPills(col, `${prefix}rmode`, (v) => { s[`${prefix}RotateMode`] = v; save(); syncScale(); updateAvatarStyle(); });
       onPills(col, `${prefix}filter`, (v) => { s[`${prefix}Filter`] = v; save(); syncScale(); updateAvatarStyle(); });
+      onPills(col, `${prefix}texture`, (v) => { s[`${prefix}Texture`] = v; save(); syncScale(); updateAvatarStyle(); });
       col.querySelectorAll('.m_css').forEach((box) => {
         box.oninput = () => { s[box.dataset.key] = box.value.slice(0, 2000); syncAvatarCss(); };
         box.onchange = save;
@@ -548,7 +566,7 @@
       const sliders = [
         { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'sx', key: 'ShiftX' }, { id: 'zm', key: 'Zoom' },
         { id: 'rt', key: 'Rotate' }, { id: 'pad', key: 'Pad' }, { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
-        { id: 'fs', key: 'FadeStr' }, { id: 'fx', key: 'FilterStr' }
+        { id: 'fs', key: 'FadeStr' }, { id: 'fx', key: 'FilterStr' }, { id: 'tx', key: 'TextureStr' }
       ];
       
       sliders.forEach(({ id, key }) => {

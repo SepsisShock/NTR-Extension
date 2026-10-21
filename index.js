@@ -26,7 +26,7 @@ await (async () => {
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0, aiFadeStr: 50,
-    aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape', aiFilter: 'none', aiFilterStr: 100, aiCssOn: false, aiCss: '',
+    aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape', aiFilter: 'none', aiFilterStr: 100, aiTexture: 'none', aiTextureStr: 100, aiCssOn: false, aiCss: '',
     
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
@@ -34,7 +34,7 @@ await (async () => {
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0, usFadeStr: 50,
-    usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape', usFilter: 'none', usFilterStr: 100, usCssOn: false, usCss: '',
+    usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape', usFilter: 'none', usFilterStr: 100, usTexture: 'none', usTextureStr: 100, usCssOn: false, usCss: '',
 
     // Foreground Settings
     fgEnabled: false,
@@ -222,7 +222,9 @@ await (async () => {
   // Avatar Management's Shape choices (see avatars.js). A saved Shape is checked against them (PICK_KEYS).
   const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['heart', 'Heart'], ['star', 'Star']];
   // Avatar Management's Filter choices (see avatars.js). A saved Filter is checked against them (PICK_KEYS).
-  const FILTER_OPTS = [['none', 'None'], ['piss', 'Piss'], ['bw', 'Black and White'], ['noir', 'Noir'], ['faded', 'Faded'], ['dreamy', 'Dreamy'], ['oldtv', 'Old TV']];
+  const FILTER_OPTS = [['none', 'None'], ['piss', 'Piss'], ['bw', 'Black and White'], ['noir', 'Noir'], ['faded', 'Faded'], ['dreamy', 'Dreamy']];
+  // Its Texture choices, layers over the picture (see avatars.js).
+  const TEXTURE_OPTS = [['none', 'None'], ['scanlines', 'Scanlines'], ['vhs', 'VHS'], ['grainy', 'Grainy'], ['pixel', 'Pixel']];
   // An SVG path as a mask, drawn in a 100 x 100 box stretched over its frame. Avatar Management's Heart and Star
   // (avatars.js) and the Speech Bubble tails cut with it.
   const svgMask = (d) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${d}"/></svg>`)}")`;
@@ -2931,7 +2933,7 @@ await (async () => {
   }
   PICK_KEYS.rbBgPos = POS_GRID.map(([v]) => v);
   for (const p of ['ai', 'us']) {
-    Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v), [p + 'RotateMode']: ['shape', 'both'], [p + 'Filter']: FILTER_OPTS.map(([v]) => v) });
+    Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v), [p + 'RotateMode']: ['shape', 'both'], [p + 'Filter']: FILTER_OPTS.map(([v]) => v), [p + 'Texture']: TEXTURE_OPTS.map(([v]) => v) });
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
@@ -3581,7 +3583,7 @@ await (async () => {
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
       [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'ShiftX']: [0, 100, 1, '%'], [p + 'Zoom']: [100, 200, 5, '%'], [p + 'Rotate']: [-180, 180, 1, '°'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
-      [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'FilterStr']: [0, 100, 1, '%'],
+      [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'FilterStr']: [0, 100, 1, '%'], [p + 'TextureStr']: [0, 100, 1, '%'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
       [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],
@@ -4770,7 +4772,7 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
       COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, ovLabel,
       RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
-      cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
+      cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
     },
   };

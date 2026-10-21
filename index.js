@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.27';
+  const VERSION = '2.69.28';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -205,6 +205,8 @@ await (async () => {
     if (k) scheduleCardFlush(k);
   };
   const isOn = () => settings().masterEnabled !== false;
+  // ST's own Reduced Motion (User Settings) or the device's setting.
+  const reducedMotion = () => !!ctx().powerUserSettings?.reduced_motion || !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   const popMsg = { ai: '', us: '' }; 
 
   const escapeHTML = (str) => {
@@ -4689,7 +4691,7 @@ await (async () => {
     // Edit Placement
     peek, bannerSrc, startChar, ROT_KEYS, BANNER_LOOK_KEYS, fgData, FG_POS, fgTransform, cardNum, cNum, card, pagePart,
     startPlacement: (first) => startPlacement(first), drawPlace: () => drawPlace(),
-    loadModule, moduleError: (name) => modError[name] || '', removeData, askYes, askText, popMenu, closePops, dragSort, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
+    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

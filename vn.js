@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.69.27';
+  const VN_VERSION = '2.69.28';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -133,6 +133,10 @@
   }
   const WX = { r1: tile(3, 220, 16, 'rain'), r2: tile(4, 300, 12, 'rain'), s1: tile(5, 260, 16, 'snow'), s2: tile(6, 380, 12, 'snow') };
 
+  // Animations that stop with Reduced Motion, ST's own (body.reduced-motion) or the device's.
+  const still = (sels) => `
+      @media (prefers-reduced-motion: reduce) { ${sels.join(', ')} { animation: none; } }
+      ${sels.map((x) => `body.reduced-motion ${x}`).join(', ')} { animation: none; }`;
   const VN_CSS = `
       #cb_node { position: fixed; z-index: 2450; display: none; align-items: flex-end; gap: 12px; padding: 0 6px; box-sizing: border-box; pointer-events: none; }
       #cb_node > * { pointer-events: auto; }
@@ -196,7 +200,7 @@
       @keyframes ntr_fadeblack { 0% { opacity: 0; } 35%, 65% { opacity: 1; } 100% { opacity: 0; } }
       .ntr_shake { animation: ntr_shake .5s cubic-bezier(.36, .07, .19, .97); }
       @keyframes ntr_shake { 10%, 90% { transform: translate(-2px, 1px); } 20%, 80% { transform: translate(5px, -2px); } 30%, 50%, 70% { transform: translate(-8px, 3px); } 40%, 60% { transform: translate(8px, -3px); } }
-      @media (prefers-reduced-motion: reduce) { .ntr_shake { animation-duration: .2s; } }
+      ${still(['#ntr_wx.ntr_rain::before', '#ntr_wx.ntr_rain::after', '#ntr_wx.ntr_snow::before', '#ntr_wx.ntr_snow::after', '#cb_node .cb_n_arrow', '#cb_node .cb_n_choice', '.ntr_shake'])}
       .cb_g_row { margin: 10px 0; }
       .cb_g_line { display: flex; align-items: center; gap: 6px; }
       .cb_g_line .cb_code { flex: 1; min-width: 0; margin-top: 4px; user-select: all; word-break: break-word; }
@@ -357,7 +361,7 @@
     ];
     if (s.nodeChoices) rows.push({ label: 'Offer Choices', code: `${no}${s.choiceWord}: Stay ${s.choiceSep} Leave${nc}`, hint: `Put it at the end of a message. Separate the options with ${s.choiceSep}.` });
     if (s.nodeEffects) {
-      rows.push({ label: 'Screen Effect', code: `${no}${s.effectWord}:${s.fxShake}${nc}`, hint: `Happens once. Also ${s.fxFlash} and ${s.fxFade}.` });
+      rows.push({ label: 'Screen Effect', code: `${no}${s.effectWord}:${s.fxShake}${nc}`, hint: `Happens once. Also ${s.fxFlash} and ${s.fxFade}. Shake and flash are skipped with Reduced Motion.` });
       rows.push({ label: 'Weather', code: `${no}${s.weatherWord}:${s.wxRain}${nc}`, hint: `Stays until it changes. Also ${s.wxSnow} and ${s.wxClear}.` });
     }
     if (s.nodeCG) rows.push({ label: 'Show an Illustration', code: `${no}${s.cgWord}:${cg}${nc}`, hint: 'Matches a name under CG Scenes.' });
@@ -1040,6 +1044,8 @@
   const SHAKE_IDS = ['ntr_loc', 'ntr_stage', 'ntr_wx', 'ntr_cg', 'cb_node', 'cb_fg_layer', 'cb_fg_front'];
   let shakeT = null;
   function fireFx(kind) {
+    // Reduced Motion skips the shake and the white flash; the fade to black is a slow opacity change, so it stays.
+    if ((kind === 'shake' || kind === 'flash') && A.reducedMotion()) return;
     if (kind === 'shake') {
       const els = SHAKE_IDS.map((id) => document.getElementById(id)).filter(Boolean);
       els.forEach((el) => { el.classList.remove('ntr_shake'); void el.offsetWidth; el.classList.add('ntr_shake'); });

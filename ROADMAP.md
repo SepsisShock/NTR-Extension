@@ -90,14 +90,14 @@ Decorative image borders around interface parts, stretched to fit any size.
 - [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
 
 ### Group chats
-- [ ] Reisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
+- [ ] Revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
 
 ### Colors on light themes
 Most of NTR's colors come from the SillyTavern theme, but some are fixed and assume a dark background. They're used across the whole NTR menu, on every page and in every section:
 
 - the yellow warning and red error text
 - the green and red icons for an agent run that worked or failed
-- the faint white lines between sections and list rows
+- the faint white lines between sections and list rows (Layout's Pinned Blocks list already uses the theme's border color)
 - the faint white highlight on selected rows, and on buttons and menu items under the pointer
 
 On light theme colors, the yellow is hard to read and the lines and highlights barely show.
@@ -156,6 +156,7 @@ Keep the open-world feel, and let a card optionally have endings.
 
 ### Ideas
 
+- With Reduced Motion, the opening logo still zooms in once as it appears; consider skipping it.
 - Chapters and save points. In Visual Novel Mode, each message is a chapter.
   - Title from a `[[Chapter:Name]]` tag, or "Chapter 1", "Chapter 2" and so on without one.
   - Title card when a chapter starts.
@@ -176,7 +177,7 @@ Keep the open-world feel, and let a card optionally have endings.
 
 Start this work only when the repository owner, SepsisShock, says release is approaching.
 
-- Open questions: whether a group can have its own banner like Char; where Lock to top and Overlap are saved for a group.
+- Open questions: whether a group can have its own banner like This Character; where Lock to Top and Overlap Messages are saved for a group.
 
 ### Mobile compatibility testing
 Test on phones and fix what breaks. Android and iOS both need checking: every iOS browser uses Safari's engine, which handles video, sound and screen height differently.

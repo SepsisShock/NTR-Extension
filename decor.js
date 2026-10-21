@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Free send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.69.21';
+  const DECOR_VERSION = '2.69.22';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
@@ -251,7 +251,7 @@
     const bg = (p, hint = '') => ovBgRow(s, p, hint);
     const border = (p) => ovBorderRow(s, p);
     return pageHtml('display', `
-          <div class="cb_hint">Changes how SillyTavern looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
+          <div class="cb_hint">Changes how ST looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
           ${card('Whole Interface', `
           ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
             + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))

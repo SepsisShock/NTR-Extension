@@ -5,7 +5,7 @@
 // layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
 // shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.69.21';
+  const AVATARS_VERSION = '2.69.22';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
@@ -265,7 +265,7 @@
     return ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
   }
 
-  function getColHtml(prefix, title, s) {
+  function getColHtml(prefix, title, icon, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
     const shaped = !!SHAPES[s[`${prefix}Shape`]];
     const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
@@ -281,26 +281,25 @@
 
     return `
       <div class="ntr_colwrap">
-      <div class="ntr_glab">${title}</div>
+      <div class="ntr_glab"><i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>${title} Avatar</div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
-        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>${title} Avatar</span></label>
         <div><strong>Shape:</strong>${pills(`${prefix}shape`, SHAPE_OPTS, s[`${prefix}Shape`])}
-          <div class="cb_hint" style="margin: 4px 0 0;">Crops the avatar to this shape, sized by Image Scale. With ${title} Avatar off, it shapes SillyTavern's own chat avatar. None keeps the whole picture.</div></div>
+          <div class="cb_hint" style="margin: 4px 0 0;">Also shapes ST's own chat avatar while NTR Avatar is off.</div></div>
         <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
-        <div id="m_${prefix}_crhint" class="cb_hint" style="margin: 0;${cornersOn ? '' : ' display: none;'}">0% is sharp. Corners are a share of the width, so they keep their look at any Image Scale.</div>
-        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Corners are for Rectangle and Square. The other shapes keep their own outline.</div>
+        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Only for Rectangle and Square.</div>
         <div id="m_${prefix}_fowrap" class="${cropCuts(s, prefix) ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Crop Focus:')}</div>
-        <div class="cb_hint" style="margin: 0;">Which part stays when the picture gets cut off: 0% keeps the top, 100% the bottom. Nothing gets cut with Shape None and Fit, or None on In Line or Pop Out.</div>
+        <div class="cb_hint" style="margin: 0;">0% keeps the top of a cut-off picture, 100% the bottom. Shape None only cuts on Backdrop with Fill or Original.</div>
+        <label class="checkbox_label"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''}><span>NTR Avatar</span></label>
         <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
 
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
-        ${grp('inline backdrop', `<div id="m_${prefix}_fitwrap" class="${shaped ? 'cb_dim' : ''}"><strong>Image Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>
-          <div id="m_${prefix}_fithint" class="cb_hint" style="margin: 0;${shaped ? '' : ' display: none;'}">The picture always fills a Shape, so Image Fit is only for None.</div>`)}
-        ${grp('backdrop', `<div id="m_${prefix}_fitnone" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">In a message shorter than the picture, Fit shrinks it to show all of it. Fill keeps its Image Scale size and Original its own size, and the message cuts off the rest.</div>`)}
+        ${grp('inline backdrop', `<div id="m_${prefix}_fitwrap" class="${shaped ? 'cb_dim' : ''}"><strong>Picture Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>
+          <div id="m_${prefix}_fithint" class="cb_hint" style="margin: 0;${shaped ? '' : ' display: none;'}">Only for Shape None. A Shape is always filled.</div>`)}
+        ${grp('backdrop', `<div id="m_${prefix}_fitnone" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">In a short message, Fit shrinks the picture to show all of it; Fill and Original get cut off.</div>`)}
 
-        <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Image Scale:')}</div>
-        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${scaleOff ? '' : ' display: none;'}">Original shows the picture at its own size, so Image Scale is off.</div>
+        <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Picture Size:')}</div>
+        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${scaleOff ? '' : ' display: none;'}">Original uses the picture's own size.</div>
         <div id="m_${prefix}_padwrap" class="${style === 'inline' ? 'cb_dim' : ''}">${slider('pad', 'Pad', 'Text Padding:')}</div>
 
         ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
@@ -308,19 +307,19 @@
           + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade:</label><span><span id="m_${prefix}_fadeval" class="ntr_slval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
           <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">
           <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
-          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set how much of the picture it fades. Lit cells have a fade on. Fades are a share of the avatar as it shows, so they keep their look at any Image Scale. Clear Fades sets all eight to 0.</div>')}
+          + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set its fade. Lit cells have a fade on.</div>')}
 
-        ${grp('popout', `<div class="cb_sub">Screen Placement</div>
+        ${grp('popout', `<div class="cb_sub">Placement</div>
           <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
-          <div class="cb_hint" style="margin: 0;">Hides the menu so you can drag the picture on screen. Press Done to come back. Position is on the chat panel: Top Left is the chat's top-left corner.</div>
-          <div id="m_${prefix}_pstat" style="font-size: 0.8em; opacity: 0.75;">${escapeHTML(popMsg[prefix] || '')}</div>`
+          <div class="cb_hint" style="margin: 0;">Hides the menu while you drag the picture. Position counts from the chat panel, not the screen.</div>
+          <div id="m_${prefix}_pstat" class="cb_hint" style="margin: 0;">${escapeHTML(popMsg[prefix] || '')}</div>`
           + slider('ox', 'PopX', 'Move Horizontal:')
           + slider('oy', 'PopY', 'Move Vertical:'))}
 
         <div class="cb_sub">Effects</div>
-        ${slider('bl', 'Blur', 'Blur Effect:')}
+        ${slider('bl', 'Blur', 'Blur:')}
 
-        <button id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px; width: max-content;"><i class="fa-solid fa-rotate-left"></i> Reset ${title}</button>
+        <button type="button" id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px; width: max-content;"><i class="fa-solid fa-rotate-left"></i> Reset ${title} Avatar</button>
         </div>
       </div>
       </div>
@@ -331,10 +330,10 @@
   function avatarsSectionHtml(s) {
     return pageHtml('pfp', `
             ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
-              + '<div class="cb_hint">Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included. With Message Details (Elements) on, its details show wherever they\'re ticked, except under the avatar.</div>'))}
+              + '<div class="cb_hint">Hide removes avatars, names and timestamps, pop-outs included. Message Details (Elements) still shows its details where ticked, except under the avatar.</div>'))}
             <div class="ntr_cols">
-              ${getColHtml('ai', 'AI', s)}
-              ${getColHtml('us', 'User', s)}
+              ${getColHtml('ai', 'AI', 'fa-masks-theater', s)}
+              ${getColHtml('us', 'User', 'fa-user-pen', s)}
             </div>
             ${castPartHtml()}
         `, { sw: ['m_a_enable', s.avatarEnabled], legend: true });
@@ -350,14 +349,13 @@
       const col = overlay.querySelector(`#m_${prefix}_col`);
       const label = prefix === 'ai' ? 'AI' : 'User';
 
-      // Corners are for Rectangle and Square. Image Fit is off with a Shape, which the picture always fills. Image Scale is off for Original, which keeps the
+      // Corners are for Rectangle and Square. Picture Fit is off with a Shape, which the picture always fills. Picture Size is off for Original, which keeps the
       // picture's own size. Text Padding is off for In Line, which never puts the avatar under the text.
       const syncScale = () => {
         const shaped = !!SHAPES[s[`${prefix}Shape`]];
         const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
         col.querySelector(`#m_${prefix}_fowrap`).classList.toggle('cb_dim', !cropCuts(s, prefix));
         col.querySelector(`#m_${prefix}_crwrap`).classList.toggle('cb_dim', !cornersOn);
-        col.querySelector(`#m_${prefix}_crhint`).style.display = cornersOn ? '' : 'none';
         col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
         col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
         col.querySelector(`#m_${prefix}_fithint`).style.display = shaped ? '' : 'none';
@@ -445,7 +443,7 @@
     return `<div class="cb_posgrid cb_fadegrid">${POS_GRID.map(([v]) => {
       if (!FADE_PARTS[v]) return '<span></span>';
       const [key, name] = FADE_PARTS[v];
-      return `<label title="${name} Fade" class="${rangeNum(s, prefix + key) > 0 ? 'cb_fon' : ''}"><input type="radio" name="cbr_${prefix}fade" value="${v}" ${v === cur ? 'checked' : ''}></label>`;
+      return `<label title="${name} Fade" class="${rangeNum(s, prefix + key) > 0 ? 'cb_fon' : ''}"><input type="radio" name="cbr_${prefix}fade" value="${v}" aria-label="${name} Fade" ${v === cur ? 'checked' : ''}></label>`;
     }).join('')}</div>`;
   }
 

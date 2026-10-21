@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.69.27';
+  const OP_VERSION = '2.69.28';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -112,7 +112,8 @@
     const st = {
       sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',
       timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false, ytPlayed: false,
-      exit: ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
+      // Rise to Top drifts up the screen, so Reduced Motion fades the logo out instead.
+      exit: s.opExit === 'rise' && A.reducedMotion() ? 'fade' : ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
       cross: s.opTrans === 'cross',
       muted: !!s.opMute,
     };

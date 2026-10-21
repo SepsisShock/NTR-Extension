@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Maps module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const MAP_VERSION = '2.69.27';
+  const MAP_VERSION = '2.69.28';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -33,6 +33,8 @@
     #ntr_map .ntr_pin.ntr_bad { border-color: #ff8a8a; }
     #ntr_map .ntr_pin.ntr_sel { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
     @keyframes ntr_ping { from { transform: scale(.8); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { #ntr_map .ntr_pin.ntr_here::after { animation: none; transform: scale(1.2); opacity: .8; } }
+    body.reduced-motion #ntr_map .ntr_pin.ntr_here::after { animation: none; transform: scale(1.2); opacity: .8; }
     .ntr_map_pop { position: absolute; z-index: 5; min-width: 200px; max-width: 320px; transform: translate(-50%, 22px); padding: 10px 12px; border-radius: 10px; line-height: 1.35; background: var(--SmartThemeBlurTintColor, #1e1e24); border: 1px solid var(--SmartThemeBorderColor, #555); box-shadow: 0 6px 18px rgba(0,0,0,.6); display: none; cursor: default; }
     .ntr_map_pop .ntr_pop_t { font-weight: bold; }
     .ntr_map_pop .ntr_pop_s { font-size: .8em; opacity: .7; margin: 2px 0 8px; }

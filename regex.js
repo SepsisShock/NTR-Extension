@@ -362,7 +362,7 @@ try {
 
   function closePops() { A.closePops(page); }
 
-  // Move to folder: the section's folders, Unassigned, and New folder to make one and move the regex into it.
+  // Move to folder: the section's folders, No Folder, and New folder to make one and move the regex into it.
   function moveMenu(anchor, sec, id) {
     const cur = folders(sec).find((f) => f.ids.includes(id)) || null;
     const item = (fid, icon, label, here) => `<button data-act="mvto" data-fid="${esc(fid)}"${here ? ' class="ntr_here" disabled' : ''}><i class="fa-solid ${icon} fa-fw"></i>${esc(label)}</button>`;
@@ -371,7 +371,7 @@ try {
       + '<button data-act="mvnew"><i class="fa-solid fa-folder-plus fa-fw"></i>New Folder…</button>');
   }
 
-  // Puts a regex in a folder (or Unassigned) at the end of it, and SillyTavern's run order follows.
+  // Puts a regex in a folder (or No Folder) at the end of it, and SillyTavern's run order follows.
   function moveRegex(sec, id, fid) {
     const fl = folders(sec, true);
     for (const f of fl) {

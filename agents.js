@@ -837,7 +837,7 @@
       ${lab('Server Type', `<select class="text_pole m_ag_txt" data-f="tcType" data-redraw="1" style="width:100%;">${opt(TC, a.tcType)}</select>`)}
       ${lab('Server Link', `<input type="text" class="text_pole m_ag_txt" data-f="tcUrl" data-redraw="1" value="${esc(a.tcUrl)}" maxlength="500" placeholder="like http://127.0.0.1:5001" style="width:100%;">`)}
       ${TC_MODEL.has(a.tcType) ? lab('Model', `<input type="text" class="text_pole m_ag_txt" data-f="tcModel" value="${esc(a.tcModel)}" maxlength="200" placeholder="Only if your server asks for one" style="width:100%;">`) : ''}
-      ${lab('Instruct Template', `<select class="text_pole m_ag_txt" data-f="tcInstruct" style="width:100%;"><option value="">None (plain format)</option>${opt(instructs.map((n) => [n, n]), a.tcInstruct)}</select>`)}
+      ${lab('Instruct Template', `<select class="text_pole m_ag_txt" data-f="tcInstruct" style="width:100%;"><option value="">None (Plain Format)</option>${opt(instructs.map((n) => [n, n]), a.tcInstruct)}</select>`)}
       <div class="cb_hint">Only the format is used, not your other settings. A saved key for this server type is used if needed.</div>
       ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is your chat\'s server, which answers one request at a time, so this agent waits until your reply is done.</div>' : ''}`
       : '<div class="cb_hint" style="margin-bottom:0;">Uses your chat\'s API, model and key, and waits until a reply is finished.</div>';
@@ -888,7 +888,7 @@
         ${full ? '<div class="cb_hint">With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
           : `${lab('Messages Read', slider(a, 'context', 'agContext'))}`}
         ${fields ? '' : `<div class="${lastOff ? 'cb_dim' : ''}"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}${lastOff ? ' disabled' : ''}><span>Include Its Last Result</span></label>
-        <div class="cb_hint"${lastOff ? ' style="margin-bottom:0;"' : ''}>So it updates its last answer instead of starting over.</div></div>
+        <div class="cb_hint"${lastOff ? ' style="margin-bottom:0;"' : ''}>It updates its last answer instead of starting over.</div></div>
         ${lastOff ? '<div class="cb_hint">Needs Results set to Saved in the Chat, under When It Runs.</div>' : ''}`}
         <div class="cb_actions" style="margin:6px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}</div>
         <div id="m_ag_prevbox" hidden></div>`],

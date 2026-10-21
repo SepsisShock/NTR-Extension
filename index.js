@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.22';
+  const VERSION = '2.69.23';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -1986,6 +1986,8 @@ await (async () => {
         .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { min-width: 40px; min-height: 40px; }
         .cb_defdot { width: 40px; height: 40px; }
         .cb_emo_grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        .ntr_rd_books label { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
+        .ntr_tbar .menu_button { min-width: 40px; min-height: 40px; }
       }
       .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
       .cb_dfield input { margin: 0; font-family: monospace; }
@@ -2973,7 +2975,15 @@ await (async () => {
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
   // Shown only while a pick has a certain value, like Roundness under Rounded.
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
-  const ovLabel = (label, inner) => `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${inner}`;
+  // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
+  // radio group, anything else on its first control. A pill keeps its own text as its name.
+  const ovLabel = (label, inner) => {
+    const n = escapeHTML(label);
+    const named = /^\s*<div class="cb_pills"/.test(inner)
+      ? inner.replace('<div class="cb_pills"', `<div class="cb_pills" role="radiogroup" aria-label="${n}"`)
+      : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
+    return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
+  };
 
   // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
   const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
@@ -3427,16 +3437,16 @@ await (async () => {
   const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...AVATAR_SHAPE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
   // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
-    layout: { label: 'Layout (chat panel, menu bar, send bar, page bar, banner, chat width, message spacing, attached style)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
+    layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },
-    reasoning: { label: 'Elements (reasoning block, scrollbar, cursor, menu bar icons, quick replies, message details)', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb') || k.startsWith('md') || k.startsWith('mb')), ...ELEMENT_OV_KEYS] },
-    banner: { label: 'Banner look (height, gap, transparent areas, rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
-    bannerGlobal: { label: 'Global banner (images, YouTube link, video)', keys: ['bannerGlobal'] },
-    fg: { label: 'Foreground look (opacity, hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
-    reader: { label: 'Reader Mode look (Standard or Book, book picture, page areas, ink, font, page flip)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip'] },
-    vn: { label: 'Visual Novel (box, playback, emotions, tags, art kit, logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
+    reasoning: { label: 'Elements', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb') || k.startsWith('md') || k.startsWith('mb')), ...ELEMENT_OV_KEYS] },
+    banner: { label: 'Banner Look (Height, Gap, Transparent Areas, Rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
+    bannerGlobal: { label: 'Global Banner (Pictures, YouTube Link, Video)', keys: ['bannerGlobal'] },
+    fg: { label: 'Foreground Look (Opacity, Hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
+    reader: { label: 'Reader Mode Look (Style, Book, Page Areas, Ink, Font, Page Flip)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip'] },
+    vn: { label: 'Visual Novel (Box, Playback, Emotions, Tags, Default Art, Logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
       'opLead', 'opFade', 'opSize', 'opPos', 'opHold', 'opExit', 'opTrans', 'opTransColor', 'opTransMs', 'opEarly', 'nodeMaps', 'mapGoText'] },
@@ -3697,23 +3707,23 @@ await (async () => {
 
   function themesSectionHtml(s) {
     const cur = s.themes.some((t) => t.id === s.themeActive) ? s.themeActive : '';
-    const opts = [['', 'None (default look)'], ...s.themes.map((t) => [t.id, t.name])]
+    const opts = [['', 'Default Look'], ...s.themes.map((t) => [t.id, t.name])]
       .map(([v, l]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(l)}</option>`).join('');
-    const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+    const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
     return pageHtml('themes', `
-        ${card('', `
-          <div class="cb_hint">A theme holds your look: Layout, UI Decor, Text Formatting, Avatar Management, Elements, banner height, gap and rotation, the Global banner, foreground opacity, the Visual Novel box, tags and default art, and which regex folders are on. Character content, like a character's own banner, is never part of a theme. Pick a theme to apply it.</div>
-          <select id="m_t_sel" class="text_pole ntr_tsel">${opts}</select>
+        <div class="cb_hint">Saves your look from the look pages, Reader Mode and Visual Novel Mode, the shared banner, and which regex folders are on. Anything saved per character stays out. Picking a theme applies it.</div>
+        ${card('Saved Themes', `
+          <select id="m_t_sel" class="text_pole ntr_tsel" aria-label="Theme">${opts}</select>
           <div class="ntr_tbar">
-            ${b('m_t_new', 'fa-plus', 'Save current look as a new theme')}
-            ${b('m_t_upd', 'fa-floppy-disk', 'Save current look over the selected theme')}
-            ${b('m_t_ren', 'fa-pen', 'Rename the selected theme')}
-            ${b('m_t_del', 'fa-trash', 'Delete the selected theme', 'danger_button')}
-            ${b('m_t_imp', 'fa-file-import', 'Import a theme file')}
-            ${b('m_t_exp', 'fa-file-export', 'Export the selected theme (or your current look)')}
+            ${b('m_t_new', 'fa-plus', 'Save as New Theme')}
+            ${b('m_t_upd', 'fa-floppy-disk', 'Save Over Selected Theme')}
+            ${b('m_t_ren', 'fa-pen', 'Rename Theme')}
+            ${b('m_t_del', 'fa-trash', 'Delete Theme', 'danger_button')}
+            ${b('m_t_imp', 'fa-file-import', 'Import Theme')}
+            ${b('m_t_exp', 'fa-file-export', 'Export Theme')}
           </div>
           <div id="m_t_panel"></div>
-          <input type="file" id="m_t_file" accept=".json,application/json" hidden>`)}
+          <input type="file" id="m_t_file" accept=".json,application/json" hidden>`, 'fa-swatchbook')}
     `);
   }
 
@@ -3726,13 +3736,13 @@ await (async () => {
     const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
     // The menu fills empty colors with SillyTavern's own (see bindRows), so those count as default too.
     const atDefault = (k) => JSON.stringify(s[k]) === JSON.stringify(DEFAULTS[k]) || (k in COLOR_FROM && s[k] === stColor(k));
-    // Unsaved: the look differs from the selected theme, or from the default look when None is selected.
+    // Unsaved: the look differs from the selected theme, or from the default look when Default Look is selected.
     const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };
     const shown = () => { sel.value = active() ? s.themeActive : ''; };
 
     const tbar = overlay.querySelector('.ntr_tbar');
     const askName = (value, self = null) => askText(tbar, {
-      label: 'Theme name',
+      label: 'Theme Name',
       value,
       ok: '<i class="fa-solid fa-floppy-disk"></i> Save',
       check: (name) => (!name ? { error: 'Type a name first.' }
@@ -3818,14 +3828,16 @@ await (async () => {
     overlay.querySelector('#m_t_exp').onclick = () => {
       const t = active();
       const data = t ? t.data : lookSnapshot();
-      const name = t ? t.name : 'My look';
+      const name = t ? t.name : 'My Look';
       const secs = Object.keys(LOOK).filter((k) => data[k]);
       const nImg = collectFileRefs(data).size;
       panel.innerHTML = `
         <div class="ntr_tpanel">
-          <strong>Export "${escapeHTML(name)}"</strong>
+          <strong><i class="fa-solid fa-fw fa-file-export ntr_glab_icon"></i>Export "${escapeHTML(name)}"</strong>
+          <div class="cb_plab">Sections</div>
           ${secBoxes(secs)}
-          ${nImg ? `<label class="checkbox_label" style="margin-top:4px;"><input type="checkbox" id="m_t_img" checked><span>Include images (${nImg}) so the theme works on other installs</span></label>` : ''}
+          ${nImg ? `<label class="checkbox_label" style="margin-top:4px;"><input type="checkbox" id="m_t_img" checked><span>Include Pictures (${nImg})</span></label>
+          <div class="cb_hint">Needed on another install.</div>` : ''}
           <div class="cb_actions">
             <button class="menu_button" id="m_t_dl"><i class="fa-solid fa-download"></i> Download</button>
             <button class="menu_button" id="m_t_cancel">Cancel</button>
@@ -3839,7 +3851,7 @@ await (async () => {
         if (panel.querySelector('#m_t_img')?.checked && collectFileRefs(sections).size) {
           const r = await embedFiles(sections);
           sections = r.data;
-          if (r.fails) toastr.warning(`${r.fails} image(s) couldn't be read and were left as links.`, 'Themes');
+          if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be read and were left as links.`, 'Themes');
         }
         const out = { ntrTheme: 1, version: VERSION, name, sections };
         const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
@@ -3878,23 +3890,24 @@ await (async () => {
       const scrollCss = String(rbPart.ovScrollCss || '').slice(0, 2000).trim();
       const cursorCssIn = String(rbPart.ovCursorCss || '').slice(0, 2000).trim();
       const qrCssIn = String(rbPart.ovQrCss || '').slice(0, 2000).trim();
+      const cssIn = (part) => `This theme has Custom CSS for ${part}. It comes in switched off: check it under Elements, ${part}, Advanced: Custom CSS, then tick it.`;
       panel.innerHTML = `
         <div class="ntr_tpanel">
-          <strong>Import theme</strong>
-          <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported theme'))}"></label>
-          <div class="cb_hint">Sections in this file. Untick any you don't want.</div>
+          <strong><i class="fa-solid fa-fw fa-file-import ntr_glab_icon"></i>Import Theme</strong>
+          <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported Theme'))}"></label>
+          <div class="cb_plab">Sections</div>
           ${secBoxes(secs)}
-          ${css ? `<div class="cb_hint">This theme includes Custom CSS for the reasoning block. It's added switched off: after applying the theme, check it under Elements, Reasoning Block, Advanced: Custom CSS, and tick it to use it.</div>
+          ${css ? `<div class="cb_hint">${cssIn('Reasoning Block')}</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
-          ${scrollCss ? `<div class="cb_hint">This theme includes Custom CSS for the scrollbar. It's added switched off: after applying the theme, check it under Elements, Scrollbar, Advanced: Custom CSS, and tick it to use it.</div>
+          ${scrollCss ? `<div class="cb_hint">${cssIn('Scrollbar')}</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(scrollCss)}</pre>` : ''}
-          ${cursorCssIn ? `<div class="cb_hint">This theme includes Custom CSS for the cursor. It's added switched off: after applying the theme, check it under Elements, Cursor, Advanced: Custom CSS, and tick it to use it.</div>
+          ${cursorCssIn ? `<div class="cb_hint">${cssIn('Cursor')}</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(cursorCssIn)}</pre>` : ''}
-          ${qrCssIn ? `<div class="cb_hint">This theme includes Custom CSS for Quick Replies. It's added switched off: after applying the theme, check it under Elements, Quick Replies, Advanced: Custom CSS, and tick it to use it.</div>
+          ${qrCssIn ? `<div class="cb_hint">${cssIn('Quick Replies')}</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(qrCssIn)}</pre>` : ''}
-          ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Visual Novel Mode, Tags &amp; Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
+          ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Avatars, Emotions, Tags and Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
           <div class="cb_actions">
-            <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add theme</button>
+            <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add Theme</button>
             <button class="menu_button" id="m_t_cancel">Cancel</button>
           </div>
         </div>`;
@@ -3902,17 +3915,17 @@ await (async () => {
       panel.querySelector('#m_t_add').onclick = async () => {
         const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
         if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
-        let name = panel.querySelector('#m_t_iname').value.trim() || 'Imported theme';
+        let name = panel.querySelector('#m_t_iname').value.trim() || 'Imported Theme';
         const base = name;
         for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
         for (const k of ['ovScrollCss', 'ovCursorCss', 'ovQrCss']) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
         if (hasEmbedded(data)) {
-          toastr.info('Uploading the theme\'s images...', 'Themes');
+          toastr.info('Uploading the theme\'s pictures...', 'Themes');
           const r = await unpackFiles(data);
           data = r.data;
-          if (r.fails) toastr.warning(`${r.fails} image(s) couldn't be uploaded.`, 'Themes');
+          if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be uploaded.`, 'Themes');
         }
         s.themes.push({ id: newId('th'), name, data });
         save();
@@ -4334,6 +4347,7 @@ await (async () => {
     const b = document.getElementById('cb_node_toggle');
     if (!b) return;
     b.classList.toggle('cb_on', !!settings().nodeEnabled);
+    b.setAttribute('aria-pressed', String(!!settings().nodeEnabled));
     b.style.display = isOn() ? '' : 'none';
   }
 
@@ -4350,6 +4364,8 @@ await (async () => {
     b.id = 'cb_node_toggle';
     b.className = 'fa-solid fa-comments interactable';
     b.title = 'Visual Novel Mode (turns Reader Mode on)';
+    b.setAttribute('role', 'button');
+    b.setAttribute('aria-label', 'Visual Novel Mode');
     b.tabIndex = 0;
     b.onclick = toggleVN;
     lsf.appendChild(b);
@@ -4373,46 +4389,48 @@ await (async () => {
     const err = modError.reader ? `<div class="cb_hint ntr_pnote">Reader Mode failed to load: ${escapeHTML(modError.reader)}</div>` : '';
     const part = readerPart(s);
     return pageHtml('reader', `
-        <div class="cb_hint" data-rd-part="${part}">Other ways to show the chat. Messages hidden on screen are still sent with the prompt. Each chat opens where you left it.</div>
+        <div class="cb_hint" data-rd-part="${part}">Messages hidden on screen are still sent with the prompt. Each chat opens where you left it.</div>
         ${card('Style', `
-          ${pills('rdstyle', [['plain', 'Standard'], ['book', 'Book'], ['vn', 'Visual Novel']], readerStyle(s))}`)}
+          ${pills('rdstyle', [['plain', 'Standard'], ['book', 'Book'], ['vn', 'Visual Novel']], readerStyle(s))}
+          <div class="cb_hint" style="margin-bottom: 0;">Picking Visual Novel turns Reader Mode on.</div>`, 'fa-glasses')}
         ${part === 'vn' ? '' : card('Each Page', `
           ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
-          <div class="cb_hint" style="margin-bottom: 0;">The opening message is page 1.</div>`)}
-        ${part !== 'book' ? '' : `${subHead('rd_book', 'Book')}
+          <div class="cb_hint" style="margin-bottom: 0;">The opening message is page 1.</div>`, 'fa-file-lines')}
+        ${part !== 'book' ? '' : `${subHead('rd_book', 'Book', 'fa-book')}
         <div class="cb_collapse_content">
-        ${card('Book', `
+        ${card('', `
           <div class="cb_cur_row">
             <div class="cb_cur_prev ntr_rd_pic" id="m_rd_pic"></div>
             <span class="cb_cur_name" style="flex: 1;">Book Picture<small id="m_rd_pic_name"></small></span>
-            <button class="menu_button" id="m_rd_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
-            <button class="menu_button" id="m_rd_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
-            <button class="menu_button" id="m_rd_clr" title="Back to the built-in book and its page areas"><i class="fa-solid fa-rotate-left"></i></button>
+            <button class="menu_button" id="m_rd_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
+            <button class="menu_button" id="m_rd_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
+            <button class="menu_button" id="m_rd_clr" title="Use the built-in book" aria-label="Use the built-in book"><i class="fa-solid fa-rotate-left"></i></button>
           </div>
-          <div class="ntr_rd_books" role="radiogroup" aria-label="Built-in book color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookKey(s) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
-          <div class="cb_hint">The dots pick the built-in book's cover color. Picking one also sets the page areas to fit it.</div>
+          <div class="cb_hint" style="margin:6px 0 0;">Cover Color</div>
+          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookKey(s) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
+          <div class="cb_hint">Also puts back the built-in page areas and replaces your own picture.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
-          <div class="cb_hint">How much of the screen's width the book takes. It keeps the picture's shape, so it gets narrower when the screen is too short. A phone held upright shows Standard; turn it sideways for the book.</div>
-          ${ovRow(s, 'rdFlip', 'Page Flip', '<div class="cb_hint" style="margin: 0;">Next, Previous, Page Up and Page Down turn the page over the spine. First, Last and a typed page number go straight there. Off with SillyTavern\'s Reduced Motion.</div>')}`)}
+          <div class="cb_hint">Keeps the picture's shape, so a short screen makes it narrower. An upright phone shows Standard; turn it sideways for the book.</div>
+          ${ovRow(s, 'rdFlip', 'Page Flip', '<div class="cb_hint" style="margin: 0;">First, Last and a typed page number skip the flip. Off with Reduced Motion, ST\'s or the device\'s.</div>')}`)}
         ${card('Page Areas', `
           ${ovLabel('Top', rangeSlider(s, 'rdBookTop'))}
           ${ovLabel('Bottom', rangeSlider(s, 'rdBookBottom'))}
           ${ovLabel('Outer Edge', rangeSlider(s, 'rdBookOuter'))}
           ${ovLabel('Spine Gap', rangeSlider(s, 'rdBookSpine'))}
-          <div class="cb_hint" style="margin-bottom: 0;">Where the text sits on the picture. Top and Bottom are a % of the book's height; Outer Edge and Spine Gap are a % of its width. Spine Gap is the space between the two pages' text. The swipe arrows sit under the text at the bottom right.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">Where the text sits on the picture. Top and Bottom are % of the book's height; Outer Edge and Spine Gap, % of its width. The swipe arrows sit below the text, bottom right.</div>`, 'fa-vector-square')}
         ${card('Ink', `
           ${ovLabel('Text', ovColor(s, 'rdInk'))}
           ${ovLabel('Italics', ovColor(s, 'rdInkEm'))}
           ${ovLabel('Quotes', ovColor(s, 'rdInkQuote'))}
           ${ovRow(s, 'rdBookFontOn', 'Book Font', ovFont(s, 'rdBookFont'))}
-          <div class="cb_hint" style="margin-bottom: 0;">In the book, these take the place of SillyTavern's colors, Text Formatting's colors and text effects, and the reasoning block's look, which are made for a dark background. The reasoning text uses the Italics color. Text Formatting's sizes still apply.</div>`)}
+          <div class="cb_hint" style="margin-bottom: 0;">In the book, these replace ST's and Text Formatting's colors and text effects, and the reasoning block's look. Reasoning text uses Italics. Text Formatting's sizes still apply.</div>`, 'fa-pen-nib')}
         </div>`}
-        ${part !== 'vn' ? '' : `${subHead('rd_vn', 'Visual Novel')}
+        ${part !== 'vn' ? '' : `${subHead('rd_vn', 'Visual Novel', 'fa-film')}
         <div class="cb_collapse_content">
         ${vnSectionHtml(s)}
         </div>`}
-    `, { sw: ['m_rd_enable', s.rdEnabled], note: err, legend: true });
+    `, { sw: ['m_rd_enable', s.rdEnabled], note: err, legend: part === 'vn' });
   }
 
   function bindReader(overlay, s) {
@@ -4444,22 +4462,33 @@ await (async () => {
       save();
       updateAvatarStyle();
       deleteFileIfUnused(old);
-      if (url) renderPic(); else openCombinedModal();
+      // Your own picture: no cover dot stays picked, so any dot can be picked to go back.
+      if (url) { overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; }); renderPic(); } else openCombinedModal();
     };
     overlay.querySelector('#m_rd_up').onclick = () => file.click();
     overlay.querySelector('#m_rd_url').onclick = async function() {
-      const url = await askImageUrl('Book picture', this, false);
+      const url = await askImageUrl('Book Picture', this, false);
       if (url) setPic(url);
     };
-    overlay.querySelector('#m_rd_clr').onclick = () => setPic('');
-    onPills(overlay, 'rdbook', (v) => { s.rdBook = v; setPic(''); });
+    // With your own picture set, going back deletes it and resets the page areas, so it asks first.
+    const backToBook = async (anchor) => !s.rdBookImg
+      || askYes(anchor, 'Go back to the built-in book? Your picture is removed and the page areas reset.', 'Use Built-In Book', { danger: true });
+    overlay.querySelector('#m_rd_clr').onclick = async function() { if (await backToBook(this)) setPic(''); };
+    onPills(overlay, 'rdbook', async (v) => {
+      if (!(await backToBook(overlay.querySelector('.ntr_rd_books')))) {
+        overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; });
+        return;
+      }
+      s.rdBook = v;
+      setPic('');
+    });
     file.onchange = async () => {
       if (!file.files.length) return;
       try {
         setPic(await uploadImage(file.files[0], 'book', { max: 3000 }));
       } catch (e) {
         console.error('[NTR book upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Book picture');
+        toastr.error(e.message || 'Upload failed', 'Book Picture');
       }
       file.value = '';
     };
@@ -4505,6 +4534,7 @@ await (async () => {
     const b = document.getElementById('ntr_rd_toggle');
     if (!b) return;
     b.classList.toggle('cb_on', !!settings().rdEnabled);
+    b.setAttribute('aria-pressed', String(!!settings().rdEnabled));
     b.style.display = isOn() ? '' : 'none';
   }
 
@@ -4515,6 +4545,8 @@ await (async () => {
     b.id = 'ntr_rd_toggle';
     b.className = 'fa-solid fa-book-open interactable';
     b.title = 'Reader Mode';
+    b.setAttribute('role', 'button');
+    b.setAttribute('aria-label', 'Reader Mode');
     b.tabIndex = 0;
     b.onclick = toggleReader;
     lsf.appendChild(b);

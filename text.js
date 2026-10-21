@@ -4,7 +4,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const TEXT_VERSION = '2.69.22';
+  const TEXT_VERSION = '2.69.23';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { askImageUrl, card, deleteFileIfUnused, escapeHTML, onPills, pageHtml, pills, rangeNum, save, subHead, uploadImage } = A;
@@ -117,53 +117,52 @@
   function fxRows(s, p) {
     return `
           ${ovRow(s, p + 'FxOn', 'Text Effect', ovFx(s, p))}
-          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + '<div class="cb_hint">Without this, Glow uses the text color, and Shadow and Outline are black.</div>')}`;
+          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + '<div class="cb_hint">Unticked, Glow uses the text color; Shadow and Outline are black.</div>')}`;
   }
 
   function textSectionHtml(s) {
     const part = (p) => `
           ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
           ${ovRow(s, p + 'SizeOn', 'Size', rangeSlider(s, p + 'Size'))}
-          ${ovRow(s, p + 'AlignOn', 'Alignment', pills(p.toLowerCase() + 'align', [['left', 'Left', 'SillyTavern\'s default'], ['right', 'Right'], ['center', 'Center'], ['justify', 'Justify']], s[p + 'Align'])
-            + '<div class="cb_hint">Lists, tables and code blocks stay as they are. Justify can leave wide gaps between words in narrow messages.</div>')}
+          ${ovRow(s, p + 'AlignOn', 'Alignment', pills(p.toLowerCase() + 'align', [['left', 'Left', 'ST\'s default'], ['right', 'Right'], ['center', 'Center'], ['justify', 'Justify']], s[p + 'Align'])
+            + '<div class="cb_hint">Lists, tables and code blocks keep ST\'s alignment.</div>')}
           ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
     return pageHtml('text', `
-          <div class="cb_hint">Styles chat text. Also used in the Visual Novel box: AI Text for the dialogue, Names and Nameplate for the name tag. Tick a setting to change it; untick it to go back to ST's look. ${FONT_NOTE}</div>
-          ${card('', ovRow(s, 'ovFontOn', 'Overall Font Scale', rangeSlider(s, 'ovFont') + '<div class="cb_hint">Scales all of SillyTavern\'s text, menus included. The Size settings below are on top of this.</div>'))}
-          ${subHead('tf_names', 'Names')}
+          <div class="cb_hint">Also styles the Visual Novel box: AI Text the dialogue, Names and Nameplate the name tag. Sizes and weight there come from Visual Novel Mode. Tick a setting to change it; untick it to go back to ST's value. ${FONT_NOTE}</div>
+          ${card('Whole Interface', ovRow(s, 'ovFontOn', 'Overall Font Scale', rangeSlider(s, 'ovFont') + '<div class="cb_hint">Scales all of ST\'s text, menus included. The Sizes below multiply it.</div>'), 'fa-display')}
+          ${subHead('tf_names', 'Names', 'fa-signature')}
           <div class="cb_collapse_content">
-            <div class="cb_hint">The name at the top of each message, for both you and the character.</div>
             ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
             ${ovRow(s, 'tfNameSizeOn', 'Size', rangeSlider(s, 'tfNameSize'))}
-            ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'SillyTavern\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
+            ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'ST\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
             ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}${fxRows(s, 'tfName')}
           </div>
-          ${subHead('tf_plate', 'Nameplate')}
+          ${subHead('tf_plate', 'Nameplate', 'fa-id-badge')}
           <div class="cb_collapse_content">
-            <div class="cb_hint">A box behind the name, on chat messages and the Visual Novel name tag.</div>
+            <div class="cb_hint">A box behind the name.</div>
             ${ovRow(s, 'tfPlateBgOn', 'Color', ovColor(s, 'tfPlateBg'))}
             <div class="cb_cur_slot">
               <div class="cb_cur_row">
                 <div class="cb_cur_prev ntr_rd_pic" id="m_plate_prev"></div>
-                <span class="cb_cur_name">Picture<small>Covers the box, over the Color. A wide picture works best.</small></span>
-                <button class="menu_button" id="m_plate_up" title="Upload"><i class="fa-solid fa-upload"></i></button>
-                <button class="menu_button" id="m_plate_url" title="Use a link"><i class="fa-solid fa-link"></i></button>
-                <button class="menu_button" id="m_plate_clr" title="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+                <span class="cb_cur_name">Picture<small>Covers the Color.</small></span>
+                <button class="menu_button" id="m_plate_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
+                <button class="menu_button" id="m_plate_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
+                <button class="menu_button" id="m_plate_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
               </div>
               <input type="file" id="m_plate_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
             </div>
             ${ovRow(s, 'tfPlateBorderOn', 'Border', ovColor(s, 'tfPlateBorder') + ovLabel('Width', rangeSlider(s, 'tfPlateBorderWidth')))}
             ${ovRow(s, 'tfPlateRoundOn', 'Roundness', rangeSlider(s, 'tfPlateRound'))}
-            ${ovRow(s, 'tfPlatePosOn', 'Position', pills('tfplatepos', [['row', 'Name Row', 'SillyTavern\'s default'], ['edge', 'On the Top Edge']], s.tfPlatePos)
-              + '<div class="cb_hint">On the Top Edge lifts the name onto the top edge of its message and adds room above each message. A long name ends in ... With NTR Avatars behind the message or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
+            ${ovRow(s, 'tfPlatePosOn', 'Position', pills('tfplatepos', [['row', 'Name Row', 'ST\'s default'], ['edge', 'On the Top Edge']], s.tfPlatePos)
+              + '<div class="cb_hint">On the Top Edge adds room above each message and cuts a long name short. With NTR Avatars behind or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
           </div>
-          ${subHead('tf_user', 'User Text')}
+          ${subHead('tf_user', 'User Text', 'fa-user-pen')}
           <div class="cb_collapse_content">${part('tfUser')}
           </div>
-          ${subHead('tf_ai', 'AI Text')}
+          ${subHead('tf_ai', 'AI Text', 'fa-masks-theater')}
           <div class="cb_collapse_content">${part('tfAi')}
           </div>
     `, { sw: ['m_tf_enable', s.tfEnabled] });
@@ -196,7 +195,7 @@
     const file = overlay.querySelector('#m_plate_file');
     overlay.querySelector('#m_plate_up').onclick = () => file.click();
     overlay.querySelector('#m_plate_url').onclick = async function() {
-      const url = await askImageUrl('Nameplate picture', this, false);
+      const url = await askImageUrl('Nameplate Picture', this, false);
       if (url) setImg(url);
     };
     overlay.querySelector('#m_plate_clr').onclick = () => setImg('');

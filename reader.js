@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.69.22';
+  const READER_VERSION = '2.69.23';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -21,6 +21,7 @@
     #ntr_rd_bar button { border: none; background: none; color: inherit; cursor: pointer; padding: 4px 10px; border-radius: 6px; opacity: .8; }
     #ntr_rd_bar button:hover:not(:disabled) { opacity: 1; background: rgba(255,255,255,.08); }
     #ntr_rd_bar button:disabled { opacity: .3; cursor: default; }
+    @media (pointer: coarse) { #ntr_rd_bar button { min-width: 40px; min-height: 40px; } }
     #ntr_rd_bar .ntr_rd_num { min-width: 8em; text-align: center; white-space: nowrap; }
     #ntr_rd_bar .ntr_rd_num i { margin-right: 6px; opacity: .7; }
     #ntr_rd_bar .ntr_rd_num[role="button"] { cursor: pointer; border-radius: 6px; padding: 4px 6px; }
@@ -125,11 +126,11 @@
       bar.setAttribute('role', 'navigation');
       bar.setAttribute('aria-label', 'Reader Mode pages');
       bar.innerHTML = `
-        <button type="button" data-go="first" title="First page"><i class="fa-solid fa-angles-left"></i></button>
-        <button type="button" data-go="prev" title="Previous page (Page Up)"><i class="fa-solid fa-angle-left"></i></button>
+        <button type="button" data-go="first" title="First page" aria-label="First Page"><i class="fa-solid fa-angles-left"></i></button>
+        <button type="button" data-go="prev" title="Previous page (Page Up)" aria-label="Previous Page"><i class="fa-solid fa-angle-left"></i></button>
         <span class="ntr_rd_num" title="Click to type a page number"></span>
-        <button type="button" data-go="next" title="Next page (Page Down)"><i class="fa-solid fa-angle-right"></i></button>
-        <button type="button" data-go="last" title="Last page"><i class="fa-solid fa-angles-right"></i></button>`;
+        <button type="button" data-go="next" title="Next page (Page Down)" aria-label="Next Page"><i class="fa-solid fa-angle-right"></i></button>
+        <button type="button" data-go="last" title="Last page" aria-label="Last Page"><i class="fa-solid fa-angles-right"></i></button>`;
       bar.addEventListener('click', (e) => {
         const b = e.target.closest('button[data-go]');
         if (!b) { if (e.target.closest('.ntr_rd_num')) askPage(); return; }

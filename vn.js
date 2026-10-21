@@ -1,10 +1,11 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.69.25';
+  const VN_VERSION = '2.69.26';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
+  const { ovLabel } = A.look;
   const TAG = A.TAG || '';
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
@@ -202,6 +203,7 @@
       .cb_g_line .menu_button { margin: 4px 0 0; padding: 4px 8px; }
       .cb_art_row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
       .cb_art_row .menu_button { margin: 0; padding: 4px 8px; }
+      @media (pointer: coarse) { .cb_art_row .menu_button, .cb_g_line .menu_button { min-width: 40px; min-height: 40px; } }
   `;
 
   // Kept while the extension is off: the menu still opens then, and the other rules only style VN parts, which are hidden.
@@ -342,26 +344,26 @@
   // Every tag with the user's own delimiters and real names, so people can see exactly what to write in a card.
   function guideRows(s) {
     const v = V();
-    const loc = (v.locations.find((l) => l.name) || {}).name || 'Tavern';
-    const cg = ((v.cgs || []).find((g) => g.name) || {}).name || 'First Kiss';
+    const loc = (v.locations.find((l) => l.name) || {}).name || 'Place';
+    const cg = ((v.cgs || []).find((g) => g.name) || {}).name || 'Scene';
     const emo = (s.emotions.find((e) => e.id !== s.emoDefault) || s.emotions[0] || {}).name || 'Happy';
-    const spk = (C.speakers().find((x) => x.name !== ctx().name1) || {}).name || 'Rafe';
+    const spk = (C.speakers().find((x) => x.name !== ctx().name1) || {}).name || 'Name';
     const no = s.delimNarOpen, nc = s.delimNarClose;
     const rows = [
-      { label: 'A character speaks', code: `${s.delimSpkOpen}${spk}${s.delimEmo}${emo}${s.delimSpkClose}: "Hello there."`, hint: `The name comes first, then the emotion after ${s.delimEmo}. The emotion is optional: ${s.delimSpkOpen}${spk}${s.delimSpkClose}: works too. Everything after the tag is that character's line.` },
-      { label: 'Narration', code: `${no}${s.narratorWord}${nc}: The tavern was quiet.`, hint: 'No portrait is shown for the narrator.' },
-      { label: 'Change the background', code: `${no}${s.locWord}:${loc}${nc}`, hint: 'The name has to match a location you added under Locations. Case, punctuation and a leading "The" are ignored. It stays until the next location tag.' },
-      { label: 'Emotion for the whole message', code: `${no}${s.emoWord}:${emo}${nc}`, hint: `Sets the emotion of the character who wrote the message, wherever no speaker tag gives one. Also works with Visual Novel Mode off (Avatars, under Emotions).` },
+      { label: 'A Character Speaks', code: `${s.delimSpkOpen}${spk}${s.delimEmo}${emo}${s.delimSpkClose}: "Hello there."`, hint: `The emotion after ${s.delimEmo} is optional. Everything after the tag is the line.` },
+      { label: 'Narration', code: `${no}${s.narratorWord}${nc}: The room was quiet.`, hint: 'No portrait is shown for the narrator.' },
+      { label: 'Change the Background', code: `${no}${s.locWord}:${loc}${nc}`, hint: 'Matches a name under Locations and stays until the next one.' },
+      { label: 'Emotion for the Whole Message', code: `${no}${s.emoWord}:${emo}${nc}`, hint: 'For the message\'s writer, where no speaker tag gives one. Also works with Visual Novel Mode off.' },
     ];
-    if (s.nodeChoices) rows.push({ label: 'Offer choices', code: `${no}${s.choiceWord}: Stay ${s.choiceSep} Leave${nc}`, hint: `Put it at the end of a message. Separate the options with ${s.choiceSep}.` });
+    if (s.nodeChoices) rows.push({ label: 'Offer Choices', code: `${no}${s.choiceWord}: Stay ${s.choiceSep} Leave${nc}`, hint: `Put it at the end of a message. Separate the options with ${s.choiceSep}.` });
     if (s.nodeEffects) {
-      rows.push({ label: 'Screen effect', code: `${no}${s.effectWord}:${s.fxShake}${nc}`, hint: `Happens once. Also ${s.fxFlash} and ${s.fxFade}.` });
+      rows.push({ label: 'Screen Effect', code: `${no}${s.effectWord}:${s.fxShake}${nc}`, hint: `Happens once. Also ${s.fxFlash} and ${s.fxFade}.` });
       rows.push({ label: 'Weather', code: `${no}${s.weatherWord}:${s.wxRain}${nc}`, hint: `Stays until it changes. Also ${s.wxSnow} and ${s.wxClear}.` });
     }
-    if (s.nodeCG) rows.push({ label: 'Show an illustration', code: `${no}${s.cgWord}:${cg}${nc}`, hint: 'The name has to match a CG you added under CG Scenes.' });
+    if (s.nodeCG) rows.push({ label: 'Show an Illustration', code: `${no}${s.cgWord}:${cg}${nc}`, hint: 'Matches a name under CG Scenes.' });
     if (s.nodeSprites) {
-      rows.push({ label: 'A character enters', code: `${no}${s.enterWord}:${spk}${nc}`, hint: `Shows their sprite right away, even before they speak. Add a slot to choose where: ${no}${s.enterWord}:${spk} | left${nc} (left, center or right). Once a card uses ${s.enterWord} or ${s.exitWord}, sprites stay until an ${s.exitWord} tag; without them, sprites follow who spoke recently.` });
-      rows.push({ label: 'A character leaves', code: `${no}${s.exitWord}:${spk}${nc}`, hint: `Removes their sprite from the next line on. ${no}${s.exitWord}:All${nc} clears the stage.` });
+      rows.push({ label: 'A Character Enters', code: `${no}${s.enterWord}:${spk}${nc}`, hint: `Shows their sprite before they speak. Add | left, | center or | right after the name to place it. Once a chat uses ${s.enterWord} or ${s.exitWord}, sprites stay until they exit.` });
+      rows.push({ label: 'A Character Leaves', code: `${no}${s.exitWord}:${spk}${nc}`, hint: `Removes their sprite from the next line on. ${no}${s.exitWord}:All${nc} clears the stage.` });
     }
     const sample = [rows[2], rows[1], rows[0], ...rows.slice(4, 5)].filter(Boolean).map((r) => r.code).join('\n');
     return { rows, sample };
@@ -370,11 +372,11 @@
   function guideHtml(s) {
     const { rows, sample } = guideRows(s);
     return rows.map((r) => `<div class="cb_g_row"><strong>${escapeHTML(r.label)}</strong>
-        <div class="cb_g_line"><code class="cb_code">${escapeHTML(r.code)}</code><button type="button" class="menu_button m_g_cp" data-c="${escapeHTML(r.code)}" title="Copy"><i class="fa-solid fa-copy"></i></button></div>
+        <div class="cb_g_line"><code class="cb_code">${escapeHTML(r.code)}</code><button type="button" class="menu_button m_g_cp" data-c="${escapeHTML(r.code)}" title="Copy" aria-label="Copy ${escapeHTML(r.label)}"><i class="fa-solid fa-copy"></i></button></div>
         <div class="cb_hint">${escapeHTML(r.hint)}</div></div>`).join('')
-      + `<div class="cb_g_row"><strong>Example you can paste into a first message</strong>
+      + `<div class="cb_g_row"><strong>Example for a First Message</strong>
         <pre class="cb_code" style="margin:4px 0;">${escapeHTML(sample)}</pre>
-        <button type="button" class="menu_button m_g_cp" data-c="${escapeHTML(sample)}"><i class="fa-solid fa-copy"></i> Copy example</button></div>`;
+        <button type="button" class="menu_button m_g_cp" data-c="${escapeHTML(sample)}"><i class="fa-solid fa-copy"></i> Copy Example</button></div>`;
   }
 
   function buildPrompt(s) {
@@ -441,91 +443,96 @@
 
   // Visual Novel's settings, in the Visual Novel part of the Reader Mode page (index.js puts them there).
   function nodeSectionHtml(s) {
-    const sl = (id, key, label, unit, min, max, step) => `
-      <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_n_${id}val" class="ntr_slval">${s[key]}</span>${unit}</span></div>
-      <input type="range" class="m_n_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}">`;
+    // vn.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
+    const sl = (id, key, label, unit, min, max, step) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_n_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_n_${id}val" class="ntr_slval">${s[key]}</span>${unit}</span></div>`);
+    const dim = (id, on, inner) => `<div id="${id}" class="${on ? '' : 'cb_dim'}">${inner}</div>`;
     const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
     const artBtns = (k, id) => `<span id="${id}" class="cb_art_btns" style="display:flex;gap:4px;">
-                  <button class="menu_button m_art_up" data-k="${k}" title="Upload"><i class="fa-solid fa-upload"></i></button>
-                  <button class="menu_button m_art_url" data-k="${k}" title="Use a link"><i class="fa-solid fa-link"></i></button>
-                  <button class="menu_button m_art_clr" data-k="${k}" title="Remove image"><i class="fa-solid fa-rotate-left"></i></button></span>`;
+                  <button class="menu_button m_art_up" data-k="${k}" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
+                  <button class="menu_button m_art_url" data-k="${k}" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
+                  <button class="menu_button m_art_clr" data-k="${k}" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button></span>`;
     return `
-            ${subHead('vn_guide', 'How to write your card')}
+            <div class="cb_hint ntr_keepon" style="margin: 0 0 10px;">Emotions, speakers, faces and full bodies are on the <a href="#" class="m_n_tocast">Avatars</a> page, under Emotions.</div>
+
+            ${subHead('vn_guide', 'How to Write Your Card', 'fa-circle-question')}
             <div class="cb_collapse_content">
-              <div class="cb_hint">Visual Novel Mode reads these tags from messages. Write them in your card's first message or in anything you write yourself. While the mode is on, the AI is told to use them too (see Prompt for your LLM). These examples use your current symbols and names.</div>
+              <div class="cb_hint">Visual Novel Mode reads these tags in messages. The examples use your current symbols and names.</div>
               <div id="m_g_body"></div>
-              <button type="button" class="menu_button m_g_goto" style="margin-top:8px;"><i class="fa-solid fa-pen"></i> Change the symbols (delimiters)</button>
+              <button type="button" class="menu_button m_g_goto" style="margin-top:8px;"><i class="fa-solid fa-hashtag"></i> Edit Tags and Delimiters</button>
             </div>
 
-            ${subHead('vn_play', 'Playback')}
+            ${subHead('vn_play', 'Playback', 'fa-forward-step')}
             <div class="cb_collapse_content">
-              ${ck('m_n_user', s.nodeUserMsgs, 'Include my messages (yours plays on send, then the reply takes over)')}
-              ${ck('m_n_split', s.nodeSplitUntagged, 'Play untagged messages too: quotes become the character\'s lines, the rest becomes narration')}
-              ${ck('m_n_tw', s.nodeTypewriter, 'Typewriter effect')}
-              ${sl('sp', 'nodeSpeed', 'Typing delay per character:', 'ms', 5, 80, 1)}
-              <div style="margin-top:8px;">${ck('m_n_auto', s.nodeAuto, 'Auto-advance to next line')}</div>
-              ${sl('ad', 'nodeAutoDelay', 'Auto-advance wait:', 'ms', 500, 8000, 250)}
+              ${ck('m_n_user', s.nodeUserMsgs, 'Include My Messages')}
+              <div class="cb_hint">Yours plays when you send, then the reply takes over.</div>
+              ${ck('m_n_split', s.nodeSplitUntagged, 'Play Untagged Messages')}
+              <div class="cb_hint">Quotes become the character's lines; the rest is narration.</div>
+              ${ck('m_n_tw', s.nodeTypewriter, 'Typewriter Effect')}
+              ${dim('m_n_spwrap', s.nodeTypewriter, sl('sp', 'nodeSpeed', 'Delay per Character', 'ms', 5, 80, 1))}
+              <div style="margin-top:8px;">${ck('m_n_auto', s.nodeAuto, 'Auto-Advance')}</div>
+              ${dim('m_n_adwrap', s.nodeAuto, sl('ad', 'nodeAutoDelay', 'Auto-Advance Wait', 'ms', 500, 8000, 250))}
             </div>
 
-            ${subHead('vn_look', 'Look')}
+            ${subHead('vn_look', 'Look', 'fa-eye')}
             <div class="cb_collapse_content">
-              ${sl('op', 'nodeOpacity', 'Box opacity:', '%', 30, 100, 1)}
-              ${sl('ps', 'nodePortrait', 'Portrait size:', 'px', 60, 240, 5)}
-              <div style="margin-top:8px;"><strong>Portrait shape:</strong>${pills('nshape', [['rounded', 'Rounded'], ['round', 'Round'], ['square', 'Square'], ['rect', 'Tall']], s.nodeShape)}</div>
-              ${sl('bw', 'nodeBoxWidth', 'Box width (of the chat column):', '%', 40, 100, 1)}
-              ${sl('bmin', 'nodeBoxMinH', 'Box minimum height:', 'px', 40, 300, 5)}
-              ${sl('bmax', 'nodeBoxMaxH', 'Box maximum height before it scrolls:', 'vh', 10, 70, 1)}
-              ${sl('lift', 'nodeBoxLift', 'Lift above the input bar:', 'px', 0, 400, 2)}
-              ${sl('fs', 'nodeTextScale', 'Text size:', '%', 70, 180, 5)}
-              <div style="margin-top:10px;">${ck('m_n_pbox', s.nodePortraitBox, 'Show the portrait in the box')}</div>
-              ${ck('m_n_spr', s.nodeSprites, 'Show sprites on stage')}
-              ${sl('ss', 'nodeSpriteScale', 'Sprite size:', '%', 30, 200, 5)}
-              <div class="cb_hint">A speaker's full body (Avatars, under Emotions and then Speakers) is always their stage sprite, whatever the emotion. Without one, sprites use their faces, not card avatars. With Keep the main face on (Avatars, under Emotions and then In the Chat), faces only change in the message box: the stage keeps the speaker's main face, which is their default emotion face, or their first face, or their card or persona avatar. Tall transparent PNGs work best. Recent speakers stay on stage and dim while someone else talks.</div>
+              <div class="cb_sub">Box</div>
+              ${sl('op', 'nodeOpacity', 'Box Opacity', '%', 30, 100, 1)}
+              ${sl('bw', 'nodeBoxWidth', 'Box Width', '%', 40, 100, 1)}
+              <div class="cb_hint">Of the chat column's width.</div>
+              ${sl('bmin', 'nodeBoxMinH', 'Box Min Height', 'px', 40, 300, 5)}
+              ${sl('bmax', 'nodeBoxMaxH', 'Box Max Height', 'vh', 10, 70, 1)}
+              ${sl('lift', 'nodeBoxLift', 'Lift Above Send Bar', 'px', 0, 400, 2)}
+              ${sl('fs', 'nodeTextScale', 'Text Size', '%', 70, 180, 5)}
+              <div class="cb_sub">Portrait</div>
+              ${ck('m_n_pbox', s.nodePortraitBox, 'Show Portrait in Box')}
+              ${dim('m_n_pwrap', s.nodePortraitBox, sl('ps', 'nodePortrait', 'Portrait Size', 'px', 60, 240, 5)
+                + ovLabel('Portrait Shape', pills('nshape', [['rounded', 'Rounded'], ['round', 'Circle'], ['square', 'Square'], ['rect', 'Tall']], s.nodeShape)))}
+              <div class="cb_sub">Sprites</div>
+              ${ck('m_n_spr', s.nodeSprites, 'Show Sprites')}
+              ${dim('m_n_swrap', s.nodeSprites, sl('ss', 'nodeSpriteScale', 'Sprite Size', '%', 30, 200, 5))}
+              <div class="cb_hint" style="margin-bottom:0;">Sprites are full bodies, else faces, else Default Art. Stage Keeps Main Face is on the Avatars page. The last three speakers stay; those not talking dim.</div>
             </div>
 
-            ${subHead('vn_art', 'Default Art')}
+            ${subHead('vn_art', 'Default Art', 'fa-paintbrush')}
             <div class="cb_collapse_content">
-              <div class="cb_hint">Fills in before you upload anything. The built-in art is original and drawn in code.</div>
-              <div><strong>Background when nothing matches:</strong>${pills('artbg', [['none', 'SillyTavern\'s own'], ['dusk', 'Dusk'], ['night', 'Night city'], ['room', 'Room'], ['forest', 'Forest'], ['custom', 'Custom']], s.artBg)}</div>
-              <div class="cb_art_row"><div id="m_art_bgprev" class="cb_thumbbox cb_wide"></div><span class="cb_spk_name"><small>A character's own default background still comes first.</small></span>${artBtns('artBgImg', 'm_art_bgbtns')}</div>
-              <div style="margin-top:10px;"><strong>Sprite for speakers without one:</strong>${pills('artspr', [['builtin', 'Silhouette'], ['custom', 'Custom'], ['none', 'None']], s.artSprite)}</div>
-              <div class="cb_art_row"><div id="m_art_sprprev" class="cb_thumbbox"></div><span class="cb_spk_name"><small>The silhouette gets a different tint per character.</small></span>${artBtns('artSpriteImg', 'm_art_sprbtns')}</div>
+              <div class="cb_hint">Used when a scene or speaker has no picture of its own.</div>
+              ${ovLabel('Background', pills('artbg', [['none', 'ST\'s Own'], ['dusk', 'Dusk'], ['night', 'Night City'], ['room', 'Room'], ['forest', 'Forest'], ['custom', 'Custom']], s.artBg))}
+              <div class="cb_art_row"><div id="m_art_bgprev" class="cb_thumbbox cb_wide"></div><span class="cb_spk_name"><small>A character's Default Background comes first.</small></span>${artBtns('artBgImg', 'm_art_bgbtns')}</div>
+              ${ovLabel('Sprite', pills('artspr', [['builtin', 'Silhouette'], ['custom', 'Custom'], ['none', 'None']], s.artSprite))}
+              <div class="cb_art_row"><div id="m_art_sprprev" class="cb_thumbbox"></div><span class="cb_spk_name"><small>Tinted per character.</small></span>${artBtns('artSpriteImg', 'm_art_sprbtns')}</div>
               <input type="file" id="m_art_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
             </div>
 
-            ${subHead('vn_scene', 'Choices, Effects & Weather')}
+            ${subHead('vn_scene', 'Choices, Effects and Weather', 'fa-cloud-bolt')}
             <div class="cb_collapse_content">
-              ${ck('m_n_choices', s.nodeChoices, 'Show choices as buttons')}
+              ${ck('m_n_choices', s.nodeChoices, 'Choice Buttons')}
               <div id="m_n_choices_body" class="${s.nodeChoices ? '' : 'cb_dim'}">
-                <div class="cb_hint">${tg(s.choiceWord, ` A ${s.choiceSep} B ${s.choiceSep} C`)} shows clickable buttons above the box. Clicking one puts it in the input box.</div>
-                ${ck('m_n_csend', s.choiceSend, 'Send it right away')}
+                <div class="cb_hint">${tg(s.choiceWord, ` A ${s.choiceSep} B ${s.choiceSep} C`)} shows buttons above the box. Picking one puts it in the input box.</div>
+                ${ck('m_n_csend', s.choiceSend, 'Send Right Away')}
               </div>
-              <div style="margin-top:8px;">${ck('m_n_fx', s.nodeEffects, 'Effects and weather')}</div>
-              <div id="m_n_fx_body" class="cb_hint ${s.nodeEffects ? '' : 'cb_dim'}">${tg(s.effectWord, s.fxShake)}, ${escapeHTML(s.fxFlash)} or ${escapeHTML(s.fxFade)} fire once when their line plays. ${tg(s.weatherWord, s.wxRain)}, ${escapeHTML(s.wxSnow)} or ${escapeHTML(s.wxClear)} stays until the weather changes, worked out from the chat history like locations.</div>
+              <div style="margin-top:8px;">${ck('m_n_fx', s.nodeEffects, 'Effects and Weather')}</div>
             </div>
 
-            <div class="cb_hint ntr_keepon" style="margin: 10px 0;">Emotions, speakers, faces and full bodies are on the <a href="#" class="m_n_tocast">Avatars</a> page, under Emotions.</div>
-
-            ${subHead('vn_loc', 'Locations ' + TAG)}
+            ${subHead('vn_loc', 'Locations ' + TAG, 'fa-mountain-sun')}
             <div class="cb_collapse_content">
-              <div class="cb_hint">Add a name below, upload its background, then write <code>${escapeHTML(s.delimNarOpen + s.locWord)}:Name${escapeHTML(s.delimNarClose)}</code> in your card with that name. The background changes when that line plays and stays until the next location. Matching ignores case, punctuation and a leading "The". Anything unmatched uses the default background, then SillyTavern's own. <a href="#" class="m_g_goto">Change the symbols</a> or see <b>How to write your card</b> above for every tag.</div>
+              <div class="cb_hint">Names match <code>${escapeHTML(s.delimNarOpen + s.locWord)}:Name${escapeHTML(s.delimNarClose)}</code> ignoring case, punctuation and a leading "The". The background stays until the next location. Unmatched names use Default Background, then Default Art.</div>
               <div id="m_l_list"></div>
               <div class="cb_row" style="margin-top:8px;">
-                <input type="text" id="m_l_new" class="text_pole" placeholder="Add a location (e.g. Tavern)" style="flex:1;margin:0;">
+                <input type="text" id="m_l_new" class="text_pole" placeholder="New Location" aria-label="New Location" style="flex:1;margin:0;">
                 <button id="m_l_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
               </div>
               <input type="file" id="m_l_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
             </div>
 
-            ${subHead('vn_cg', 'CG Scenes ' + TAG)}
+            ${subHead('vn_cg', 'CG Scenes ' + TAG, 'fa-image')}
             <div class="cb_collapse_content">
-              ${ck('m_n_cg', s.nodeCG, 'Show CG scenes')}
+              ${ck('m_n_cg', s.nodeCG, 'Show CG Scenes')}
               <div id="m_c_body" class="${s.nodeCG ? '' : 'cb_dim'}">
-                <div class="cb_hint">Tag a scene as ${tg(s.cgWord, 'Name')}. The illustration fills the screen until the next line. Matching works like locations.</div>
+                <div class="cb_hint">${tg(s.cgWord, 'Name')} fills the screen until the next line. Names match like Locations.</div>
                 <div id="m_c_list"></div>
                 <div class="cb_row" style="margin-top:8px;">
-                  <input type="text" id="m_c_new" class="text_pole" placeholder="Add a CG (e.g. First Kiss)" style="flex:1;margin:0;">
+                  <input type="text" id="m_c_new" class="text_pole" placeholder="New CG" aria-label="New CG" style="flex:1;margin:0;">
                   <button id="m_c_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
                 </div>
               </div>
@@ -535,11 +542,11 @@
             ${subSection('map', 'vn_map', 'Maps ' + TAG, s)}
             ${subSection('opening', 'vn_open', 'Opening Video ' + TAG, s)}
 
-            ${subHead('vn_prompt', 'Prompt for your LLM')}
+            ${subHead('vn_prompt', 'Prompt for the Model', 'fa-scroll')}
             <div class="cb_collapse_content">
-              ${ck('m_n_inj', s.nodeInject, 'Add these instructions to every request automatically')}
-              <div class="cb_hint">No extra calls: the text rides along with your normal message while Visual Novel Mode is on. It's built from your emotions, delimiters, this character's locations and CGs, and the scene features you have on, so it stays in sync. Untick it if you'd rather paste it into your own preset.</div>
-              <textarea id="m_p_text" class="text_pole" readonly rows="4" style="width:100%;resize:vertical;"></textarea>
+              ${ck('m_n_inj', s.nodeInject, 'Add to Every Request')}
+              <div class="cb_hint">Sent with each message while Visual Novel Mode is on, with no extra calls. Built from your emotions, tags, this character's locations and CGs, and the scene features you have on.</div>
+              <textarea id="m_p_text" class="text_pole" aria-label="Prompt" readonly rows="4" style="width:100%;resize:vertical;"></textarea>
               <button id="m_p_copy" class="menu_button" style="margin-top:6px;"><i class="fa-solid fa-copy"></i> Copy Prompt</button>
             </div>
     `;
@@ -583,16 +590,16 @@
 
     const chk = (id, key, after) => { const el = overlay.querySelector(id); if (el) el.onchange = function() { s[key] = this.checked; save(); if (after) after(); }; };
     chk('#m_n_user', 'nodeUserMsgs', () => { refreshPrompt(); nodeLoad({ animate: false }); });
-    chk('#m_n_tw', 'nodeTypewriter');
-    chk('#m_n_pbox', 'nodePortraitBox', () => { if (s.nodeEnabled) nodeShow(false); });
-    chk('#m_n_spr', 'nodeSprites', updateStage);
-    chk('#m_n_inj', 'nodeInject', updateInjection);
-    chk('#m_n_auto', 'nodeAuto');
     const dimIf = (sel, on) => overlay.querySelector(sel)?.classList.toggle('cb_dim', !on);
+    chk('#m_n_tw', 'nodeTypewriter', () => dimIf('#m_n_spwrap', s.nodeTypewriter));
+    chk('#m_n_pbox', 'nodePortraitBox', () => { dimIf('#m_n_pwrap', s.nodePortraitBox); if (s.nodeEnabled) nodeShow(false); });
+    chk('#m_n_spr', 'nodeSprites', () => { dimIf('#m_n_swrap', s.nodeSprites); updateStage(); });
+    chk('#m_n_inj', 'nodeInject', updateInjection);
+    chk('#m_n_auto', 'nodeAuto', () => dimIf('#m_n_adwrap', s.nodeAuto));
     chk('#m_n_split', 'nodeSplitUntagged', () => { if (s.nodeEnabled) nodeLoad({ animate: false }); });
     chk('#m_n_choices', 'nodeChoices', () => { dimIf('#m_n_choices_body', s.nodeChoices); refreshAll(); });
     chk('#m_n_csend', 'choiceSend');
-    chk('#m_n_fx', 'nodeEffects', () => { dimIf('#m_n_fx_body', s.nodeEffects); refreshAll(); });
+    chk('#m_n_fx', 'nodeEffects', refreshAll);
     chk('#m_n_cg', 'nodeCG', () => { dimIf('#m_c_body', s.nodeCG); refreshAll(); });
     const mapOn = overlay.querySelector('#m_map_on');
     if (mapOn) mapOn.onchange = () => { s.nodeMaps = mapOn.checked; save(); syncMapBtn(); if (s.nodeMaps) loadSub('map', true); else A.openMenu(); };
@@ -642,7 +649,8 @@
           };
         });
         box.querySelectorAll(`.m_${L.c}_clr`).forEach((b) => {
-          b.onclick = () => {
+          b.onclick = async () => {
+            if (!(await A.askYes(b, REMOVE_PIC, 'Remove', { danger: true }))) return;
             let old;
             if (b.dataset.id === DEF_ID) { old = v[L.def.key]; v[L.def.key] = ''; }
             else { const x = find(b.dataset.id); if (!x) return; old = x.url; x.url = ''; }
@@ -653,7 +661,8 @@
         box.querySelectorAll(`.m_${L.c}_del`).forEach((b) => {
           b.onclick = async () => {
             const x = find(b.dataset.id);
-            if (!x || !(await A.askYes(b, `Delete the ${L.name} "${x.name}"${x.url ? ` and its ${L.picDel}` : ''}?`, 'Delete', { danger: true }))) return;
+            const pinned = L.key === 'locations' && (v.maps || []).some((mp) => (mp.pins || []).some((p) => p.loc === x?.id));
+            if (!x || !(await A.askYes(b, `Delete the ${L.name} "${x.name}"${x.url ? ` and its ${L.picDel}` : ''}?${pinned ? ' Map pins linked to it are removed or unlinked.' : ''}`, 'Delete', { danger: true }))) return;
             v[L.key] = v[L.key].filter((y) => y !== x);
             if (L.onDelete) L.onDelete(v, x);
             save(); render(); refreshAll();
@@ -683,7 +692,7 @@
       const add = () => {
         const inp = overlay.querySelector(`#m_${L.c}_new`);
         const nm = inp.value.trim();
-        if (!nm) { toastr.info(`Type the ${L.name}'s name in the box first, then click Add.`, 'Visual Novel'); inp.focus(); return; }
+        if (!nm) { toastr.info('Type a name first.', 'Visual Novel'); inp.focus(); return; }
         if (!A.store()) { toastr.warning(`Open a character chat first. ${L.names} are saved per character.`, 'Visual Novel'); return; }
         const v = V();
         if (v[L.key].some((x) => normLoc(x.name) === normLoc(nm))) { toastr.warning(`That ${L.name} already exists.`, 'Visual Novel'); return; }
@@ -720,13 +729,16 @@
     };
     overlay.querySelectorAll('.m_art_url').forEach((b) => {
       b.onclick = async () => {
-        const url = await askImageUrl(b.dataset.k === 'artBgImg' ? 'Default background' : 'Default sprite', b, false);
+        const url = await askImageUrl(b.dataset.k === 'artBgImg' ? 'Default Background' : 'Default Sprite', b, false);
         if (url) setArtImage(b.dataset.k, url);
       };
     });
     overlay.querySelectorAll('.m_art_clr').forEach((b) => {
-      b.onclick = () => {
+      b.onclick = async () => {
+        if (!(await A.askYes(b.closest('.cb_art_row'), REMOVE_PIC, 'Remove', { danger: true }))) return;
         const k = b.dataset.k;
+        // Its pill may have left Custom while the question was open.
+        if (s[k === 'artBgImg' ? 'artBg' : 'artSprite'] !== 'custom') return;
         const old = s[k];
         s[k] = '';
         save(); renderArt(); refreshAll(); updateStage();
@@ -754,15 +766,17 @@
   // Locations and CG Scenes are the same kind of list: each entry is a name that tags match, plus a picture.
   // `c` is the letter in their element ids (m_l_*, m_c_*). Locations also have a Default background row.
   const DEF_ID = '__default__';
+  // Removing a picture deletes its file, so it asks first, like a face on the Avatars page.
+  const REMOVE_PIC = 'Remove this picture? Its file is deleted unless something else uses it.';
   const cap = (x) => x[0].toUpperCase() + x.slice(1);
   const NAMED = {
     loc: {
-      c: 'l', key: 'locations', idp: 'loc', name: 'location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc', fail: 'Background upload failed',
-      def: { key: 'locDefault', label: 'Default background', hint: 'used when nothing matches' },
+      c: 'l', key: 'locations', idp: 'loc', name: 'location', label: 'Location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc', fail: 'Background upload failed',
+      def: { key: 'locDefault', label: 'Default Background', hint: 'When nothing matches' },
       // Map pins lose the deleted place, and go if they don't open another map either.
       onDelete: (v, l) => { for (const mp of v.maps || []) mp.pins = (mp.pins || []).filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p)); },
     },
-    cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', names: 'CGs', pic: 'illustration', picDel: 'image', prefix: 'vncg', fail: 'CG upload failed' },
+    cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', label: 'CG', names: 'CGs', pic: 'illustration', picDel: 'picture', prefix: 'vncg', fail: 'CG upload failed' },
   };
 
   function namedRowsHtml(L) {
@@ -774,11 +788,11 @@
         <div class="cb_thumbbox cb_wide">${media(url) ? `<img src="${escapeHTML(media(url))}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
         ${isDef
           ? `<span class="cb_spk_name"><strong>${L.def.label}</strong><small>${L.def.hint}</small></span>`
-          : `<input type="text" class="text_pole m_${L.c}_name" data-id="${id}" value="${escapeHTML(name)}" style="flex:1;min-width:0;margin:0;">`}
-        <button class="menu_button m_${L.c}_up" data-id="${id}" title="Upload ${L.pic}"><i class="fa-solid fa-upload"></i></button>
-        <button class="menu_button m_${L.c}_url" data-id="${id}" title="Use a link for the ${L.pic}"><i class="fa-solid fa-link"></i></button>
-        <button class="menu_button m_${L.c}_clr" data-id="${id}" title="Remove image" ${url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
-        ${isDef ? '' : `<button class="menu_button danger_button m_${L.c}_del" data-id="${id}" title="Delete ${L.name}"><i class="fa-solid fa-trash"></i></button>`}
+          : `<input type="text" class="text_pole m_${L.c}_name" data-id="${id}" aria-label="${L.label} Name" value="${escapeHTML(name)}" style="flex:1;min-width:0;margin:0;">`}
+        <button class="menu_button m_${L.c}_up" data-id="${id}" title="Upload ${L.pic}" aria-label="Upload ${L.pic}"><i class="fa-solid fa-upload"></i></button>
+        <button class="menu_button m_${L.c}_url" data-id="${id}" title="Use a link for the ${L.pic}" aria-label="Use a link for the ${L.pic}"><i class="fa-solid fa-link"></i></button>
+        <button class="menu_button m_${L.c}_clr" data-id="${id}" title="Remove picture" aria-label="Remove picture" ${url ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+        ${isDef ? '' : `<button class="menu_button danger_button m_${L.c}_del" data-id="${id}" title="Delete ${L.name}" aria-label="Delete ${L.name}"><i class="fa-solid fa-trash"></i></button>`}
       </div></div>`;
     };
     const rows = v[L.key].map((x) => row(escapeHTML(x.id), x.name, x.url));

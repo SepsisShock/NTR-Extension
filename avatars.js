@@ -329,7 +329,7 @@
   function bindAvatars(overlay, s) {
     overlay.querySelector('#m_a_enable').onchange = function() {
       s.avatarEnabled = this.checked; save(); updateAvatarStyle();
-      window.NTR.cast?.pageSwitched?.();
+      window.NTR.cast?.refresh();
     };
 
     const bindCol = (prefix) => {

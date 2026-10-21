@@ -385,7 +385,8 @@ await (async () => {
     if (!s.themeLookV5) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV5 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
-    if (!Array.isArray(s.emotions) || !s.emotions.length) s.emotions = structuredClone(DEFAULTS.emotions);
+    // The template is copied into cards, which check a list like a theme's, so it keeps to the same limits.
+    if (!validEmotions(s.emotions)) s.emotions = fixEmotions(s.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
     if (!Array.isArray(s.layPins)) s.layPins = [];
     if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
@@ -3560,6 +3561,15 @@ await (async () => {
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
   const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbArrowSym: 16, rbCss: 2000, rbBtnCss: 2000, rbArrowCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
+  // An emotion list cut down to what validEmotions takes: good ids, names up to 100 characters, no repeats, 100 at most.
+  function fixEmotions(v) {
+    const ids = new Set(), names = new Set();
+    const out = (Array.isArray(v) ? v : []).filter(isObj)
+      .map((e) => ({ id: cRef(e.id), name: typeof e.name === 'string' ? e.name.trim().slice(0, 100) : '' }))
+      .filter((e) => e.id && e.name && !ids.has(e.id) && !names.has(e.name.toLowerCase()) && ids.add(e.id) && names.add(e.name.toLowerCase()))
+      .slice(0, 100);
+    return out.length ? out : structuredClone(DEFAULTS.emotions);
+  }
   function validEmotions(v) {
     if (!Array.isArray(v) || !v.length || v.length > 100) return false;
     const ids = new Set(), names = new Set();

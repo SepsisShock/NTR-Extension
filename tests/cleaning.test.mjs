@@ -160,8 +160,11 @@ test('group chat data is cleaned too', () => {
 });
 
 test("a card's own emotion list is checked like a theme's", () => {
-  const good = card({ vn: { emotions: [{ id: 'emo_a', name: ' Happy ', extra: '<b>' }, { id: 'emo_b', name: 'Sad' }], emoDefault: 'emo_x' } }).vn;
+  const list = [{ id: 'emo_a', name: ' Happy ', extra: '<b>' }, { id: 'emo_b', name: 'Sad' }];
+  const good = card({ vn: { emotions: list, emoDefault: 'emo_x' } }).vn;
   assert.deepEqual(good.emotions, [{ id: 'emo_a', name: 'Happy' }, { id: 'emo_b', name: 'Sad' }]);
+  // Cleaned in place: the menu edits these objects.
+  assert.equal(good.emotions, list);
   assert.equal(good.emoDefault, 'emo_a');
   assert.equal(api.emoSet().own, true);
   const bad = [

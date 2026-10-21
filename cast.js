@@ -403,10 +403,18 @@
   // ----- Hiding tags in the chat: the emotion part of speaker tags, Emotion tags and scene tags -----
   // A reply being written can end partway through a tag; that part is hidden too until the reply is done.
   let writing = false;
+  // In the chat it follows Avatar Management's switch; Visual Novel Mode has its own.
+  const hideOn = (s) => A.isOn() && s.nodeHideEmo && (s.avatarEnabled || s.nodeEnabled);
+  // Hidden tags are taken out of the page's text, so once hiding goes off they only come back with a redraw (restoreTags).
+  let tagsHidden = false;
+  function restoreTags() {
+    if (!tagsHidden || hideOn(settings())) return;
+    tagsHidden = false;
+    if (typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
+  }
   function cleanTags(els) {
     const s = settings();
-    // In the chat it follows Avatar Management's switch; Visual Novel Mode has its own.
-    if (!A.isOn() || !s.nodeHideEmo || !(s.avatarEnabled || s.nodeEnabled)) return;
+    if (!hideOn(s)) return;
     const live = writing && document.querySelector('#chat .mes.last_mes .mes_text');
     // Only messages that hold a tag are worth a closer look. A reply being written also counts if it has an open
     // speaker tag, since its emotion part may be only half written.
@@ -434,13 +442,13 @@
         let val = n.nodeValue;
         if (emoRe && val.includes(s.delimEmo)) val = val.replace(emoRe, '$1$2');
         if (val.includes(s.delimNarOpen)) val = val.replace(locRe, '');
-        if (val !== n.nodeValue) n.nodeValue = val;
+        if (val !== n.nodeValue) { n.nodeValue = val; tagsHidden = true; }
       }
       if (el !== live || !last) continue;
       let val = last.nodeValue;
       if (openEmoRe) val = val.replace(openEmoRe, '$1');
       val = val.replace(openLocRe, '');
-      if (val !== last.nodeValue) last.nodeValue = val;
+      if (val !== last.nodeValue) { last.nodeValue = val; tagsHidden = true; }
     }
   }
 
@@ -490,16 +498,12 @@
     ensure();
     updateInjection();
     cleanTags();
+    restoreTags();
     schedule();
-  }
-  // Avatar Management switched on or off: In the Chat follows it. Tags it hid come back when the chat redraws.
-  function pageSwitched() {
-    const s = settings();
-    refresh();
-    if (!s.avatarEnabled && s.nodeHideEmo && !s.nodeEnabled && typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
   }
   function teardown() {
     updateInjection();
+    restoreTags();
     drawFaces();
     drawStage();
   }
@@ -698,15 +702,15 @@
       onPills(emoBox, 'emodef', (v) => { T().emoDefault = v; save(); renderEmo(); renderSpk(); changed(); });
       emoBox.querySelectorAll('.m_emo_name').forEach((inp) => {
         inp.onchange = () => {
-          const L = T();
-          const e = L.emotions.find((x) => x.id === inp.dataset.id);
+          const id = inp.dataset.id;
           const nm = inp.value.trim();
-          if (!nm || L.emotions.some((x) => x !== e && x.name.toLowerCase() === nm.toLowerCase())) {
+          if (!nm || E().emotions.some((x) => x.id !== id && x.name.toLowerCase() === nm.toLowerCase())) {
             toastr.warning('Emotion names need to be unique and not empty.', 'Emotions');
-            inp.value = e.name;
+            inp.value = E().emotions.find((x) => x.id === id)?.name || '';
             return;
           }
-          e.name = nm; save(); renderEmo(); renderSpk(); changed();
+          T().emotions.find((x) => x.id === id).name = nm;
+          save(); renderEmo(); renderSpk(); changed();
         };
       });
       emoBox.querySelectorAll('.m_emo_del').forEach((b) => {
@@ -865,8 +869,8 @@
     chk('#m_emo_keepface', 'nodeSpriteBase', changed);
     chk('#m_emo_inj', 'emoInject', updateInjection);
     chk('#m_emo_hide', 'nodeHideEmo', () => {
-      if (s.nodeHideEmo) cleanTags();
-      else if (typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
+      cleanTags();
+      restoreTags();
     });
     overlay.querySelectorAll('.m_emo_sl').forEach((sl) => {
       sl.oninput = function() {
@@ -919,7 +923,6 @@
     onChange: (fn) => listeners.push(fn),
     refresh,
     teardown,
-    pageSwitched,
     ensure,
     sync: schedule,
     genStarted: (type, dryRun) => { if (!dryRun) writing = type !== 'quiet' && type !== 'impersonate'; },

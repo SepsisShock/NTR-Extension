@@ -8,6 +8,7 @@
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
   const TAG = A.TAG || '';
+  const TAG_KEY = A.TAG_KEY || '';
   const lc = (x) => String(x || '').trim().toLowerCase();
 
   // A speaker's pictures live in the card's Visual Novel data (or per group): emoImgs holds the faces (speaker, then
@@ -572,7 +573,7 @@
     return `<div class="ntr_keepon">
       ${subHead('av_emo', 'Emotions', 'fa-face-smile')}
       <div class="cb_collapse_content">
-        <div class="cb_hint">${TAG} Marks settings saved per character.</div>
+        <div class="cb_hint">${TAG_KEY}</div>
         <div class="cb_hint">Faces per emotion and a full body for each speaker. Visual Novel Mode uses them; with it off, In the Chat can show them.</div>
         <div><strong>Emotion Source:</strong>${pills('emosrc', [['tags', 'Tags'], ['agent', 'Agent (Soon)', 'An agent will read each reply and pick the emotion. Not ready yet.']], s.emoSource === 'agent' ? 'agent' : 'tags')}</div>
         ${subHead('av_chat', 'In the Chat', 'fa-message')}

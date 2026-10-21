@@ -23,3 +23,25 @@ test('Avatar Management builds its CSS, and none while NTR is off', () => {
   assert.equal(window.NTR.avatars.css(s), '');
   s.masterEnabled = true;
 });
+
+test('Fade Strength at its default keeps the even fade, and 0% has none', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'backdrop', aiShape: 'none', usEnabled: false, aiFadeBot: 30, aiFadeStr: 50 });
+  assert.match(window.NTR.avatars.css(s), /linear-gradient\(to bottom, rgba\(0,0,0,0\) 0%, rgba\(0,0,0,1\) 0%, rgba\(0,0,0,1\) 70%, rgba\(0,0,0,0\) 100%\)/);
+  s.aiFadeStr = 0;
+  assert.doesNotMatch(window.NTR.avatars.css(s), /rgba\(0,0,0,0(\.\d+)?\) \d/);
+  Object.assign(s, { aiFadeBot: 0, aiFadeStr: 50 });
+});
+
+test('Rotation turns the avatar, and Shape Only turns the picture back', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'inline', aiShape: 'square', usEnabled: false, aiRotate: 30, aiRotateMode: 'shape' });
+  let css = window.NTR.avatars.css(s);
+  assert.match(css, /transform: rotate\(30deg\) !important;/);
+  assert.match(css, /rotate\(-30deg\) scale\(1\.366/);
+  s.aiRotateMode = 'both';
+  css = window.NTR.avatars.css(s);
+  assert.match(css, /transform: rotate\(30deg\) !important;/);
+  assert.doesNotMatch(css, /rotate\(-30deg\)/);
+  Object.assign(s, { aiRotate: 0, aiRotateMode: 'shape', aiShape: 'none' });
+});

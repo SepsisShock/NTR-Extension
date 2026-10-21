@@ -25,14 +25,16 @@ await (async () => {
     aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiFocus: 0, aiScale: 100, aiPad: 140, 
     aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50, aiBlur: 0,
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
-    aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0,
+    aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0, aiFadeStr: 50,
+    aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape',
     
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
     usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usFocus: 0, usScale: 100, usPad: 140, 
     usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0, usBlur: 0,
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
-    usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0,
+    usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0, usFadeStr: 50,
+    usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape',
 
     // Foreground Settings
     fgEnabled: false,
@@ -404,7 +406,8 @@ await (async () => {
     if (layer) return layer;
     layer = document.createElement('div');
     layer.id = 'cb_pop_layer';
-    layer.innerHTML = '<img id="cb_pop_ai" alt="" draggable="false"><img id="cb_pop_us" alt="" draggable="false">';
+    // Each picture sits in a frame, which takes its place, size, shape and turn (see getAvatarCss in avatars.js).
+    layer.innerHTML = ['ai', 'us'].map((p) => `<div id="cb_popf_${p}" class="cb_popf"><img id="cb_pop_${p}" alt="" draggable="false"></div>`).join('');
     document.body.appendChild(layer);
     const chat = document.getElementById('chat');
     if (chat && window.ResizeObserver) new ResizeObserver(() => { layoutPop(); pinCheckRead(); }).observe(chat);
@@ -423,6 +426,7 @@ await (async () => {
       el.onload = () => {
         const fell = el.dataset.want !== el.dataset.thumb && el.getAttribute('src') === el.dataset.thumb;
         setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} picture${fell ? ' (thumbnail)' : ''}`);
+        if (el.naturalWidth && el.naturalHeight) el.parentElement.style.setProperty('--cb-ar', (el.naturalWidth / el.naturalHeight).toFixed(4));
         drawPlace();
       };
     }
@@ -490,7 +494,7 @@ await (async () => {
         if (ch?.avatar) src = `/characters/${encodeURIComponent(ch.avatar)}`;
       }
       if (!src) {
-        el.style.display = 'none';
+        el.parentElement.style.display = 'none';
         if (on && popMsg[prefix] !== 'No avatar found in this chat yet.') setPopStatus(prefix, 'No avatar found in this chat yet.');
         continue;
       }
@@ -501,7 +505,7 @@ await (async () => {
         setPopStatus(prefix, 'Loading image...');
         el.src = full;
       }
-      el.style.display = 'block';
+      el.parentElement.style.display = 'block';
     }
     drawPlace();
   }
@@ -564,7 +568,7 @@ await (async () => {
 
   const placeEl = (it) => (it.lay ? document.getElementById(LAY_PART[it.lay].el)
     : it.pin ? document.querySelector(`#ntr_pin_layer > .ntr_pin[data-pin="${it.pin}"]`)
-      : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_pop_${it.id}`));
+      : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_popf_${it.id}`));
 
   // The part of a foreground image you can see: its box fills the whole side, with the picture at the bottom.
   function fgRect(el) {
@@ -609,7 +613,8 @@ await (async () => {
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0 ? r : null;
     }
-    if (!el || el.style.display === 'none' || !el.getAttribute('src')) return null;
+    // A pop-out moves by its frame, which shows once its picture has a source.
+    if (!el || el.style.display === 'none' || !(it.pos ? el : el.querySelector('img'))?.getAttribute('src')) return null;
     if (it.pos && el.parentNode?.style.display === 'none') return null;
     const r = it.pos ? fgRect(el) : el.getBoundingClientRect();
     return r && r.width > 0 && r.height > 0 ? r : null;
@@ -1871,7 +1876,8 @@ await (async () => {
          fixed box with no height, which hid pop-outs and foreground images. */
       #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
       #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
-      #cb_pop_layer img { position: absolute; display: none; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
+      #cb_pop_layer .cb_popf { position: absolute; display: none; pointer-events: none; overflow: hidden; container-type: size; }
+      #cb_pop_layer img { position: absolute; display: block; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
       #cb_place_layer { position: fixed; z-index: 9990; display: none; pointer-events: none; }
       #cb_place_layer .cb_place_grid { position: absolute; inset: 0; display: none; background-image: linear-gradient(to right, rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.14) 1px, transparent 1px); }
       .cb_place_box { position: absolute; display: none; box-sizing: border-box; outline: 2px dashed rgba(255,255,255,.6); outline-offset: -2px; background: rgba(255,255,255,.04); pointer-events: auto; cursor: pointer; touch-action: none; }
@@ -1932,6 +1938,16 @@ await (async () => {
       .cb_posgrid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; padding: 6px; margin-top: 5px; border-radius: 8px; background: rgba(0,0,0,.2); width: max-content; }
       .cb_posgrid label { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
       .cb_posgrid label:hover { background: rgba(255,255,255,.08); }
+      .ntr_tiles { display: grid; grid-template-columns: repeat(3, 48px); gap: 6px; margin-top: 5px; width: max-content; }
+      .ntr_tile { position: relative; display: flex; cursor: pointer; }
+      .ntr_tile input { position: absolute; opacity: 0; pointer-events: none; margin: 0; }
+      .ntr_tile_face { display: flex; align-items: center; justify-content: center; width: 48px; height: 40px; box-sizing: border-box; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, #555); background: rgba(0,0,0,.2); color: var(--SmartThemeBodyColor, #ccc); transition: border-color .15s, box-shadow .15s; }
+      .ntr_tile_face > * { opacity: .75; }
+      .ntr_tile:hover .ntr_tile_face { border-color: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 60%, transparent); }
+      .ntr_tile input:checked + .ntr_tile_face { border: 2px solid var(--SmartThemeQuoteColor, #6cf); box-shadow: 0 0 8px color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 45%, transparent); }
+      .ntr_tile input:checked + .ntr_tile_face > * { opacity: 1; }
+      .ntr_tile input:focus-visible + .ntr_tile_face { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
+      .ntr_tile_text { font-size: .8em; }
       .cb_fadegrid label.cb_fon { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 35%, transparent); box-shadow: inset 0 0 0 1px var(--SmartThemeQuoteColor, #6cf); }
       .cb_ovrow { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
       .cb_ovrow .m_o_body { margin-top: 4px; padding-left: 26px; }
@@ -1982,6 +1998,7 @@ await (async () => {
         .ntr_mdgrid label { min-height: 40px; align-items: center; }
         .cb_posgrid { grid-template-columns: repeat(3, 40px); }
         .cb_posgrid label { width: 40px; height: 40px; }
+        .ntr_tile_face { height: 44px; }
         .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { min-width: 40px; min-height: 40px; }
         .cb_defdot { width: 40px; height: 40px; }
         .cb_emo_grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
@@ -2557,6 +2574,11 @@ await (async () => {
   function pills(name, opts, cur) {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
+  // Tiles: pick-one choices shown as pictures. Each option is [value, name, face]; the face is its picture's HTML, or
+  // the name is shown when it has none. Bound with onPills, like pills.
+  function tiles(name, label, opts, cur) {
+    return `<div class="ntr_tiles" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span></label>`).join('')}</div>`;
+  }
   const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
   function posGrid(name, cur) {
     return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" aria-label="${l}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
@@ -2895,7 +2917,7 @@ await (async () => {
   }
   PICK_KEYS.rbBgPos = POS_GRID.map(([v]) => v);
   for (const p of ['ai', 'us']) {
-    Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v) });
+    Object.assign(PICK_KEYS, { [p + 'Style']: ['inline', 'backdrop', 'popout'], [p + 'Side']: POS_GRID.map(([v]) => v), [p + 'Fit']: ['cover', 'contain', 'original'], [p + 'Shape']: SHAPE_OPTS.map(([v]) => v), [p + 'RotateMode']: ['shape', 'both'] });
   }
   // Where an empty color starts from: SillyTavern's own value for the same thing.
   const COLOR_FROM = {
@@ -3526,12 +3548,12 @@ await (async () => {
   }
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
-      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
+      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'ShiftX']: [0, 100, 1, '%'], [p + 'Zoom']: [100, 200, 5, '%'], [p + 'Rotate']: [-180, 180, 1, '°'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
       [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'Blur']: [0, 20, 1, 'px'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
       [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],
-      [p + 'FadeTL']: [0, 100, 1, '%'], [p + 'FadeTR']: [0, 100, 1, '%'], [p + 'FadeBL']: [0, 100, 1, '%'], [p + 'FadeBR']: [0, 100, 1, '%'],
+      [p + 'FadeTL']: [0, 100, 1, '%'], [p + 'FadeTR']: [0, 100, 1, '%'], [p + 'FadeBL']: [0, 100, 1, '%'], [p + 'FadeBR']: [0, 100, 1, '%'], [p + 'FadeStr']: [0, 100, 1, '%'],
     });
   }
   // A number setting kept to its range, or its default if it isn't a number.
@@ -4673,7 +4695,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => sendFree(),

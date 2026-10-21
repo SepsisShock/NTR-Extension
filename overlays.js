@@ -629,7 +629,7 @@
             ${ovLabel('Transparent Areas' + btag, pills('bbd', [['wallpaper', 'Wallpaper'], ['panel', 'Chat Panel Tint']], bl.backdrop === 'panel' ? 'panel' : 'wallpaper'))}`, 'fa-ruler-combined')}
           `, 'fa-panorama')}
 
-          ${pagePart('Foreground Images', ['m_f_enable', s.fgEnabled], 'fg_fore', `
+          ${pagePart('Foreground Pictures', ['m_f_enable', s.fgEnabled], 'fg_fore', `
             ${card('', `
             ${sl('m_f_o', 'Opacity', 'm_f_oval', rangeNum(s, 'fgOpacity'), numRange('fgOpacity')[3], rangeAttrs('fgOpacity'))}
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide in Visual Novel Mode</span></label>

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.24';
+  const VERSION = '2.69.25';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -4315,7 +4315,7 @@ await (async () => {
   // The Regexes page comes from regex.js, loaded the first time the menu opens.
   function regexSectionHtml(s) {
     if (!s.rxEnabled) {
-      return pageHtml('regex', '', { sw: ['m_rx_enable', false], note: '<div class="cb_hint ntr_pnote">Your regexes still run in SillyTavern as usual. With this page off, NTR doesn\'t show or sort them, and themes don\'t switch regex folders on or off.</div>' });
+      return pageHtml('regex', '', { sw: ['m_rx_enable', false], note: '<div class="cb_hint ntr_pnote">Your regexes still run in ST as usual. While this is off, themes leave regex folders alone.</div>' });
     }
     const rx = window.NTR.regex;
     if (rx) return rx.sectionHtml(s);

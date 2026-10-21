@@ -8,7 +8,7 @@
 // Block set to Agent Results, index.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.69.24';
+  const AGENTS_VERSION = '2.69.25';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -31,7 +31,7 @@
   const SAMP = [['temp', 'Temperature', 'agTemp', 'temperature', 'temperature'], ['topP', 'Top P', 'agTopP', 'top_p', 'top_p'], ['topK', 'Top K', 'agTopK', 'top_k', 'top_k'],
     ['minP', 'Min P', 'agMinP', 'min_p', 'min_p'], ['freq', 'Frequency Penalty', 'agFreq', 'frequency_penalty', 'frequency_penalty'],
     ['pres', 'Presence Penalty', 'agPres', 'presence_penalty', 'presence_penalty'], ['rep', 'Repetition Penalty', 'agRep', 'repetition_penalty', 'rep_pen']];
-  const EFFORT = [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Med'], ['high', 'High']];
+  const EFFORT = [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']];
   // A run that takes longer than this is stopped.
   const TIMEOUT_MS = 120000;
 
@@ -600,7 +600,7 @@
   // ----- The Agents page -----
   let root = null;
   const opt = (pairs, cur) => pairs.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
-  const lab = (l, i) => `<div class="cb_hint" style="margin:6px 0 0;">${l}</div>${i}`;
+  const { ovLabel: lab } = A.look;
   const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;"${title ? ` title="${esc(title)}" aria-label="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label || ''}</button>`;
   // An agent's picture is always a circle.
   const picHtml = (a, size) => {
@@ -609,7 +609,7 @@
   };
   const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${(CC.find(([v]) => v === a.ccSource) || [, ''])[1]}${a.ccModel ? ' · ' + a.ccModel : ''}`
     : `${(TC.find(([v]) => v === a.tcType) || [, ''])[1]} (local)`);
-  const slider = (a, f, k) => `<div class="cb_row"><input type="range" class="m_ag_num" data-f="${f}" data-k="${k}" ${A.rangeAttrs(k)} value="${a[f]}" style="flex:1;"><span style="min-width:72px;text-align:right;"><span id="m_ag_v_${f}" class="ntr_slval">${a[f]}</span>${A.numRange(k)[3] || ''}</span></div>`;
+  const slider = (a, f, k, name = '') => `<div class="cb_row"><input type="range" class="m_ag_num" data-f="${f}" data-k="${k}"${name ? ` aria-label="${esc(name)}"` : ''} ${A.rangeAttrs(k)} value="${a[f]}" style="flex:1;"><span style="min-width:72px;text-align:right;"><span id="m_ag_v_${f}" class="ntr_slval">${a[f]}</span>${A.numRange(k)[3] || ''}</span></div>`;
   const RUNS = [['reply', 'After Every Reply'], ['button', 'On the Button Only']];
   const KEEP = [['off', 'Activity Only'], ['chat', 'Saved in the Chat']];
   const nameOf = (pairs, v) => (pairs.find(([x]) => x === v) || [, ''])[1];
@@ -622,7 +622,7 @@
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
 
   function sectionHtml(s) {
-    const note = '<div class="cb_hint ntr_pnote">Agents are separate requests to a model, each doing one job you give it. Each run costs tokens on its connection. Nothing here calls a model while this page is switched off.</div>';
+    const note = '<div class="cb_hint ntr_pnote">Each agent is a separate request to a model that does one job you give it. Each run costs tokens. Nothing runs while this page is off.</div>';
     // m_ag_say reads out a move to screen readers; it sits outside m_ag_root, which is drawn again after every change.
     return pageHtml('agents', '<div id="m_ag_root"></div><div id="m_ag_say" class="ntr_sr" role="status"></div>', { sw: ['m_ag_enable', !!s.agEnabled], note });
   }
@@ -671,14 +671,14 @@
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
         ${btn('m_ag_new', 'fa-plus', 'Hire Agent')}
         ${btn('m_ag_dnew', 'fa-building-shield', 'Create Department')}
-        ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker, to edit or delete like any other agent')}
+        ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker')}
       </div>
-      <div class="ntr_glab">Agent Roster</div>
+      <div class="ntr_glab"><i class="fa-solid fa-fw fa-people-group ntr_glab_icon"></i>Agent Roster</div>
       <div class="ntr_card m_ag_roster">
         <div class="m_ag_loose"${dl.length ? ' role="group" aria-label="No department"' : ''}>${top}</div>
         ${dl.map((d) => deptHtml(d, s)).join('')}
       </div>
-      ${l.length >= 2 ? '<div class="cb_hint" style="margin:6px 4px 0;">When several agents run for the same reply, they go one at a time, from top to bottom.</div>' : ''}`;
+      ${l.length >= 2 ? '<div class="cb_hint" style="margin:6px 4px 0;">Agents run one at a time, top to bottom.</div>' : ''}`;
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, its switch,
@@ -706,7 +706,7 @@
         </div>
       </div>
       <div id="m_ag_picmenu" hidden><div>
-        ${btn('m_ag_up', 'fa-upload', 'Upload')}${btn('m_ag_url', 'fa-link', 'Use a Link')}${btn('m_ag_crop', 'fa-crop-simple', 'Crop')}${btn('m_ag_clr', 'fa-robot', 'Back to the Robot')}
+        ${btn('m_ag_up', 'fa-upload', 'Upload')}${btn('m_ag_url', 'fa-link', 'Use a Link')}${btn('m_ag_crop', 'fa-crop-simple', 'Crop')}${btn('m_ag_clr', 'fa-rotate-left', 'Remove Picture')}
       </div></div>
       <input type="file" id="m_ag_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
     </div>`;
@@ -756,11 +756,13 @@
   // A folded part of the agent's settings. Which parts are open is the same for every agent; the first time, only
   // Instructions is.
   const isOpen = (k) => { const o = settings().uiOpen || {}; return `ag_${k}` in o ? !!o[`ag_${k}`] : k === 'ins'; };
+  const FOLD_ICON = { ins: 'fa-scroll', ans: 'fa-clipboard-list', runs: 'fa-stopwatch', main: 'fa-share-from-square', conn: 'fa-plug',
+    samp: 'fa-temperature-half', reads: 'fa-book-open-reader', test: 'fa-vial' };
   function foldHtml(k, title, sum, body) {
     const open = isOpen(k);
     return `
       <div class="cb_collapse_toggle ntr_fold m_ag_fold${open ? ' ntr_open' : ''}" data-ag="${k}" tabindex="0" role="button" aria-expanded="${open}">
-        <span class="m_ag_fwrap"><span>${title}</span><span class="m_ag_fsum${sum.warn ? ' cb_warn' : ''}" data-sum="${k}">${sumHtml(sum)}</span></span>
+        <span class="m_ag_fwrap"><span><i class="fa-solid fa-fw ${FOLD_ICON[k]} ntr_glab_icon"></i>${title}</span><span class="m_ag_fsum${sum.warn ? ' cb_warn' : ''}" data-sum="${k}">${sumHtml(sum)}</span></span>
         <i class="fa-solid ${open ? 'fa-chevron-down' : 'fa-chevron-right'} cb_chevron"></i>
       </div>
       <div class="cb_collapse_content" style="display:${open ? 'block' : 'none'};">${body}</div>`;
@@ -774,9 +776,7 @@
     const rows = fields ? a.fields.map((f, i) => fieldRowHtml(f, i, a.fields.length)).join('') : '';
     return `
       ${pills('aganswer', [['text', 'Free Text'], ['fields', 'Fields']], a.answer)}
-      <div class="cb_hint"${fields ? '' : ' style="margin-bottom:0;"'}>${fields
-        ? 'Named values NTR checks and keeps, shown as bars, lines and chips in a Dashboard. Headings group them there.'
-        : 'The answer as the agent writes it, shown with Markdown.'}</div>
+      ${fields ? '<div class="cb_hint">Named values NTR checks and keeps, shown in a Dashboard.</div>' : ''}
       ${fields ? `<div class="ntr_agfl">${rows || '<div class="cb_hint">No fields yet. Until it has one, it answers as Free Text.</div>'}</div>
       <div class="cb_actions" style="margin:8px 0 0;">${btn('m_agf_add', 'fa-plus', 'Add Field')}${btn('m_agf_head', 'fa-heading', 'Add Heading')}</div>` : ''}`;
   }
@@ -803,13 +803,13 @@
         <div class="cb_plab">Type</div>
         ${pick('type', FTYPES)}
         ${f.type === 'num' ? `<div class="ntr_agfl_grid">${numIn('min', 'Min', 'agFieldNum')}${numIn('max', 'Max', 'agFieldNum')}${numIn('start', 'Start', 'agFieldNum')}${numIn('step', 'Max Change', 'agFieldStep')}</div>
-        <div class="cb_hint">Max Change is how far it can move in one update; 0 means no limit. Whatever the agent answers, it stays between Min and Max.</div>
+        <div class="cb_hint">Max Change: the most it moves in one update; 0 is no limit. Answers stay between Min and Max.</div>
         <div class="cb_plab">Show As</div>
         ${pick('numShow', [['bar', 'Bar'], ['number', 'Number']])}`
     : f.type === 'list' ? `<div class="cb_plab">Show As</div>
         ${pick('listShow', [['lines', 'Lines'], ['chips', 'Chips']])}
         <div class="ntr_agfl_grid">${numIn('cap', 'Max Items', 'agFieldCap')}</div>
-        <div class="cb_hint">In Lines, the text before the first colon names the line, like a character's name, so a change shows on that line.</div>`
+        <div class="cb_hint">In Lines, text before the first colon names the line, so a change shows on that line.</div>`
       : '<div class="cb_hint">One line of text.</div>'}`;
     return row + `
       <div class="ntr_tpanel ntr_agfl_edit" data-fd="${f.id}">
@@ -824,53 +824,52 @@
     const fields = a.answer === 'fields';
     const sampRows = SAMP.map(([f, label, k]) => `
       <div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="${f}On" ${a[f + 'On'] ? 'checked' : ''}><span>${label}</span></label>
-        <div class="m_o_body${a[f + 'On'] ? '' : ' cb_dim'}" data-for="${f}On">${slider(a, f, k)}</div></div>`).join('');
+        <div class="m_o_body${a[f + 'On'] ? '' : ' cb_dim'}" data-for="${f}On">${slider(a, f, k, label)}</div></div>`).join('');
     const instructs = (() => { try { return ctx().getPresetManager('instruct')?.getAllPresets() || []; } catch (e) { return []; } })();
     const connBody = a.kind === 'cc' ? `
       ${lab('API', `<select class="text_pole m_ag_txt" data-f="ccSource" data-redraw="1" style="width:100%;">${opt(CC, a.ccSource)}</select>`)}
       ${lab('Model', `<input type="text" class="text_pole m_ag_txt" data-f="ccModel" data-redraw="1" value="${esc(a.ccModel)}" maxlength="200" placeholder="like deepseek/deepseek-chat-v3" style="width:100%;">`)}
       ${a.ccSource === 'custom' ? lab('Link', `<input type="text" class="text_pole m_ag_txt" data-f="ccUrl" value="${esc(a.ccUrl)}" maxlength="500" placeholder="like http://127.0.0.1:1234/v1" style="width:100%;">`) : ''}
-      ${lab('Key', `<select class="text_pole m_ag_txt" data-f="ccKey" id="m_ag_key" style="width:100%;"><option value="">SillyTavern's active key</option>${a.ccKey ? `<option value="${esc(a.ccKey)}" selected>Loading your keys...</option>` : ''}</select>`)}
-      <div class="cb_hint">Your keys saved in SillyTavern for this API, by name. NTR keeps only which one you picked, never the key.</div>
+      ${lab('Key', `<select class="text_pole m_ag_txt" data-f="ccKey" id="m_ag_key" style="width:100%;"><option value="">ST's Active Key</option>${a.ccKey ? `<option value="${esc(a.ccKey)}" selected>Loading your keys...</option>` : ''}</select>`)}
+      <div class="cb_hint">NTR saves only which key you pick, never the key itself.</div>
       ${lab('Prompt Post-Processing', `<select class="text_pole m_ag_txt" data-f="ccPost" style="width:100%;">${opt(POST, a.ccPost)}</select>`)}`
       : a.kind === 'tc' ? `
       ${lab('Server Type', `<select class="text_pole m_ag_txt" data-f="tcType" data-redraw="1" style="width:100%;">${opt(TC, a.tcType)}</select>`)}
       ${lab('Server Link', `<input type="text" class="text_pole m_ag_txt" data-f="tcUrl" data-redraw="1" value="${esc(a.tcUrl)}" maxlength="500" placeholder="like http://127.0.0.1:5001" style="width:100%;">`)}
       ${TC_MODEL.has(a.tcType) ? lab('Model', `<input type="text" class="text_pole m_ag_txt" data-f="tcModel" value="${esc(a.tcModel)}" maxlength="200" placeholder="Only if your server asks for one" style="width:100%;">`) : ''}
-      ${lab('Instruct Template', `<select class="text_pole m_ag_txt" data-f="tcInstruct" style="width:100%;"><option value="">None (plain format)</option>${opt(instructs.map((n) => [n, n]), a.tcInstruct)}</select>`)}
-      <div class="cb_hint">The prompt format your model expects. Only the format: none of your writing settings come along. A saved key for this server type is used if it needs one.</div>
-      ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is the same server your chat uses, and it answers one request at a time, so this agent waits until your reply is finished.</div>' : ''}`
-      : '<div class="cb_hint" style="margin-bottom:0;">Uses whatever your chat is connected to: its API, model and key. It waits until a reply is finished.</div>';
+      ${lab('Instruct Template', `<select class="text_pole m_ag_txt" data-f="tcInstruct" style="width:100%;"><option value="">None (Plain Format)</option>${opt(instructs.map((n) => [n, n]), a.tcInstruct)}</select>`)}
+      <div class="cb_hint">Only the format is used, not your other settings. A saved key for this server type is used if needed.</div>
+      ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is your chat\'s server, which answers one request at a time, so this agent waits until your reply is done.</div>' : ''}`
+      : '<div class="cb_hint" style="margin-bottom:0;">Uses your chat\'s API, model and key, and waits until a reply is finished.</div>';
     const past = runs.get(a.id) || [];
     const full = usesFull(a);
     // Same as Chat's samplers only reach your chat's API on Chat Completion or Text Completion (see ownSamplers).
     const api = ctx().mainApi;
-    const sampNote = a.kind !== 'chat' ? 'Unticked uses the API\'s own default. An API that doesn\'t use one ignores it. Your Chat Completion presets are never used.'
-      : OWN_SAMP_API[api] ? 'Unticked uses your chat preset\'s value. A sampler your chat\'s API doesn\'t take is left out. Your preset itself never changes.'
+    const sampNote = a.kind !== 'chat' ? 'Unticked uses the API\'s default. Your Chat Completion presets are never used.'
+      : OWN_SAMP_API[api] ? 'Unticked uses your chat preset\'s value. Your preset never changes.'
         : 'Your chat isn\'t on Chat Completion or Text Completion, so it uses your chat\'s samplers. Switch your chat\'s API, or this agent\'s connection, to use these.';
     // Include Its Last Result reads what Saved in the Chat keeps, so with Activity Only it's dimmed with a note.
     const lastOff = a.keep !== 'chat';
     const parts = [
       ['ins', 'Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="${fields ? 'What to track and any rules, like: only count injuries that happen on screen.' : 'What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list.'}" style="width:100%;margin:0;">${esc(a.job)}</textarea>
-        ${fields ? '<div class="cb_hint" style="margin-bottom:0;">Say what to track and any rules. NTR adds the answer format from your fields.</div>' : ''}`],
+        ${fields ? '<div class="cb_hint" style="margin-bottom:0;">NTR adds the answer format from your fields.</div>' : ''}`],
       ['ans', 'Answer', answerHtml(a)],
       ['runs', 'When It Runs', `
         ${lab('Runs', pills('agruns', RUNS, a.runs))}
         ${lab('Results', pills('agkeep', KEEP, a.keep))}
-        ${fields ? '<div class="cb_hint">Fields keeps its values in the chat, so it always saves there.</div>' : ''}
-        <div class="cb_hint" style="margin-bottom:0;">Activity Only shows its answers under Activity at the bottom until you reload. Saved in the Chat also keeps each answer on the message it was made for, so a swipe or a deleted message keeps the right one. To see saved answers on screen, add a Dashboard on the Layout page.</div>`],
+        ${fields ? '<div class="cb_hint">Fields always saves in the chat.</div>' : ''}
+        <div class="cb_hint" style="margin-bottom:0;">Activity Only keeps answers under Test and Activity until you reload. Saved in the Chat keeps each answer on its message, so swipes and deletes stay right. To show saved answers, add a Dashboard on the Layout page.</div>`],
       ...(a.keep === 'chat' ? [['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
-        <div class="cb_hint"${a.send ? '' : ' style="margin-bottom:0;"'}>Puts its current saved answer, under its name, into your chat's prompt for every reply. After a swipe, it's the answer from before the swiped reply.</div>
+        <div class="cb_hint"${a.send ? '' : ' style="margin-bottom:0;"'}>Adds its latest saved answer, under its name, to your chat's prompt for every reply. After a swipe, it's the answer from before that reply.</div>
         ${a.send ? `${lab('Where', pills('agwhere', WHERE.map(([v, l]) => [v, l]), a.sendWhere))}
         ${a.sendWhere === 'chat' ? `${lab('Depth', slider(a, 'sendDepth', 'agSendDepth'))}${lab('As', pills('agrole', ROLES.map(([v, l]) => [v, l]), a.sendRole))}
         <div class="cb_hint">Depth 0 is after the last message, 1 is before it, and so on.</div>` : ''}
-        <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Lorebooks Can Read It</span></label>
-        <div class="cb_hint">Words in it can trigger lorebook entries, like a location's entry.</div>` : ''}
-        <div class="cb_hint" style="margin-bottom:0;">To place it yourself instead, type <code class="m_ag_macro">{{agent::${esc(a.name)}}}</code> anywhere SillyTavern reads macros, like the Author's Note, a lorebook entry or another agent's instructions.</div>`]] : []),
+        <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Can Trigger Lorebooks</span></label>` : ''}
+        <div class="cb_hint" style="margin-bottom:0;">To place it yourself, type <code class="m_ag_macro">{{agent::${esc(a.name)}}}</code> anywhere ST reads macros, like the Author's Note.</div>`]] : []),
       ['conn', 'Connection', `
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
-        <div class="cb_hint">Chat Completion is an online API, or a local server with an OpenAI-style link (Custom). Text Completion is a local server like KoboldCpp or llama.cpp. Neither changes your chat's connection or SillyTavern's Connection Profiles.</div>
+        <div class="cb_hint">Neither changes your chat's connection or ST's Connection Profiles.</div>
         ${connBody}`],
       ['samp', 'Samplers', `
         <div class="${a.kind === 'chat' && !OWN_SAMP_API[api] ? 'cb_dim' : ''}">
@@ -880,17 +879,16 @@
         </div>
         <div class="cb_hint" style="margin-bottom:0;">${sampNote}</div>
         <div class="cb_sub">Reply</div>
-        ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}
-        <div class="cb_hint" style="margin-bottom:0;">How long its answer may be.</div>`],
+        ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}`],
       ['reads', 'What It Reads', `
         ${a.kind === 'chat' ? `${lab('What It Sends', pills('agfull', [['own', 'Its Own Prompt'], ['full', 'Your Chat\'s Full Prompt']], a.full ? 'full' : 'own'))}
-        <div class="cb_hint">Its Own Prompt: its instructions and the latest chat messages. Your Chat's Full Prompt: everything your chat sends for a reply (card, lorebooks, Author's Note, chat history), with its instructions added at the end. That costs more tokens.</div>` : ''}
+        <div class="cb_hint">Full Prompt sends everything your chat sends for a reply, with its instructions at the end. It costs more tokens.</div>` : ''}
         ${usesFull(a) ? '' : `${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
-        <div class="cb_hint">As One Block: all the messages in one text. As Separate Messages: your messages as user and the others as AI. Each keeps its speaker's name either way.${a.kind === 'cc' ? ' If your API complains about the order of messages, set Prompt Post-Processing to Semi-strict.' : ''}</div>`}
+        <div class="cb_hint">Separate Messages sends yours as user and the rest as AI. Names are kept either way.${a.kind === 'cc' ? ' If your API rejects the message order, set Prompt Post-Processing to Semi-strict.' : ''}</div>`}
         ${full ? '<div class="cb_hint">With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
-          : `${lab('Messages Read', slider(a, 'context', 'agContext'))}<div class="cb_hint">How many of the latest chat messages it reads.</div>`}
+          : `${lab('Messages Read', slider(a, 'context', 'agContext'))}`}
         ${fields ? '' : `<div class="${lastOff ? 'cb_dim' : ''}"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}${lastOff ? ' disabled' : ''}><span>Include Its Last Result</span></label>
-        <div class="cb_hint"${lastOff ? ' style="margin-bottom:0;"' : ''}>Adds its newest saved answer from before the message it runs on to its prompt, so it updates what it had instead of starting over.</div></div>
+        <div class="cb_hint"${lastOff ? ' style="margin-bottom:0;"' : ''}>It updates its last answer instead of starting over.</div></div>
         ${lastOff ? '<div class="cb_hint">Needs Results set to Saved in the Chat, under When It Runs.</div>' : ''}`}
         <div class="cb_actions" style="margin:6px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}</div>
         <div id="m_ag_prevbox" hidden></div>`],
@@ -908,8 +906,8 @@
   // What the agent sends on its next run, from the chat as it is now. Keys and links are never part of it.
   function previewHtml(a) {
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
-    if (usesFull(a)) return `<div class="cb_hint" style="margin:8px 0 0;">Your chat's full prompt, as SillyTavern builds it for a reply, then these instructions at the end:${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
-    const how = a.kind === 'chat' ? 'SillyTavern formats it for your chat\'s API before sending.'
+    if (usesFull(a)) return `<div class="cb_hint" style="margin:8px 0 0;">Your chat's full prompt, as ST builds it for a reply, then these instructions at the end:${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
+    const how = a.kind === 'chat' ? 'ST formats it for your chat\'s API before sending.'
       : a.kind === 'tc' ? (a.tcInstruct ? `Formatted with the ${esc(a.tcInstruct)} instruct template before sending.` : 'Sent in plain format.') : 'Sent as these messages.';
     return prompt(a).map((m) => `<div class="cb_hint" style="margin:8px 0 0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('')
       + `<div class="cb_hint" style="margin:8px 0 0;">${how}</div>`;
@@ -955,7 +953,7 @@
     } catch (e) { state = {}; }
     const keys = Array.isArray(state[`api_key_${a.ccSource}`]) ? state[`api_key_${a.ccSource}`] : [];
     if (!sel.isConnected) return;
-    sel.innerHTML = `<option value="">SillyTavern's active key</option>` + keys.map((k, i) => `<option value="${esc(k.id)}"${k.id === a.ccKey ? ' selected' : ''}>${esc(k.label || `Key ${i + 1}`)}${k.active ? ' (active)' : ''}</option>`).join('')
+    sel.innerHTML = `<option value="">ST's Active Key</option>` + keys.map((k, i) => `<option value="${esc(k.id)}"${k.id === a.ccKey ? ' selected' : ''}>${esc(k.label || `Key ${i + 1}`)}${k.active ? ' (active)' : ''}</option>`).join('')
       + (a.ccKey && !keys.some((k) => k.id === a.ccKey) ? '<option value="" disabled>The key this agent used is gone</option>' : '');
     if (a.ccKey && !keys.some((k) => k.id === a.ccKey)) sel.value = '';
   }
@@ -1116,7 +1114,7 @@
       };
     });
     root.querySelector('#m_ag_new').onclick = async function() {
-      const name = await askText(this, { label: 'Agent name', value: `Agent ${list().length + 1}`, ok: '<i class="fa-solid fa-plus"></i> Hire', check: (v) => (v.trim() ? { value: v.trim().slice(0, 60) } : { error: 'Type a name first.' }) });
+      const name = await askText(this, { label: 'Agent Name', value: `Agent ${list().length + 1}`, ok: '<i class="fa-solid fa-plus"></i> Hire', check: (v) => (v.trim() ? { value: v.trim().slice(0, 60) } : { error: 'Type a name first.' }) });
       if (!name) return;
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
       const x = fresh(name);

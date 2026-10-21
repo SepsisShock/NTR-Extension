@@ -448,7 +448,8 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 @media (pointer: coarse) {
   #cb_modal_overlay .m_ag_hbtn { min-width: 40px; min-height: 40px; }
   #cb_modal_overlay .m_ag_sw { padding: 11px 6px; margin: -11px -6px; }
-  #cb_modal_overlay #m_ag_root .ntr_pop button { min-height: 40px; }
+  #cb_modal_overlay .ntr_pop button { min-height: 40px; }
+  #cb_modal_overlay .ntr_agfl_row .menu_button, #cb_modal_overlay #m_ag_picmenu .menu_button { min-width: 40px; min-height: 40px; }
   #cb_modal_overlay .m_ag_roster { --m-ag-grip: 40px; }
 }
 /* Agent Results in a Pinned Block (agents.js): each agent's name and buttons, then its saved result. */

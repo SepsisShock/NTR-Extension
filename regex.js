@@ -13,16 +13,16 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.69.24';
+  const REGEX_VERSION = '2.69.25';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
 
   // SillyTavern runs Global first, then Preset, then Character, each from top to bottom.
   const SECS = [
-    { k: 'global', type: 'GLOBAL', list: 'saved_regex_scripts', add: 'open_regex_editor', name: 'Global' },
-    { k: 'preset', type: 'PRESET', list: 'saved_preset_scripts', add: 'open_preset_editor', allow: 'regex_preset_toggle', name: 'Preset' },
-    { k: 'scoped', type: 'SCOPED', list: 'saved_scoped_scripts', add: 'open_scoped_editor', allow: 'regex_scoped_toggle', name: 'Character' },
+    { k: 'global', type: 'GLOBAL', list: 'saved_regex_scripts', add: 'open_regex_editor', name: 'Global', icon: 'fa-globe' },
+    { k: 'preset', type: 'PRESET', list: 'saved_preset_scripts', add: 'open_preset_editor', allow: 'regex_preset_toggle', name: 'Preset', icon: 'fa-sliders' },
+    { k: 'scoped', type: 'SCOPED', list: 'saved_scoped_scripts', add: 'open_scoped_editor', allow: 'regex_scoped_toggle', name: 'Character', icon: 'fa-address-card' },
   ];
   const secOf = (k) => SECS.find((x) => x.k === k);
   const stList = (sec) => document.getElementById(sec.list);
@@ -133,7 +133,7 @@ try {
     const rows = [...list.children];
     // SillyTavern saves the order from its rows, so a regex it hasn't drawn yet (an import still saving) would be lost.
     if (rows.length !== scripts(sec).length) {
-      toastr.warning('SillyTavern is still saving regexes. Try again in a moment.', 'Regexes');
+      toastr.warning('ST is still saving regexes. Try again in a moment.', 'Regexes');
       refresh();
       return;
     }
@@ -146,7 +146,7 @@ try {
       await stop.call(list);
     } catch (e) {
       console.error('[NTR] Regex reorder failed', e);
-      toastr.error('Couldn\'t save the new order in SillyTavern.', 'Regexes');
+      toastr.error('Couldn\'t save the new order in ST.', 'Regexes');
       refresh();
     }
   }
@@ -214,6 +214,12 @@ try {
     #cb_modal_overlay .rx_top { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
     #cb_modal_overlay .rx_top .text_pole { flex: 1; margin: 0; }
     #cb_modal_overlay .rx_btn { margin: 0; padding: 4px 8px; flex: none; }
+    #cb_modal_overlay .rx_swbox { flex: none; display: inline-flex; align-items: center; padding: 2px; margin: -2px; cursor: pointer; }
+    @media (pointer: coarse) {
+      #cb_modal_overlay .rx_btn { min-width: 40px; min-height: 40px; }
+      #cb_modal_overlay .rx_swbox { padding: 11px 6px; margin: -11px -6px; }
+      #cb_modal_overlay .rx_list .ntr_grip { width: 40px; align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0; }
+    }
     #cb_modal_overlay .rx_sec { margin-top: 8px; }
     #cb_modal_overlay .rx_sec + .rx_sec { margin-top: 22px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.08); }
     #cb_modal_overlay .rx_shead { gap: 6px; }
@@ -261,18 +267,20 @@ try {
   `;
 
   let query = '';
-  const sw = (cls, on, title, extra = '') => `<input type="checkbox" class="rx_sw ${cls}" ${on ? 'checked' : ''} title="${title}" aria-label="${title}"${extra}>`;
+  // In a label box, so a finger has room to hit it (see the CSS).
+  const sw = (cls, on, title, extra = '') => `<label class="rx_swbox"><input type="checkbox" class="rx_sw ${cls}" ${on ? 'checked' : ''} title="${title}" aria-label="${title}"${extra}></label>`;
   const btn = (act, icon, title, extra = '') => `<button class="menu_button rx_btn${extra}" data-act="${act}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
 
   function rowHtml(x) {
     const on = !x.disabled;
+    const n = esc(x.scriptName || 'Untitled');
     return `<div class="rx_row${on ? '' : ' rx_dim'}" data-id="${esc(x.id)}">
       ${query ? '' : '<i class="fa-solid fa-grip-lines ntr_grip" title="Drag to reorder or move to a folder"></i>'}
       <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
-      ${sw('rx_rsw', on, 'Turn on or off')}
-      <span class="ntr_menu">${btn('mvmenu', 'fa-share', 'Move to folder')}</span>
-      ${btn('edit', 'fa-pen', 'Edit')}
-      ${btn('del', 'fa-trash', 'Delete', ' danger_button')}
+      ${sw('rx_rsw', on, `Turn ${n} on or off`)}
+      <span class="ntr_menu">${btn('mvmenu', 'fa-share', `Move ${n} to a folder`)}</span>
+      ${btn('edit', 'fa-pen', `Edit ${n}`)}
+      ${btn('del', 'fa-trash', `Delete ${n}`, ' danger_button')}
     </div>`;
   }
 
@@ -290,8 +298,8 @@ try {
           ${query ? '' : '<i class="fa-solid fa-grip-lines ntr_grip rx_fgrip" title="Drag to reorder folders"></i>'}
           <i class="fa-solid fa-fw ${open ? 'fa-folder-open' : 'fa-folder'} rx_ficon"></i>
           <span class="rx_fname">${esc(f.name)} <span class="rx_count">${items.length}</span></span>
-          ${sw('rx_fsw', items.some((x) => !x.disabled), 'Turn the whole folder on or off', items.length ? '' : ' disabled')}
-          <span class="ntr_menu">${btn('fmenu', 'fa-ellipsis', 'Folder options')}</span>
+          ${sw('rx_fsw', items.some((x) => !x.disabled), `Turn ${esc(f.name)} on or off`, items.length ? '' : ' disabled')}
+          <span class="ntr_menu">${btn('fmenu', 'fa-ellipsis', `More for ${esc(f.name)}`)}</span>
         </div>
         <div class="ntr_card rx_fbody">${list.map(rowHtml).join('') || '<div class="rx_empty">Empty. Drag a regex here.</div>'}</div>
       </div>`;
@@ -299,22 +307,22 @@ try {
     const loose = v.loose.filter(hit);
     // Regexes in no folder: always last, since SillyTavern adds new regexes at the end of its list.
     const looseHtml = !query || loose.length ? `<div class="rx_ublock">
-        <div class="ntr_fold rx_uhead"><i class="fa-solid fa-fw fa-inbox rx_ficon"></i><span class="rx_fname">Unassigned <span class="rx_count">${v.loose.length}</span></span></div>
+        <div class="ntr_fold rx_uhead"><i class="fa-solid fa-fw fa-inbox rx_ficon"></i><span class="rx_fname">No Folder <span class="rx_count">${v.loose.length}</span></span></div>
         <div class="ntr_card rx_loose">${loose.map(rowHtml).join('') || `<div class="rx_empty">${v.groups.length ? 'Drag or move a regex here to take it out of its folder.' : 'No regexes here yet.'}</div>`}</div>
       </div>` : '';
     const allowTitle = sec.k === 'preset' ? 'Let this preset\'s regexes run' : 'Let this character\'s regexes run';
     return `<div class="rx_sec${ok ? '' : ' rx_secoff'}" data-sec="${sec.k}">
       <div class="ntr_parthead rx_shead">
+        <i class="fa-solid fa-fw ${sec.icon} ntr_part_icon"></i>
         ${sec.k === 'global' ? `<h4 class="ntr_parttitle">${sec.name}</h4>`
           : `<div class="rx_stitle"><h4 class="ntr_parttitle">${sec.name}</h4><div class="rx_sname" title="${esc(secName(sec))}">${esc(secName(sec))}</div></div>`}
-        ${btn('new', 'fa-plus', `New ${sec.name} regex`)}
-        ${btn('newf', 'fa-folder-plus', 'New folder')}
-        ${btn('imp', 'fa-file-import', `Import ${sec.name} regexes`)}
-        ${btn('exp', 'fa-file-export', `Export all ${sec.name} regexes`)}
+        ${btn('new', 'fa-plus', `New ${sec.name} Regex`)}
+        ${btn('newf', 'fa-folder-plus', 'New Folder')}
+        <span class="ntr_menu">${btn('smenu', 'fa-ellipsis', `More for ${sec.name}`)}</span>
         ${sec.allow ? sw('rx_allow', ok, allowTitle) : ''}
       </div>
-      ${ok || !v.order.length ? '' : '<div class="cb_hint">Switched off: these regexes don\'t run until you switch them on here.</div>'}
-      ${v.same || query ? '' : `<div class="cb_hint rx_order">The run order was changed in SillyTavern's panel and doesn't match this list. <button class="menu_button" data-act="fixorder">Use this list's order</button></div>`}
+      ${ok || !v.order.length ? '' : '<div class="cb_hint">Off: these don\'t run until you switch them on.</div>'}
+      ${v.same || query ? '' : `<div class="cb_hint rx_order">ST's run order no longer matches this list. <button class="menu_button" data-act="fixorder">Use This Order</button></div>`}
       <div class="rx_body">${fhtml}${looseHtml}</div>
     </div>`;
   }
@@ -329,12 +337,12 @@ try {
       document.head.appendChild(st);
     }
     if (!ready()) {
-      const why = E ? 'SillyTavern\'s Regex extension is switched off. Turn it on in Manage Extensions to use this page.'
-        : 'Couldn\'t reach SillyTavern\'s Regex extension, so this page can\'t show your regexes.';
+      const why = E ? 'ST\'s Regex extension is off. Turn it on in Manage Extensions to use this page.'
+        : 'Couldn\'t reach ST\'s Regex extension, so this page can\'t show your regexes.';
       return pageHtml('regex', '', { sw: ['m_rx_enable', true], note: `<div class="cb_hint ntr_pnote">${why}</div>` });
     }
     return pageHtml('regex', `
-      <div class="cb_hint">SillyTavern's regexes, in folders. SillyTavern keeps and runs them: Global first, then Preset, then Character, each from top to bottom. Order can matter, since each regex works on what the ones above it left.<br>Drag here to change the order; SillyTavern's own order changes to match. Edit opens SillyTavern's own editor.</div>
+      <div class="cb_hint">ST runs these top to bottom: Global, then Preset, then Character. Each regex works on what the ones above it left. Dragging here changes ST's order too; folders show only here.</div>
       <a class="rx_guide" href="https://sepsisshock.github.io/SillyTavernGuides/regex.html" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-book-open"></i>New to regexes? Learn the basics<i class="fa-solid fa-arrow-up-right-from-square fa-xs"></i></a>
       <div class="rx_top">
         <input type="search" class="text_pole rx_search" placeholder="Search regexes" aria-label="Search regexes" value="${esc(query)}">
@@ -359,8 +367,8 @@ try {
     const cur = folders(sec).find((f) => f.ids.includes(id)) || null;
     const item = (fid, icon, label, here) => `<button data-act="mvto" data-fid="${esc(fid)}"${here ? ' class="ntr_here" disabled' : ''}><i class="fa-solid ${icon} fa-fw"></i>${esc(label)}</button>`;
     A.popMenu(anchor, folders(sec).map((f) => item(f.id, 'fa-folder', f.name, f === cur)).join('')
-      + item('', 'fa-inbox', 'Unassigned', !cur)
-      + '<button data-act="mvnew"><i class="fa-solid fa-folder-plus fa-fw"></i>New folder…</button>');
+      + item('', 'fa-inbox', 'No Folder', !cur)
+      + '<button data-act="mvnew"><i class="fa-solid fa-folder-plus fa-fw"></i>New Folder…</button>');
   }
 
   // Puts a regex in a folder (or Unassigned) at the end of it, and SillyTavern's run order follows.
@@ -387,10 +395,17 @@ try {
   function folderMenu(anchor, sec, f) {
     A.popMenu(anchor, `
       <button data-act="frename"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
-      <button data-act="fnew"><i class="fa-solid fa-plus fa-fw"></i>New regex here</button>
-      <button data-act="fimport"><i class="fa-solid fa-file-import fa-fw"></i>Import here</button>
-      <button data-act="fexport"><i class="fa-solid fa-file-export fa-fw"></i>Export folder</button>
-      <button data-act="fdelete" class="ntr_danger"><i class="fa-solid fa-trash fa-fw"></i>Delete folder</button>`);
+      <button data-act="fnew"><i class="fa-solid fa-plus fa-fw"></i>New Regex Here</button>
+      <button data-act="fimport"><i class="fa-solid fa-file-import fa-fw"></i>Import Here</button>
+      <button data-act="fexport"><i class="fa-solid fa-file-export fa-fw"></i>Export Folder</button>
+      <button data-act="fdelete" class="ntr_danger"><i class="fa-solid fa-trash fa-fw"></i>Delete Folder</button>`);
+  }
+
+  // A section's Import and Export, kept in a menu so its header has room on a phone.
+  function sectionMenu(anchor, sec) {
+    A.popMenu(anchor, `
+      <button data-act="imp"><i class="fa-solid fa-file-import fa-fw"></i>Import ${sec.name} Regexes</button>
+      <button data-act="exp"><i class="fa-solid fa-file-export fa-fw"></i>Export All ${sec.name} Regexes</button>`);
   }
 
   const nameCheck = (sec, self) => (v) => {
@@ -408,7 +423,7 @@ try {
     const f = fEl && sec ? folders(sec).find((x) => x.id === fEl.dataset.fid) : null;
     const id = e.target.closest('.rx_row')?.dataset.id;
     if (!b) {
-      if (f && !query && e.target.closest('.rx_fhead') && !e.target.closest('input, .ntr_grip')) {
+      if (f && !query && e.target.closest('.rx_fhead') && !e.target.closest('input, .rx_swbox, .ntr_grip')) {
         const s = settings();
         s.uiOpen[openKey(f)] = !s.uiOpen[openKey(f)];
         save();
@@ -419,10 +434,11 @@ try {
     const act = b.dataset.act;
     if (act !== 'fmenu') pending = null;
     switch (act) {
-      case 'imp': importTo(sec); break;
+      case 'smenu': sectionMenu(b, sec); break;
+      case 'imp': closePops(); importTo(sec); break;
       case 'new': stClick(document.getElementById(sec.add)); break;
       case 'newf': {
-        const name = await askText(b, { label: 'Folder name', ok: 'Add', check: nameCheck(sec, null) });
+        const name = await askText(b, { label: 'Folder Name', ok: 'Add', check: nameCheck(sec, null) });
         if (!name) return;
         const nf = { id: newId('rxf'), name, ids: [], was: null };
         folders(sec, true).push(nf);
@@ -431,7 +447,7 @@ try {
         refresh();
         break;
       }
-      case 'exp': download(scripts(sec), `regexes-${sec.name}`); break;
+      case 'exp': closePops(); download(scripts(sec), `regexes-${sec.name}`); break;
       case 'fixorder': reorder(sec, view(sec).order); break;
       case 'edit': stClick(stRow(sec, id)?.querySelector('.edit_existing_regex')); break;
       case 'del': stClick(stRow(sec, id)?.querySelector('.delete_regex')); break;
@@ -441,7 +457,7 @@ try {
       case 'mvnew': {
         const row = b.closest('.rx_row');
         closePops();
-        const name = await askText(row, { label: 'Folder name', ok: 'Add', check: nameCheck(sec, null) });
+        const name = await askText(row, { label: 'Folder Name', ok: 'Add', check: nameCheck(sec, null) });
         if (!name) return;
         const nf = { id: newId('rxf'), name, ids: [], was: null };
         folders(sec, true).push(nf);
@@ -451,7 +467,7 @@ try {
       }
       case 'frename': {
         closePops();
-        const name = await askText(fEl.querySelector('.rx_fhead'), { label: 'Folder name', value: f.name, ok: 'Rename', check: nameCheck(sec, f) });
+        const name = await askText(fEl.querySelector('.rx_fhead'), { label: 'Folder Name', value: f.name, ok: 'Rename', check: nameCheck(sec, f) });
         if (!name) return;
         f.name = name;
         save();

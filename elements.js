@@ -162,7 +162,7 @@
   // Styles set where each detail goes. SillyTavern is where it puts them itself.
   const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
   const MD_PRESETS = {
-    st: ['SillyTavern', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
+    st: ['ST', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
     messenger: ['Messenger', mdSpots([], [], ['time'], [])],
     row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
     footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],

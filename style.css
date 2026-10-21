@@ -276,6 +276,7 @@
 .ntr_colwrap { flex: 1 1 240px; min-width: 0; }
 .ntr_fgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ntr_page .ntr_fgrid .ntr_card { margin: 0; padding: 8px; }
+.ntr_compact .ntr_fgrid { grid-template-columns: 1fr; }
 
 .ntr_tsel { width: 100%; margin: 8px 0 0; }
 .ntr_terr { color: var(--warning, #e57373); font-size: 0.85em; }

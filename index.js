@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.69.23';
+  const VERSION = '2.69.24';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
   const DEFAULTS = { 
@@ -2978,7 +2978,7 @@ await (async () => {
   // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
   // radio group, anything else on its first control. A pill keeps its own text as its name.
   const ovLabel = (label, inner) => {
-    const n = escapeHTML(label);
+    const n = escapeHTML(label.replace(/<[^>]*>/g, '').trim());
     const named = /^\s*<div class="cb_pills"/.test(inner)
       ? inner.replace('<div class="cb_pills"', `<div class="cb_pills" role="radiogroup" aria-label="${n}"`)
       : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);

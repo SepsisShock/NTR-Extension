@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Free send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.69.31';
+  const DECOR_VERSION = '2.70.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
@@ -19,7 +19,7 @@
 
   // Interface Shape for the rest of the interface: SillyTavern's Menu Bar, drawers, side panels, menus and popups, and NTR's
   // own windows. Every corner follows it, wherever the part sits, even against the screen edge. Boxes inside them are a
-  // little less round, so their corners sit inside the outer ones. Buttons, text boxes, checkboxes, sliders and pills keep ST's
+  // little less round, so their corners sit inside the outer ones. Buttons, text boxes, checkboxes, sliders, pills and tiles keep ST's
   // corners on Rounded and go square on Square. Messages, the send box, avatars, the VN box and Reasoning keep their own
   // Shape, and scrollbars what their Custom CSS sets.
   const UI_SHELLS = ['#top-bar', '.drawer-content', '#character_popup', '.popup', '.popup .popper-modal', '#dialogue_popup', '#select_chat_popup',
@@ -35,7 +35,7 @@
   const UI_HOLDERS = ':is(#top-settings-holder, #character_popup, .popup, #dialogue_popup, #movingDivs, #cb_modal_overlay, #ntr_pin_layer .ntr_agres, #ntr_map)';
   const UI_CONTROLS = `:is(.menu_button, .text_pole, textarea, select, input[type="checkbox"]:not(${SWITCHES.map((x) => x.split(' ').pop()).join(', ')}),
     .select2-selection, .range-block-counter input, .neo-range-input, .neo-range-slider, input[type="range"], .ui-slider, .ui-slider-handle,
-    .cb_hbtn, .cb_close_btn, .ntr_map_hb, .ntr_agres_btn, .cb_pill)`;
+    .cb_hbtn, .cb_close_btn, .ntr_map_hb, .ntr_agres_btn, .cb_pill, .ntr_tile_face)`;
 
   function uiShapeCss(s) {
     if (!s.ovShapeOn) return '';

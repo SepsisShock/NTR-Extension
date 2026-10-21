@@ -1,12 +1,13 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.69.26';
+  const OP_VERSION = '2.69.27';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, media, pills, onPills, subHead } = A;
+  const { ovLabel } = A.look;
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -262,7 +263,7 @@
     v.addEventListener('ended', () => { if (cur === st && st.phase === 'video') end(); });
     v.addEventListener('error', () => {
       if (cur !== st || st.phase !== 'video') return;
-      toastr.warning('The opening video could not be played.', 'Opening video');
+      toastr.warning('The opening video could not be played.', 'Opening Video');
       end();
     });
     let p;
@@ -329,7 +330,7 @@
     later(() => { if (st.phase === 'video' && !st.ytPlayed) ytFail(); }, 15000);
   }
   function ytFail() {
-    toastr.warning('The opening video could not be played.', 'Opening video');
+    toastr.warning('The opening video could not be played.', 'Opening Video');
     end();
   }
 
@@ -553,70 +554,63 @@
   // ----- Menu section -----
   function sectionHtml(s) {
     if (!A.store()) {
-      return `${subHead('vn_open', 'Opening Video ' + TAG)}
+      return `${subHead('vn_open', 'Opening Video ' + TAG, 'fa-clapperboard')}
         <div class="cb_collapse_content"><div class="cb_hint">Open a character chat first. The opening is saved per character.</div></div>`;
     }
     const o = op();
-    const sl = (id, key, label, unit, min, max, step, shown) => `
-      <div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_op_${id}val" class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>
-      <input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}">`;
+    // opening.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
+    const sl = (id, key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_op_${id}val" class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
     const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
     return `
-      ${subHead('vn_open', 'Opening Video ' + TAG)}
+      ${subHead('vn_open', 'Opening Video ' + TAG, 'fa-clapperboard')}
       <div class="cb_collapse_content">
-        <div class="cb_hint">Plays before the story, like an anime opening. Video source:</div>
-        ${pills('opsrc', [['off', 'Off'], ['youtube', 'YouTube'], ['file', 'Video file or link']], o.src)}
+        ${ovLabel('Source', pills('opsrc', [['off', 'Off'], ['youtube', 'YouTube'], ['file', 'Video']], o.src))}
           <div id="m_op_yt" style="margin-top:8px;${o.src === 'youtube' ? '' : 'display:none;'}">
-            <label class="cb_dfield"><span>YouTube link</span><input type="text" id="m_op_url" class="text_pole" placeholder="https://www.youtube.com/watch?v=..." value="${escapeHTML(o.yt)}"></label>
+            ${ovLabel('YouTube Link', `<input type="text" id="m_op_url" class="text_pole" style="width:100%;margin:0;" placeholder="https://www.youtube.com/watch?v=..." value="${escapeHTML(o.yt)}">`)}
           </div>
-          <div id="m_op_file" class="cb_row" style="margin-top:8px;${o.src === 'file' ? '' : 'display:none;'}">
-            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fileName || '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
-            <button type="button" id="m_op_up" class="menu_button" style="margin:0;" title="Upload video"><i class="fa-solid fa-upload"></i></button>
-            <button type="button" id="m_op_vurl" class="menu_button" style="margin:0;" title="Use a link to a video"><i class="fa-solid fa-link"></i></button>
-            <button type="button" id="m_op_clr" class="menu_button danger_button" style="margin:0;" title="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+          <div id="m_op_file" class="cb_row cb_cur_row" style="margin-top:8px;${o.src === 'file' ? '' : 'display:none;'}">
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fileName || '<span class="cb_hint">No video yet (MP4 or WebM)</span>'}</span>
+            <button type="button" id="m_op_up" class="menu_button" style="margin:0;" title="Upload video" aria-label="Upload video"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_vurl" class="menu_button" style="margin:0;" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
+            <button type="button" id="m_op_clr" class="menu_button danger_button" style="margin:0;" title="Remove video" aria-label="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
         <div id="m_op_body" class="${hasSource(o) ? '' : 'cb_dim'}">
-          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title screen first (art, name, Start button; the click turns sound on)</span></label>
-          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_mute" ${s.opMute ? 'checked' : ''}><span>Play muted (the Mute / Sound on button during the video changes this too)</span></label>
-          <div style="margin-top:8px;"><small>Plays</small>
-            ${pills('opwhen', [['newchat', 'First time a new chat starts'], ['open', 'Every time the chat opens'], ['vn', 'Every time VN mode switches on']], o.when)}
-          </div>
-          <div style="margin-top:8px;"><small>Logo at the end</small>
-            ${pills('oplogo', [['upload', 'Uploaded logo'], ['none', 'None']], o.logo === 'none' ? 'none' : 'upload')}
-          </div>
-          <div id="m_op_lrow" class="cb_row" style="margin-top:6px;${o.logo === 'none' ? 'display:none;' : ''}">
+          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title Screen First</span></label>
+          <div class="cb_hint">Shows the scene, the character's picture and name, and a Start button.</div>
+          ${ovLabel('Plays', pills('opwhen', [['newchat', 'Once per New Chat'], ['open', 'Each Time the Chat Opens'], ['vn', 'Each Time Visual Novel Starts']], o.when))}
+          ${ovLabel('Logo', pills('oplogo', [['upload', 'Picture'], ['none', 'None']], o.logo === 'none' ? 'none' : 'upload'))}
+          <div id="m_op_lrow" class="cb_row cb_cur_row" style="margin-top:6px;${o.logo === 'none' ? 'display:none;' : ''}">
             <div class="cb_thumbbox cb_wide">${logoBox}</div>
             <span style="flex:1;"></span>
-            <button type="button" id="m_op_lup" class="menu_button" style="margin:0;" title="Upload logo"><i class="fa-solid fa-upload"></i></button>
-            <button type="button" id="m_op_lurl" class="menu_button" style="margin:0;" title="Use a link for the logo"><i class="fa-solid fa-link"></i></button>
-            <button type="button" id="m_op_lclr" class="menu_button danger_button" style="margin:0;" title="Remove logo" ${o.logoUrl ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+            <button type="button" id="m_op_lup" class="menu_button" style="margin:0;" title="Upload logo" aria-label="Upload logo"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_lurl" class="menu_button" style="margin:0;" title="Use a link for the logo" aria-label="Use a link for the logo"><i class="fa-solid fa-link"></i></button>
+            <button type="button" id="m_op_lclr" class="menu_button danger_button" style="margin:0;" title="Remove logo" aria-label="Remove logo" ${o.logoUrl ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
+          <div class="cb_sub">For All Characters</div>
+          <label class="checkbox_label"><input type="checkbox" id="m_op_mute" ${s.opMute ? 'checked' : ''}><span>Start Muted</span></label>
+          <div class="cb_hint">The sound button during the video changes this too.</div>
           <div id="m_op_lbody" class="${o.logo === 'none' ? 'cb_dim' : ''}">
-            ${sl('lead', 'opLead', 'Logo appears before the end', ' s', 0, 15, 0.5, s.opLead)}
-            ${sl('fade', 'opFade', 'Logo fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
-            ${sl('size', 'opSize', 'Logo size', '%', 10, 100, 1, s.opSize)}
-            <div style="margin-top:8px;"><small>Logo position</small>
-              ${pills('oppos', [['upper', 'Upper third'], ['center', 'Center'], ['lower', 'Lower third']], s.opPos)}
-            </div>
-            <div style="margin-top:8px;"><small>Logo exit</small>
-              ${pills('opexit', [['stay', 'As is'], ['fade', 'Fade out'], ['rise', 'Rise to top']], s.opExit || 'stay')}
-            </div>
-            <div class="cb_hint" style="margin-top:4px;">Rise to top: the logo drifts up once the video ends and stays behind the characters. Skipping the video turns this off for that playthrough.</div>
+            ${sl('lead', 'opLead', 'Logo Appears Before the End', ' s', 0, 15, 0.5, s.opLead)}
+            ${sl('fade', 'opFade', 'Logo Fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
+            ${sl('size', 'opSize', 'Logo Size', '%', 10, 100, 1, s.opSize)}
+            ${ovLabel('Logo Position', pills('oppos', [['upper', 'Upper Third'], ['center', 'Center'], ['lower', 'Lower Third']], s.opPos))}
+            ${ovLabel('Logo Exit', pills('opexit', [['stay', 'Stay'], ['fade', 'Fade Out'], ['rise', 'Rise to Top']], s.opExit || 'stay'))}
+            <div class="cb_hint" style="margin-top:4px;">Rise to Top: the logo stays behind the characters until the chat changes. Skipping the video skips it.</div>
           </div>
-          <div style="margin-top:8px;"><small>Transition into the story</small>
-            ${pills('optrans', [['color', 'Color fade'], ['cross', 'Crossfade']], s.opTrans === 'cross' ? 'cross' : 'color')}
-          </div>
+          ${ovLabel('Transition', pills('optrans', [['color', 'Color Fade'], ['cross', 'Crossfade']], s.opTrans === 'cross' ? 'cross' : 'color'))}
           <div id="m_op_crow" class="cb_row" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}">
-            <label for="m_op_color">Fade color</label><input type="color" id="m_op_color" value="${escapeHTML(transColor())}">
+            <label for="m_op_color">Fade Color</label><input type="color" id="m_op_color" value="${escapeHTML(transColor())}">
           </div>
-          <label id="m_op_erow" class="checkbox_label" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade out the ending (the color covers the last seconds while the video still plays)</span></label>
-          ${sl('trans', 'opTransMs', 'Transition length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
-          <div class="cb_hint" style="margin-top:4px;">Color fade: video, then the color, then the story (the length applies to both fades). Crossfade: the last frame of the video blends straight into the story. Skipping the video always uses a quick color fade.</div>
+          <div id="m_op_erow" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}">
+            <label class="checkbox_label"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade Over the Ending</span></label>
+            <div class="cb_hint">The color covers the last seconds while the video still plays.</div>
+          </div>
+          ${sl('trans', 'opTransMs', 'Transition Length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
+          <div class="cb_hint" style="margin-top:4px;">Color Fade: the length applies to both fades. Crossfade blends the last frame into the story. Skipping always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
-            <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play now</button>
+            <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play Now</button>
           </div>
-          <div class="cb_hint" style="margin-top:6px;">Logo style is shared by all characters and saved in themes.</div>
         </div>
         <input type="file" id="m_op_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
         <input type="file" id="m_op_lfile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
@@ -641,7 +635,7 @@
     const url = q('#m_op_url');
     if (url) url.onchange = () => {
       const v = url.value.trim();
-      if (v && !(A.getYouTubeId && A.getYouTubeId(v))) toastr.warning('That doesn\'t look like a YouTube link.', 'Opening video');
+      if (v && !(A.getYouTubeId && A.getYouTubeId(v))) toastr.warning('That doesn\'t look like a YouTube link.', 'Opening Video');
       setOp('yt', v);
       syncBody();
     };
@@ -689,21 +683,21 @@
       vfile.value = '';
       if (!f) return;
       try {
-        const path = await A.uploadHere(() => uploadVideo(f, 'vnop', 'Opening video', up));
+        const path = await A.uploadHere(() => uploadVideo(f, 'vnop', 'Opening Video', up));
         if (!path) return;
         const old = op().file;
         setOp('file', path);
         A.deleteFileIfUnused(old);
-        toastr.success('Opening video uploaded.', 'Opening video');
+        toastr.success('Opening video uploaded.', 'Opening Video');
       } catch (e) {
         console.error('[NTR opening upload]', e);
-        toastr.error(e.message || 'Video upload failed', 'Opening video');
+        toastr.error(e.message || 'Video upload failed', 'Opening Video');
       }
       A.openMenu();
     };
     const vurl = q('#m_op_vurl');
     if (vurl && askVideoUrl) vurl.onclick = async () => {
-      const url = await askVideoUrl('Opening video', vurl);
+      const url = await askVideoUrl('Opening Video', vurl);
       if (!url) return;
       const old = op().file;
       setOp('file', url);
@@ -744,14 +738,14 @@
         A.deleteFileIfUnused(old);
       } catch (e) {
         console.error('[NTR logo upload]', e);
-        toastr.error(e.message || 'Logo upload failed', 'Opening video');
+        toastr.error(e.message || 'Logo upload failed', 'Opening Video');
       }
       A.openMenu();
     };
     const lclr = q('#m_op_lclr');
-    if (lclr) lclr.onclick = () => {
+    if (lclr) lclr.onclick = async () => {
       const old = op().logoUrl;
-      if (!old) return;
+      if (!old || !(await A.askYes(q('#m_op_lrow'), 'Remove the logo? Its file is deleted unless something else uses it.', 'Remove', { danger: true }))) return;
       setOp('logoUrl', '');
       A.deleteFileIfUnused(old);
       A.openMenu();

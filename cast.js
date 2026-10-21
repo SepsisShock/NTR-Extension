@@ -572,6 +572,7 @@
     return `<div class="ntr_keepon">
       ${subHead('av_emo', 'Emotions', 'fa-face-smile')}
       <div class="cb_collapse_content">
+        <div class="cb_hint">${TAG} Marks settings saved per character.</div>
         <div class="cb_hint">Faces per emotion and a full body for each speaker. Visual Novel Mode uses them; with it off, In the Chat can show them.</div>
         <div><strong>Emotion Source:</strong>${pills('emosrc', [['tags', 'Tags'], ['agent', 'Agent (Soon)', 'An agent will read each reply and pick the emotion. Not ready yet.']], s.emoSource === 'agent' ? 'agent' : 'tags')}</div>
         ${subHead('av_chat', 'In the Chat', 'fa-message')}
@@ -592,6 +593,7 @@
         </div>
         ${subHead('av_emo_list', 'Emotion List', 'fa-list-ul')}
         <div class="cb_collapse_content">
+          <div class="cb_hint">Names are shared by all characters. Pictures are set per character under Speakers.</div>
           <div class="cb_hint">The dot marks the default, used when a tag has no emotion or one not on this list.</div>
           <div id="m_emo_list"></div>
           <div class="cb_row" style="margin-top:6px;">

@@ -152,9 +152,12 @@
       #chat .mes[is_user="${isUserStr}"] { flex-direction: row !important; }
       ${stacked ? `#chat .mes[is_user="${isUserStr}"] { flex-wrap: wrap !important; }
       #chat .mes[is_user="${isUserStr}"] .mes_block { flex: 0 0 100% !important; }` : ''}
+      ${where === 'above' ? `/* SillyTavern keeps room for the swipe arrows under the newest message's avatar; above the text, that room goes under the text. */
+      #chat .last_mes[is_user="${isUserStr}"] .mesAvatarWrapper { padding-bottom: 0 !important; }
+      #chat .last_mes[is_user="${isUserStr}"] .mes_block { padding-bottom: var(--avatar-base-height) !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
         order: ${where === 'right' || where === 'below' ? 1 : 0} !important;
-        ${stacked ? 'flex: 0 0 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important;'
+        ${stacked ? `flex: 0 0 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important; margin-${where === 'above' ? 'bottom' : 'top'}: 6px !important;`
           : `align-self: ${v === 't' ? 'flex-start' : v === 'b' ? 'flex-end' : 'center'} !important;`}
       }
       #chat .mes[is_user="${isUserStr}"] .avatar {
@@ -335,7 +338,7 @@
               ${getColHtml('us', 'User', s)}
             </div>
             ${castPartHtml()}
-        `, { sw: ['m_a_enable', s.avatarEnabled], legend: true });
+        `, { sw: ['m_a_enable', s.avatarEnabled] });
   }
 
   // The Avatar Management page's switch and both columns.

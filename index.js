@@ -2,7 +2,7 @@ await (async () => {
   const MODULE = 'chatvisuals';
   const VERSION = '2.69.30';
   const NTR_BASE = new URL('.', import.meta.url).href;
-  const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character"></i>';
+  const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   const DEFAULTS = { 
     bannerOn: false,
     bannerMode: 'image', 
@@ -2521,7 +2521,7 @@ await (async () => {
           <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
           <h3 class="ntr_ptitle">${title}</h3>
           ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
-          ${legend ? `<div class="cb_hint ntr_legend">${TAG} saved per character. Everything else is global.</div>` : ''}
+          ${legend ? `<div class="cb_hint ntr_legend">${TAG} Marks settings saved per character.</div>` : ''}
         </div>
         ${note}
         <div class="ntr_pbody">${body}</div>

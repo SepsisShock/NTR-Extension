@@ -294,7 +294,8 @@
 
   // Which ways a side's picture is bigger than its box, so Shift Left/Right and Up/Down have something to do. A Shape
   // cuts a picture that's taller or wider than it (the newest one in the chat, or a portrait while there's none). None
-  // only gets cut on Backdrop with Fill or Original, where a short message cuts the bottom off. Zoom, and Shape Only
+  // only gets cut on Backdrop with Fill or Original: a short message cuts the bottom off, and a narrow one the sides
+  // (the box is at most 80% of the message wide). Zoom, and Shape Only
   // turned, make it bigger both ways.
   function shiftRoom(s, prefix) {
     const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
@@ -307,7 +308,8 @@
       return { x: ar > box + 0.01, y: ar < box - 0.01 };
     }
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
-    return { x: false, y: ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain' };
+    const cut = ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
+    return { x: cut, y: cut };
   }
   const anyFade = (s, prefix) => Object.values(FADE_PARTS).some(([key]) => rangeNum(s, prefix + key) > 0);
 

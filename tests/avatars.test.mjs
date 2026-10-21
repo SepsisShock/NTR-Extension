@@ -45,3 +45,15 @@ test('Rotation turns the avatar, and Shape Only turns the picture back', () => {
   assert.doesNotMatch(css, /rotate\(-30deg\)/);
   Object.assign(s, { aiRotate: 0, aiRotateMode: 'shape', aiShape: 'none' });
 });
+
+test('facing fades longer than the picture meet without a hard line, and 100% Strength is a hard edge', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'backdrop', aiShape: 'none', usEnabled: false, aiFadeLeft: 60, aiFadeRight: 60, aiFadeStr: 75 });
+  const h = window.NTR.avatars.css(s).split('mask-image: linear-gradient(to right, ')[1].split(', linear-gradient(to bottom')[0];
+  const at = [...h.matchAll(/\) ([\d.]+)%/g)].map((m) => Number(m[1]));
+  assert.equal(at.length, 18);
+  assert.deepEqual(at, [...at].sort((a, b) => a - b), 'stops go backwards');
+  Object.assign(s, { aiFadeLeft: 0, aiFadeRight: 0, aiFadeBot: 40, aiFadeStr: 100 });
+  assert.match(window.NTR.avatars.css(s), /rgba\(0,0,0,1\) 60%, rgba\(0,0,0,0\) 60%, rgba\(0,0,0,0\) 100%\)/);
+  Object.assign(s, { aiFadeBot: 0, aiFadeStr: 50 });
+});

@@ -152,13 +152,19 @@
     // ends; lower keeps more of the picture in it (0%: no fade), higher less (100%: the faded part is gone). u is the
     // place in a fade, 0 at the edge and 1 where it ends.
     const str = n('FadeStr') / 100;
-    const bend = str >= 1 ? 60 : str / (1 - str);
-    const steps = bend === 1 ? [0, 1] : Array.from({ length: 9 }, (_, i) => i / 8);
-    const seen = (u) => `rgba(0,0,0,${+Math.pow(u, bend).toFixed(3)})`;
+    const bend = str / (1 - str);
+    // Each stop: [u, how much of the picture shows there]. 100% is a hard edge where the fade ends.
+    const stops = str >= 1 ? [[0, 0], [1, 0], [1, 1]]
+      : (bend === 1 ? [0, 1] : Array.from({ length: 9 }, (_, i) => i / 8)).map((u) => [u, +Math.pow(u, bend).toFixed(3)]);
     // A side's fade, as stops from its edge in, len % long. The far side's are counted from 100%.
-    const band = (len, far) => steps.map((u) => `${seen(u)} ${+(far ? 100 - u * len : u * len).toFixed(2)}%`);
-    const hMask = `linear-gradient(to right, ${[...band(leftFade, false), ...band(rightFade, true).reverse()].join(', ')})`;
-    const vMask = `linear-gradient(to bottom, ${[...band(topFade, false), ...band(botFade, true).reverse()].join(', ')})`;
+    const band = (len, far) => stops.map(([u, a]) => `rgba(0,0,0,${a}) ${+(far ? 100 - u * len : u * len).toFixed(2)}%`);
+    // Two facing fades longer than the picture are shortened alike, so they meet without a hard line.
+    const pair = (a, b, dir) => {
+      const k = a + b > 100 ? 100 / (a + b) : 1;
+      return `linear-gradient(${dir}, ${[...band(a * k, false), ...band(b * k, true).reverse()].join(', ')})`;
+    };
+    const hMask = pair(leftFade, rightFade, 'to right');
+    const vMask = pair(topFade, botFade, 'to bottom');
     // A corner fade is a rounded fade from that corner, reaching its % of the picture's width and height.
     const corners = [['TL', '0% 0%'], ['TR', '100% 0%'], ['BL', '0% 100%'], ['BR', '100% 100%']]
       .filter(([k]) => n('Fade' + k) > 0)
@@ -484,9 +490,17 @@
       
       sliders.forEach(({ id, key }) => {
         const el = overlay.querySelector(`#m_${prefix}_${id}`);
-        el.oninput = function(e) {
-          // Dragging Rotation sticks at 0, so it's easy to set straight again. A typed value goes in as it is.
-          if (key === 'Rotate' && e.isTrusted && Math.abs(Number(this.value)) <= 3) this.value = 0;
+        // Dragging Rotation sticks at 0, so it's easy to set straight again. Arrow keys and typed values go in as they are.
+        if (key === 'Rotate') {
+          const end = () => { delete el.dataset.drag; };
+          el.onpointerdown = () => {
+            el.dataset.drag = '1';
+            window.addEventListener('pointerup', end, { once: true });
+            window.addEventListener('pointercancel', end, { once: true });
+          };
+        }
+        el.oninput = function() {
+          if (key === 'Rotate' && this.dataset.drag && Math.abs(Number(this.value)) <= 3) this.value = 0;
           s[`${prefix}${key}`] = Number(this.value);
           overlay.querySelector(`#m_${prefix}_${id}val`).textContent = this.value;
           if (key === 'Zoom' || key === 'Rotate') syncScale();

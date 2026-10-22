@@ -5,10 +5,10 @@
 // its own request through SillyTavern (Chat Completion or Text Completion), or uses your chat's connection (Same as Chat).
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
 // An agent's answer shows in its activity. An agent can also save its answers in the chat, and a Dashboard (a Pinned
-// Block set to Agent Results, index.js) shows them on screen. With Answer set to Fields, it keeps named values instead
+// Block set to Agent Results, layout.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.72.0';
+  const AGENTS_VERSION = '2.72.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -528,7 +528,7 @@
   const fails = new Map();
   let chain = Promise.resolve();
   let current = null;
-  // Pinned Blocks with agent results catch up (index.js).
+  // Pinned Blocks with agent results catch up (layout.js).
   const refreshBoxes = () => A.refreshPins?.();
   function log(a, entry) {
     if (!byId(a.id)) return;
@@ -1739,7 +1739,7 @@
       const a = list().find((x) => x.name.toLowerCase() === want);
       return a && a.keep === 'chat' ? latest(a.id, macroAt ?? sendUpTo())?.text ?? '' : '';
     },
-    // For Pinned Blocks set to Agent Results (index.js).
+    // For Pinned Blocks set to Agent Results (layout.js).
     pinView,
     // An agent's current answer: its newest saved one in this chat, or for Activity Only, its last since the page loaded.
     answer: (id) => { const a = byId(id); return a?.keep === 'chat' ? latest(id)?.text ?? '' : answers.get(id) ?? ''; },

@@ -13,7 +13,7 @@ test('the core starts without decor.js', () => {
   assert.equal(typeof api, 'object');
   assert.equal(window.NTR.decor, undefined);
   assert.notEqual(api.moduleError('decor'), '');
-  assert.ok(window.NTR.elements && window.NTR.text && window.NTR.avatars, 'the other look modules did not load without decor.js');
+  assert.ok(window.NTR.elements && window.NTR.text && window.NTR.avatars && window.NTR.layout, 'the other look modules did not load without decor.js');
   assert.ok(took < 4000, `the core waited ${Math.round(took)} ms for a file that isn't there`);
 });
 

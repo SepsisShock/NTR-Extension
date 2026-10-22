@@ -115,11 +115,6 @@ On light theme colors, the yellow is hard to read and the lines and highlights b
 - [ ] Confirm the findings on a real phone before choosing a fix.
 - Replacing the once-a-second check with events remains cleanup; the simulation does not establish it as the main cause of lag.
 
-### Split the look pages into their own files
-`index.js` holds the last look page, Layout. Users would see no difference; this keeps the core smaller.
-
-- [ ] When a new feature is proposed for Layout, move Layout first, the same way as the others (`elements.js`, `text.js`, `avatars.js`, `decor.js`), so the feature goes straight into its own file. Edit Layout, Layout and Pinned Blocks sit together in `index.js` and would move as one file. The rest of the core uses 15 of their names. They need a few core names that `window.NTR.api` doesn't share yet: `layoutPop`, `syncPopSliders`, `fgOwner`, `decorOn` and `clamp`. Cleaning saved blocks (`cleanPins` and its limits) stays in the core, which uses it for settings and themes, so the moved file would take it from there too.
-
 ### Story Memory
 Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI with NTR's own scene memories and optional recall. The basic system uses SillyTavern's chat storage and NTR's existing agent connections; other memory extensions are optional.
 

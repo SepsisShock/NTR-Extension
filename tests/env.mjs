@@ -7,9 +7,9 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
-export const MODULES = ['cast', 'vn', 'map', 'opening', 'overlays', 'regex', 'reader', 'agents', 'elements', 'text', 'avatars', 'decor'];
+export const MODULES = ['cast', 'vn', 'map', 'opening', 'overlays', 'regex', 'reader', 'agents', 'elements', 'text', 'avatars', 'decor', 'layout'];
 // The look modules, which the core loads itself before it starts (LOOK_MODULES in index.js).
-export const LOOK = ['elements', 'text', 'avatars', 'decor'];
+export const LOOK = ['elements', 'text', 'avatars', 'decor', 'layout'];
 
 const noop = () => {};
 // Stands in for document and anything else the files only touch in passing: every property and call returns itself.

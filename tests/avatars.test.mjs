@@ -69,3 +69,12 @@ test('a Filter goes on the picture, a Texture over it, and None or 0% has none',
   Object.assign(s, { aiFilter: 'none', aiFilterStr: 100, aiTexture: 'none', aiTextureStr: 100 });
   assert.doesNotMatch(window.NTR.avatars.css(s), /filter:|::after/);
 });
+
+test('under Shape Only the Texture turns back with the picture', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'inline', aiShape: 'square', usEnabled: false, aiRotate: 30, aiRotateMode: 'shape', aiTexture: 'scanlines' });
+  assert.match(window.NTR.avatars.css(s), /::after \{[^}]*transform: rotate\(-30deg\) scale\(1\.366\) !important;/);
+  s.aiRotateMode = 'both';
+  assert.doesNotMatch(window.NTR.avatars.css(s), /::after \{[^}]*transform:/);
+  Object.assign(s, { aiRotate: 0, aiRotateMode: 'shape', aiTexture: 'none', aiShape: 'none' });
+});

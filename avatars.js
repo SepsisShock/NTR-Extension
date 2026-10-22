@@ -64,14 +64,17 @@
     pixel: 'background: repeating-linear-gradient(to right, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px), repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px);',
   };
   // A side's Filter as the picture's filter rule, and its Texture as the rule for the layer over it (the box's ::after).
+  // Shape Only turns the layer back with the picture, a little bigger so it still fills the turned shape.
   function lookCss(s, prefix) {
     const f = FILTERS[s[`${prefix}Filter`]];
     const fStr = rangeNum(s, prefix + 'FilterStr') / 100;
     const t = TEXTURES[s[`${prefix}Texture`]];
     const tStr = rangeNum(s, prefix + 'TextureStr') / 100;
+    const turn = rangeNum(s, prefix + 'Rotate');
     return {
       filter: f && fStr ? `filter: ${f.fx(fStr)} !important;` : '',
-      layer: t && tStr ? `content: '' !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; z-index: 1 !important; opacity: ${r3(tStr)} !important; ${t}` : '',
+      layer: t && tStr ? `content: '' !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; z-index: 1 !important; opacity: ${r3(tStr)} !important; ${t}`
+        + (shapeOnly(s, prefix) ? ` transform: rotate(${-turn}deg) scale(${r3(turnCover(s[`${prefix}Shape`], turn))}) !important;` : '') : '',
     };
   }
   // The newest picture of a side in the chat, for the menu's previews.
@@ -443,7 +446,7 @@
         <div id="m_${prefix}_txwrap" class="${TEXTURES[s[`${prefix}Texture`]] ? '' : 'cb_dim'}">${slider('tx', 'TextureStr', 'Texture Strength:')}</div>
 
         <div class="cb_sub">Advanced: Custom CSS</div>
-        ${ovRow(s, `${prefix}CssOn`, `${title} Avatar CSS`, customCssBox(s, `${prefix}Css`, 'border: 2px solid white;&#10;box-shadow: 0 0 12px black;')
+        ${ovRow(s, `${prefix}CssOn`, `${title} Avatar CSS`, customCssBox(s, `${prefix}Css`, 'border: 2px solid white !important;&#10;box-shadow: inset 0 0 12px black;')
           + `<div class="cb_hint">CSS properties for this avatar, without a selector. ${CSS_NOTE}</div>`)}
 
         <button type="button" id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px; width: max-content;"><i class="fa-solid fa-rotate-left"></i> Reset ${title} Avatar</button>
@@ -554,7 +557,7 @@
       };
 
       overlay.querySelector(`#m_${prefix}_reset`).onclick = async function() {
-        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style included?`, 'Reset'))) return;
+        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style and Custom CSS included?`, 'Reset'))) return;
         for (const k of Object.keys(DEFAULTS)) {
           if (k.startsWith(prefix) && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
         }

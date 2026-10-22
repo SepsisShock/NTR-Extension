@@ -490,8 +490,9 @@ const styleText = () => {
   const AV = { avatarEnabled: true, aiEnabled: true, usEnabled: true };
   const AV_COMBOS = {
     avDefaults: AV,
-    aiBackdrop: { ...AV, aiStyle: 'backdrop', aiShape: 'none', aiFit: 'cover', aiFadeTop: 20, aiFadeBR: 30, aiBlur: 3, aiFocus: 30, aiPad: 40 },
+    aiBackdrop: { ...AV, aiStyle: 'backdrop', aiShape: 'none', aiFit: 'cover', aiFadeTop: 20, aiFadeBR: 30, aiFilter: 'noir', aiTexture: 'scanlines', aiTextureStr: 60, aiCssOn: true, aiCss: 'opacity: 0.9;', aiFocus: 30, aiPad: 40 },
     shapes: { ...AV, aiStyle: 'backdrop', aiShape: 'rectangle', aiCorner: 25, usStyle: 'popout', usShape: 'heart', usScale: 140, usPopX: 30, usPopY: -20 },
+    turnedLook: { ...AV, aiStyle: 'inline', aiShape: 'star', aiRotate: 30, aiZoom: 130, aiTexture: 'vhs', usStyle: 'popout', usShape: 'square', usRotate: -20, usRotateMode: 'both', usFilter: 'piss', usTexture: 'pixel' },
     starOriginal: { ...AV, aiStyle: 'inline', aiShape: 'star', aiSide: 'bl', usStyle: 'backdrop', usShape: 'none', usFit: 'original', usFadeLeft: 25 },
     stShapes: { ...AV, aiEnabled: false, aiShape: 'heart', usEnabled: false, usShape: 'square', usCorner: 15, usFocus: 70 },
     pageOff: { ...AV, avatarEnabled: false, aiShape: 'star', usShape: 'rectangle', usCorner: 30 },
@@ -520,7 +521,7 @@ const styleText = () => {
     t.release('cast');
     await sleep(1500);
     await t.show('emotions filled', () => ({ emo: !!document.querySelector('#m_emo_list') }));
-    const st = () => t.ev(() => { const s = NTR.api.settings(); return ['avatarEnabled', 'aiEnabled', 'aiStyle', 'aiShape', 'aiSide', 'aiFit', 'aiFadeTop', 'aiFadeBR', 'aiScale', 'aiPopX', 'aiPopY', 'aiBlur', 'aiCorner'].map((k) => `${k}=${s[k]}`).join(' '); });
+    const st = () => t.ev(() => { const s = NTR.api.settings(); return ['avatarEnabled', 'aiEnabled', 'aiStyle', 'aiShape', 'aiSide', 'aiFit', 'aiFadeTop', 'aiFadeBR', 'aiScale', 'aiPopX', 'aiPopY', 'aiFilter', 'aiTexture', 'aiCorner'].map((k) => `${k}=${s[k]}`).join(' '); });
     const pick = t.pick;
     const grp = () => t.ev(() => [...document.querySelectorAll('#m_ai_col .cb_grp')].map((g) => g.dataset.only + ':' + g.style.display).join(' | '));
     const dims = () => t.ev(() => ['fowrap', 'crwrap', 'fitwrap', 'scwrap', 'padwrap'].map((k) => `${k}${document.querySelector('#m_ai_' + k).classList.contains('cb_dim') ? '-dim' : ''}`).join(' '));

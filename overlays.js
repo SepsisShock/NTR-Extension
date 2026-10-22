@@ -5,7 +5,7 @@
 // the chat panel, with their page in the menu. Their settings and card data stay in index.js; Edit Placement is in
 // layout.js.
 (() => {
-  const OVERLAYS_VERSION = '2.75.0';
+  const OVERLAYS_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
@@ -643,7 +643,7 @@
               ${['Left', 'Center', 'Right'].map(pos => `
                 <div class="cb_col ntr_card" style="align-items: center; text-align: center;">
                   <strong>${pos}</strong>
-                  <div style="width:100%; height:80px; background:rgba(0,0,0,0.3); border-radius:4px; margin:5px 0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                  <div style="width:100%; height:80px; background:var(--ntr-well); border-radius:4px; margin:5px 0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
                     <img id="m_f_img_${pos}" src="${escapeHTML(media(F[pos]))}" alt="" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
                     <span id="m_f_none_${pos}" style="display:${F[pos] ? 'none' : 'block'}; opacity:0.5; font-size:12px;">Empty</span>
                   </div>

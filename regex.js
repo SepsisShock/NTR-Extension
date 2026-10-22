@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.75.0';
+  const REGEX_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -221,7 +221,7 @@ try {
       #cb_modal_overlay .rx_list .ntr_grip { width: 40px; align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0; }
     }
     #cb_modal_overlay .rx_sec { margin-top: 8px; }
-    #cb_modal_overlay .rx_sec + .rx_sec { margin-top: 22px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.08); }
+    #cb_modal_overlay .rx_sec + .rx_sec { margin-top: 22px; padding-top: 4px; border-top: 1px solid var(--ntr-line); }
     #cb_modal_overlay .rx_shead { gap: 6px; }
     #cb_modal_overlay .rx_shead .ntr_parttitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_stitle { flex: 1; min-width: 0; }
@@ -242,7 +242,7 @@ try {
     #cb_modal_overlay .rx_ublock { margin-top: 10px; }
     #cb_modal_overlay .ntr_page .rx_uhead { display: flex; align-items: center; gap: 8px; margin-top: 0; padding: 8px 10px; border-radius: 10px 10px 0 0; }
     #cb_modal_overlay .ntr_page .rx_loose { margin-top: 0; padding: 2px 12px 8px; border-top: 0; border-radius: 0 0 10px 10px; }
-    #cb_modal_overlay .rx_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+    #cb_modal_overlay .rx_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--ntr-line); }
     #cb_modal_overlay .rx_row:last-child { border-bottom: 0; }
     #cb_modal_overlay .rx_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_dim .rx_name { opacity: .45; text-decoration: line-through; }
@@ -250,7 +250,7 @@ try {
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
     #cb_modal_overlay input.rx_sw[type=checkbox] {
       appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0 4px 0 0;
-      border: 1px solid var(--SmartThemeBorderColor, #888); border-radius: 999px; background: rgba(0,0,0,.3); cursor: pointer;
+      border: 1px solid var(--SmartThemeBorderColor, #888); border-radius: 999px; background: var(--ntr-well-deep); cursor: pointer;
       outline: none; box-shadow: none; transform: none; align-self: center; transition: background .15s, border-color .15s;
     }
     #cb_modal_overlay input.rx_sw[type=checkbox]::after { content: none; display: none; }
@@ -259,7 +259,7 @@ try {
       background: var(--SmartThemeBodyColor, #ccc); opacity: .6; box-shadow: none; clip-path: none; transform: translateY(-50%); transition: left .15s, background .15s, opacity .15s;
     }
     #cb_modal_overlay input.rx_sw[type=checkbox]:checked { background: var(--SmartThemeQuoteColor, #6cf); border-color: var(--SmartThemeQuoteColor, #6cf); }
-    #cb_modal_overlay input.rx_sw[type=checkbox]:checked::before { left: calc(100% - .94em); background: #fff; opacity: 1; }
+    #cb_modal_overlay input.rx_sw[type=checkbox]:checked::before { left: calc(100% - .94em); background: var(--ntr-on-accent); opacity: 1; }
     #cb_modal_overlay input.rx_sw[type=checkbox]:disabled { opacity: .35; cursor: default; }
     #cb_modal_overlay input.rx_sw[type=checkbox]:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
     #cb_modal_overlay .rx_guide { display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; border: 0; background: none;

@@ -8,7 +8,7 @@
 // Block set to Agent Results, layout.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.75.0';
+  const AGENTS_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -738,7 +738,7 @@
     };
   }
   const sumHtml = (o) => (o.warn ? `<i class="fa-solid fa-triangle-exclamation"></i><span>${esc(o.warn)}</span>`
-    : `${'ok' in o ? `<i class="fa-solid ${o.ok ? 'fa-circle-check' : 'fa-circle-xmark'}" style="color:${o.ok ? '#7c6' : '#d66'};"></i>` : ''}<span>${esc(o.text)}</span>`);
+    : `${'ok' in o ? `<i class="fa-solid ${o.ok ? 'fa-circle-check cb_ok' : 'fa-circle-xmark cb_err'}"></i>` : ''}<span>${esc(o.text)}</span>`);
   function setSum(k, o) {
     const el = root?.querySelector(`.m_ag_fsum[data-sum="${k}"]`);
     if (!el) return;
@@ -916,7 +916,7 @@
   function activityHtml(a, l = runs.get(a.id) || []) {
     const busy = current && current.id === a.id ? '<div class="cb_hint" style="margin:8px 0 0;"><i class="fa-solid fa-spinner fa-spin"></i> Running...</div>' : '';
     const rows = l.map((r) => {
-      const head = `<i class="fa-solid ${r.ok ? 'fa-circle-check' : 'fa-circle-xmark'}" style="color:${r.ok ? '#7c6' : '#d66'};"></i> ${clock(r.at)} ·${r.test ? 'Test · ' : ''}${(r.ms / 1000).toFixed(1)} s${r.note ? ` · ${esc(r.note)}` : ''}`;
+      const head = `<i class="fa-solid ${r.ok ? 'fa-circle-check cb_ok' : 'fa-circle-xmark cb_err'}"></i> ${clock(r.at)} ·${r.test ? 'Test · ' : ''}${(r.ms / 1000).toFixed(1)} s${r.note ? ` · ${esc(r.note)}` : ''}`;
       if (!r.ok) return `<div class="cb_hint" style="margin:6px 0 0;">${head} · ${esc(r.text)}</div>`;
       return `<details class="cb_hint" style="margin:6px 0 0;"><summary style="cursor:pointer;">${head} · ${esc(r.text.slice(0, 70))}${r.text.length > 70 ? '...' : ''}</summary><div style="white-space:pre-wrap;margin-top:4px;">${esc(r.text)}</div></details>`;
     }).join('');

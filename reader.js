@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.75.0';
+  const READER_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -19,15 +19,15 @@
       background-color: var(--SmartThemeChatTintColor); backdrop-filter: blur(var(--SmartThemeBlurStrength)); -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
       border-top: 1px solid var(--SmartThemeBorderColor); color: var(--SmartThemeBodyColor); font-size: calc(var(--mainFontSize) * 0.9); }
     #ntr_rd_bar button { border: none; background: none; color: inherit; cursor: pointer; padding: 4px 10px; border-radius: 6px; opacity: .8; }
-    #ntr_rd_bar button:hover:not(:disabled) { opacity: 1; background: rgba(255,255,255,.08); }
+    #ntr_rd_bar button:hover:not(:disabled) { opacity: 1; background: var(--ntr-hover); }
     #ntr_rd_bar button:disabled { opacity: .3; cursor: default; }
     @media (pointer: coarse) { #ntr_rd_bar button { min-width: 40px; min-height: 40px; } }
     #ntr_rd_bar .ntr_rd_num { min-width: 8em; text-align: center; white-space: nowrap; }
     #ntr_rd_bar .ntr_rd_num i { margin-right: 6px; opacity: .7; }
     #ntr_rd_bar .ntr_rd_num[role="button"] { cursor: pointer; border-radius: 6px; padding: 4px 6px; }
-    #ntr_rd_bar .ntr_rd_num[role="button"]:hover { background: rgba(255,255,255,.08); }
+    #ntr_rd_bar .ntr_rd_num[role="button"]:hover { background: var(--ntr-hover); }
     #ntr_rd_bar .ntr_rd_num input { width: 4em; margin: 0 4px; padding: 1px 4px; text-align: center; font: inherit; color: inherit;
-      background: rgba(0,0,0,.25); border: 1px solid var(--SmartThemeBorderColor); border-radius: 4px; }
+      background: var(--ntr-well-deep); border: 1px solid var(--SmartThemeBorderColor); border-radius: 4px; }
     #ntr_rd_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
     #ntr_flip { position: fixed; z-index: 32; pointer-events: none; }
     #ntr_flip .ntr_flip_half { position: absolute; top: 0; width: 50%; height: 100%; }

@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Maps module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const MAP_VERSION = '2.75.0';
+  const MAP_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -16,7 +16,7 @@
     #ntr_map .ntr_map_head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--SmartThemeBorderColor, #444); }
     #ntr_map .ntr_map_title { flex: 1; min-width: 0; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #ntr_map .ntr_map_hb { background: none; border: none; color: inherit; cursor: pointer; padding: 4px 8px; border-radius: 6px; opacity: .75; }
-    #ntr_map .ntr_map_hb:hover { opacity: 1; background: rgba(255,255,255,.08); }
+    #ntr_map .ntr_map_hb:hover { opacity: 1; background: var(--ntr-hover); }
     #ntr_map .ntr_map_hb.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
     #ntr_map .ntr_map_view { overflow: auto; padding: 10px; }
     #ntr_map .ntr_map_canvas { position: relative; display: inline-block; line-height: 0; user-select: none; }
@@ -28,7 +28,7 @@
     #ntr_map .ntr_pin > span { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.75); font-size: 12px; pointer-events: none; }
     #ntr_map .ntr_pin.ntr_sub { border-style: dashed; }
     #ntr_map .ntr_pin.ntr_unseen { opacity: .45; filter: grayscale(.7); }
-    #ntr_map .ntr_pin.ntr_here { background: var(--SmartThemeQuoteColor, #6cf); color: #000; opacity: 1; filter: none; }
+    #ntr_map .ntr_pin.ntr_here { background: var(--SmartThemeQuoteColor, #6cf); color: var(--ntr-on-accent); opacity: 1; filter: none; }
     #ntr_map .ntr_pin.ntr_here::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 2px solid var(--SmartThemeQuoteColor, #6cf); animation: ntr_ping 1.6s ease-out infinite; pointer-events: none; }
     #ntr_map .ntr_pin.ntr_bad { border-color: #ff8a8a; }
     #ntr_map .ntr_pin.ntr_sel { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }

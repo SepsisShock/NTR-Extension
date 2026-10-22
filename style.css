@@ -1,3 +1,19 @@
+/* NTR's own colors, built from the SillyTavern theme so they read on light and dark themes. Lines and highlights mix
+   the text color of the part they're in; the red, amber and green lean toward the theme's text color, so they come
+   out light on dark themes and dark on light ones. Wells (the darker boxes behind cards and lists) get lighter as the
+   text gets darker. On Accent is the panel color without its see-through, for text and knobs on the Quote color. */
+:root {
+  --ntr-line: color-mix(in srgb, currentColor 8%, transparent);
+  --ntr-line-strong: color-mix(in srgb, currentColor 20%, transparent);
+  --ntr-hover: color-mix(in srgb, currentColor 10%, transparent);
+  --ntr-err: color-mix(in srgb, #e53935 65%, var(--SmartThemeBodyColor, #dcdcd2));
+  --ntr-warn: color-mix(in srgb, #e6a700 55%, var(--SmartThemeBodyColor, #dcdcd2));
+  --ntr-ok: color-mix(in srgb, #43a047 65%, var(--SmartThemeBodyColor, #dcdcd2));
+  --ntr-well: oklch(from var(--SmartThemeBodyColor, #dcdcd2) 0 0 0 / calc(0.03 + l * 0.18));
+  --ntr-well-deep: oklch(from var(--SmartThemeBodyColor, #dcdcd2) 0 0 0 / calc(0.05 + l * 0.3));
+  --ntr-on-accent: rgb(from var(--SmartThemeBlurTintColor, #171717) r g b);
+}
+
 #cb_banner {
   flex: none;
   line-height: 0;
@@ -77,7 +93,7 @@
   touch-action: none;
   z-index: 1;
 }
-#ntr_edge:hover { background: rgba(255, 255, 255, 0.08); }
+#ntr_edge:hover { background: var(--ntr-hover); }
 
 #ntr_preview {
   position: fixed;
@@ -87,7 +103,7 @@
   box-sizing: border-box;
   pointer-events: none;
   border: 2px dashed var(--SmartThemeQuoteColor, #6cf);
-  background: rgba(102, 204, 255, 0.08);
+  background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 15%, transparent);
 }
 
 .cb_popup_header {
@@ -122,7 +138,7 @@
 }
 .cb_popup_header .cb_close_btn { font-size: 1.3em; }
 .cb_hbtn:hover,
-.cb_popup_header .cb_close_btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.cb_popup_header .cb_close_btn:hover { opacity: 1; background: var(--ntr-hover); }
 .cb_hbtn.on { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
 
 .ntr_tag { font-size: 0.75em; opacity: 0.6; margin-left: 4px; }
@@ -148,11 +164,11 @@
 .ntr_nav::before { content: ''; flex: none; height: 6px; }
 .ntr_nav::before,
 .ntr_navi,
-.ntr_navfill { background: rgba(0, 0, 0, 0.22); }
+.ntr_navfill { background: var(--ntr-well); }
 .ntr_navfill { flex: 1 0 0; }
 /* The line above Regexes (see navHtml). */
-.ntr_navsep { flex: none; position: relative; height: 13px; background: rgba(0, 0, 0, 0.22); }
-.ntr_navsep::after { content: ''; position: absolute; left: 10px; right: 10px; top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.18); }
+.ntr_navsep { flex: none; position: relative; height: 13px; background: var(--ntr-well); }
+.ntr_navsep::after { content: ''; position: absolute; left: 10px; right: 10px; top: 6px; border-top: 1px solid var(--ntr-line-strong); }
 .ntr_navi {
   flex: none;
   display: flex;
@@ -174,7 +190,7 @@
 .ntr_navi > * { opacity: 0.8; }
 .ntr_navi:hover > *,
 .ntr_navi.on > * { opacity: 1; }
-.ntr_navi:not(.on):hover { background: rgba(0, 0, 0, 0.12); }
+.ntr_navi:not(.on):hover { background: var(--ntr-hover); }
 .ntr_navi.on { background: transparent; }
 .ntr_navi.ntr_off > * { opacity: 0.35; }
 .ntr_navi.on.ntr_off > * { opacity: 0.55; }
@@ -229,7 +245,7 @@
 .ntr_page.ntr_off .ntr_keepon .ntr_pagefx { opacity: 0.38; filter: grayscale(1); pointer-events: none; transition: opacity 0.15s; }
 
 /* A part of a page with its own title and switch (Header Banner and Foreground Images on Overlays, the parts of Elements). */
-.ntr_part + .ntr_part { margin-top: 22px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ntr_part + .ntr_part { margin-top: 22px; padding-top: 4px; border-top: 1px solid var(--ntr-line); }
 .ntr_parthead { display: flex; align-items: center; gap: 10px; padding: 14px 2px 0; }
 .ntr_parthead.cb_collapse_toggle { justify-content: flex-start; }
 .ntr_parthead .cb_chevron { font-size: 0.8em; opacity: 0.55; width: 1em; }
@@ -259,8 +275,8 @@
 .ntr_fold,
 .ntr_fold + .cb_collapse_content {
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--ntr-well);
+  border: 1px solid var(--ntr-line);
 }
 .ntr_page .ntr_card,
 .ntr_glab + .cb_collapse_content { margin-top: 14px; padding: 10px 12px; }
@@ -285,7 +301,7 @@
 .ntr_compact .ntr_fgrid { grid-template-columns: 1fr; }
 
 .ntr_tsel { width: 100%; margin: 8px 0 0; }
-.ntr_terr { color: var(--warning, #e57373); font-size: 0.85em; }
+.ntr_terr { color: var(--ntr-err); font-size: 0.85em; }
 .ntr_terr:empty { display: none; }
 .ntr_tbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ntr_tbar .menu_button { margin: 0; padding: 5px 10px; }
@@ -296,7 +312,7 @@
   margin-top: 10px;
   padding: 10px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--ntr-well);
 }
 .ntr_tpanel input[type="text"] { margin: 4px 0 0; width: 100%; box-sizing: border-box; }
 
@@ -353,9 +369,9 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .ntr_pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 170px; max-height: min(60vh, 320px); overflow-y: auto; padding: 4px; border-radius: 8px; white-space: nowrap;
   background: var(--SmartThemeBlurTintColor, #222); border: 1px solid var(--SmartThemeBorderColor, #555); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
 #cb_modal_overlay .ntr_pop button { display: flex; gap: 8px; align-items: center; width: 100%; margin: 0; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
-#cb_modal_overlay .ntr_pop button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+#cb_modal_overlay .ntr_pop button:hover:not(:disabled) { background: var(--ntr-hover); }
 #cb_modal_overlay .ntr_pop :is(button:disabled, .ntr_here) { opacity: 0.5; cursor: default; }
-#cb_modal_overlay .ntr_pop .ntr_danger { color: var(--warning, #e57373); }
+#cb_modal_overlay .ntr_pop .ntr_danger { color: var(--ntr-err); }
 
 /* Dragging by a grip (dragSort in index.js): the copy that follows the pointer, the gap where it will land, and a
    header lit up as where it goes. */
@@ -392,7 +408,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
    folded settings scroll under it, with the panel's own tint and blur so nothing shows through. overflow: clip rounds
    the header with the frame without making the frame a scroll box, which would stop the header from staying put. */
 #cb_modal_overlay .m_ag_row { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 2px; border-radius: 8px; }
-#cb_modal_overlay :is(.m_ag_row, .m_ag_dhead).m_ag_sel { background: rgba(255, 255, 255, 0.07); outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }
+#cb_modal_overlay :is(.m_ag_row, .m_ag_dhead).m_ag_sel { background: var(--ntr-hover); outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }
 #cb_modal_overlay .m_ag_pick { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 0; border-radius: 6px; cursor: pointer; }
 #cb_modal_overlay :is(.m_ag_pick, .m_ag_dpick, #m_ag_pic):focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
 #cb_modal_overlay .m_ag_rtext { flex: 1; min-width: 0; }
@@ -403,7 +419,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .m_ag_sw { flex: none; display: inline-flex; align-items: center; padding: 2px; margin: -2px; cursor: pointer; }
 /* Departments: a row like an agent's, its agents indented under it along a line. The grips stay in one column at the
    left, as tall as their row. */
-#cb_modal_overlay .m_ag_roster { --m-ag-grip: 22px; --m-ag-line: color-mix(in srgb, var(--SmartThemeBorderColor, #555) 60%, transparent); }
+#cb_modal_overlay .m_ag_roster { --m-ag-grip: 22px; --m-ag-line: var(--ntr-line); }
 #cb_modal_overlay .m_ag_roster .ntr_grip { align-self: stretch; width: var(--m-ag-grip); display: flex; align-items: center; justify-content: center; padding: 0; }
 #cb_modal_overlay .m_ag_dept { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--m-ag-line); }
 #cb_modal_overlay .m_ag_dhead { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 2px; border-radius: 8px; }
@@ -461,14 +477,14 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
   #cb_modal_overlay .ntr_avlab > label { align-self: stretch; display: flex; align-items: center; }
 }
 /* Agent Results in a Pinned Block (agents.js): each agent's name and buttons, then its saved result. */
-#ntr_pin_layer .ntr_agres + .ntr_agres { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--SmartThemeBorderColor); }
+#ntr_pin_layer .ntr_agres + .ntr_agres { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ntr-line); }
 #ntr_pin_layer .ntr_agres_head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 600; }
 #ntr_pin_layer .ntr_agres_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ntr_pin_layer .ntr_agres_btns { display: flex; gap: 2px; flex: none; }
 #ntr_pin_layer .ntr_agres_btn { background: none; border: 0; padding: 2px 4px; color: inherit; opacity: 0.55; cursor: pointer; border-radius: 4px; }
 #ntr_pin_layer .ntr_agres_btn:hover, #ntr_pin_layer .ntr_agres_btn:focus-visible { opacity: 1; background: color-mix(in srgb, currentColor 12%, transparent); }
 #ntr_pin_layer .ntr_agres_note { opacity: 0.7; font-size: 0.9em; margin-top: 4px; }
-#ntr_pin_layer .ntr_agres_fail { color: #e88; opacity: 1; }
+#ntr_pin_layer .ntr_agres_fail { color: var(--ntr-err); opacity: 1; }
 #ntr_pin_layer .ntr_agres_edit { width: 100%; box-sizing: border-box; resize: vertical; }
 #ntr_pin_layer .ntr_agres_editbtns { display: flex; gap: 6px; margin-top: 4px; }
 #ntr_pin_layer .ntr_agres_editbtns .menu_button { margin: 0; width: max-content; }
@@ -482,7 +498,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #ntr_pin_layer .ntr_agres_title { font-weight: normal; opacity: 0.65; font-size: 0.9em; }
 #ntr_pin_layer .ntr_agres_busy { opacity: 1; cursor: default; color: var(--SmartThemeQuoteColor); }
 #ntr_pin_layer :is(.ntr_agres_fold, .ntr_agf_sechead, .ntr_agf_val, .ntr_agres_tab):focus-visible { outline: 2px solid var(--SmartThemeQuoteColor); outline-offset: 2px; border-radius: 4px; }
-#ntr_pin_layer .ntr_agres_tabs { display: flex; gap: 2px; margin: 0 0 8px; overflow-x: auto; border-bottom: 1px solid var(--SmartThemeBorderColor); }
+#ntr_pin_layer .ntr_agres_tabs { display: flex; gap: 2px; margin: 0 0 8px; overflow-x: auto; border-bottom: 1px solid var(--ntr-line); }
 #ntr_pin_layer .ntr_agres_tab { display: flex; align-items: center; gap: 6px; flex: none; min-height: 36px; padding: 0 10px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-weight: 600; opacity: 0.65; }
 #ntr_pin_layer .ntr_agres_tab[aria-selected="true"] { opacity: 1; border-bottom-color: var(--SmartThemeQuoteColor); }
 #ntr_pin_layer .ntr_agres_asof { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 0; }
@@ -522,7 +538,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 }
 /* Read out by screen readers only, like "changed" next to a marker. */
 .ntr_sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-#ntr_pin_layer .ntr_pin_empty { background: rgba(0, 0, 0, 0.35); border: 1px dashed rgba(255, 255, 255, 0.4); }
+#ntr_pin_layer .ntr_pin_empty { background-color: var(--SmartThemeBlurTintColor); border: 1px dashed color-mix(in srgb, currentColor 40%, transparent); }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body { display: flex; align-items: center; justify-content: center; text-align: center; opacity: 0.8; }
 #ntr_pin_layer .ntr_pin_empty .ntr_pin_body::before { content: attr(data-name); }
 #ntr_pin_layer .ntr_pin_fit.ntr_pin_empty { min-height: 48px; }
@@ -548,7 +564,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #m_l_edit { border-color: var(--SmartThemeQuoteColor, #6cf); }
 /* The Pinned Blocks list on the Layout page. */
 .ntr_pinrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
-.ntr_pinrow + .ntr_pinrow, .ntr_pinedit + .ntr_pinrow { border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08)); }
+.ntr_pinrow + .ntr_pinrow, .ntr_pinedit + .ntr_pinrow { border-top: 1px solid var(--ntr-line); }
 @media (width <= 1000px) {
   .ntr_pinrow .menu_button { min-width: 40px; min-height: 40px; }
 }
@@ -562,7 +578,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .ntr_pinedit .cb_hint { margin: 0; }
 /* The Answer card's field list on the Agents page, laid out like the Pinned Blocks list. */
 .ntr_agfl .ntr_agfl_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
-.ntr_agfl .ntr_agfl_row + .ntr_agfl_row, .ntr_agfl .ntr_agfl_edit + .ntr_agfl_row { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ntr_agfl .ntr_agfl_row + .ntr_agfl_row, .ntr_agfl .ntr_agfl_edit + .ntr_agfl_row { border-top: 1px solid var(--ntr-line); }
 .ntr_agfl .ntr_agfl_row > i { opacity: 0.7; }
 .ntr_agfl .ntr_agfl_row .menu_button { margin: 0; padding: 4px 8px; }
 .ntr_agfl .m_agf_edit.on { outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }

@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.72.1';
+  const READER_VERSION = '2.72.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -166,8 +166,8 @@
     bar.querySelector('[data-go="last"]').disabled = bar.querySelector('[data-go="next"]').disabled = atEnd;
   }
 
-  // The width the page bar's buttons and page number need. A Free page bar (Layout) is never narrower, so none of them
-  // ends up outside it or off the screen.
+  // The width the page bar's buttons and page number need. A Floating page bar (Layout) is never narrower, so none of
+  // them ends up outside it or off the screen.
   function barMin() {
     const bar = document.getElementById('ntr_rd_bar');
     if (!bar) return 0;
@@ -217,8 +217,8 @@
     box.select();
   }
 
-  // A Free send bar (Layout) over the bottom of the chat panel would cover the page bar, so the page bar sits on top of it.
-  // A Free page bar (Layout) has its own place.
+  // A Floating send bar (Layout) over the bottom of the chat panel would cover the page bar, so the page bar sits on
+  // top of it. A Floating page bar (Layout) has its own place.
   let formRo = null;
   function placeBar() {
     const bar = document.getElementById('ntr_rd_bar');
@@ -788,7 +788,7 @@
     savedMsg,
     rememberMsg,
     askNumber,
-    // For Edit Layout: the narrowest a Free page bar can be.
+    // For Edit Layout: the narrowest a Floating page bar can be.
     barMin,
     // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.
     drawTo: (first) => loadUpTo(first, opened),

@@ -122,17 +122,22 @@
   }
   // The Frame's box is the picture's box made k times bigger, so a frame never stretches: its picture fits inside the
   // box (contain). fw and fh are the picture box's width and height. Where it goes and what it turns around (the
-  // picture's middle) are from the picture box's top left.
-  function frameBox(f, fw, fh) {
+  // picture's middle) are from the picture box's top left. turn is the Rotation it gets, in degrees.
+  function frameBox(f, fw, fh, turn = 0) {
     const n = (v) => +v.toFixed(4);
+    // The turned frame's reach: half its width and height across, and its middle, moved by the turn.
+    const t = turn * Math.PI / 180, C = Math.cos(t), S = Math.sin(t), c = Math.abs(C), s = Math.abs(S);
+    const mx = f.x * C - f.y * S, my = f.x * S + f.y * C;
+    // [times fw, times fh] for the top, right, bottom and left.
+    const reach = [[s * f.k / 2 - my, (c * f.k - 1) / 2], [c * f.k / 2 + mx - 0.5, s * f.k / 2],
+      [s * f.k / 2 + my, (c * f.k - 1) / 2], [c * f.k / 2 - mx - 0.5, s * f.k / 2]];
     return {
       size: `width: calc(${fw} * ${n(f.k)}); height: calc(${fh} * ${n(f.k)});`,
       left: `calc(${fw} * ${n((1 - f.k) / 2 + f.x)})`,
       top: `calc(${fh} * ${n((1 - f.k) / 2)} + ${fw} * ${n(f.y)})`,
       origin: `transform-origin: calc(${fw} * ${n(f.k / 2 - f.x)}) calc(${fh} * ${n(f.k / 2)} - ${fw} * ${n(f.y)});`,
-      // How far it reaches past each side of the picture, for the room In Line keeps around it.
-      spill: [[fh, (f.k - 1) / 2, -f.y], [fw, (f.k - 1) / 2, f.x], [fh, (f.k - 1) / 2, f.y], [fw, (f.k - 1) / 2, -f.x]]
-        .map(([side, k, by]) => `max(0px, ${side} * ${n(k)} + ${fw} * ${n(by)})`),
+      // How far it reaches past each side of the picture, turned, for the room In Line keeps around it.
+      spill: reach.map(([w, h]) => `max(0px, ${fw} * ${n(w)} + ${fh} * ${n(h)})`),
       bg: `background: url("${f.img}") center / contain no-repeat;`,
     };
   }
@@ -292,8 +297,9 @@
       const boxShape = framed ? `aspect-ratio: 1 / ${aspect} !important; border-radius: ${frameR} !important;` : `aspect-ratio: ${ar} !important; border-radius: 0 !important;`;
       // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
       // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
-      const avW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
-      const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)');
+      // The avatar's width, at most 40vw like the avatar's own.
+      const avW = `min(${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`}, 40vw)`;
+      const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
       const gap = (side) => (where === side ? ' + 6px' : '');
       const frameCss = b ? `
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {

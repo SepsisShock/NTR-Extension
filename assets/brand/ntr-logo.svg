@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-398 -398 796 796"><path fill="#000" d="M-142,-398 -142,-230 -230,-142 -398,-142 -286,-30 -200,-30 -30,-200 -30,-286ZM142,-398 142,-230 230,-142 398,-142 286,-30 200,-30 30,-200 30,-286ZM-142,398 -142,230 -230,142 -398,142 -286,30 -200,30 -30,200 -30,286ZM142,398 142,230 230,142 398,142 286,30 200,30 30,200 30,286Z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<mask id="face"><rect width="100" height="100" fill="#fff"/>
+<circle cx="34" cy="29" r="6" fill="#000"/><circle cx="66" cy="29" r="6" fill="#000"/>
+<path d="M37 46 Q50 57 63 46" fill="none" stroke="#000" stroke-width="7" stroke-linecap="round"/></mask>
+<g transform="translate(88 94) rotate(12) scale(.8) translate(-88 -94) translate(-9 2)"><g mask="url(#face)" stroke="#000" stroke-linecap="round" fill="#000">
+<rect x="6" y="14" width="88" height="50" rx="16" stroke="none"/>
+<line x1="24" y1="62" x2="14" y2="92" stroke-width="15"/><line x1="76" y1="62" x2="86" y2="92" stroke-width="15"/>
+</g></g></svg>

@@ -115,14 +115,17 @@ test('the Frame library keeps safe links and short names, and drops the rest', (
   c.frameHidden = [];
 });
 
-test('a frame uploaded before the library keeps its fit', () => {
+test('a frame uploaded before the library keeps each side\'s fit, even when both sides use it', () => {
   const s = api.settings();
   const img = '/user/files/avframe_old.png';
-  Object.assign(s, { frameLibMoved: false, aiFrame: '', aiFrameImg: img, aiFrameSize: 235, aiFrameX: 11, aiFrameY: -6 });
+  Object.assign(s, { frameLibMoved: false, aiFrame: '', aiFrameImg: img, aiFrameSize: 235, aiFrameX: 11, aiFrameY: -6,
+    usFrame: '', usFrameImg: img, usFrameSize: 210, usFrameX: -9, usFrameY: 4 });
   const c = api.settings();
-  assert.ok(c.frameLib.folders[0].frames.some((f) => f.img === img));
+  assert.equal(c.frameLib.folders[0].frames.filter((f) => f.img === img).length, 1);
   assert.deepEqual(c.frameFits.ai[img], [235, 11, -6]);
+  assert.deepEqual(c.frameFits.us[img], [210, -9, 4]);
   c.frameLib.folders[0].frames = c.frameLib.folders[0].frames.filter((f) => f.img !== img);
   delete c.frameFits.ai[img];
-  Object.assign(c, { aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0 });
+  delete c.frameFits.us[img];
+  Object.assign(c, { aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0, usFrameImg: '', usFrameSize: 140, usFrameX: 0, usFrameY: 0 });
 });

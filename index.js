@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.72.1';
+  const VERSION = '2.72.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -314,7 +314,7 @@ await (async () => {
     if (o.rbPat === 'fade') o.rbPat = 'none';
     // The button's Border Style had None, which is ST's own look: unticked.
     if (o.rbBtnBorder === 'none') { o.rbBtnBorder = DEFAULTS.rbBtnBorder; o.rbBtnBorderOn = false; }
-    // UI Display's switch used to cover Chat Width, Space Between Messages, Send Box Position, the scrollbar and the
+    // UI Display's switch used to cover Chat Width, Space Between Messages, Attached Style, the scrollbar and the
     // cursor. They follow Layout's switch and their own Elements switches now, so whatever showed before still shows:
     // with UI Display on, Layout comes on for them (it changes nothing until something is moved); with it off, they go off.
     if ('ovEnabled' in o && !('ovScrollOn' in o)) {
@@ -882,9 +882,11 @@ await (async () => {
   // ===== Questions in the menu =====
   // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
   // One question at a time. Without a button to show it under, SillyTavern's own popup asks instead.
-  // A new question closes the open one as if Cancel was pressed, so code waiting on it never hangs.
+  // A new question closes the open one as if Cancel was pressed, and so does closing or redrawing the menu it's in, so
+  // code waiting on it never hangs.
+  const cancelAsks = (root) => root?.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
   function askBox(anchor, html, cancel) {
-    document.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
+    cancelAsks(document);
     // Below the button's whole row, not inside it, so a row of buttons keeps its layout.
     let row = anchor;
     const inRow = (el) => { const cs = getComputedStyle(el); return /flex|grid/.test(cs.display) && !cs.flexDirection.startsWith('column'); };
@@ -1137,7 +1139,9 @@ await (async () => {
 
   function openCombinedModal() {
     const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
-    document.getElementById('cb_modal_overlay')?.remove();
+    const old = document.getElementById('cb_modal_overlay');
+    cancelAsks(old);
+    old?.remove();
     const s = settings();
     // Reasoning Block Design is part of Elements now.
     if (s.uiPage === 'reasoning') s.uiPage = 'elements';
@@ -1197,7 +1201,7 @@ await (async () => {
 
     setupPanel(overlay, prevScroll);
 
-    const close = () => { overlay.remove(); syncPopouts(); rotRestart(); };
+    const close = () => { cancelAsks(overlay); overlay.remove(); syncPopouts(); rotRestart(); };
     overlay.querySelector('.cb_close_btn').onclick = close;
     
     window.NTR.overlays?.bind(overlay, s);
@@ -1369,8 +1373,8 @@ await (async () => {
   const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
 
   // UI Decor's switch, with decor.js loaded. Without decor.js, the parts of UI Decor the core builds stay SillyTavern's
-  // own too, whatever is saved: Blur and Shadow, the corners and bottom line where the chat panel meets a Free send bar,
-  // and Speech Bubbles (bubblesOn).
+  // own too, whatever is saved: Blur and Shadow, the corners and bottom line where the chat panel meets a Floating send
+  // bar, and Speech Bubbles (bubblesOn).
   const decorOn = (s) => s.ovEnabled && !!window.NTR.decor;
 
   function overrideCss(s) {
@@ -1408,8 +1412,9 @@ await (async () => {
   const ovBorderVal = (s, p) => (s[`ov${p}Border`] === 'none' ? 'none' : `${rangeNum(s, `ov${p}BorderWidth`)}px solid ${ovColorVal(s, `ov${p}BorderColor`, `ov${p}BorderOpacity`)}`);
 
   // Where the chat panel meets the send box. Joined is SillyTavern's own: the send box right under the chat panel, flat
-  // where they meet. Standing apart (Separate, or Free in Layout), the panel gets its bottom corners and bottom line back,
-  // and the send box all four corners. The top stays flush with SillyTavern's square top bar: no rounded top corners.
+  // where they meet. Standing apart (Separate, or Floating in Layout), the panel gets its bottom corners and bottom
+  // line back, and the send box all four corners. The top stays flush with SillyTavern's square top bar: no rounded
+  // top corners.
   function joinCss(s, separate, pre = '') {
     const on = (k) => s[k + 'On'];
     const pr = on('ovShape') ? (s.ovShape === 'square' ? 0 : rangeNum(s, 'ovRound')) : null;
@@ -1421,7 +1426,7 @@ await (async () => {
     }) + cssRule(`${pre}#form_sheld #send_form`, { 'border-radius': sr === null ? '' : separate ? `${sr}px` : `0 0 ${sr}px ${sr}px` });
   }
 
-  // Send Box Position: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
+  // Attached Style: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
   const sendSeparate = (s) => layoutOn(s) && s.ovSendPosOn && s.ovSendPos === 'separate';
 
   // Layout's Space Between Messages, and the gap Separate leaves above the send box.
@@ -2122,6 +2127,8 @@ await (async () => {
     wiping = true;
     for (const tm of cardTimers.values()) clearTimeout(tm);
     cardTimers.clear();
+    // A card save already sent finishes first, so it can't put back what's removed. Saves still waiting don't run.
+    await Promise.allSettled([...cardSaving.values()]);
     try {
       return await removeNow(opts);
     } catch (e) {
@@ -2248,7 +2255,7 @@ await (async () => {
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
-  // A sixth and seventh number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
+  // A fifth and sixth number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
     agTemp: [0, 2, 0.05, ''], agTopP: [0, 1, 0.01, ''], agTopK: [0, 200, 1, ''], agMinP: [0, 1, 0.01, ''], agFreq: [-2, 2, 0.05, ''], agPres: [-2, 2, 0.05, ''], agRep: [1, 2, 0.01, ''],
     agMaxTokens: [50, 4000, 50, ' tokens'], agContext: [1, 40, 1, ' messages'], agSendDepth: [0, 50, 1, ''],
@@ -2942,7 +2949,7 @@ await (async () => {
     }
   }
 
-  // ===== Visual Novel module loader + its toggle button =====
+  // ===== Module loader + the Visual Novel toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
   const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening Video', overlays: 'Overlays', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions', elements: 'Elements', text: 'Text Formatting', avatars: 'Avatar Management', decor: 'UI Decor', layout: 'Layout' };
   const modPromise = {}, modError = {};
@@ -3062,7 +3069,8 @@ await (async () => {
     return pageHtml('agents', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError.agents ? '' : 'agents' });
   }
 
-  // The Emotions part of the Avatars page comes from cast.js, loaded the first time the menu opens.
+  // The Emotions part of the Avatars page comes from cast.js, loaded at start while NTR is on, or else the first time the
+  // menu opens.
   function castPartHtml() {
     const c = window.NTR.cast;
     if (c) return c.partHtml(settings());
@@ -3447,7 +3455,8 @@ await (async () => {
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'),
-    // For reader.js, and vn.js (turning Visual Novel Mode on turns Reader Mode off)
+    // For reader.js and vn.js. Visual Novel Mode is Reader Mode's Visual Novel style, so setReader(true, true) turns
+    // both on.
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
     refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v),
     // For agents.js: its sliders' ranges

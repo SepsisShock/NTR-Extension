@@ -3,10 +3,10 @@
 // takes over 5 seconds; then it restyles when it arrives. If this file breaks, the rest of the extension keeps working,
 // with SillyTavern's own look for these parts.
 // The settings, their limits and the lists they're checked against stay in index.js, and so do Blur and Shadow (in
-// overrideCss) and the corners and bottom line where the chat panel meets a Free send bar (joinCss), which follow
+// overrideCss) and the corners and bottom line where the chat panel meets a Floating send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.72.1';
+  const DECOR_VERSION = '2.72.2';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;

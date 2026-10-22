@@ -5,7 +5,7 @@
 // the chat panel, with their page in the menu. Their settings and card data stay in index.js; Edit Placement is in
 // layout.js.
 (() => {
-  const OVERLAYS_VERSION = '2.72.1';
+  const OVERLAYS_VERSION = '2.72.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
@@ -427,8 +427,8 @@
     }).observe(chat, { childList: true });
   }
 
-  // Where the banner sits: locked above the chat, or at the top of the messages, overlapping them or not. A Free banner
-  // (Layout) has its own place, so it stays out of the messages and doesn't overlap them.
+  // Where the banner sits: locked above the chat, or at the top of the messages, overlapping them or not. A Floating
+  // banner (Layout) has its own place, so it stays out of the messages and doesn't overlap them.
   function placeBanner(chat, r) {
     const free = !!A.banFree?.();
     banner.classList.toggle('cb_overlap', !!r.overlap && !free);
@@ -928,7 +928,7 @@
     version: OVERLAYS_VERSION, render, ensureFg, sectionHtml, bind, rotRestart,
     relayout: () => {
       layoutFg();
-      // Layout can make the banner Free or Attached.
+      // Layout can make the banner Floating or Attached.
       const chat = document.getElementById('chat');
       const key = currentKey();
       if (banner && chat && key && banner.style.display !== 'none') placeBanner(chat, peek(key));

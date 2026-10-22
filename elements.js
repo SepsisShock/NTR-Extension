@@ -5,14 +5,14 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.71.0';
+  const ELEMENTS_VERSION = '2.72.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
     pills, posGrid, onPills, pageHtml, pagePart, subHead, card, reducedMotion } = A;
   const { COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
     RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
-    cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, bubblesOn, bubRight, restyle: updateAvatarStyle,
+    cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, bubblesOn, bubRight, restyle: updateAvatarStyle,
     rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal, ovLabel } = A.look;
 
   // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color,
@@ -574,7 +574,6 @@
     }
   }
 
-  const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
   function bindCssBoxes(overlay, prefix) {
     overlay.querySelectorAll(`.m_css[data-key^="${prefix}"]`).forEach((box) => {
       box.oninput = () => { settings()[box.dataset.key] = box.value.slice(0, 2000); syncCustomCss(); };
@@ -688,9 +687,6 @@
     };
     renderCursor();
   }
-
-  // The last line under each Custom CSS box.
-  const CSS_NOTE = 'Add <code>!important</code> if a setting doesn\'t take. Saved in themes; CSS from someone else\'s theme arrives switched off.';
 
   function reasoningPartHtml(s) {
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.

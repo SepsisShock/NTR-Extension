@@ -57,3 +57,24 @@ test('facing fades longer than the picture meet without a hard line, and 100% St
   assert.match(window.NTR.avatars.css(s), /rgba\(0,0,0,1\) 60%, rgba\(0,0,0,0\) 60%, rgba\(0,0,0,0\) 100%\)/);
   Object.assign(s, { aiFadeBot: 0, aiFadeStr: 50 });
 });
+
+test('a Filter goes on the picture, a Texture over it, and None or 0% has none', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'backdrop', aiShape: 'none', usEnabled: false, aiFilter: 'bw', aiFilterStr: 50, aiTexture: 'scanlines', aiTextureStr: 40 });
+  const css = window.NTR.avatars.css(s);
+  assert.match(css, /\.avatar img \{[^}]*filter: grayscale\(0\.5\) !important;/);
+  assert.match(css, /\.avatar::after \{ content: '' !important;[^}]*opacity: 0\.4 !important;[^}]*repeating-linear-gradient/);
+  Object.assign(s, { aiFilterStr: 0, aiTextureStr: 0 });
+  assert.doesNotMatch(window.NTR.avatars.css(s), /filter:|::after/);
+  Object.assign(s, { aiFilter: 'none', aiFilterStr: 100, aiTexture: 'none', aiTextureStr: 100 });
+  assert.doesNotMatch(window.NTR.avatars.css(s), /filter:|::after/);
+});
+
+test('under Shape Only the Texture turns back with the picture', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'inline', aiShape: 'square', usEnabled: false, aiRotate: 30, aiRotateMode: 'shape', aiTexture: 'scanlines' });
+  assert.match(window.NTR.avatars.css(s), /::after \{[^}]*transform: rotate\(-30deg\) scale\(1\.366\) !important;/);
+  s.aiRotateMode = 'both';
+  assert.doesNotMatch(window.NTR.avatars.css(s), /::after \{[^}]*transform:/);
+  Object.assign(s, { aiRotate: 0, aiRotateMode: 'shape', aiTexture: 'none', aiShape: 'none' });
+});

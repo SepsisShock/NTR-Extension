@@ -526,7 +526,7 @@ await (async () => {
   // A layout setting's name: lk(false, 'ChatX') is layChatX, lk(true, 'ChatX') is layPhChatX.
   const lk = (phone, name) => (phone ? 'layPh' : 'lay') + name;
   // Layout's switch, with layout.js loaded. Without layout.js, the parts of Layout the core builds stay SillyTavern's own
-  // too, whatever is saved: Chat Width, Space Between Messages and Send Box Position.
+  // too, whatever is saved: Chat Width, Space Between Messages and Attached Style.
   const layoutOn = (s) => s.layEnabled && !!window.NTR.layout;
 
   // Pinned Blocks' places, as a % of the screen for Desktop and for Phone. A block is remembered by the tag and classes

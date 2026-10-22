@@ -5,7 +5,7 @@
 // of the extension keeps working, with SillyTavern's own layout; pop-outs and foreground images keep their place and
 // their sliders.
 // The settings, their limits and the lists they're checked against stay in index.js, and so do cleaning saved Pinned
-// Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages and Send Box Position (overrideCss,
+// Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages and Attached Style (overrideCss,
 // layoutChatCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
   const LAYOUT_VERSION = '2.72.1';

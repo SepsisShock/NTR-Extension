@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.72.2';
+  const VERSION = '2.73.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -27,6 +27,7 @@ await (async () => {
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0, aiFadeStr: 50,
     aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape', aiFilter: 'none', aiFilterStr: 100, aiTexture: 'none', aiTextureStr: 100, aiCssOn: false, aiCss: '',
+    aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0,
     
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
@@ -35,6 +36,7 @@ await (async () => {
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0, usFadeStr: 50,
     usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape', usFilter: 'none', usFilterStr: 100, usTexture: 'none', usTextureStr: 100, usCssOn: false, usCss: '',
+    usFrameImg: '', usFrameSize: 140, usFrameX: 0, usFrameY: 0,
 
     // Foreground Settings
     fgEnabled: false,
@@ -415,8 +417,9 @@ await (async () => {
     if (layer) return layer;
     layer = document.createElement('div');
     layer.id = 'cb_pop_layer';
-    // Each picture sits in a frame, which takes its place, size, shape and turn (see getAvatarCss in avatars.js).
-    layer.innerHTML = ['ai', 'us'].map((p) => `<div id="cb_popf_${p}" class="cb_popf"><img id="cb_pop_${p}" alt="" draggable="false"></div>`).join('');
+    // Each picture sits in a frame, which takes its place, size, shape and turn (see getAvatarCss in avatars.js). The
+    // Frame picture goes on its own layer after it, outside the shape that cuts the picture.
+    layer.innerHTML = ['ai', 'us'].map((p) => `<div id="cb_popf_${p}" class="cb_popf"><img id="cb_pop_${p}" alt="" draggable="false"></div><div id="cb_popr_${p}" class="cb_popr"></div>`).join('');
     document.body.appendChild(layer);
     const chat = document.getElementById('chat');
     if (chat && window.ResizeObserver) new ResizeObserver(() => { layoutPop(); callModule('layout', 'pinCheckRead'); }).observe(chat);
@@ -435,7 +438,9 @@ await (async () => {
       el.onload = () => {
         const fell = el.dataset.want !== el.dataset.thumb && el.getAttribute('src') === el.dataset.thumb;
         setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} picture${fell ? ' (thumbnail)' : ''}`);
-        if (el.naturalWidth && el.naturalHeight) el.parentElement.style.setProperty('--cb-ar', (el.naturalWidth / el.naturalHeight).toFixed(4));
+        if (el.naturalWidth && el.naturalHeight) {
+          for (const box of [el.parentElement, layer.querySelector(`#cb_popr_${prefix}`)]) box.style.setProperty('--cb-ar', (el.naturalWidth / el.naturalHeight).toFixed(4));
+        }
         callModule('layout', 'drawPlace');
       };
     }
@@ -495,6 +500,7 @@ await (async () => {
     layoutPop();
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
+      const show = (v) => { el.parentElement.style.display = v; layer.querySelector(`#cb_popr_${prefix}`).style.display = v; };
       const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
       let src = on ? popSrcFor(flag) : null;
       if (!src && on && prefix === 'ai') {
@@ -503,7 +509,7 @@ await (async () => {
         if (ch?.avatar) src = `/characters/${encodeURIComponent(ch.avatar)}`;
       }
       if (!src) {
-        el.parentElement.style.display = 'none';
+        show('none');
         if (on && popMsg[prefix] !== 'No avatar found in this chat yet.') setPopStatus(prefix, 'No avatar found in this chat yet.');
         continue;
       }
@@ -514,7 +520,7 @@ await (async () => {
         setPopStatus(prefix, 'Loading image...');
         el.src = full;
       }
-      el.parentElement.style.display = 'block';
+      show('block');
     }
     callModule('layout', 'drawPlace');
   }
@@ -586,6 +592,7 @@ await (async () => {
       #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
       #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
       #cb_pop_layer .cb_popf { position: absolute; display: none; pointer-events: none; overflow: hidden; container-type: size; }
+      #cb_pop_layer .cb_popr { position: absolute; display: none; pointer-events: none; }
       #cb_pop_layer img { position: absolute; display: block; pointer-events: none; max-width: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
       #cb_place_layer { position: fixed; z-index: 9990; display: none; pointer-events: none; }
       #cb_place_layer .cb_place_grid { position: absolute; inset: 0; display: none; background-image: linear-gradient(to right, rgba(255,255,255,.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.14) 1px, transparent 1px); }
@@ -2108,7 +2115,7 @@ await (async () => {
   }
 
   // Only files this extension uploaded itself (see the upload name prefixes) can ever be deleted.
-  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|baricon|book|arrow|rbbg|plate|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
+  const OWN_FILE = /^user\/files\/(?:banner|fg|ntr|theme|cursor|baricon|book|arrow|rbbg|plate|agent|vnpfp|vnloc|vncg|vnart|vnmap|vnlogo|vnop|avframe)_[\w-]+\.(?:png|jpe?g|gif|webp|mp4|webm)$/;
   // Resolves to true if the file was deleted or was already gone. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok || res.status === 404).catch(() => false);
@@ -2251,7 +2258,7 @@ await (async () => {
   }
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
-  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg', 'rbBgImg', 'tfPlateImg']);
+  const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg', 'rbBgImg', 'tfPlateImg', 'aiFrameImg', 'usFrameImg']);
   // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
   // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
   // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
@@ -2291,6 +2298,7 @@ await (async () => {
     Object.assign(NUM_RANGE, {
       [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'ShiftX']: [0, 100, 1, '%'], [p + 'Zoom']: [100, 200, 5, '%'], [p + 'Rotate']: [-180, 180, 1, '°'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
       [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'FilterStr']: [0, 100, 1, '%'], [p + 'TextureStr']: [0, 100, 1, '%'],
+      [p + 'FrameSize']: [100, 300, 1, '%'], [p + 'FrameX']: [-50, 50, 1, '%'], [p + 'FrameY']: [-50, 50, 1, '%'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
       [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
       [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],

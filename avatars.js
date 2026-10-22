@@ -5,12 +5,12 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.72.2';
+  const AVATARS_VERSION = '2.73.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,
-    startPlacement, tiles } = A;
-  const { CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
+  const { DEFAULTS, askYes, card, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum,
+    save, settings, startPlacement, tiles, uploadImage } = A;
+  const { CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
@@ -113,6 +113,35 @@
   // Whether a side's Rotation turns the shape alone (Shape Only), and not the picture with it.
   const shapeOnly = (s, prefix) => !!SHAPES[s[`${prefix}Shape`]] && s[`${prefix}RotateMode`] !== 'both' && rangeNum(s, prefix + 'Rotate') !== 0;
 
+  // A side's Frame on In Line and Pop Out: its picture, its size in picture widths (k), and how far it's moved from the
+  // picture's middle (x, y), also in picture widths. Null without a picture.
+  function frameOf(s, prefix) {
+    const img = cUrl(s[prefix + 'FrameImg']);
+    if (!img || img.startsWith('data:video/')) return null;
+    return { img, k: rangeNum(s, prefix + 'FrameSize') / 100, x: rangeNum(s, prefix + 'FrameX') / 100, y: rangeNum(s, prefix + 'FrameY') / 100 };
+  }
+  // The Frame's box is the picture's box made k times bigger, so a frame never stretches: its picture fits inside the
+  // box (contain). fw and fh are the picture box's width and height. Where it goes and what it turns around (the
+  // picture's middle) are from the picture box's top left. turn is the Rotation it gets, in degrees.
+  function frameBox(f, fw, fh, turn = 0) {
+    const n = (v) => +v.toFixed(4);
+    // The turned frame's reach: half its width and height across, and its middle, moved by the turn.
+    const t = turn * Math.PI / 180, C = Math.cos(t), S = Math.sin(t), c = Math.abs(C), s = Math.abs(S);
+    const mx = f.x * C - f.y * S, my = f.x * S + f.y * C;
+    // [times fw, times fh] for the top, right, bottom and left.
+    const reach = [[s * f.k / 2 - my, (c * f.k - 1) / 2], [c * f.k / 2 + mx - 0.5, s * f.k / 2],
+      [s * f.k / 2 + my, (c * f.k - 1) / 2], [c * f.k / 2 - mx - 0.5, s * f.k / 2]];
+    return {
+      size: `width: calc(${fw} * ${n(f.k)}); height: calc(${fh} * ${n(f.k)});`,
+      left: `calc(${fw} * ${n((1 - f.k) / 2 + f.x)})`,
+      top: `calc(${fh} * ${n((1 - f.k) / 2)} + ${fw} * ${n(f.y)})`,
+      origin: `transform-origin: calc(${fw} * ${n(f.k / 2 - f.x)}) calc(${fh} * ${n(f.k / 2)} - ${fw} * ${n(f.y)});`,
+      // How far it reaches past each side of the picture, turned, for the room In Line keeps around it.
+      spill: reach.map(([w, h]) => `max(0px, ${fw} * ${n(w)} + ${fh} * ${n(h)})`),
+      bg: `background: url("${f.img}") center / contain no-repeat;`,
+    };
+  }
+
   // Where the picture sits in its box, w wide (and ar its shape, if given). Shift Left/Right and Up/Down pick which part
   // of a picture bigger than its box shows: the picture's point at those %s goes on the box's point at the same %s, so
   // 0% shows its left or top edge and 100% its right or bottom. Zoom makes it bigger around that point. Shape Only turns
@@ -150,6 +179,7 @@
     const zoom = n('Zoom') / 100;
     const turn = n('Rotate');
     const turnCss = turn ? ` rotate(${turn}deg)` : '';
+    const frame = style !== 'backdrop' ? frameOf(s, prefix) : null;
     
     const width = Math.floor(scale * 3); 
     // A shape is a frame Image Scale sizes: its width, and its height from the shape. Corners are a % of the width.
@@ -188,6 +218,16 @@
           transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px))${turnCss};
         }
         ${layerCss(`#cb_popf_${prefix}`)}
+        ${frame ? (() => {
+          // The Frame's layer goes where the picture is, with the same turn around the picture's middle.
+          const fh = shape ? `${frameH}px` : `(${width}px / var(--cb-ar, 0.6667))`;
+          const b = frameBox(frame, `${width}px`, fh);
+          const frac = (t) => (t === '-50%' ? -0.5 : t === '-100%' ? -1 : 0);
+          return `#cb_popr_${prefix} {
+          ${vA} ${hA} ${b.size} ${b.bg} ${b.origin}
+          transform: translate(calc(${width}px * ${frac(tx)} + ${b.left} + ${popX}px), calc(${fh} * ${frac(ty)} + ${b.top} + ${popY}px))${turnCss};
+        }`;
+        })() : ''}
         #cb_pop_${prefix} { ${imgPlaceCss(s, prefix, 'max(100cqw, 100cqh * var(--cb-ar, 0.6667))', 'var(--cb-ar, 0.6667)')} ${look.filter} }
         ${shared}
       `;
@@ -255,6 +295,23 @@
       const where = h === 'c' ? (v === 'b' ? 'below' : 'above') : h === 'r' ? 'right' : 'left';
       const stacked = where === 'above' || where === 'below';
       const boxShape = framed ? `aspect-ratio: 1 / ${aspect} !important; border-radius: ${frameR} !important;` : `aspect-ratio: ${ar} !important; border-radius: 0 !important;`;
+      // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
+      // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
+      // The avatar's width, at most 40vw like the avatar's own.
+      const avW = `min(${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`}, 40vw)`;
+      const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
+      const gap = (side) => (where === side ? ' + 6px' : '');
+      const frameCss = b ? `
+      #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
+        position: relative !important; --ntr-fw: ${avW}; --ntr-fh: ${framed ? `calc(${avW} * ${aspect})` : `calc(${avW} / ${ar})`};
+        margin: calc(${b.spill[0]}${gap('below')}) ${stacked ? '0' : b.spill[1]} calc(${b.spill[2]}${gap('above')}) ${stacked ? '0' : b.spill[3]} !important;
+      }
+      #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper::before {
+        content: '' !important; position: absolute !important; z-index: 1 !important; pointer-events: none !important;
+        left: ${stacked ? `calc(50% - var(--ntr-fw) / 2 + ${b.left})` : b.left} !important; top: ${b.top} !important;
+        ${b.size} ${b.bg} ${b.origin}
+        ${turn ? `transform: rotate(${turn}deg);` : ''}
+      }` : '';
       // The row's direction is set here too: themes often flip User messages, which would swap left and right.
       return `
       #chat .mes[is_user="${isUserStr}"] { flex-direction: row !important; }
@@ -268,6 +325,7 @@
         ${stacked ? `flex: 0 0 100% !important; display: flex !important; flex-direction: column !important; align-items: center !important; margin-${where === 'above' ? 'bottom' : 'top'}: 6px !important;`
           : `align-self: ${v === 't' ? 'flex-start' : v === 'b' ? 'flex-end' : 'center'} !important;`}
       }
+      ${frameCss}
       #chat .mes[is_user="${isUserStr}"] .avatar {
         position: relative !important; flex: none !important;
         width: ${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
@@ -296,12 +354,15 @@
     `;
   }
 
-  // A chat avatar picture's shape and width, so the image can be sized to the picture (see getAvatarCss).
+  // A chat avatar picture's shape and width, so the image can be sized to the picture (see getAvatarCss). The wrapper
+  // gets them too, for the Frame.
   function setAvatarRatio(img) {
     if (!img.naturalWidth || !img.naturalHeight) return;
     img.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
-    img.parentElement?.style.setProperty('--cb-nw', img.naturalWidth + 'px');
-    img.parentElement?.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
+    for (const box of [img.parentElement, img.closest('.mesAvatarWrapper')]) {
+      box?.style.setProperty('--cb-nw', img.naturalWidth + 'px');
+      box?.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
+    }
   }
 
   // NTR's Backdrop shows the full-size picture, not SillyTavern's small thumbnail. It's loaded first and only swapped
@@ -377,6 +438,95 @@
   }
   const anyFade = (s, prefix) => Object.values(FADE_PARTS).some(([key]) => rangeNum(s, prefix + key) > 0);
 
+  // A side's picture box, as its height for a width of 1: the Shape's, or with None the picture's own (the pop-out's, or
+  // the newest in the chat; a portrait while there's none).
+  function boxAspect(s, prefix) {
+    if (SHAPES[s[`${prefix}Shape`]]) return SHAPES[s[`${prefix}Shape`]];
+    const imgs = s[`${prefix}Style`] === 'popout' ? [document.getElementById(`cb_pop_${prefix}`)]
+      : document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
+    const img = imgs[imgs.length - 1];
+    return img?.naturalWidth && img.naturalHeight ? img.naturalHeight / img.naturalWidth : 1.5;
+  }
+
+  // The Frame's preview tile: the side's picture in its Shape, with its Filter and Texture, the Frame over it and the turn.
+  const FRAME_TILE = 96;
+  function framePrevHtml(s, prefix) {
+    const f = frameOf(s, prefix);
+    const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
+    const a = boxAspect(s, prefix);
+    // The whole frame fits in the tile, or the picture alone without one.
+    const w = Math.round((FRAME_TILE - 12) / ((f ? f.k : 1) * Math.max(1, a)));
+    const h = Math.round(w * a);
+    const cut = shape === 'round' ? 'border-radius: 50%;' : OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;`
+      : shape ? `border-radius: ${Math.round(w * rangeNum(s, prefix + 'Corner') / 100)}px;` : '';
+    const fl = FILTERS[s[`${prefix}Filter`]], tx = TEXTURES[s[`${prefix}Texture`]];
+    const fStr = rangeNum(s, prefix + 'FilterStr') / 100, tStr = rangeNum(s, prefix + 'TextureStr') / 100;
+    const left = (FRAME_TILE - w) / 2, top = (FRAME_TILE - h) / 2;
+    const b = f && frameBox(f, `${w}px`, `${h}px`);
+    const turn = rangeNum(s, prefix + 'Rotate');
+    return `<span style="position: absolute; inset: 0; ${turn ? `transform: rotate(${turn}deg);` : ''}">
+      <span style="position: absolute; left: ${left}px; top: ${top}px; width: ${w}px; height: ${h}px; overflow: hidden; ${escapeHTML(cut)}">${previewFace(sidePic(prefix),
+        fl && fStr ? `filter: ${fl.fx(fStr, 0.5)};` : '', tx && tStr ? `${tx} opacity: ${tStr};` : '')}</span>
+      ${b ? `<span style="position: absolute; left: calc(${left}px + ${b.left}); top: calc(${top}px + ${b.top}); ${escapeHTML(b.size + b.bg)}"></span>` : ''}
+    </span>`;
+  }
+
+  // Fit to Hole: Frame Size, Left/Right and Up/Down set so the picture fills the frame's see-through middle, a little
+  // past its edge so no gap shows. The middle is the see-through part joined to the frame's center (or the nearest
+  // see-through spot); one that reaches the edge isn't closed in, so it doesn't count. False when there's no middle, or
+  // the picture can't be read (a link to another site).
+  async function fitFrame(s, prefix) {
+    const src = cUrl(s[prefix + 'FrameImg']);
+    if (!src) return false;
+    const img = await loadImg(src).catch(() => null);
+    if (!img?.naturalWidth || !img.naturalHeight) return false;
+    const sc = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0, w, h);
+    let px;
+    try { px = g.getImageData(0, 0, w, h).data; } catch (e) { return false; }
+    const clear = (x, y) => px[(y * w + x) * 4 + 3] < 40;
+    const cx = w >> 1, cy = h >> 1, reach = Math.round(Math.min(w, h) * 0.15);
+    let start = null;
+    for (let r = 0; r <= reach && !start; r++) {
+      for (let dy = -r; dy <= r && !start; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const x = cx + dx, y = cy + dy;
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && x >= 0 && y >= 0 && x < w && y < h && clear(x, y)) { start = [x, y]; break; }
+        }
+      }
+    }
+    if (!start) return false;
+    const seen = new Uint8Array(w * h);
+    const todo = [start];
+    seen[start[1] * w + start[0]] = 1;
+    let x0 = w, x1 = 0, y0 = h, y1 = 0, area = 0;
+    while (todo.length) {
+      const [x, y] = todo.pop();
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return false;
+      area++;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (!seen[ny * w + nx] && clear(nx, ny)) { seen[ny * w + nx] = 1; todo.push([nx, ny]); }
+      }
+    }
+    if (area < w * h * 0.01) return false;
+    // The frame's picture is fitted in a box k picture widths wide (see frameBox), so it's drawn at k * m picture widths
+    // per pixel. The hole's width and height, at 4% over, sets k; its middle, how far the frame moves.
+    const a = boxAspect(s, prefix);
+    const m = Math.min(1 / w, a / h);
+    const k = 1 / (Math.max(x1 - x0 + 1, (y1 - y0 + 1) / a) * 1.04 * m);
+    const dx = (x0 + x1 + 1) / 2 - w / 2, dy = (y0 + y1 + 1) / 2 - h / 2;
+    const put = (key, v) => { s[prefix + key] = Math.round(v); s[prefix + key] = rangeNum(s, prefix + key); };
+    put('FrameSize', k * 100);
+    put('FrameX', -dx * k * m * 100);
+    put('FrameY', -dy * k * m * 100);
+    return true;
+  }
+
   function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
     const shaped = !!SHAPES[s[`${prefix}Shape`]];
@@ -445,6 +595,25 @@
         ${textureTiles(prefix, TEXTURES[s[`${prefix}Texture`]] ? s[`${prefix}Texture`] : 'none')}
         <div id="m_${prefix}_txwrap" class="${TEXTURES[s[`${prefix}Texture`]] ? '' : 'cb_dim'}">${slider('tx', 'TextureStr', 'Texture Strength:')}</div>
 
+        <div class="cb_sub">Frame</div>
+        ${grp('inline popout', `<div class="cb_cur_slot" style="margin: 0;">
+            <div class="cb_cur_row">
+              <div id="m_${prefix}_frprev" style="position: relative; flex: none; width: ${FRAME_TILE}px; height: ${FRAME_TILE}px; border-radius: 8px; background: rgba(0,0,0,.35);">${framePrevHtml(s, prefix)}</div>
+              <span class="cb_cur_name">Frame Picture</span>
+              <button type="button" class="menu_button" id="m_${prefix}_frup" title="Upload" aria-label="Upload a frame for the ${title} avatar"><i class="fa-solid fa-upload"></i></button>
+              <button type="button" class="menu_button" id="m_${prefix}_frclr" title="Remove frame" aria-label="Remove frame" ${frameOf(s, prefix) ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+            </div>
+            <input type="file" id="m_${prefix}_frfile" accept="image/png,image/webp,image/gif" hidden>
+          </div>
+          <div id="m_${prefix}_frhint" class="cb_hint" style="margin: 0;${frameOf(s, prefix) ? ' display: none;' : ''}">Use a picture with a see-through middle, like a PNG.</div>
+          <div id="m_${prefix}_frrows" class="${frameOf(s, prefix) ? '' : 'cb_dim'}" style="display: flex; flex-direction: column; gap: 8px;">
+            <button type="button" id="m_${prefix}_frfit" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-crosshairs"></i> Fit to Hole</button>
+            <div>${slider('frs', 'FrameSize', 'Frame Size:')}</div>
+            <div>${slider('frx', 'FrameX', 'Frame Left/Right:')}</div>
+            <div>${slider('fry', 'FrameY', 'Frame Up/Down:')}</div>
+          </div>`)}
+        ${grp('backdrop', '<div class="cb_hint" style="margin: 0;">Frames show for In Line and Pop Out.</div>')}
+
         <div class="cb_sub">Advanced: Custom CSS</div>
         ${ovRow(s, `${prefix}CssOn`, `${title} Avatar CSS`, customCssBox(s, `${prefix}Css`, 'border: 2px solid white !important;&#10;box-shadow: inset 0 0 12px black;')
           + `<div class="cb_hint">CSS properties for this avatar, without a selector. ${CSS_NOTE}</div>`)}
@@ -504,6 +673,54 @@
         col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', off);
         col.querySelector(`#m_${prefix}_orighint`).style.display = off ? '' : 'none';
         col.querySelector(`#m_${prefix}_padwrap`).classList.toggle('cb_dim', s[`${prefix}Style`] === 'inline');
+        drawFrame();
+      };
+      // The Frame: its preview, Remove and the rows, which wait for a picture.
+      const drawFrame = () => {
+        const on = !!frameOf(s, prefix);
+        col.querySelector(`#m_${prefix}_frprev`).innerHTML = framePrevHtml(s, prefix);
+        col.querySelector(`#m_${prefix}_frclr`).disabled = !on;
+        col.querySelector(`#m_${prefix}_frhint`).style.display = on ? 'none' : '';
+        col.querySelector(`#m_${prefix}_frrows`).classList.toggle('cb_dim', !on);
+      };
+      const frameSliders = () => {
+        for (const [id, key] of [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']]) {
+          col.querySelector(`#m_${prefix}_${id}`).value = rangeNum(s, prefix + key);
+          col.querySelector(`#m_${prefix}_${id}val`).textContent = rangeNum(s, prefix + key);
+        }
+      };
+      const fit = async () => {
+        if (!(await fitFrame(s, prefix))) {
+          toastr.warning('Couldn\'t find the frame\'s middle. Set it with the sliders.', 'Frame');
+          return;
+        }
+        save();
+        frameSliders();
+        drawFrame();
+        updateAvatarStyle();
+      };
+      const setFrame = (url) => {
+        const old = s[prefix + 'FrameImg'];
+        s[prefix + 'FrameImg'] = url;
+        save();
+        drawFrame();
+        updateAvatarStyle();
+        deleteFileIfUnused(old);
+      };
+      const frFile = col.querySelector(`#m_${prefix}_frfile`);
+      col.querySelector(`#m_${prefix}_frup`).onclick = () => frFile.click();
+      col.querySelector(`#m_${prefix}_frclr`).onclick = () => setFrame('');
+      col.querySelector(`#m_${prefix}_frfit`).onclick = fit;
+      frFile.onchange = async () => {
+        if (!frFile.files.length) return;
+        try {
+          setFrame(await uploadImage(frFile.files[0], 'avframe', { max: 1024 }));
+          await fit();
+        } catch (e) {
+          console.error('[NTR frame upload]', e);
+          toastr.error(e.message || 'Upload failed', 'Frame');
+        }
+        frFile.value = '';
       };
       onPills(col, `${prefix}style`, (v) => {
         s[`${prefix}Style`] = v;
@@ -557,11 +774,13 @@
       };
 
       overlay.querySelector(`#m_${prefix}_reset`).onclick = async function() {
-        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style and Custom CSS included?`, 'Reset'))) return;
+        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style, Frame and Custom CSS included?`, 'Reset'))) return;
+        const oldFrame = s[prefix + 'FrameImg'];
         for (const k of Object.keys(DEFAULTS)) {
           if (k.startsWith(prefix) && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
         }
         save();
+        deleteFileIfUnused(oldFrame);
         updateAvatarStyle();
         openCombinedModal();
       };
@@ -569,7 +788,8 @@
       const sliders = [
         { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'sx', key: 'ShiftX' }, { id: 'zm', key: 'Zoom' },
         { id: 'rt', key: 'Rotate' }, { id: 'pad', key: 'Pad' }, { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
-        { id: 'fs', key: 'FadeStr' }, { id: 'fx', key: 'FilterStr' }, { id: 'tx', key: 'TextureStr' }
+        { id: 'fs', key: 'FadeStr' }, { id: 'fx', key: 'FilterStr' }, { id: 'tx', key: 'TextureStr' },
+        { id: 'frs', key: 'FrameSize' }, { id: 'frx', key: 'FrameX' }, { id: 'fry', key: 'FrameY' }
       ];
       
       sliders.forEach(({ id, key }) => {
@@ -588,6 +808,7 @@
           s[`${prefix}${key}`] = Number(this.value);
           overlay.querySelector(`#m_${prefix}_${id}val`).textContent = this.value;
           if (key === 'Zoom' || key === 'Rotate') syncScale();
+          else drawFrame();
           updateAvatarStyle();
         };
         el.onchange = save;

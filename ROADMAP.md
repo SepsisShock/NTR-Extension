@@ -63,13 +63,6 @@ Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The 
 - [ ] Have these sliders and the code that applies them use the ranges already shared through `window.NTR`, keeping setting names, defaults and the menu layout the same.
 - [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
 
-### Graphic borders around profiles
-
-Complicated, not urgent.
-Decorative image frames around profile pictures, beyond the current plain border and shape choices.
-
-- Open questions: which pictures get them (chat avatars, avatar backdrop, avatar pop-out, VN portrait box); built-in frames drawn in code like the default art, uploaded frames, or both; how a frame fits each shape (round, rounded, square, tall); per character, global, or saved in themes.
-
 ### Graphic borders around the UI
 
 Complicated, not urgent.

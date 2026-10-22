@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.74.0';
+  const VERSION = '2.75.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -225,7 +225,7 @@ await (async () => {
   };
 
   // Avatar Management's Shape choices (see avatars.js). A saved Shape is checked against them (PICK_KEYS).
-  const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['heart', 'Heart'], ['star', 'Star']];
+  const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['oval', 'Oval'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['heart', 'Heart'], ['star', 'Star']];
   // Avatar Management's Filter choices (see avatars.js). A saved Filter is checked against them (PICK_KEYS).
   const FILTER_OPTS = [['none', 'None'], ['piss', 'Piss'], ['bw', 'Black and White'], ['noir', 'Noir'], ['faded', 'Faded'], ['dreamy', 'Dreamy']];
   // Its Texture choices, layers over the picture (see avatars.js).
@@ -1322,6 +1322,7 @@ await (async () => {
   // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
   const FRAME_SERIES = [
     { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
+    { id: 'roses', name: 'Rose Mirrors', frames: [['blush', 'Blush'], ['midnight', 'Midnight']] },
   ];
   const FRAME_IDS = FRAME_SERIES.flatMap((f) => f.frames.map(([v]) => `${f.id}/${v}`));
   const frameUrl = (id) => (FRAME_IDS.includes(id) ? `${NTR_BASE}assets/frames/${id}.webp` : '');

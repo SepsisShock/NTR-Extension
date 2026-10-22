@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.74.0';
+  const AVATARS_VERSION = '2.75.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, card, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -20,8 +20,10 @@
     cr: ['FadeRight', 'Right'], bl: ['FadeBL', 'Bottom Left'], bc: ['FadeBot', 'Bottom'], br: ['FadeBR', 'Bottom Right'],
   };
 
-  // Avatar shapes, like SillyTavern's own: their height for a width of 1. Round is a circle; the others take Corners.
-  const SHAPES = { round: 1, rectangle: 1.5, square: 1, heart: 1, star: 1 };
+  // Avatar shapes, like SillyTavern's own: their height for a width of 1. Round is a circle and Oval an ellipse as tall
+  // as Rectangle; Rectangle and Square take Corners.
+  const SHAPES = { round: 1, oval: 1.5, rectangle: 1.5, square: 1, heart: 1, star: 1 };
+  const ellipse = (shape) => shape === 'round' || shape === 'oval';
 
   // Heart and Star are outlines that cut the picture (a mask), drawn in a 100 x 100 box stretched over the frame. The
   // star's points are thick, so it keeps more of the picture.
@@ -34,9 +36,9 @@
     star: svgMask(`M${STAR.join('L')}Z`),
   };
 
-  // The Shape tiles' pictures: Circle, Rectangle and Square drawn as boxes, Heart and Star cut by their outlines.
+  // The Shape tiles' pictures: Circle, Oval, Rectangle and Square drawn as boxes, Heart and Star cut by their outlines.
   const SHAPE_FACES = {
-    round: 'width: 22px; height: 22px; border-radius: 50%;', rectangle: 'width: 15px; height: 22px; border-radius: 2px;', square: 'width: 20px; height: 20px; border-radius: 2px;',
+    round: 'width: 22px; height: 22px; border-radius: 50%;', oval: 'width: 15px; height: 22px; border-radius: 50%;', rectangle: 'width: 15px; height: 22px; border-radius: 2px;', square: 'width: 20px; height: 20px; border-radius: 2px;',
     heart: `width: 24px; height: 24px; -webkit-mask: ${OUTLINES.heart} center / 100% 100% no-repeat; mask: ${OUTLINES.heart} center / 100% 100% no-repeat;`,
     star: `width: 24px; height: 24px; -webkit-mask: ${OUTLINES.star} center / 100% 100% no-repeat; mask: ${OUTLINES.star} center / 100% 100% no-repeat;`,
   };
@@ -105,10 +107,11 @@
   }
 
   // Shape Only turns the shape and turns the picture back inside it, so the picture is made bigger by this much to still
-  // fill the turned shape's corners. A circle needs none.
+  // fill the turned shape's corners. A circle needs none, and an oval only enough to reach its turned width and height.
   function turnCover(shape, turn) {
     if (!shape || shape === 'round' || !turn) return 1;
     const a = turn * Math.PI / 180, c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a)), h = SHAPES[shape];
+    if (shape === 'oval') return Math.max(Math.hypot(c, h * sn), Math.hypot(sn / h, c));
     return Math.max(c + h * sn, sn / h + c);
   }
   // Whether a side's Rotation turns the shape alone (Shape Only), and not the picture with it.
@@ -220,7 +223,7 @@
     // A shape is a frame Image Scale sizes: its width, and its height from the shape. Corners are a % of the width.
     const aspect = shape ? SHAPES[shape] : 1;
     const frameH = Math.round(width * aspect);
-    const frameR = shape === 'round' ? '50%' : OUTLINES[shape] ? '0' : `${Math.round(width * n('Corner') / 100)}px`;
+    const frameR = ellipse(shape) ? '50%' : OUTLINES[shape] ? '0' : `${Math.round(width * n('Corner') / 100)}px`;
 
     let padCss = '';
     if (h === 'l') padCss = `padding-left: ${pad}px !important;`;
@@ -492,7 +495,7 @@
     // The whole frame fits in the tile, or the picture alone without one.
     const w = Math.round((FRAME_TILE - 12) / ((f ? f.k : 1) * Math.max(1, a)));
     const h = Math.round(w * a);
-    const cut = shape === 'round' ? 'border-radius: 50%;' : OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;`
+    const cut = ellipse(shape) ? 'border-radius: 50%;' : OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;`
       : shape ? `border-radius: ${Math.round(w * rangeNum(s, prefix + 'Corner') / 100)}px;` : '';
     const fl = FILTERS[s[`${prefix}Filter`]], tx = TEXTURES[s[`${prefix}Texture`]];
     const fStr = rangeNum(s, prefix + 'FilterStr') / 100, tStr = rangeNum(s, prefix + 'TextureStr') / 100;

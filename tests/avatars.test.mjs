@@ -129,3 +129,10 @@ test('a frame uploaded before the library keeps each side\'s fit, even when both
   delete c.frameFits.us[img];
   Object.assign(c, { aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0, usFrameImg: '', usFrameSize: 140, usFrameX: 0, usFrameY: 0 });
 });
+
+test('Oval is an ellipse as tall as Rectangle', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'inline', aiShape: 'oval', aiScale: 100, usEnabled: false });
+  assert.match(window.NTR.avatars.css(s), /aspect-ratio: 1 \/ 1\.5 !important; border-radius: 50% !important;/);
+  s.aiShape = 'none';
+});

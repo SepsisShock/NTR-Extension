@@ -1322,7 +1322,7 @@ await (async () => {
   // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
   const FRAME_SERIES = [
     { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
-    { id: 'roses', name: 'Gilded Roses', frames: [['blush', 'Blush'], ['midnight', 'Midnight']] },
+    { id: 'roses', name: 'Rose Mirrors', frames: [['blush', 'Blush'], ['midnight', 'Midnight']] },
   ];
   const FRAME_IDS = FRAME_SERIES.flatMap((f) => f.frames.map(([v]) => `${f.id}/${v}`));
   const frameUrl = (id) => (FRAME_IDS.includes(id) ? `${NTR_BASE}assets/frames/${id}.webp` : '');

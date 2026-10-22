@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.73.0';
+  const VERSION = '2.74.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -19,6 +19,9 @@ await (async () => {
     bannerGlobal: { images: [], idx: 0, youtubeUrl: '', video: '', videoPos: 50 },
     chars: {},
     avatarEnabled: true,
+    // The Frame library: your own folders of uploaded frames, the built-in folders you've hidden, and each side's fit
+    // (Frame Size, Left/Right, Up/Down) for each frame it has used.
+    frameLib: { folders: [{ id: 'frf_mine', name: 'My Frames', frames: [] }] }, frameHidden: [], frameFits: { ai: {}, us: {} },
     
     // AI Settings
     aiStyle: 'inline', aiPopX: 0, aiPopY: 0,
@@ -27,7 +30,7 @@ await (async () => {
     aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0, aiFadeStr: 50,
     aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape', aiFilter: 'none', aiFilterStr: 100, aiTexture: 'none', aiTextureStr: 100, aiCssOn: false, aiCss: '',
-    aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0,
+    aiFrame: '', aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0,
     
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
@@ -36,7 +39,7 @@ await (async () => {
     usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0, usFadeStr: 50,
     usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape', usFilter: 'none', usFilterStr: 100, usTexture: 'none', usTextureStr: 100, usCssOn: false, usCss: '',
-    usFrameImg: '', usFrameSize: 140, usFrameX: 0, usFrameY: 0,
+    usFrame: '', usFrameImg: '', usFrameSize: 140, usFrameX: 0, usFrameY: 0,
 
     // Foreground Settings
     fgEnabled: false,
@@ -400,6 +403,19 @@ await (async () => {
     // The template is copied into cards, which check a list like a theme's, so it keeps to the same limits.
     if (!validEmotions(s.emotions)) s.emotions = fixEmotions(s.emotions);
     if (!s.emotions.some((e) => e.id === s.emoDefault)) s.emoDefault = s.emotions[0].id;
+    if (!cleaned.has(s.frameLib)) s.frameLib = cleanFrameLib(s.frameLib);
+    s.frameHidden = Array.isArray(s.frameHidden) ? FRAME_SERIES.map((f) => f.id).filter((id) => s.frameHidden.includes(id)) : [];
+    if (!cleaned.has(s.frameFits)) s.frameFits = cleanFrameFits(s.frameFits);
+    // Frames uploaded before the library go in its first folder, so they stay in the list.
+    if (!s.frameLibMoved) {
+      for (const p of ['ai', 'us']) {
+        const img = cUrl(s[p + 'FrameImg']);
+        if (!img || img.startsWith('data:') || s.frameLib.folders.some((f) => f.frames.some((fr) => fr.img === img))) continue;
+        if (!s.frameLib.folders.length) s.frameLib.folders.push({ id: newId('frf'), name: 'My Frames', frames: [] });
+        s.frameLib.folders[0].frames.push({ id: newId('fr'), name: 'Your picture', img });
+      }
+      s.frameLibMoved = true;
+    }
     if (!Array.isArray(s.layPins)) s.layPins = [];
     if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
     return s;
@@ -664,6 +680,9 @@ await (async () => {
       .ntr_tile input:checked + .ntr_tile_face > * { opacity: 1; }
       .ntr_tile input:focus-visible + .ntr_tile_face { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
       .ntr_tile_text { font-size: .8em; }
+      .ntr_tiles.ntr_frtiles { grid-template-columns: repeat(auto-fill, 64px); width: auto; }
+      .ntr_frtiles .ntr_tile_face { width: 64px; height: 64px; padding: 4px; background: rgba(128,128,128,.22); }
+      .ntr_frtiles .ntr_tile_face > img { width: 100%; height: 100%; object-fit: contain; opacity: 1; }
       .ntr_tiles.ntr_named { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); width: auto; }
       .ntr_named .ntr_tile { flex-direction: column; align-items: stretch; gap: 3px; }
       .ntr_named .ntr_tile_face { width: 100%; height: 36px; overflow: hidden; padding: 0; }
@@ -1298,6 +1317,12 @@ await (async () => {
     ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
   const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
   const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
+  // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
+  const FRAME_SERIES = [
+    { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
+  ];
+  const FRAME_IDS = FRAME_SERIES.flatMap((f) => f.frames.map(([v]) => `${f.id}/${v}`));
+  const frameUrl = (id) => (FRAME_IDS.includes(id) ? `${NTR_BASE}assets/frames/${id}.webp` : '');
   function pills(name, opts, cur) {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
@@ -1634,7 +1659,7 @@ await (async () => {
     layPage: ['attached', 'free'], layPhPage: ['attached', 'free'], layBan: ['attached', 'free'], layPhBan: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
-    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'],
+    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'], aiFrame: ['', ...FRAME_IDS], usFrame: ['', ...FRAME_IDS],
     ovBubTail: BUB_TAIL_OPTS.map(([v]) => v), ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: BUB_INK_OPTS.map(([v]) => v),
     ovQrWrap: ['wrap', 'scroll'], ovQrAlign: Object.keys(QR_ALIGN),
     mdDate: ['long', 'short'], mdSep: Object.keys(MD_SEP),
@@ -1786,6 +1811,40 @@ await (async () => {
     const out = Object.create(null);
     if (!isObj(v)) return out;
     for (const k of Object.keys(v).slice(0, 500)) { const u = cUrl(v[k]); if (u && k.length <= 200) out[k] = u; }
+    return out;
+  }
+  // The Frame library's own folders: at most 50, each with at most 200 uploaded frames, short names and safe links.
+  // The built-in folders aren't saved in it (see FRAME_SERIES).
+  function cleanFrameLib(v) {
+    const folders = [], ids = new Set();
+    for (const f of isObj(v) && Array.isArray(v.folders) ? v.folders.slice(0, 50) : []) {
+      const id = isObj(f) ? cRef(f.id) : '';
+      if (!id || ids.has(id)) continue;
+      ids.add(id);
+      const frames = [];
+      for (const fr of Array.isArray(f.frames) ? f.frames.slice(0, 200) : []) {
+        const fid = isObj(fr) ? cRef(fr.id) : '', img = isObj(fr) ? cUrl(fr.img) : '';
+        if (!fid || ids.has(fid) || !img || img.startsWith('data:')) continue;
+        ids.add(fid);
+        frames.push({ id: fid, name: cStr(fr.name, 60).trim() || 'Frame', img });
+      }
+      folders.push({ id, name: cStr(f.name, 60).trim() || 'Folder', frames });
+    }
+    const out = { folders };
+    cleaned.add(out);
+    return out;
+  }
+  // Each side's remembered fits, by built-in frame or picture link: [Frame Size, Left/Right, Up/Down] in their ranges.
+  function cleanFrameFits(v) {
+    const out = { ai: {}, us: {} };
+    for (const p of ['ai', 'us']) {
+      const m = isObj(v) && isObj(v[p]) ? v[p] : {};
+      for (const k of Object.keys(m).slice(0, 300)) {
+        if (k.length > 2048 || !Array.isArray(m[k]) || m[k].length !== 3) continue;
+        out[p][k] = ['FrameSize', 'FrameX', 'FrameY'].map((n, i) => Math.round(cNum(m[k][i], DEFAULTS[p + n], NUM_RANGE[p + n][0], NUM_RANGE[p + n][1])));
+      }
+    }
+    cleaned.add(out);
     return out;
   }
   // Menu Bar Icons' pictures, saved or from a theme file: ids that are plain CSS names, safe links, at most 40.
@@ -3491,7 +3550,7 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
       COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, ovLabel,
       RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
-      cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
+      cUrl, cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
       LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, pinRect, cleanPins, layoutPop, syncPopSliders, fgOwner, decorOn, clamp,

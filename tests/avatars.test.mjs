@@ -78,3 +78,39 @@ test('under Shape Only the Texture turns back with the picture', () => {
   assert.doesNotMatch(window.NTR.avatars.css(s), /::after \{[^}]*transform:/);
   Object.assign(s, { aiRotate: 0, aiRotateMode: 'shape', aiTexture: 'none', aiShape: 'none' });
 });
+
+test('a built-in frame draws from the extension\'s own pictures, and an unknown one draws nothing', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'inline', usEnabled: false, aiFrame: 'nouveau/lily', aiFrameImg: '' });
+  assert.match(window.NTR.avatars.css(s), /assets\/frames\/nouveau\/lily\.webp/);
+  s.aiFrame = '../../secrets';
+  assert.doesNotMatch(window.NTR.avatars.css(s), /assets\/frames\//);
+  s.aiFrame = '';
+});
+
+test('the Frame library keeps safe links and short names, and drops the rest', () => {
+  const s = api.settings();
+  s.frameLib = { folders: [
+    { id: 'f1', name: 'x'.repeat(100), frames: [
+      { id: 'a', name: 'Good', img: '/user/files/avframe_a.png' },
+      { id: 'b', name: 'Bad', img: 'javascript:alert(1)' },
+      { id: 'a', name: 'Same id', img: '/user/files/avframe_c.png' },
+      { id: 'd', name: 'Embedded', img: 'data:image/png;base64,iVBORw0KGgo=' },
+    ] },
+    { id: 'bad id!', name: 'Gone', frames: [] },
+    'not a folder',
+  ] };
+  s.frameHidden = ['nouveau', 'nope'];
+  s.frameFits = { ai: { '/user/files/avframe_a.png': [9999, -9999, 'x'], short: [1] }, us: 'no' };
+  const c = api.settings();
+  assert.equal(c.frameLib.folders.length, 1);
+  assert.equal(c.frameLib.folders[0].name.length, 60);
+  assert.deepEqual(c.frameLib.folders[0].frames.map((f) => f.id), ['a']);
+  assert.deepEqual(c.frameHidden, ['nouveau']);
+  const [lo, hi] = api.numRange('aiFrameSize'), [xlo] = api.numRange('aiFrameX');
+  assert.deepEqual(c.frameFits.ai['/user/files/avframe_a.png'], [hi, xlo, 0]);
+  assert.ok(lo < hi);
+  assert.equal('short' in c.frameFits.ai, false);
+  assert.deepEqual(c.frameFits.us, {});
+  c.frameHidden = [];
+});

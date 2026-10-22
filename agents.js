@@ -8,7 +8,7 @@
 // Block set to Agent Results, layout.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.73.0';
+  const AGENTS_VERSION = '2.74.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;

@@ -506,15 +506,16 @@
     </span>`;
   }
 
-  // Fit to Hole: Frame Size, Left/Right and Up/Down set so the picture fills the frame's see-through middle, a little
-  // past its edge so no gap shows. The middle is the see-through part joined to the frame's center (or the nearest
-  // see-through spot); one that reaches the edge isn't closed in, so it doesn't count. False when there's no middle, or
-  // the picture can't be read (a link to another site).
+  // Fit to Hole: the Frame Size, Left/Right and Up/Down that make the picture fill the frame's see-through middle, a
+  // little past its edge so no gap shows, as { FrameSize, FrameX, FrameY }. Nothing is saved, since the side may have
+  // picked another frame while the picture loaded. The middle is the see-through part joined to the frame's center (or
+  // the nearest see-through spot); one that reaches the edge isn't closed in, so it doesn't count. Null when there's no
+  // middle, or the picture can't be read (a link to another site).
   async function fitFrame(s, prefix) {
     const src = frameSrc(s, prefix);
-    if (!src) return false;
+    if (!src) return null;
     const img = await loadImg(src).catch(() => null);
-    if (!img?.naturalWidth || !img.naturalHeight) return false;
+    if (!img?.naturalWidth || !img.naturalHeight) return null;
     const sc = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
     const c = document.createElement('canvas');
@@ -522,7 +523,7 @@
     const g = c.getContext('2d', { willReadFrequently: true });
     g.drawImage(img, 0, 0, w, h);
     let px;
-    try { px = g.getImageData(0, 0, w, h).data; } catch (e) { return false; }
+    try { px = g.getImageData(0, 0, w, h).data; } catch (e) { return null; }
     const clear = (x, y) => px[(y * w + x) * 4 + 3] < 40;
     const cx = w >> 1, cy = h >> 1, reach = Math.round(Math.min(w, h) * 0.15);
     let start = null;
@@ -534,32 +535,29 @@
         }
       }
     }
-    if (!start) return false;
+    if (!start) return null;
     const seen = new Uint8Array(w * h);
     const todo = [start];
     seen[start[1] * w + start[0]] = 1;
     let x0 = w, x1 = 0, y0 = h, y1 = 0, area = 0;
     while (todo.length) {
       const [x, y] = todo.pop();
-      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return false;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return null;
       area++;
       x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
       for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
         if (!seen[ny * w + nx] && clear(nx, ny)) { seen[ny * w + nx] = 1; todo.push([nx, ny]); }
       }
     }
-    if (area < w * h * 0.01) return false;
+    if (area < w * h * 0.01) return null;
     // The frame's picture is fitted in a box k picture widths wide (see frameBox), so it's drawn at k * m picture widths
     // per pixel. The hole's width and height, at 4% over, sets k; its middle, how far the frame moves.
     const a = boxAspect(s, prefix);
     const m = Math.min(1 / w, a / h);
     const k = 1 / (Math.max(x1 - x0 + 1, (y1 - y0 + 1) / a) * 1.04 * m);
     const dx = (x0 + x1 + 1) / 2 - w / 2, dy = (y0 + y1 + 1) / 2 - h / 2;
-    const put = (key, v) => { s[prefix + key] = Math.round(v); s[prefix + key] = rangeNum(s, prefix + key); };
-    put('FrameSize', k * 100);
-    put('FrameX', -dx * k * m * 100);
-    put('FrameY', -dy * k * m * 100);
-    return true;
+    const val = (key, v) => rangeNum({ [prefix + key]: Math.round(v) }, prefix + key);
+    return { FrameSize: val('FrameSize', k * 100), FrameX: val('FrameX', -dx * k * m * 100), FrameY: val('FrameY', -dy * k * m * 100) };
   }
 
   // The Frame row's name: the frame and its folder, Your picture for one that isn't in the library, or No Frame.
@@ -759,11 +757,16 @@
         const k = fitKey(s, prefix);
         if (k) s.frameFits[prefix][k] = ['FrameSize', 'FrameX', 'FrameY'].map((n) => rangeNum(s, prefix + n));
       };
+      // The fit lands only if this side still has the frame it was worked out for.
       const fit = async () => {
-        if (!(await fitFrame(s, prefix))) {
+        const k = fitKey(s, prefix);
+        const got = await fitFrame(s, prefix);
+        if (fitKey(s, prefix) !== k) return;
+        if (!got) {
           toastr.warning('Couldn\'t find the frame\'s middle. Set it with the sliders.', 'Frame');
           return;
         }
+        Object.assign(s, { [prefix + 'FrameSize']: got.FrameSize, [prefix + 'FrameX']: got.FrameX, [prefix + 'FrameY']: got.FrameY });
         keepFit();
         save();
         frameSliders();

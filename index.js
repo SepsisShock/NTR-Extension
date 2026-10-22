@@ -413,6 +413,7 @@ await (async () => {
         if (!img || img.startsWith('data:') || s.frameLib.folders.some((f) => f.frames.some((fr) => fr.img === img))) continue;
         if (!s.frameLib.folders.length) s.frameLib.folders.push({ id: newId('frf'), name: 'My Frames', frames: [] });
         s.frameLib.folders[0].frames.push({ id: newId('fr'), name: 'Your picture', img });
+        s.frameFits[p][img] = ['FrameSize', 'FrameX', 'FrameY'].map((n) => rangeNum(s, p + n));
       }
       s.frameLibMoved = true;
     }
@@ -2466,6 +2467,8 @@ await (async () => {
     }
     if (sec === 'pfp') {
       for (const p of ['ai', 'us']) {
+        // Themes from before the built-in frames have a frame picture but no built-in frame: theirs replaces yours.
+        if (p + 'FrameImg' in out && !(p + 'Frame' in out)) out[p + 'Frame'] = '';
         for (const k of ['LeftFade', 'RightFade']) {
           if (p + k in out && !(p + k + 'Px' in out)) out[p + k + 'Px'] = pctFadeToPx(out[p + k], out[p + 'Scale'] ?? settings()[p + 'Scale']);
         }

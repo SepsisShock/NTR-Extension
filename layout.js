@@ -8,7 +8,7 @@
 // Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages and Attached Style (overrideCss,
 // layoutChatCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const LAYOUT_VERSION = '2.72.1';
+  const LAYOUT_VERSION = '2.72.2';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -89,8 +89,8 @@
   }
 
   // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar, page bar and
-  // banner only while they're Free, since Attached they follow the chat panel. The page bar is there in Reader Mode's Standard
-  // and Book, the banner while the open chat shows one.
+  // banner only while they're Floating, since Attached they follow the chat panel. The page bar is there in Reader
+  // Mode's Standard and Book, the banner while the open chat shows one.
   function layRect(it) {
     const s = settings();
     const el = placeEl(it);
@@ -615,8 +615,9 @@
     css += cssRule('body #sheld', { left: 'var(--ntr-cx)', top: 'var(--ntr-cy)', width: 'var(--ntr-cw)', height: 'var(--ntr-ch)', 'max-height': 'var(--ntr-ch)', right: 'auto', bottom: 'auto', margin: '0', resize: 'none' });
     css += cssRule('body #sheld > #sheldheader', { display: 'none' });
     css += cssRule('body #chat', { 'max-height': 'none' });
-    // Fixed parts are placed in the page's root, which SillyTavern's phone look leaves with no height. Anything held by
-    // the bottom of the screen (a bar or Free send bar there, settings panels above it) would end up above the screen.
+    // Fixed parts are placed in the page's root, which SillyTavern's phone look leaves with no height. Anything held
+    // by the bottom of the screen (a bar or Floating send bar there, settings panels above it) would end up above
+    // the screen.
     if (phone) css += cssRule('html', { 'min-height': '100dvh' });
 
     // Menu bar: the icons and the strip behind them. It stays SillyTavern's own while it sits unmoved on the top edge
@@ -641,7 +642,7 @@
       css += phone ? phonePanelCss(edge, bt) : deskPanelCss(edge, bt, up);
     }
 
-    // Send bar. Free, it has its own place; its bottom edge stays put, so it grows upward as you type more lines.
+    // Send bar. Floating, it has its own place; its bottom edge stays put, so it grows upward as you type more lines.
     if (v('Send') === 'free') {
       const w = n('SendW');
       css += cssRule('body #form_sheld', {
@@ -653,8 +654,8 @@
       if (decorOn(s)) css += joinCss(s, true, 'body ');
     }
 
-    // Reader Mode's page bar (reader.js). Free, it has its own place, like a Free send bar. It's never narrower than its
-    // buttons and page number need (--ntr-rdbar-min, from reader.js), and stays on the screen.
+    // Reader Mode's page bar (reader.js). Floating, it has its own place, like a Floating send bar. It's never narrower
+    // than its buttons and page number need (--ntr-rdbar-min, from reader.js), and stays on the screen.
     if (v('Page') === 'free') {
       const w = `max(${n('PageW')}vw, var(--ntr-rdbar-min, 0px))`;
       css += cssRule('body #ntr_rd_bar', {
@@ -663,8 +664,8 @@
       });
     }
 
-    // The header banner (overlays.js). Free, it has its own place and size, and sits above the chat panel's top (overlays.js
-    // keeps it out of the messages and drops Overlap while it's Free).
+    // The header banner (overlays.js). Floating, it has its own place and size, and sits above the chat panel's top
+    // (overlays.js keeps it out of the messages and drops Overlap while it's Floating).
     if (v('Ban') === 'free') {
       const w = n('BanW'), h = n('BanH');
       css += cssRule('body #cb_banner', {
@@ -745,8 +746,8 @@
     window.NTR.reader?.relayout();
   }
 
-  // A Free send bar over the bottom of the chat panel: the chat gets that much room at its bottom, so the last message
-  // can scroll up above the send bar.
+  // A Floating send bar over the bottom of the chat panel: the chat gets that much room at its bottom, so the last
+  // message can scroll up above the send bar.
   let sendRo = null;
   function syncSendRoom() {
     const chat = document.getElementById('chat');
@@ -843,7 +844,7 @@
 
   // The Layout page's picks after Edit Layout changed them or the window crossed 1000px, and the settings that don't
   // apply to the layout this screen uses: Chat Width on Phone or once the chat panel has been moved, Attached Style while
-  // the send bar is Free.
+  // the send bar is Floating.
   function syncLayoutPage(overlay) {
     if (!overlay) return;
     const s = settings();

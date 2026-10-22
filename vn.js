@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.72.1';
+  const VN_VERSION = '2.72.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -823,8 +823,9 @@
     placeCG();
   }
 
-  // How far above the bottom of the screen the dialogue box sits: just above the send bar. A Free send bar (Layout) can
-  // be anywhere, so the box sits at the bottom of the chat panel, or above the send bar where it covers that bottom.
+  // How far above the bottom of the screen the dialogue box sits: just above the send bar. A Floating send bar
+  // (Layout) can be anywhere, so the box sits at the bottom of the chat panel, or above the send bar where it
+  // covers that bottom.
   function boxFloor(chat, form) {
     if (!A.sendFree?.() || !chat) return form ? window.innerHeight - form.getBoundingClientRect().top : 82;
     const c = chat.getBoundingClientRect();
@@ -1091,7 +1092,7 @@
     const L = document.getElementById('ntr_cg');
     if (!L) return;
     const form = document.getElementById('form_sheld');
-    // It stops above the send bar. A Free send bar (Layout) in the top half of the screen is covered instead.
+    // It stops above the send bar. A Floating send bar (Layout) in the top half of the screen is covered instead.
     const top = form ? form.getBoundingClientRect().top : window.innerHeight;
     L.style.bottom = (A.sendFree?.() && top < window.innerHeight / 2 ? 0 : Math.max(0, window.innerHeight - top)) + 'px';
   }

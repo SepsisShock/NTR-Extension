@@ -2,10 +2,10 @@
 // fades and crop, and the page that sets them. Loaded by index.js before NTR starts, so its styles are there from the
 // first draw. If this file breaks, the rest of the extension keeps working, with SillyTavern's own avatars.
 // The settings, their limits and the lists they're checked against stay in index.js, and so do the pop-out pictures'
-// layer and loading and Edit Placement; this file writes their size and position CSS. It builds from what index.js
-// shares in window.NTR.api.look.
+// layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
+// what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.72.0';
+  const AVATARS_VERSION = '2.72.1';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askYes, card, escapeHTML, fullResUrl, isOn, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum, save, settings,

@@ -377,7 +377,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 
 .cb_popup_content input[type="range"] { width: 100%; }
 
-/* Pinned Blocks: a block from the chat in a box of its own (see syncPins). Where each box sits comes from Layout. */
+/* Pinned Blocks: a block from the chat in a box of its own (see syncPins in layout.js). Where each box sits comes from Layout. */
 #ntr_pin_layer { position: fixed; inset: 0; z-index: 2600; pointer-events: none; }
 #ntr_pin_layer .ntr_pin { position: absolute; box-sizing: border-box; display: flex; pointer-events: auto; }
 #ntr_pin_layer .ntr_pin[hidden] { display: none; }

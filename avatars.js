@@ -5,12 +5,13 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.73.0';
+  const AVATARS_VERSION = '2.74.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askYes, card, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, numRange, onPills, pageHtml, pills, posGrid, rangeAttrs, rangeNum,
-    save, settings, startPlacement, tiles, uploadImage } = A;
-  const { CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, ntrAvatars, ovPick, ovRow, popMsg, restyle: updateAvatarStyle, svgMask } = A.look;
+  const { DEFAULTS, askText, askYes, card, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
+    rangeAttrs, rangeNum, save, settings, startPlacement, tiles, uploadImage } = A;
+  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, ntrAvatars, ovPick, ovRow, popMsg,
+    restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
@@ -113,11 +114,45 @@
   // Whether a side's Rotation turns the shape alone (Shape Only), and not the picture with it.
   const shapeOnly = (s, prefix) => !!SHAPES[s[`${prefix}Shape`]] && s[`${prefix}RotateMode`] !== 'both' && rangeNum(s, prefix + 'Rotate') !== 0;
 
+  // A side's Frame picture: a built-in frame, or one of yours (a link).
+  function frameSrc(s, prefix) {
+    const img = frameUrl(s[prefix + 'Frame']) || cUrl(s[prefix + 'FrameImg']);
+    return img && !img.startsWith('data:video/') ? img : '';
+  }
+  // The Frame library's folders as shown: the built-in ones you haven't hidden, then yours. Each frame has its tile
+  // value (id), name and picture (src); yours also have their link (img).
+  function frameFolders(s) {
+    return [
+      ...FRAME_SERIES.filter((f) => !s.frameHidden.includes(f.id)).map((f) => ({ id: f.id, name: f.name, builtin: true,
+        frames: f.frames.map(([v, name]) => ({ id: `${f.id}/${v}`, name, src: frameUrl(`${f.id}/${v}`) })) })),
+      ...s.frameLib.folders.map((f) => ({ id: f.id, name: f.name, own: f, frames: f.frames.map((fr) => ({ id: fr.id, name: fr.name, src: fr.img, img: fr.img })) })),
+    ];
+  }
+  // A side's frame in the library: { folder, frame }, { other: true } for a picture that isn't in it (from a theme),
+  // or null for none. A frame in a hidden folder is still found.
+  function frameNow(s, prefix) {
+    const b = s[prefix + 'Frame'];
+    if (FRAME_IDS.includes(b)) {
+      const f = FRAME_SERIES.find((x) => b.startsWith(x.id + '/'));
+      const [, name] = f.frames.find(([v]) => `${f.id}/${v}` === b);
+      return { folder: { id: f.id, name: f.name, builtin: true }, frame: { id: b, name } };
+    }
+    const img = cUrl(s[prefix + 'FrameImg']);
+    if (!img) return null;
+    for (const f of s.frameLib.folders) {
+      const fr = f.frames.find((x) => x.img === img);
+      if (fr) return { folder: { id: f.id, name: f.name, own: f }, frame: { id: fr.id, name: fr.name, img } };
+    }
+    return { other: true };
+  }
+  // The key a side's fit is remembered under: the built-in frame, or the picture's link.
+  const fitKey = (s, prefix) => FRAME_IDS.includes(s[prefix + 'Frame']) ? s[prefix + 'Frame'] : cUrl(s[prefix + 'FrameImg']);
+
   // A side's Frame on In Line and Pop Out: its picture, its size in picture widths (k), and how far it's moved from the
   // picture's middle (x, y), also in picture widths. Null without a picture.
   function frameOf(s, prefix) {
-    const img = cUrl(s[prefix + 'FrameImg']);
-    if (!img || img.startsWith('data:video/')) return null;
+    const img = frameSrc(s, prefix);
+    if (!img) return null;
     return { img, k: rangeNum(s, prefix + 'FrameSize') / 100, x: rangeNum(s, prefix + 'FrameX') / 100, y: rangeNum(s, prefix + 'FrameY') / 100 };
   }
   // The Frame's box is the picture's box made k times bigger, so a frame never stretches: its picture fits inside the
@@ -471,15 +506,16 @@
     </span>`;
   }
 
-  // Fit to Hole: Frame Size, Left/Right and Up/Down set so the picture fills the frame's see-through middle, a little
-  // past its edge so no gap shows. The middle is the see-through part joined to the frame's center (or the nearest
-  // see-through spot); one that reaches the edge isn't closed in, so it doesn't count. False when there's no middle, or
-  // the picture can't be read (a link to another site).
+  // Fit to Hole: the Frame Size, Left/Right and Up/Down that make the picture fill the frame's see-through middle, a
+  // little past its edge so no gap shows, as { FrameSize, FrameX, FrameY }. Nothing is saved, since the side may have
+  // picked another frame while the picture loaded. The middle is the see-through part joined to the frame's center (or
+  // the nearest see-through spot); one that reaches the edge isn't closed in, so it doesn't count. Null when there's no
+  // middle, or the picture can't be read (a link to another site).
   async function fitFrame(s, prefix) {
-    const src = cUrl(s[prefix + 'FrameImg']);
-    if (!src) return false;
+    const src = frameSrc(s, prefix);
+    if (!src) return null;
     const img = await loadImg(src).catch(() => null);
-    if (!img?.naturalWidth || !img.naturalHeight) return false;
+    if (!img?.naturalWidth || !img.naturalHeight) return null;
     const sc = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
     const c = document.createElement('canvas');
@@ -487,7 +523,7 @@
     const g = c.getContext('2d', { willReadFrequently: true });
     g.drawImage(img, 0, 0, w, h);
     let px;
-    try { px = g.getImageData(0, 0, w, h).data; } catch (e) { return false; }
+    try { px = g.getImageData(0, 0, w, h).data; } catch (e) { return null; }
     const clear = (x, y) => px[(y * w + x) * 4 + 3] < 40;
     const cx = w >> 1, cy = h >> 1, reach = Math.round(Math.min(w, h) * 0.15);
     let start = null;
@@ -499,32 +535,60 @@
         }
       }
     }
-    if (!start) return false;
+    if (!start) return null;
     const seen = new Uint8Array(w * h);
     const todo = [start];
     seen[start[1] * w + start[0]] = 1;
     let x0 = w, x1 = 0, y0 = h, y1 = 0, area = 0;
     while (todo.length) {
       const [x, y] = todo.pop();
-      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return false;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return null;
       area++;
       x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
       for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
         if (!seen[ny * w + nx] && clear(nx, ny)) { seen[ny * w + nx] = 1; todo.push([nx, ny]); }
       }
     }
-    if (area < w * h * 0.01) return false;
+    if (area < w * h * 0.01) return null;
     // The frame's picture is fitted in a box k picture widths wide (see frameBox), so it's drawn at k * m picture widths
     // per pixel. The hole's width and height, at 4% over, sets k; its middle, how far the frame moves.
     const a = boxAspect(s, prefix);
     const m = Math.min(1 / w, a / h);
     const k = 1 / (Math.max(x1 - x0 + 1, (y1 - y0 + 1) / a) * 1.04 * m);
     const dx = (x0 + x1 + 1) / 2 - w / 2, dy = (y0 + y1 + 1) / 2 - h / 2;
-    const put = (key, v) => { s[prefix + key] = Math.round(v); s[prefix + key] = rangeNum(s, prefix + key); };
-    put('FrameSize', k * 100);
-    put('FrameX', -dx * k * m * 100);
-    put('FrameY', -dy * k * m * 100);
-    return true;
+    const val = (key, v) => rangeNum({ [prefix + key]: Math.round(v) }, prefix + key);
+    return { FrameSize: val('FrameSize', k * 100), FrameX: val('FrameX', -dx * k * m * 100), FrameY: val('FrameY', -dy * k * m * 100) };
+  }
+
+  // The Frame row's name: the frame and its folder, Your picture for one that isn't in the library, or No Frame.
+  function frameNameHtml(s, prefix) {
+    const now = frameNow(s, prefix);
+    if (!now) return 'No Frame';
+    if (now.other) return 'Your picture';
+    return `${escapeHTML(now.frame.name)}<small>${escapeHTML(now.folder.name)}</small>`;
+  }
+  // The folder a side's Frame opens on: its frame's, or the first one shown.
+  function frameHome(s, prefix) {
+    const shown = frameFolders(s);
+    const id = frameNow(s, prefix)?.folder?.id;
+    return (shown.find((f) => f.id === id) || shown[0])?.id || '';
+  }
+  // The library under the Frame row: a pill for each folder with the More menu, then the open folder's frames as tiles,
+  // None first. Your own folders get Upload Frame.
+  function frameLibHtml(s, prefix, open) {
+    const shown = frameFolders(s);
+    const f = shown.find((x) => x.id === open) || shown[0];
+    if (!f) return '';
+    const now = frameNow(s, prefix);
+    const cur = !now ? '' : now.frame?.id || null;
+    const opts = [['', 'None'], ...f.frames.map((fr) => [fr.id, fr.name, `<img src="${escapeHTML(fr.src)}" alt="" decoding="async">`])];
+    return `<div style="display: flex; align-items: flex-start; gap: 6px;">
+        <div style="flex: 1; min-width: 0;">${pills(`${prefix}frf`, shown.map((x) => [x.id, escapeHTML(x.name)]), f.id)}</div>
+        <span class="ntr_menu"><button type="button" class="menu_button" id="m_${prefix}_frmore" style="margin: 0;" title="More" aria-label="More for ${escapeHTML(f.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
+      </div>
+      ${tiles(`${prefix}frame`, 'Frame', opts, cur).replace('class="ntr_tiles', 'class="ntr_tiles ntr_frtiles')}
+      ${f.own ? `<button type="button" id="m_${prefix}_frup" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-upload"></i> Upload Frame</button>
+        ${f.frames.length ? '' : '<div class="cb_hint" style="margin: 0;">Use a picture with a see-through middle, like a PNG.</div>'}` : ''}`;
   }
 
   function getColHtml(prefix, title, s) {
@@ -599,13 +663,12 @@
         ${grp('inline popout', `<div class="cb_cur_slot" style="margin: 0;">
             <div class="cb_cur_row">
               <div id="m_${prefix}_frprev" style="position: relative; flex: none; width: ${FRAME_TILE}px; height: ${FRAME_TILE}px; border-radius: 8px; background: rgba(0,0,0,.35);">${framePrevHtml(s, prefix)}</div>
-              <span class="cb_cur_name">Frame Picture</span>
-              <button type="button" class="menu_button" id="m_${prefix}_frup" title="Upload" aria-label="Upload a frame for the ${title} avatar"><i class="fa-solid fa-upload"></i></button>
-              <button type="button" class="menu_button" id="m_${prefix}_frclr" title="Remove frame" aria-label="Remove frame" ${frameOf(s, prefix) ? '' : 'disabled'}><i class="fa-solid fa-rotate-left"></i></button>
+              <span class="cb_cur_name" id="m_${prefix}_frname">${frameNameHtml(s, prefix)}</span>
+              <button type="button" class="menu_button danger_button" id="m_${prefix}_frdel" title="Delete Frame" aria-label="Delete Frame"${frameNow(s, prefix)?.folder?.own ? '' : ' style="display: none;"'}><i class="fa-solid fa-trash-can"></i></button>
             </div>
-            <input type="file" id="m_${prefix}_frfile" accept="image/png,image/webp,image/gif" hidden>
           </div>
-          <div id="m_${prefix}_frhint" class="cb_hint" style="margin: 0;${frameOf(s, prefix) ? ' display: none;' : ''}">Use a picture with a see-through middle, like a PNG.</div>
+          <div id="m_${prefix}_frlib" style="display: flex; flex-direction: column; gap: 6px;">${frameLibHtml(s, prefix, frameHome(s, prefix))}</div>
+          <input type="file" id="m_${prefix}_frfile" accept="image/png,image/webp,image/gif" hidden>
           <div id="m_${prefix}_frrows" class="${frameOf(s, prefix) ? '' : 'cb_dim'}" style="display: flex; flex-direction: column; gap: 8px;">
             <button type="button" id="m_${prefix}_frfit" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-crosshairs"></i> Fit to Hole</button>
             <div>${slider('frs', 'FrameSize', 'Frame Size:')}</div>
@@ -675,12 +738,12 @@
         col.querySelector(`#m_${prefix}_padwrap`).classList.toggle('cb_dim', s[`${prefix}Style`] === 'inline');
         drawFrame();
       };
-      // The Frame: its preview, Remove and the rows, which wait for a picture.
+      // The Frame: its preview, name, Delete and the rows, which wait for a frame.
       const drawFrame = () => {
         const on = !!frameOf(s, prefix);
         col.querySelector(`#m_${prefix}_frprev`).innerHTML = framePrevHtml(s, prefix);
-        col.querySelector(`#m_${prefix}_frclr`).disabled = !on;
-        col.querySelector(`#m_${prefix}_frhint`).style.display = on ? 'none' : '';
+        col.querySelector(`#m_${prefix}_frname`).innerHTML = frameNameHtml(s, prefix);
+        col.querySelector(`#m_${prefix}_frdel`).style.display = frameNow(s, prefix)?.folder?.own ? '' : 'none';
         col.querySelector(`#m_${prefix}_frrows`).classList.toggle('cb_dim', !on);
       };
       const frameSliders = () => {
@@ -689,38 +752,158 @@
           col.querySelector(`#m_${prefix}_${id}val`).textContent = rangeNum(s, prefix + key);
         }
       };
+      // The fit is remembered for this side and frame, so picking the frame again puts it back.
+      const keepFit = () => {
+        const k = fitKey(s, prefix);
+        if (k) s.frameFits[prefix][k] = ['FrameSize', 'FrameX', 'FrameY'].map((n) => rangeNum(s, prefix + n));
+      };
+      // The fit lands only if this side still has the frame it was worked out for.
       const fit = async () => {
-        if (!(await fitFrame(s, prefix))) {
+        const k = fitKey(s, prefix);
+        const got = await fitFrame(s, prefix);
+        if (fitKey(s, prefix) !== k) return;
+        if (!got) {
           toastr.warning('Couldn\'t find the frame\'s middle. Set it with the sliders.', 'Frame');
           return;
         }
+        Object.assign(s, { [prefix + 'FrameSize']: got.FrameSize, [prefix + 'FrameX']: got.FrameX, [prefix + 'FrameY']: got.FrameY });
+        keepFit();
         save();
         frameSliders();
         drawFrame();
         updateAvatarStyle();
       };
-      const setFrame = (url) => {
-        const old = s[prefix + 'FrameImg'];
-        s[prefix + 'FrameImg'] = url;
+      // Picks a frame by its tile value: a built-in frame, one of yours, or '' for none. A frame this side hasn't used
+      // before gets Fit to Hole.
+      const pickFrame = async (v) => {
+        const own = s.frameLib.folders.flatMap((f) => f.frames).find((fr) => fr.id === v);
+        s[prefix + 'Frame'] = FRAME_IDS.includes(v) ? v : '';
+        s[prefix + 'FrameImg'] = own ? own.img : '';
+        const k = fitKey(s, prefix), was = k && s.frameFits[prefix][k];
+        if (was) ['FrameSize', 'FrameX', 'FrameY'].forEach((n, i) => { s[prefix + n] = was[i]; });
         save();
+        frameSliders();
         drawFrame();
         updateAvatarStyle();
-        deleteFileIfUnused(old);
+        if (k && !was) await fit();
+      };
+      let open = frameHome(s, prefix);
+      const lib = col.querySelector(`#m_${prefix}_frlib`);
+      const bindLib = () => {
+        onPills(lib, `${prefix}frf`, (v) => { open = v; drawLib(); });
+        onPills(lib, `${prefix}frame`, pickFrame);
+        const up = lib.querySelector(`#m_${prefix}_frup`);
+        if (up) up.onclick = () => frFile.click();
+        const more = lib.querySelector(`#m_${prefix}_frmore`);
+        more.onclick = () => frameMenu(more);
+      };
+      const drawLib = () => {
+        if (!frameFolders(s).some((f) => f.id === open)) open = frameHome(s, prefix);
+        lib.innerHTML = frameLibHtml(s, prefix, open);
+        bindLib();
+      };
+      redraws.push(() => { drawLib(); drawFrame(); frameSliders(); });
+      // After a change to the library, both columns show it.
+      const libChanged = () => { save(); updateAvatarStyle(); redraws.forEach((fn) => fn()); };
+      // Your folder names are kept different from each other and from the built-in ones.
+      const nameCheck = (self) => (v) => {
+        if (!v) return { error: 'Type a name.' };
+        if ([...FRAME_SERIES, ...s.frameLib.folders].some((x) => x !== self && x.name.toLowerCase() === v.toLowerCase())) return { error: 'A folder with that name already exists.' };
+        return { value: v.slice(0, 60) };
+      };
+      // Your frames' pictures leave the library, and any side using one goes back to no frame. Each file is deleted
+      // unless something else, like a saved theme, still uses it.
+      const dropFrames = (frames) => {
+        const imgs = frames.map((fr) => fr.img);
+        for (const p of ['ai', 'us']) {
+          if (imgs.includes(s[p + 'FrameImg'])) s[p + 'FrameImg'] = '';
+          for (const img of imgs) delete s.frameFits[p][img];
+        }
+        return imgs;
+      };
+      // The library never ends up with no folder to show.
+      const keepAFolder = () => {
+        if (!frameFolders(s).length) s.frameLib.folders.push({ id: newId('frf'), name: 'My Frames', frames: [] });
+      };
+      const frameMenu = (more) => {
+        const f = frameFolders(s).find((x) => x.id === open);
+        if (!f) return;
+        const pop = popMenu(more, `
+          <button type="button" data-act="new"><i class="fa-solid fa-plus fa-fw"></i>New Folder…</button>
+          ${f.own ? '<button type="button" data-act="ren"><i class="fa-solid fa-pen fa-fw"></i>Rename Folder…</button>'
+            : '<button type="button" data-act="hide"><i class="fa-solid fa-eye-slash fa-fw"></i>Hide Folder</button>'}
+          ${s.frameHidden.length ? '<button type="button" data-act="show"><i class="fa-solid fa-eye fa-fw"></i>Show Hidden Folders</button>' : ''}
+          ${f.own ? '<button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete Folder…</button>' : ''}`);
+        if (!pop) return;
+        pop.onclick = async (e) => {
+          const b = e.target.closest('button[data-act]');
+          if (!b) return;
+          closePops(col);
+          const head = lib.firstElementChild;
+          const act = b.dataset.act;
+          if (act === 'new') {
+            const name = await askText(head, { label: 'Folder Name', ok: 'Add', check: nameCheck(null) });
+            if (!name) return;
+            const nf = { id: newId('frf'), name, frames: [] };
+            s.frameLib.folders.push(nf);
+            open = nf.id;
+          } else if (act === 'ren') {
+            const name = await askText(head, { label: 'Folder Name', value: f.name, ok: 'Rename', check: nameCheck(f.own) });
+            if (!name) return;
+            f.own.name = name;
+          } else if (act === 'hide') {
+            s.frameHidden.push(f.id);
+            keepAFolder();
+          } else if (act === 'show') {
+            s.frameHidden = [];
+          } else if (act === 'del') {
+            const n = f.own.frames.length;
+            const q = !n ? `Delete the folder "${f.name}"?`
+              : `Delete the folder "${f.name}" and its ${n === 1 ? '1 frame' : `${n} frames`}? Any avatar using one goes back to no frame.`;
+            if (!(await askYes(head, q, 'Delete', { danger: true }))) return;
+            const imgs = dropFrames(f.own.frames);
+            s.frameLib.folders.splice(s.frameLib.folders.indexOf(f.own), 1);
+            keepAFolder();
+            libChanged();
+            imgs.forEach(deleteFileIfUnused);
+            return;
+          }
+          libChanged();
+        };
+      };
+      col.addEventListener('click', (e) => { if (!e.target.closest('.ntr_menu')) closePops(col); });
+      col.querySelector(`#m_${prefix}_frdel`).onclick = async function() {
+        const now = frameNow(s, prefix);
+        if (!now?.folder?.own) return;
+        if (!(await askYes(this, `Delete the frame "${now.frame.name}"? It's removed from your library, and any avatar using it goes back to no frame.`, 'Delete', { danger: true }))) return;
+        const own = now.folder.own;
+        const imgs = dropFrames(own.frames.filter((fr) => fr.id === now.frame.id));
+        own.frames = own.frames.filter((fr) => fr.id !== now.frame.id);
+        libChanged();
+        imgs.forEach(deleteFileIfUnused);
       };
       const frFile = col.querySelector(`#m_${prefix}_frfile`);
-      col.querySelector(`#m_${prefix}_frup`).onclick = () => frFile.click();
-      col.querySelector(`#m_${prefix}_frclr`).onclick = () => setFrame('');
+      bindLib();
       col.querySelector(`#m_${prefix}_frfit`).onclick = fit;
+      // An upload goes in the open folder, named from its file, and this side uses it.
       frFile.onchange = async () => {
-        if (!frFile.files.length) return;
+        const file = frFile.files[0];
+        frFile.value = '';
+        const own = s.frameLib.folders.find((f) => f.id === open);
+        if (!file || !own) return;
         try {
-          setFrame(await uploadImage(frFile.files[0], 'avframe', { max: 1024 }));
-          await fit();
+          const img = await uploadImage(file, 'avframe', { max: 1024 });
+          // The folder may have been deleted from the other column while the file uploaded.
+          if (!s.frameLib.folders.includes(own)) { deleteFileIfUnused(img); return; }
+          const fr = { id: newId('fr'), name: file.name.replace(/\.[^.]*$/, '').trim().slice(0, 60) || 'Frame', img };
+          own.frames.push(fr);
+          libChanged();
+          await pickFrame(fr.id);
+          drawLib();
         } catch (e) {
           console.error('[NTR frame upload]', e);
           toastr.error(e.message || 'Upload failed', 'Frame');
         }
-        frFile.value = '';
       };
       onPills(col, `${prefix}style`, (v) => {
         s[`${prefix}Style`] = v;
@@ -774,13 +957,12 @@
       };
 
       overlay.querySelector(`#m_${prefix}_reset`).onclick = async function() {
-        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style, Frame and Custom CSS included?`, 'Reset'))) return;
-        const oldFrame = s[prefix + 'FrameImg'];
+        if (!(await askYes(this, `Reset all ${label} avatar settings to defaults, Style, Frame and Custom CSS included? Your uploaded frames stay.`, 'Reset'))) return;
         for (const k of Object.keys(DEFAULTS)) {
           if (k.startsWith(prefix) && k !== `${prefix}Enabled`) s[k] = structuredClone(DEFAULTS[k]);
         }
+        s.frameFits[prefix] = {};
         save();
-        deleteFileIfUnused(oldFrame);
         updateAvatarStyle();
         openCombinedModal();
       };
@@ -811,10 +993,12 @@
           else drawFrame();
           updateAvatarStyle();
         };
-        el.onchange = save;
+        el.onchange = key.startsWith('Frame') ? () => { keepFit(); save(); } : save;
       });
     };
     
+    // Each column's Frame library redraw, so a change in one shows in both.
+    const redraws = [];
     bindCol('ai');
     bindCol('us');
   }

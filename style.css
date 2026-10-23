@@ -372,6 +372,18 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .ntr_pop button:hover:not(:disabled) { background: var(--ntr-hover); }
 #cb_modal_overlay .ntr_pop :is(button:disabled, .ntr_here) { opacity: 0.5; cursor: default; }
 #cb_modal_overlay .ntr_pop .ntr_danger { color: var(--ntr-err); }
+/* A font box (ovFont in index.js): the box with its list button, and the list of fonts under it, as wide as the box. */
+#cb_modal_overlay .ntr_fbox { display: flex; width: 100%; }
+#cb_modal_overlay .ntr_fbox > .m_o_txt { flex: 1; min-width: 0; margin: 0; padding-right: 40px; }
+#cb_modal_overlay .ntr_fbtn { position: absolute; top: 0; right: 0; bottom: 0; width: 40px; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0;
+  border: 0; background: none; color: inherit; opacity: 0.6; cursor: pointer; }
+#cb_modal_overlay .ntr_fbtn:hover { opacity: 1; }
+#cb_modal_overlay .m_o_txt[aria-expanded="true"] + .ntr_fbtn i { transform: rotate(180deg); }
+#cb_modal_overlay .ntr_pop.ntr_flist { left: 0; min-width: 0; max-height: min(40vh, 300px); white-space: normal; }
+#cb_modal_overlay .ntr_fgroup { padding: 8px 10px 3px; font-size: 0.8em; opacity: 0.7; }
+#cb_modal_overlay .ntr_fopt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 4px 10px; border-radius: 6px; font-size: 1.1em; cursor: pointer; }
+#cb_modal_overlay .ntr_fopt:is(:hover, .ntr_on) { background: var(--ntr-hover); }
+#cb_modal_overlay .ntr_fopt .fa-check { font-size: 0.8em; opacity: 0.8; }
 
 /* Dragging by a grip (dragSort in index.js): the copy that follows the pointer, the gap where it will land, and a
    header lit up as where it goes. */
@@ -470,7 +482,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 @media (pointer: coarse) {
   #cb_modal_overlay .m_ag_hbtn { min-width: 40px; min-height: 40px; }
   #cb_modal_overlay .m_ag_sw { padding: 11px 6px; margin: -11px -6px; }
-  #cb_modal_overlay .ntr_pop button { min-height: 40px; }
+  #cb_modal_overlay .ntr_pop button, #cb_modal_overlay .ntr_fopt { min-height: 40px; }
   #cb_modal_overlay .ntr_agfl_row .menu_button, #cb_modal_overlay #m_ag_picmenu .menu_button { min-width: 40px; min-height: 40px; }
   #cb_modal_overlay .m_ag_roster { --m-ag-grip: 40px; }
   #cb_modal_overlay .ntr_avlab { min-height: 40px; }

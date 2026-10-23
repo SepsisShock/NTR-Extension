@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.76.0';
+  const AVATARS_VERSION = '2.77.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, card, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,

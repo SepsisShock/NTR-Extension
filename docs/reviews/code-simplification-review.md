@@ -2,7 +2,7 @@
 
 This is an optional, explicitly requested review procedure, separate from the routine Bug and Verify PR review in `AGENTS.md`.
 
-Review the code in [section] for unnecessary complexity and overengineering.
+Review the requested code, including relevant dependencies and execution paths, for unnecessary complexity and overengineering.
 
 ## What to check
 

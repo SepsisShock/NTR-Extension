@@ -107,8 +107,9 @@ browsers() {
   [ "${CLAUDE_CODE_REMOTE:-}" = true ] || return 0
   local pw; pw="$(npm root -g)/playwright"
   [ -d "$pw" ] || return 0
-  if ls -d "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/firefox-* "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/webkit-* > /dev/null 2>&1; then return 0; fi
-  setsid nohup npx -y "playwright@$(node -p "require('$pw/package.json').version")" install --with-deps firefox webkit \
+  # The exact revisions this Playwright needs; its installer skips what's there and fetches the rest.
+  node -e 'const pw = require(process.argv[1]); process.exit(["firefox", "webkit"].every((b) => require("fs").existsSync(pw[b].executablePath())) ? 0 : 1)' "$pw" && return 0
+  setsid nohup node "$pw/cli.js" install --with-deps firefox webkit \
     > "$BROWSERS_LOG" 2>&1 < /dev/null &
 }
 

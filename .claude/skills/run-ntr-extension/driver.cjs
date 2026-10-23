@@ -11,28 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-function loadPlaywright() {
-  try { return require('playwright'); } catch (e) { /* try the global install below */ }
-  try {
-    const root = require('child_process').execSync('npm root -g').toString().trim();
-    return require(path.join(root, 'playwright'));
-  } catch (e) {
-    console.error('Playwright (with Chromium) is needed and wasn\'t found.');
-    process.exit(2);
-  }
-}
-const pw = loadPlaywright();
-// NTR_BROWSER picks the browser: chromium (default), firefox or webkit (Safari's engine).
-const BROWSER = process.env.NTR_BROWSER || 'chromium';
-async function launch(pw) {
-  if (!['chromium', 'firefox', 'webkit'].includes(BROWSER)) { console.error(`NTR_BROWSER must be chromium, firefox or webkit, not ${BROWSER}`); process.exit(2); }
-  try {
-    return await pw[BROWSER].launch(BROWSER === 'chromium' ? { args: ['--no-sandbox'] } : {});
-  } catch (e) {
-    console.error(`${BROWSER} didn't start. The session start hook downloads Firefox and WebKit (log: /tmp/ntr-browsers.log).\n${e.message}`);
-    process.exit(2);
-  }
-}
+const { launch } = require('./browser.cjs');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const SHOTS = process.env.NTR_SHOTS || '/tmp/ntr-shots';
@@ -46,7 +25,7 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
 (async () => {
   const lines = fs.readFileSync(0, 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
   fs.mkdirSync(SHOTS, { recursive: true });
-  const browser = await launch(pw);
+  const browser = await launch();
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + (/\/horde\.js:/.test(e.stack || '') ? ' (horde.js)' : '')));

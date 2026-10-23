@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.75.2';
+  const VERSION = '2.76.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1624,7 +1624,7 @@ await (async () => {
   }
   const NAME_WEIGHT = { normal: 400, bold: 700, extra: 800 };
   const TEXT_ALIGN = ['left', 'right', 'center', 'justify'];
-  const FX = ['glow', 'shadow', 'outline'];
+  const FX = ['glow', 'shadow', 'outline', 'gradient', 'shimmer'];
   const FX_PARTS = ['tfName', 'tfUser', 'tfAi'];
   const RB_BORDERS = ['solid', 'dashed', 'dotted', 'double']; // the button's: unticked is ST's, which has none
   const RB_BOX_BORDERS = ['none', ...RB_BORDERS.filter((b) => b !== 'solid')]; // the box's own line is already solid
@@ -1682,7 +1682,7 @@ await (async () => {
     tfNameColor: '--SmartThemeBodyColor', tfPlateBg: '--SmartThemeQuoteColor', tfPlateBorder: '--SmartThemeBorderColor',
     tfUserMain: '--SmartThemeBodyColor', tfUserEm: '--SmartThemeEmColor', tfUserUnder: '--SmartThemeUnderlineColor', tfUserQuote: '--SmartThemeQuoteColor',
     tfAiMain: '--SmartThemeBodyColor', tfAiEm: '--SmartThemeEmColor', tfAiUnder: '--SmartThemeUnderlineColor', tfAiQuote: '--SmartThemeQuoteColor',
-    tfNameFxColor: '--SmartThemeShadowColor', tfUserFxColor: '--SmartThemeShadowColor', tfAiFxColor: '--SmartThemeShadowColor',
+    tfNameFxColor: '--SmartThemeQuoteColor', tfUserFxColor: '--SmartThemeQuoteColor', tfAiFxColor: '--SmartThemeQuoteColor',
     ovScrollColor: '--grey7070a',
     ovPanelBgColor: '--SmartThemeChatTintColor', ovAiBgColor: '--SmartThemeBotMesBlurTintColor', ovUsBgColor: '--SmartThemeUserMesBlurTintColor', ovSendBgColor: '--SmartThemeBlurTintColor',
     ovPanelBorderColor: '--SmartThemeBorderColor', ovAiBorderColor: '--SmartThemeBorderColor', ovUsBorderColor: '--SmartThemeBorderColor', ovSendBorderColor: '--SmartThemeBorderColor',

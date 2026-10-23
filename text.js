@@ -4,7 +4,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const TEXT_VERSION = '2.75.2';
+  const TEXT_VERSION = '2.76.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { askImageUrl, card, deleteFileIfUnused, escapeHTML, onPills, pageHtml, pills, rangeNum, save, subHead, uploadImage } = A;
@@ -12,8 +12,9 @@
     restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel } = A.look;
 
   // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
+  // Gradient and Shimmer are painted into the letters instead (see paintOf).
   function fxProps(s, p) {
-    if (!s[p + 'FxOn'] || !FX.includes(s[p + 'Fx'])) return {};
+    if (!s[p + 'FxOn'] || !FX.includes(s[p + 'Fx']) || PAINT.includes(s[p + 'Fx'])) return {};
     const n = rangeNum(s, p + 'FxStr');
     const fx = s[p + 'Fx'];
     const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)';
@@ -32,7 +33,55 @@
     if (fx['-webkit-text-stroke']) return cssRule(`${box} ${FX_SKIP}`, { '-webkit-text-stroke': '0' });
     if (!fx['text-shadow'] || inked) return '';
     return cssRule(`${box} :not(${FX_SKIP}, ${FX_SKIP} *)`, { 'text-shadow': 'inherit' })
-      + cssRule(`body:not(.ntr_book) ${box} > *::after`, { 'text-shadow': '0 0 calc(var(--shadowWidth) * 1px) var(--SmartThemeShadowColor)' });
+      + cssRule(`body:not(.ntr_book) ${box} > *::after`, { 'text-shadow': ST_SHADOW });
+  }
+  const ST_SHADOW = '0 0 calc(var(--shadowWidth) * 1px) var(--SmartThemeShadowColor)';
+
+  // Gradient and Shimmer: a background painted into the letters (background-clip: text) over see-through text. Gradient
+  // runs across from the text's color to the Effect Color, reaching it sooner the higher the Strength. Shimmer is a band
+  // of the Effect Color that sweeps across, as wide as the Strength. Unticked, the Effect Color is the Quote Color: the
+  // part's own if it has one, else ST's. The band sits in a background wider than the text and rests off it, so a
+  // Shimmer that isn't playing looks like plain text. ST's text shadow would show through the letters, so it's taken off.
+  const PAINT = ['gradient', 'shimmer'];
+  // The second place is a Nameplate picture's, under a name's band; text with only the band ignores it.
+  const SHINE = `
+      @keyframes ntr_shine { 0% { background-position: 100% 0, center; } 60%, 100% { background-position: 0 0, center; } }`;
+  // Shimmer plays only with ST's Reduced Motion off (ST also turns it on for the device's own setting), and stops while
+  // a reply is written: ST rewrites the message on every streamed word, which would start it over each time.
+  const MOVING = ':not(.reduced-motion):not([data-generating])';
+  function paintOf(s, p, quote) {
+    if (!s[p + 'FxOn'] || !PAINT.includes(s[p + 'Fx'])) return null;
+    const n = rangeNum(s, p + 'FxStr');
+    const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : quote || 'var(--SmartThemeQuoteColor)';
+    if (s[p + 'Fx'] === 'gradient') return { shimmer: false, image: `linear-gradient(90deg, currentColor, ${c} ${100 - (n - 1) * 8}%)` };
+    return { shimmer: true, size: '250% 100%', image: `linear-gradient(100deg, currentColor ${50 - n * 1.5}%, ${c} 50%, currentColor ${50 + n * 1.5}%)` };
+  }
+  // The paint, under a Nameplate's picture and color when there is one (layer: the picture's url()).
+  function paintProps(paint, layer) {
+    return {
+      'background-image': layer ? `${paint.image}, ${layer}` : paint.image,
+      'background-size': layer ? `${paint.size || 'auto'}, cover` : paint.size || '',
+      'background-repeat': 'no-repeat',
+      '-webkit-background-clip': layer ? 'text, border-box' : 'text',
+      'background-clip': layer ? 'text, border-box' : 'text',
+      '-webkit-text-fill-color': 'transparent',
+      'text-shadow': 'none',
+    };
+  }
+  const SPIN = { animation: 'ntr_shine 3.5s ease-in-out infinite' };
+  // In message text and the Visual Novel box, the paint goes on each paragraph, list item and heading: Speech Bubbles
+  // draw the bubble on the box itself, which the paint would cut down to the letters. Code blocks and tables are left
+  // out; the text in a list item is painted with it. Text outside these, like a card's own HTML boxes, stays plain.
+  const BLOCKS = ':is(p, li, h1, h2, h3, h4, h5, h6):not(li *, pre *, table *)';
+  // Inside, bold and plain spans take the paint; everything else keeps its own color: italics, quotes, underlines,
+  // links, code, a card's colored or faded text, and ST's streaming fade-in, whose fading the paint can't show.
+  const PASS = 'strong, b, p, ul, ol, li, br, span:not([class], [style])';
+  function paintTextCss(sel, paint) {
+    return cssRule(sel, paintProps(paint))
+      + cssRule(`${sel} :not(${PASS})`, { '-webkit-text-fill-color': 'currentColor' })
+      + cssRule(`${sel} :is(${PASS})`, { 'text-shadow': 'none' })
+      // Message Details' corner, at the end of the text.
+      + cssRule(`${sel}::after`, { '-webkit-text-fill-color': 'currentColor', 'text-shadow': ST_SHADOW });
   }
 
   // Nameplate: a color or picture, border and roundness behind the name, on chat messages and the Visual Novel name tag.
@@ -40,14 +89,14 @@
   // Novel name tag. It keeps its place in the row, so the row stays as tall as the name and nothing in the message goes
   // under it. It stays on one line (a long name ends in ...), so the room above the message is half its height. NTR
   // Avatars behind the message or popped out clip the message, so there, and in Reader Mode's Book, the name stays in its row.
-  function nameplateCss(s, on, col, ns) {
+  function nameplateCss(s, on, col, ns, freePlace) {
     const img = cUrl(s.tfPlateImg);
     const border = on('tfPlateBorder') ? `${rangeNum(s, 'tfPlateBorderWidth')}px solid ${col('tfPlateBorder') || 'var(--SmartThemeBorderColor)'}` : '';
     const plate = {
       'background-color': col('tfPlateBg'),
       'background-image': img ? `url("${img}")` : '',
       'background-size': img ? 'cover' : '',
-      'background-position': img ? 'center' : '',
+      'background-position': img && !freePlace ? 'center' : '',
       border,
       'border-radius': on('tfPlateRound') ? `${rangeNum(s, 'tfPlateRound')}px` : '',
     };
@@ -101,17 +150,46 @@
       ...fxProps(s, 'tfName'),
     });
     css += cssRule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
-    css += nameplateCss(s, on, col, ns);
+    // Shimmer plays on the newest message's name only, and always on the Visual Novel name tag. Under it, a Nameplate
+    // picture's place is set without !important, which would hold the band still.
+    const namePaint = paintOf(s, 'tfName', '');
+    const img = cUrl(s.tfPlateImg);
+    const freePlace = !!(namePaint && namePaint.shimmer && img);
+    css += nameplateCss(s, on, col, ns, freePlace);
+    if (namePaint) {
+      const plated = !!(img || col('tfPlateBg'));
+      const layer = img ? `url("${img}")` : plated ? 'none' : '';
+      const newest = '#chat > .mes:nth-last-child(1 of .mes:not([is_system="true"]))';
+      css += cssRule(`body:not(.ntr_book) ${namePaint.shimmer ? newest : '.mes'} .name_text`, paintProps(namePaint, layer));
+      if (namePaint.shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .name_text`, SPIN);
+      // The Visual Novel name tag is filled with the Quote Color, which the paint would fade into, so without a Nameplate
+      // it takes the theme's panel color, a border and the body text color.
+      css += cssRule('#cb_node .cb_n_name', {
+        ...paintProps(namePaint, layer || 'none'),
+        'background-color': plated ? '' : 'var(--SmartThemeBlurTintColor)',
+        color: plated || col('tfNameColor') ? '' : 'var(--SmartThemeBodyColor)',
+        border: plated || on('tfPlateBorder') ? '' : '1px solid var(--SmartThemeBorderColor)',
+      });
+      if (namePaint.shimmer) css += cssRule(`body${MOVING} #cb_node .cb_n_name`, SPIN);
+      if (freePlace) css += `\n      .mes .name_text { background-position: center; }\n      body:not(.ntr_book) ${newest} .name_text, #cb_node .cb_n_name { background-position: 0 0, center; }`;
+    }
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
     const align = (p) => (on(p + 'Align') && TEXT_ALIGN.includes(s[p + 'Align']) ? s[p + 'Align'] : '');
     const inked = bubblesOn(s) && s.ovBubInk !== 'auto';
     const fx = { tfUser: fxProps(s, 'tfUser'), tfAi: fxProps(s, 'tfAi') };
+    const paint = { tfUser: paintOf(s, 'tfUser', col('tfUserQuote')), tfAi: paintOf(s, 'tfAi', col('tfAiQuote')) };
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
       css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fx[p] });
       css += fxInnerCss(fx[p], m, inked);
+      // Shimmer plays on the newest message from each side.
+      if (paint[p] && !inked) {
+        const newest = `#chat > .mes[is_user="${flag}"]:nth-last-child(1 of .mes[is_user="${flag}"]:not([is_system="true"]))`;
+        css += paintTextCss(`body:not(.ntr_book) ${paint[p].shimmer ? newest : `.mes[is_user="${flag}"]`} .mes_text ${BLOCKS}`, paint[p]);
+        if (paint[p].shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .mes_text ${BLOCKS}`, SPIN);
+      }
       // Lists, tables, code blocks and the edit box keep SillyTavern's alignment: bullets, columns and code don't center or justify well.
       if (align(p)) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
       css += cssRule(`${m} i, ${m} em`, { color: col(p + 'Em') });
@@ -121,6 +199,12 @@
     }
     css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fx.tfAi });
     css += fxInnerCss(fx.tfAi, '#cb_node .cb_n_text', false);
+    // The Visual Novel box scrolls, and the paint scrolls with its text.
+    if (paint.tfAi) {
+      css += paintTextCss('#cb_node .cb_n_text', paint.tfAi) + cssRule('#cb_node .cb_n_text', { 'background-attachment': 'local' });
+      if (paint.tfAi.shimmer) css += cssRule(`body${MOVING} #cb_node .cb_n_text`, SPIN);
+    }
+    if ([namePaint, paint.tfUser, paint.tfAi].some((x) => x && x.shimmer)) css += SHINE;
     css += cssRule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
     css += cssRule('#cb_node .cb_q', { color: col('tfAiQuote') });
     if (col('tfAiEm')) css += cssRule('#cb_node .cb_q em', { color: 'inherit' });
@@ -128,13 +212,18 @@
   }
 
   function ovFx(s, p) {
-    return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline']], s[p + 'Fx']) + rangeSlider(s, p + 'FxStr');
+    const hint = p === 'tfName' ? 'Shimmer plays on the newest name in the chat only'
+      : 'Gradient and Shimmer keep italics, quotes, underlines and links in their own colors. Shimmer plays on the newest message in the chat only';
+    return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline'], ['gradient', 'Gradient'], ['shimmer', 'Shimmer']], s[p + 'Fx'])
+      + ovLabel('Strength', rangeSlider(s, p + 'FxStr'))
+      + `<div class="cb_hint">${hint}, and is off with Reduced Motion, ST's or the device's.</div>`;
   }
 
   function fxRows(s, p) {
+    const quote = p === 'tfName' ? 'ST\'s Quote Color' : 'the Quote Color';
     return `
           ${ovRow(s, p + 'FxOn', 'Text Effect', ovFx(s, p))}
-          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + '<div class="cb_hint">Unticked, Glow uses the text color; Shadow and Outline are black.</div>')}`;
+          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + `<div class="cb_hint">Unticked, Glow uses the text color, Shadow and Outline are black, and Gradient and Shimmer use ${quote}.</div>`)}`;
   }
 
   function textSectionHtml(s) {

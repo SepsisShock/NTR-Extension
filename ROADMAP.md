@@ -80,18 +80,6 @@ Decorative image borders around interface parts, stretched to fit any size.
 ### Group chats
 - [ ] Revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
 
-### Colors on light themes
-Most of NTR's colors come from the SillyTavern theme, but some are fixed and assume a dark background. They're used across the whole NTR menu, on every page and in every section:
-
-- the yellow warning and red error text
-- the green and red icons for an agent run that worked or failed
-- the faint white lines between sections and list rows (Layout's Pinned Blocks list already uses the theme's border color)
-- the faint white highlight on selected rows, and on buttons and menu items under the pointer
-
-On light theme colors, the yellow is hard to read and the lines and highlights barely show.
-
-- [ ] Take these from the theme too, or pick colors that read on both light and dark backgrounds.
-
 ### Replace the once-a-second check with events
 `injectExtensionMenuButton` in `index.js` runs a check every second to put back its buttons and the wand menu entry and to keep Visual Novel Mode running. In a sandbox test it was most of NTR's idle cost: about 0.8% CPU with everything on, which no user would notice. Users would see no difference, so this is tidying, not a fix.
 

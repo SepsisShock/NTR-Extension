@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.75.0';
+  const AVATARS_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, card, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -665,7 +665,7 @@
         <div class="cb_sub">Frame</div>
         ${grp('inline popout', `<div class="cb_cur_slot" style="margin: 0;">
             <div class="cb_cur_row">
-              <div id="m_${prefix}_frprev" style="position: relative; flex: none; width: ${FRAME_TILE}px; height: ${FRAME_TILE}px; border-radius: 8px; background: rgba(0,0,0,.35);">${framePrevHtml(s, prefix)}</div>
+              <div id="m_${prefix}_frprev" style="position: relative; flex: none; width: ${FRAME_TILE}px; height: ${FRAME_TILE}px; border-radius: 8px; background: var(--ntr-well-deep);">${framePrevHtml(s, prefix)}</div>
               <span class="cb_cur_name" id="m_${prefix}_frname">${frameNameHtml(s, prefix)}</span>
               <button type="button" class="menu_button danger_button" id="m_${prefix}_frdel" title="Delete Frame" aria-label="Delete Frame"${frameNow(s, prefix)?.folder?.own ? '' : ' style="display: none;"'}><i class="fa-solid fa-trash-can"></i></button>
             </div>

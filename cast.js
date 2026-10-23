@@ -3,7 +3,7 @@
 // Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
 // If this file breaks, the rest of the extension keeps working.
 (() => {
-  const CAST_VERSION = '2.75.0';
+  const CAST_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
@@ -894,7 +894,7 @@
         `${d.delimSpkOpen}Name${d.delimEmo}Neutral${d.delimSpkClose}: "Dialogue." ${d.delimNarOpen}${d.emoWord}:Happy${d.delimNarClose}\n${d.delimNarOpen}${d.narratorWord}${d.delimNarClose}: Narration.\n${d.delimNarOpen}${d.locWord}:Market${d.delimNarClose}`
         + `\n${d.delimNarOpen}${d.choiceWord}: Stay ${d.choiceSep} Leave${d.delimNarClose}\n${d.delimNarOpen}${d.effectWord}:${d.fxShake}${d.delimNarClose} ${d.delimNarOpen}${d.weatherWord}:${d.wxRain}${d.delimNarClose} ${d.delimNarOpen}${d.cgWord}:Ending${d.delimNarClose}`;
       const { errs, warns } = validateDelims(d);
-      overlay.querySelector('#m_d_msg').innerHTML = errs.map((x) => `<div class="cb_err">${escapeHTML(x)}</div>`).join('') + warns.map((x) => `<div class="cb_warn">${escapeHTML(x)}</div>`).join('');
+      overlay.querySelector('#m_d_msg').innerHTML = errs.map((x) => `<div class="cb_err"><i class="fa-solid fa-circle-xmark"></i> ${escapeHTML(x)}</div>`).join('') + warns.map((x) => `<div class="cb_warn"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(x)}</div>`).join('');
     };
     const applyD = (d) => {
       const { errs } = validateDelims(d);

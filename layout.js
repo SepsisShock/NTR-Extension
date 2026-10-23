@@ -8,7 +8,7 @@
 // Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages and Attached Style (overrideCss,
 // layoutChatCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const LAYOUT_VERSION = '2.75.0';
+  const LAYOUT_VERSION = '2.75.1';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;

@@ -315,6 +315,43 @@ const styleText = () => {
     await t.show('overlays into reopened menu', pageInfo);
   });
 
+  // The font boxes' list (fonts.js) arriving late, after the menu was drawn twice, or not at all. The boxes save either
+  // way; the list goes on the menu showing, once per box.
+  const FONT_ON = { tfEnabled: true, tfAiFontOn: true, tfAiFont: 'Lora' };
+  const fontInfo = () => ({
+    boxes: document.querySelectorAll('#cb_modal_overlay .m_o_txt').length,
+    lists: document.querySelectorAll('#cb_modal_overlay .ntr_fbox.ntr_menu').length,
+    buttons: document.querySelectorAll('#cb_modal_overlay .ntr_fbtn').length,
+  });
+  // Types into the AI Text font box and leaves it, the way a person would; returns what was saved.
+  const typeFont = (t, v) => t.ev((v) => {
+    const el = document.querySelector('#cb_modal_overlay .m_o_txt[data-key="tfAiFont"]');
+    el.value = v;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return NTR.api.settings().tfAiFont;
+  }, v);
+  await session('O font list late, menu drawn again while it loads', { settings: FONT_ON, hold: ['fonts'] }, async (t) => {
+    await t.menu('text');
+    out('before arrival', JSON.stringify(await t.ev(fontInfo)));
+    await t.ev(() => NTR.api.closeMenu());
+    await t.menu('text');
+    t.release('fonts');
+    await sleep(1200);
+    out('after arrival', JSON.stringify(await t.ev(fontInfo)));
+    out('typed lora', await typeFont(t, 'lora'));
+    out('list', await t.ev(() => {
+      document.querySelector('#cb_modal_overlay .m_o_txt[data-key="tfAiFont"]').click();
+      return document.querySelectorAll('#cb_modal_overlay .ntr_flist [role="option"]').length;
+    }));
+  });
+  await session('O font list failed', { settings: FONT_ON, abort: ['fonts'] }, async (t) => {
+    await t.menu('text');
+    await sleep(500);
+    out('plain boxes', JSON.stringify(await t.ev(fontInfo)));
+    out('typed a link', await typeFont(t, 'https://fonts.google.com/specimen/Crimson+Pro'));
+    out('chat font', await t.ev(() => !!document.querySelector('link[data-ntr-gf="Crimson Pro"]')));
+  });
+
   await session('E Visual Novel first pick, then maps', { hold: ['opening', 'map'] }, async (t) => {
     await t.menu('reader');
     await t.ev(() => document.querySelector('#cb_modal_overlay input[name="cbr_rdstyle"][value="vn"]').click());

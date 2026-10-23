@@ -1,14 +1,13 @@
 # Code Simplification and Overengineering Review
 
-This is an optional, explicitly requested review procedure, separate from the routine Bug and Verify PR review in `AGENTS.md`.
+Run this procedure only when explicitly requested. It is separate from the routine Bug and Verify PR review defined in `AGENTS.md`.
 
 Review the requested code, including relevant dependencies and execution paths, for unnecessary complexity and overengineering.
 
 ## What to check
 
 - Identify code that could be simplified without compromising performance, readability, maintainability, reliability, or compatibility.
-- Identify excessive defensive programming, redundant validations, unnecessary fallbacks, and safeguards against scenarios that are impossible or implausible in the actual execution environment.
-- Evaluate whether each precaution addresses a realistic problem, considering its likelihood, consequences, and maintenance cost.
+- Identify excessive defensive programming, redundant validations, unnecessary fallbacks, and safeguards against impossible or implausible scenarios. Evaluate each against the actual execution environment, considering likelihood, consequences, and maintenance cost.
 - Review relevant execution paths and surrounding code to identify safeguards or complexity made obsolete by previous refactoring.
 - Recommend changes only when there is a meaningful benefit. Do not simplify code merely to reduce line count or remove safeguards solely because their triggering conditions are rare.
 

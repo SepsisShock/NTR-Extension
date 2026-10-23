@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.75.2';
+  const VN_VERSION = '2.76.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -946,6 +946,14 @@
     }, speed);
   }
 
+  // Marks a part as just shown, for looks that play once when it appears (Text Formatting's Shimmer). Taking the mark
+  // off and putting it back starts them over.
+  function justShown(el) {
+    el.classList.remove('cb_shown');
+    void el.offsetWidth;
+    el.classList.add('cb_shown');
+  }
+
   function nodeShow(animate, shown = 0) {
     const s = settings();
     const ov = ensureNodeLayer();
@@ -961,7 +969,9 @@
     const isChar = seg.kind === 'char';
     ov.querySelector('.cb_n_box').classList.toggle('cb_n_nar', !isChar);
     const nameEl = ov.querySelector('.cb_n_name');
+    const newName = nameEl.textContent !== (seg.name || '');
     nameEl.textContent = seg.name || '';
+    if (newName && seg.name) justShown(nameEl);
     nameEl.style.display = seg.name ? '' : 'none';
 
     const port = ov.querySelector('.cb_n_port');
@@ -977,6 +987,8 @@
     if (!cnt.querySelector('input')) cnt.textContent = countText();
 
     const text = ov.querySelector('.cb_n_text');
+    // The new segment counts as shown once it's typed (see done).
+    text.classList.remove('cb_shown');
     const arrow = ov.querySelector('.cb_n_arrow');
     const more = node.i < node.segs.length - 1;
     const html = nodeFmt(seg.text);
@@ -984,6 +996,7 @@
     const waits = !!(s.nodeChoices && seg.choices && seg.choices.length);
     const done = () => {
       node.typing = false; node.finish = null;
+      justShown(text);
       arrow.textContent = more ? '\u25BC' : '';
       renderChoices(seg);
       if (s.nodeAuto && more && !waits && !node.held) node.auto = setTimeout(() => nodeStep(1), s.nodeAutoDelay);

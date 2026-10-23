@@ -47,9 +47,6 @@ Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Re
 
 - Open question: whether the shapes also go on the VN portrait box.
 
-### Text effects, second batch
-- [ ] Gradient and Shimmer (italics keep their own color; Shimmer stops with "reduce motion").
-
 ### Horizontal Scrollbar color
 - [ ] Default is grey currently.
 

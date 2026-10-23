@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Floating send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.75.2';
+  const DECOR_VERSION = '2.76.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
@@ -285,7 +285,7 @@
       + ovLabel('Messages in a Row', pick('ovBubGroup', [['group', 'Group'], ['each', 'Each Message']]))
       + hint('Group gives a run of messages from the same speaker one tail and avatar.')
       + ovLabel('Text in Bubbles', pick('ovBubInk', BUB_INK_OPTS))
-      + hint('As Is keeps Text Formatting\'s or ST\'s text color.'));
+      + hint('As Is keeps Text Formatting\'s or ST\'s text color. Dark and Light turn off Glow, Shadow, Gradient and Shimmer on the bubble text.'));
   }
 
   function bindDisplay(overlay, s) {

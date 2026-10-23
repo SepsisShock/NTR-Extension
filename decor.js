@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Floating send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.76.0';
+  const DECOR_VERSION = '2.77.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
@@ -24,7 +24,7 @@
   // Shape, and scrollbars what their Custom CSS sets.
   const UI_SHELLS = ['#top-bar', '.drawer-content', '#character_popup', '.popup', '.popup .popper-modal', '#dialogue_popup', '#select_chat_popup',
     '#extensionsMenu', '#options .options-content', '.list-group', '.draggable', '.select2-dropdown',
-    '#cb_modal_overlay .cb_popup_content', '#ntr_pin_layer .ntr_pin_panel', '#ntr_map .ntr_map_panel'];
+    '#cb_modal_overlay .cb_popup_content', '#cb_modal_overlay .ntr_pop', '#ntr_pin_layer .ntr_pin_panel', '#ntr_map .ntr_map_panel'];
   const UI_INNER = ['#user-settings-block h4', '.standoutHeader', '.standoutHeader ~ .inline-drawer-content', '.settingsSectionWrap', '.extensions_info .extension_block',
     '#cb_modal_overlay .ntr_page .ntr_card', '#cb_modal_overlay .ntr_glab + .cb_collapse_content', '#cb_modal_overlay .ntr_fold', '#cb_modal_overlay .m_ag_frame', '#ntr_map .ntr_map_pop'];
   // Folded parts: the header's top corners while open, and the part under it the bottom ones.
@@ -35,7 +35,7 @@
   const UI_HOLDERS = ':is(#top-settings-holder, #character_popup, .popup, #dialogue_popup, #movingDivs, #cb_modal_overlay, #ntr_pin_layer .ntr_agres, #ntr_map)';
   const UI_CONTROLS = `:is(.menu_button, .text_pole, textarea, select, input[type="checkbox"]:not(${SWITCHES.map((x) => x.split(' ').pop()).join(', ')}),
     .select2-selection, .range-block-counter input, .neo-range-input, .neo-range-slider, input[type="range"], .ui-slider, .ui-slider-handle,
-    .cb_hbtn, .cb_close_btn, .ntr_map_hb, .ntr_agres_btn, .cb_pill, .ntr_tile_face)`;
+    .cb_hbtn, .cb_close_btn, .ntr_map_hb, .ntr_agres_btn, .cb_pill, .ntr_tile_face, .ntr_pop button, .ntr_fopt)`;
 
   function uiShapeCss(s) {
     if (!s.ovShapeOn) return '';

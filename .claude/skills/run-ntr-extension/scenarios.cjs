@@ -35,6 +35,18 @@ function loadPlaywright() {
   }
 }
 
+// NTR_BROWSER picks the browser: chromium (default), firefox or webkit (Safari's engine).
+const BROWSER = process.env.NTR_BROWSER || 'chromium';
+async function launch(pw) {
+  if (!['chromium', 'firefox', 'webkit'].includes(BROWSER)) { console.error(`NTR_BROWSER must be chromium, firefox or webkit, not ${BROWSER}`); process.exit(2); }
+  try {
+    return await pw[BROWSER].launch(BROWSER === 'chromium' ? { args: ['--no-sandbox'] } : {});
+  } catch (e) {
+    console.error(`${BROWSER} didn't start. The session start hook downloads Firefox and WebKit (log: /tmp/ntr-browsers.log).\n${e.message}`);
+    process.exit(2);
+  }
+}
+
 // NTR's style tags in page order, except the two that load side by side and land in either order: those go last, by id.
 const styleText = () => {
   const RACE = ['ntr_overlays_css', 'ntr_rx_css'];
@@ -44,10 +56,9 @@ const styleText = () => {
 };
 
 (async () => {
-  const { chromium } = loadPlaywright();
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await launch(loadPlaywright());
   const out = (...a) => { console.log(...a); fs.appendFileSync(path.join(OUT, 'out.txt'), a.join(' ') + '\n'); };
   const save = (file, text) => fs.writeFileSync(path.join(OUT, file), text);
   // Scenario names by outcome, for the closing summary.
@@ -83,11 +94,12 @@ const styleText = () => {
     }
     const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
     const errors = [];
-    page.on('pageerror', (e) => { if (!/Internal S/.test(e.message)) errors.push(e.message); });
+    // SillyTavern's offline Horde lookup: Chromium names it in the message, Firefox and WebKit only in the stack.
+    page.on('pageerror', (e) => { if (!/Internal S/.test(e.message) && !/\/horde\.js:/.test(e.stack || '')) errors.push(e.message); });
     // A failed load counts as noise only by its address, or when the scenario blocked it itself.
     const blocked = new Set();
     page.on('console', (m) => {
-      if (m.type() !== 'error' || /horde|favicon|Internal S/i.test(m.text())) return;
+      if (m.type() !== 'error' || /horde|favicon|Internal S|Viewport argument key "interactive-widget"/i.test(m.text())) return;
       const url = m.text().startsWith('Failed to load resource') ? m.location()?.url || '' : '';
       if (url && (blocked.has(url) || /\/api\/horde\/|favicon/i.test(url))) return;
       errors.push(m.text().slice(0, 160) + (url ? ' (' + url + ')' : ''));

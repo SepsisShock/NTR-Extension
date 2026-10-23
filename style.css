@@ -372,9 +372,10 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .ntr_pop button:hover:not(:disabled) { background: var(--ntr-hover); }
 #cb_modal_overlay .ntr_pop :is(button:disabled, .ntr_here) { opacity: 0.5; cursor: default; }
 #cb_modal_overlay .ntr_pop .ntr_danger { color: var(--ntr-err); }
-/* A font box (ovFont in index.js): the box with its list button, and the list of fonts under it, as wide as the box. */
+/* A font box (ovFont in index.js), and with fonts.js its list button and the list of fonts under it, as wide as the box. */
 #cb_modal_overlay .ntr_fbox { display: flex; width: 100%; }
-#cb_modal_overlay .ntr_fbox > .m_o_txt { flex: 1; min-width: 0; margin: 0; padding-right: 40px; }
+#cb_modal_overlay .ntr_fbox > .m_o_txt { flex: 1; min-width: 0; margin: 0; }
+#cb_modal_overlay .ntr_fbox.ntr_menu > .m_o_txt { padding-right: 40px; }
 #cb_modal_overlay .ntr_fbtn { position: absolute; top: 0; right: 0; bottom: 0; width: 40px; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0;
   border: 0; background: none; color: inherit; opacity: 0.6; cursor: pointer; }
 #cb_modal_overlay .ntr_fbtn:hover { opacity: 1; }

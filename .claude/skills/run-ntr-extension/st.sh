@@ -2,7 +2,8 @@
 # A local SillyTavern with this repo installed as an extension, for running and testing it.
 #
 #   st.sh setup          clone SillyTavern, install it, first run, save clean data, install the extension
-#   st.sh hook           for the session start hook: setup in the background, in cloud sessions, if not done yet
+#   st.sh hook           for the session start hook: setup in the background, in cloud sessions, if not done yet,
+#                        and Firefox and WebKit for the driver and scenarios (NTR_BROWSER)
 #   st.sh install [ref]  copy the extension into SillyTavern (working tree, or a git ref like origin/main)
 #   st.sh start | stop   start in the background (waits until it answers) | stop
 #   st.sh reset [ref]    stop, put back the clean data, install the extension (start again afterwards)
@@ -23,6 +24,7 @@ EXT_DIR="$USER_DIR/extensions/NTR-Extension"
 CLEAN="$ST_DIR/.ntr-clean-data"
 PORT=8000
 SETUP_LOG="${SETUP_LOG:-/tmp/sillytavern-setup.log}"
+BROWSERS_LOG=/tmp/ntr-browsers.log
 LOCK=/tmp/ntr-st-setup.lock
 
 # Waits for a setup that's running (the hook's, in the background) to finish.
@@ -99,6 +101,18 @@ hook() {
   setsid nohup bash "${BASH_SOURCE[0]}" setup > "$SETUP_LOG" 2>&1 < /dev/null &
 }
 
+# Firefox and WebKit, for the same Playwright as the preinstalled Chromium. Separate from setup, so a blocked download
+# leaves SillyTavern and Chromium working. Needs cdn.playwright.dev and playwright.download.prss.microsoft.com allowed.
+browsers() {
+  [ "${CLAUDE_CODE_REMOTE:-}" = true ] || return 0
+  local pw; pw="$(npm root -g)/playwright"
+  [ -d "$pw" ] || return 0
+  # The exact revisions this Playwright needs; its installer skips what's there and fetches the rest.
+  node -e 'const pw = require(process.argv[1]); process.exit(["firefox", "webkit"].every((b) => require("fs").existsSync(pw[b].executablePath())) ? 0 : 1)' "$pw" && return 0
+  setsid nohup node "$pw/cli.js" install --with-deps firefox webkit \
+    > "$BROWSERS_LOG" 2>&1 < /dev/null &
+}
+
 reset() {
   [ -d "$CLEAN" ] || { echo "no clean data yet: run st.sh setup first"; exit 1; }
   stop
@@ -138,7 +152,7 @@ bench() {
       banners+=("$img/banner${#banners[@]}.${f##*.}")
     done < <(ls -S "$ST_DIR/default/content/backgrounds" | grep -iE '\.(png|jpe?g|webp)$' | head -3)
     cp "$ST_DIR/default/content/default_Seraphina.png" "$img/fg.png"
-    sed -e "s#@BANNERS@#${banners[*]}#" -e "s#@IMG@#$img#g" "$here/bench-full.txt" | node "$here/driver.cjs" \
+    sed -e "s#@BANNERS@#${banners[*]}#" -e "s#@IMG@#$img#g" "$here/bench-full.txt" | NTR_BROWSER=chromium node "$here/driver.cjs" \
       || { echo "turning on NTR's features failed"; exit 1; }
   fi
   node "$here/bench.cjs" run "$name" --runs "$runs" "${flags[@]}"
@@ -147,12 +161,12 @@ bench() {
 case "${1:-}" in setup | hook) ;; *) wait_setup ;; esac
 case "${1:-}" in
   setup) setup ;;
-  hook) hook ;;
+  hook) hook; browsers ;;
   install) install_ext "${2:-}" ;;
   start) start ;;
   stop) stop ;;
   reset) reset "${2:-}" ;;
   lazy) lazy "${2:-}" ;;
   bench) shift; bench "$@" ;;
-  *) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

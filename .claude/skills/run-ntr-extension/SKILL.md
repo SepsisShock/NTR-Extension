@@ -9,6 +9,8 @@ NTR is a SillyTavern extension, so running it means running SillyTavern with thi
 
 Node (verified with 22), git, curl, lsof, and Playwright with Chromium that Node can `require` (preinstalled in Claude Code cloud containers; nothing was apt-installed). Setup needs GitHub and the npm registry. In a Claude Code cloud session, `add_repo` for SillyTavern/SillyTavern (read access) confirms the clone is allowed.
 
+**Other browsers:** the session start hook also downloads Firefox and WebKit (Safari's engine), which needs `cdn.playwright.dev` and `playwright.download.prss.microsoft.com` in the environment's Allowed domains. Set `NTR_BROWSER=firefox` or `NTR_BROWSER=webkit` to run the driver or scenarios in one of them; Chromium is the default. WebKit on Linux is close to Safari but not the same, and not iPhone Safari. The speed test runs in Chromium only.
+
 ## Setup (once, about a minute)
 
 ```bash

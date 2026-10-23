@@ -24,16 +24,7 @@ if (!/^[\w.-]+$/.test(NAME) || NAME === '.' || NAME === '..') {
 }
 const OUT = path.join(process.env.NTR_SCENARIOS || '/tmp/ntr-scenarios', NAME);
 
-function loadPlaywright() {
-  try { return require('playwright'); } catch (e) { /* try the global install below */ }
-  try {
-    const root = require('child_process').execSync('npm root -g').toString().trim();
-    return require(path.join(root, 'playwright'));
-  } catch (e) {
-    console.error('Playwright (with Chromium) is needed and wasn\'t found.');
-    process.exit(2);
-  }
-}
+const { launch } = require('./browser.cjs');
 
 // NTR's style tags in page order, except the two that load side by side and land in either order: those go last, by id.
 const styleText = () => {
@@ -44,10 +35,9 @@ const styleText = () => {
 };
 
 (async () => {
-  const { chromium } = loadPlaywright();
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await launch();
   const out = (...a) => { console.log(...a); fs.appendFileSync(path.join(OUT, 'out.txt'), a.join(' ') + '\n'); };
   const save = (file, text) => fs.writeFileSync(path.join(OUT, file), text);
   // Scenario names by outcome, for the closing summary.
@@ -83,11 +73,12 @@ const styleText = () => {
     }
     const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
     const errors = [];
-    page.on('pageerror', (e) => { if (!/Internal S/.test(e.message)) errors.push(e.message); });
+    // SillyTavern's offline Horde lookup: Chromium names it in the message, Firefox and WebKit only in the stack.
+    page.on('pageerror', (e) => { if (!/Internal S/.test(e.message) && !/\/horde\.js:/.test(e.stack || '')) errors.push(e.message); });
     // A failed load counts as noise only by its address, or when the scenario blocked it itself.
     const blocked = new Set();
     page.on('console', (m) => {
-      if (m.type() !== 'error' || /horde|favicon|Internal S/i.test(m.text())) return;
+      if (m.type() !== 'error' || /horde|favicon|Internal S|Viewport argument key "interactive-widget"/i.test(m.text())) return;
       const url = m.text().startsWith('Failed to load resource') ? m.location()?.url || '' : '';
       if (url && (blocked.has(url) || /\/api\/horde\/|favicon/i.test(url))) return;
       errors.push(m.text().slice(0, 160) + (url ? ' (' + url + ')' : ''));

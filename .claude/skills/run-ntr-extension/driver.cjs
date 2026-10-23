@@ -11,33 +11,24 @@
 const fs = require('fs');
 const path = require('path');
 
-function loadPlaywright() {
-  try { return require('playwright'); } catch (e) { /* try the global install below */ }
-  try {
-    const root = require('child_process').execSync('npm root -g').toString().trim();
-    return require(path.join(root, 'playwright'));
-  } catch (e) {
-    console.error('Playwright (with Chromium) is needed and wasn\'t found.');
-    process.exit(2);
-  }
-}
-const { chromium } = loadPlaywright();
+const { launch } = require('./browser.cjs');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const SHOTS = process.env.NTR_SHOTS || '/tmp/ntr-shots';
 // Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's. A failed load
-// only counts as noise by its address, so a missing NTR image still shows up.
-const NOISE = /Internal S.*not valid JSON|\/api\/horde\/|favicon/i;
+// only counts as noise by its address, so a missing NTR image still shows up. Firefox and WebKit word the Horde error
+// differently, so theirs is told apart by horde.js in its stack. WebKit also warns about SillyTavern's viewport tag.
+const NOISE = /Internal S.*not valid JSON|\(horde\.js\)$|\/api\/horde\/|favicon|Viewport argument key "interactive-widget"/i;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : [s.slice(0, i).trim(), s.slice(i + 3).trim()]; };
 
 (async () => {
   const lines = fs.readFileSync(0, 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
   fs.mkdirSync(SHOTS, { recursive: true });
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+  const browser = await launch();
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + (/\/horde\.js:/.test(e.stack || '') ? ' (horde.js)' : '')));
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     // "Failed to load resource" doesn't say which one; the address comes with the message.

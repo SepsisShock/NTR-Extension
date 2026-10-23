@@ -28,8 +28,7 @@
   // corner, at the end of the text, keeps ST's shadow. Speech Bubbles' Dark and Light text turn Glow and Shadow off
   // (decor.js), so there the text inside keeps ST's.
   const FX_SKIP = ':is(pre, table, textarea)';
-  function fxInnerCss(s, p, box, inked) {
-    const fx = fxProps(s, p);
+  function fxInnerCss(fx, box, inked) {
     if (fx['-webkit-text-stroke']) return cssRule(`${box} ${FX_SKIP}`, { '-webkit-text-stroke': '0' });
     if (!fx['text-shadow'] || inked) return '';
     return cssRule(`${box} :not(${FX_SKIP}, ${FX_SKIP} *)`, { 'text-shadow': 'inherit' })
@@ -107,11 +106,12 @@
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
     const align = (p) => (on(p + 'Align') && TEXT_ALIGN.includes(s[p + 'Align']) ? s[p + 'Align'] : '');
     const inked = bubblesOn(s) && s.ovBubInk !== 'auto';
+    const fx = { tfUser: fxProps(s, 'tfUser'), tfAi: fxProps(s, 'tfAi') };
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
-      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fxProps(s, p) });
-      css += fxInnerCss(s, p, m, inked);
+      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fx[p] });
+      css += fxInnerCss(fx[p], m, inked);
       // Lists, tables, code blocks and the edit box keep SillyTavern's alignment: bullets, columns and code don't center or justify well.
       if (align(p)) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
       css += cssRule(`${m} i, ${m} em`, { color: col(p + 'Em') });
@@ -119,8 +119,8 @@
       css += cssRule(`${m} q`, { color: col(p + 'Quote') });
       if (col(p + 'Em')) css += cssRule(`${m} q i, ${m} q em`, { color: 'inherit' });
     }
-    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fxProps(s, 'tfAi') });
-    css += fxInnerCss(s, 'tfAi', '#cb_node .cb_n_text', false);
+    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fx.tfAi });
+    css += fxInnerCss(fx.tfAi, '#cb_node .cb_n_text', false);
     css += cssRule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
     css += cssRule('#cb_node .cb_q', { color: col('tfAiQuote') });
     if (col('tfAiEm')) css += cssRule('#cb_node .cb_q em', { color: 'inherit' });

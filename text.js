@@ -43,12 +43,24 @@
   // part's own if it has one, else ST's. The band sits in a background wider than the text and rests off it, so a
   // Shimmer that isn't playing looks like plain text. ST's text shadow would show through the letters, so it's taken off.
   const PAINT = ['gradient', 'shimmer'];
-  // The second place is a Nameplate picture's, under a name's band; text with only the band ignores it.
-  const SHINE = `
-      @keyframes ntr_shine { 0% { background-position: 100% 0, center; } 60%, 100% { background-position: 0 0, center; } }`;
-  // Shimmer plays only with ST's Reduced Motion off (ST also turns it on for the device's own setting), and stops while
-  // a reply is written: ST rewrites the message on every streamed word, which would start it over each time.
+  // Shimmer sweeps twice when its text appears, then stops, so nothing runs at rest and its motion stays under 5 seconds.
+  // New text plays it again: a new message, a swipe or an edit (ST draws the text anew), and in the Visual Novel box each
+  // segment once it's typed and the name tag when the speaker changes (vn.js marks them cb_shown). It waits while a reply
+  // is written, since ST rewrites the message on every streamed word, and doesn't play with ST's Reduced Motion, which
+  // ST also turns on for the device's own setting.
   const MOVING = ':not(.reduced-motion):not([data-generating])';
+  // Changing a Shimmer setting switches the keyframes' name, which plays it again in place, so the menu shows the change.
+  // The second place is a Nameplate picture's, under a name's band; text with only the band ignores it.
+  let shine = { key: '', name: 'ntr_shine_a' };
+  function shineCss(s) {
+    const key = JSON.stringify(FX_PARTS.filter((p) => s[p + 'FxOn'] && s[p + 'Fx'] === 'shimmer')
+      .map((p) => [p, ...['FxStr', 'FxColorOn', 'FxColor', 'QuoteOn', 'Quote'].map((k) => s[p + k])]));
+    if (key !== shine.key) shine = { key, name: shine.key && shine.name === 'ntr_shine_a' ? 'ntr_shine_b' : 'ntr_shine_a' };
+    return {
+      spin: { animation: `${shine.name} 2.5s ease-in-out 2` },
+      keyframes: `\n      @keyframes ${shine.name} { 0% { background-position: 100% 0, center; } 60%, 100% { background-position: 0 0, center; } }`,
+    };
+  }
   function paintOf(s, p, quote) {
     if (!s[p + 'FxOn'] || !PAINT.includes(s[p + 'Fx'])) return null;
     const n = rangeNum(s, p + 'FxStr');
@@ -68,7 +80,6 @@
       'text-shadow': 'none',
     };
   }
-  const SPIN = { animation: 'ntr_shine 3.5s ease-in-out infinite' };
   // In message text and the Visual Novel box, the paint goes on each paragraph, list item and heading: Speech Bubbles
   // draw the bubble on the box itself, which the paint would cut down to the letters. Code blocks and tables are left
   // out; the text in a list item is painted with it. Text outside these, like a card's own HTML boxes, stays plain.
@@ -139,6 +150,7 @@
     if (!s.tfEnabled) return '';
     const { on, col, font, size } = cssReaders(s);
     let css = '';
+    const { spin, keyframes } = shineCss(s);
 
     // Names on chat messages, and the speaker's name tag in Visual Novel Mode.
     const ns = size('tfNameSize');
@@ -150,8 +162,8 @@
       ...fxProps(s, 'tfName'),
     });
     css += cssRule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
-    // Shimmer plays on the newest message's name only, and always on the Visual Novel name tag. Under it, a Nameplate
-    // picture's place is set without !important, which would hold the band still.
+    // Shimmer plays on the newest message's name, and on the Visual Novel name tag. Under it, a Nameplate picture's place
+    // is set without !important, which would hold the band still.
     const namePaint = paintOf(s, 'tfName', '');
     const img = cUrl(s.tfPlateImg);
     const freePlace = !!(namePaint && namePaint.shimmer && img);
@@ -161,7 +173,7 @@
       const layer = img ? `url("${img}")` : plated ? 'none' : '';
       const newest = '#chat > .mes:nth-last-child(1 of .mes:not([is_system="true"]))';
       css += cssRule(`body:not(.ntr_book) ${namePaint.shimmer ? newest : '.mes'} .name_text`, paintProps(namePaint, layer));
-      if (namePaint.shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .name_text`, SPIN);
+      if (namePaint.shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .name_text`, spin);
       // The Visual Novel name tag is filled with the Quote Color, which the paint would fade into, so without a Nameplate
       // it takes the theme's panel color, a border and the body text color.
       css += cssRule('#cb_node .cb_n_name', {
@@ -170,7 +182,7 @@
         color: plated || col('tfNameColor') ? '' : 'var(--SmartThemeBodyColor)',
         border: plated || on('tfPlateBorder') ? '' : '1px solid var(--SmartThemeBorderColor)',
       });
-      if (namePaint.shimmer) css += cssRule(`body${MOVING} #cb_node .cb_n_name`, SPIN);
+      if (namePaint.shimmer) css += cssRule(`body${MOVING} #cb_node .cb_n_name.cb_shown`, spin);
       if (freePlace) css += `\n      .mes .name_text { background-position: center; }\n      body:not(.ntr_book) ${newest} .name_text, #cb_node .cb_n_name { background-position: 0 0, center; }`;
     }
 
@@ -188,7 +200,7 @@
       if (paint[p] && !inked) {
         const newest = `#chat > .mes[is_user="${flag}"]:nth-last-child(1 of .mes[is_user="${flag}"]:not([is_system="true"]))`;
         css += paintTextCss(`body:not(.ntr_book) ${paint[p].shimmer ? newest : `.mes[is_user="${flag}"]`} .mes_text ${BLOCKS}`, paint[p]);
-        if (paint[p].shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .mes_text ${BLOCKS}`, SPIN);
+        if (paint[p].shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .mes_text ${BLOCKS}`, spin);
       }
       // Lists, tables, code blocks and the edit box keep SillyTavern's alignment: bullets, columns and code don't center or justify well.
       if (align(p)) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
@@ -202,9 +214,9 @@
     // The Visual Novel box scrolls, and the paint scrolls with its text.
     if (paint.tfAi) {
       css += paintTextCss('#cb_node .cb_n_text', paint.tfAi) + cssRule('#cb_node .cb_n_text', { 'background-attachment': 'local' });
-      if (paint.tfAi.shimmer) css += cssRule(`body${MOVING} #cb_node .cb_n_text`, SPIN);
+      if (paint.tfAi.shimmer) css += cssRule(`body${MOVING} #cb_node .cb_n_text.cb_shown`, spin);
     }
-    if ([namePaint, paint.tfUser, paint.tfAi].some((x) => x && x.shimmer)) css += SHINE;
+    if ([namePaint, paint.tfUser, paint.tfAi].some((x) => x && x.shimmer)) css += keyframes;
     css += cssRule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
     css += cssRule('#cb_node .cb_q', { color: col('tfAiQuote') });
     if (col('tfAiEm')) css += cssRule('#cb_node .cb_q em', { color: 'inherit' });
@@ -212,11 +224,11 @@
   }
 
   function ovFx(s, p) {
-    const hint = p === 'tfName' ? 'Shimmer plays on the newest name in the chat only'
-      : 'Gradient and Shimmer keep italics, quotes, underlines and links in their own colors. Shimmer plays on the newest message in the chat only';
+    const hint = p === 'tfName' ? 'Shimmer sweeps twice over the newest name when it appears'
+      : 'Gradient and Shimmer keep italics, quotes, underlines and links in their own colors. Shimmer sweeps twice over the newest message when it appears';
     return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline'], ['gradient', 'Gradient'], ['shimmer', 'Shimmer']], s[p + 'Fx'])
       + ovLabel('Strength', rangeSlider(s, p + 'FxStr'))
-      + `<div class="cb_hint">${hint}, and is off with Reduced Motion, ST's or the device's.</div>`;
+      + `<div class="cb_hint">${hint}. Off with Reduced Motion, ST's or the device's.</div>`;
   }
 
   function fxRows(s, p) {

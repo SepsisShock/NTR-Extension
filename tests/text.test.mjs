@@ -57,8 +57,17 @@ test('Gradient and Shimmer paint the text blocks, with Shimmer only on the newes
   // Shimmer on the newest user message only, playing only without Reduced Motion and while nothing is being written.
   const newest = '#chat > .mes[is_user="true"]:nth-last-child(1 of .mes[is_user="true"]:not([is_system="true"]))';
   assert.ok(css.includes(`body:not(.ntr_book) ${newest} .mes_text ${blocks} { background-image: linear-gradient(100deg, currentColor 47%, rgba(0, 0, 255, 1) 50%, currentColor 53%) !important; background-size: 250% 100% !important;`));
-  assert.ok(css.includes(`body:not(.ntr_book):not(.reduced-motion):not([data-generating]) ${newest} .mes_text ${blocks} { animation: ntr_shine 3.5s ease-in-out infinite !important; }`));
-  assert.ok(css.includes('@keyframes ntr_shine'));
+  assert.ok(css.includes(`body:not(.ntr_book):not(.reduced-motion):not([data-generating]) ${newest} .mes_text ${blocks} { animation: ntr_shine_`));
+  assert.match(css, /animation: ntr_shine_[ab] 2\.5s ease-in-out 2 !important;/);
+  // A changed Shimmer setting switches the keyframes' name, so it plays again; anything else keeps it.
+  const shine = () => window.NTR.text.css(s).match(/@keyframes (ntr_shine_[ab])/)[1];
+  const was = shine();
+  s.tfUserFxStr = 4;
+  const now = shine();
+  assert.notEqual(now, was);
+  s.tfAiFxStr = 4;
+  assert.equal(shine(), now);
+  s.tfAiFxStr = 3;
   // The part's own Quote Color, when it has one.
   Object.assign(s, { tfAiQuoteOn: true, tfAiQuote: 'rgba(0, 128, 0, 1)' });
   assert.ok(window.NTR.text.css(s).includes('linear-gradient(90deg, currentColor, rgba(0, 128, 0, 1) 84%)'));
@@ -82,7 +91,7 @@ test('Gradient and Shimmer on names keep the Nameplate, and Shimmer plays on the
   // A Nameplate color stays under the paint: a second, empty layer keeps it to the whole box.
   assert.ok(css.includes(`${name} { background-image: linear-gradient(100deg,`));
   assert.ok(/, none !important; background-size: 250% 100%, cover !important;[^}]*background-clip: text, border-box !important;/.test(css));
-  assert.ok(css.includes('body:not(.reduced-motion):not([data-generating]) #cb_node .cb_n_name { animation:'));
+  assert.ok(css.includes('body:not(.reduced-motion):not([data-generating]) #cb_node .cb_n_name.cb_shown { animation:'));
   // A Nameplate picture's place loses its !important under a Shimmer, which would hold the band still.
   s.tfPlateImg = '/user/files/plate.png';
   css = window.NTR.text.css(s);
@@ -95,6 +104,6 @@ test('Gradient and Shimmer on names keep the Nameplate, and Shimmer plays on the
   css = window.NTR.text.css(s);
   assert.ok(css.includes('body:not(.ntr_book) .mes .name_text { background-image: linear-gradient(90deg, currentColor, var(--SmartThemeQuoteColor) 84%) !important;'));
   assert.ok(/#cb_node \.cb_n_name \{[^}]*background-color: var\(--SmartThemeBlurTintColor\) !important; color: var\(--SmartThemeBodyColor\) !important; border: 1px solid var\(--SmartThemeBorderColor\) !important;/.test(css));
-  assert.ok(!css.includes('@keyframes ntr_shine'));
+  assert.ok(!css.includes('@keyframes'));
   Object.assign(s, { tfEnabled: false, tfNameFxOn: false });
 });

@@ -946,6 +946,14 @@
     }, speed);
   }
 
+  // Marks a part as just shown, for looks that play once when it appears (Text Formatting's Shimmer). Taking the mark
+  // off and putting it back starts them over.
+  function justShown(el) {
+    el.classList.remove('cb_shown');
+    void el.offsetWidth;
+    el.classList.add('cb_shown');
+  }
+
   function nodeShow(animate, shown = 0) {
     const s = settings();
     const ov = ensureNodeLayer();
@@ -961,7 +969,9 @@
     const isChar = seg.kind === 'char';
     ov.querySelector('.cb_n_box').classList.toggle('cb_n_nar', !isChar);
     const nameEl = ov.querySelector('.cb_n_name');
+    const newName = nameEl.textContent !== (seg.name || '');
     nameEl.textContent = seg.name || '';
+    if (newName && seg.name) justShown(nameEl);
     nameEl.style.display = seg.name ? '' : 'none';
 
     const port = ov.querySelector('.cb_n_port');
@@ -984,6 +994,7 @@
     const waits = !!(s.nodeChoices && seg.choices && seg.choices.length);
     const done = () => {
       node.typing = false; node.finish = null;
+      justShown(text);
       arrow.textContent = more ? '\u25BC' : '';
       renderChoices(seg);
       if (s.nodeAuto && more && !waits && !node.held) node.auto = setTimeout(() => nodeStep(1), s.nodeAutoDelay);

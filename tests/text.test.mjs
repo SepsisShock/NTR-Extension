@@ -24,3 +24,21 @@ test('Text Formatting builds its CSS, and none while its page is off', () => {
   s.tfEnabled = false;
   assert.equal(window.NTR.text.css(s), '');
 });
+
+test('Glow and Shadow reach the text inside messages, but not code, tables or Speech Bubbles\' Dark and Light text', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, tfEnabled: true, tfAiFxOn: true, tfAiFx: 'shadow', tfAiFxStr: 3, tfUserFxOn: true, tfUserFx: 'outline', ovBubOn: false });
+  let css = window.NTR.text.css(s);
+  const inner = (box) => `${box} :not(:is(pre, table, textarea), :is(pre, table, textarea) *) { text-shadow: inherit !important; }`;
+  assert.ok(css.includes(inner('.mes[is_user="false"] .mes_text')));
+  assert.ok(css.includes(inner('#cb_node .cb_n_text')));
+  assert.ok(css.includes('body:not(.ntr_book) .mes[is_user="false"] .mes_text > *::after { text-shadow: 0 0 calc(var(--shadowWidth) * 1px) var(--SmartThemeShadowColor) !important; }'));
+  // Outline passes down by itself, so it's only taken off code and tables.
+  assert.ok(css.includes('.mes[is_user="true"] .mes_text :is(pre, table, textarea) { -webkit-text-stroke: 0 !important; }'));
+  assert.ok(!css.includes(inner('.mes[is_user="true"] .mes_text')));
+  Object.assign(s, { ovEnabled: true, ovBubOn: true, ovBubInk: 'dark' });
+  css = window.NTR.text.css(s);
+  assert.ok(!css.includes(inner('.mes[is_user="false"] .mes_text')));
+  assert.ok(css.includes(inner('#cb_node .cb_n_text')), 'the Visual Novel box has no bubbles');
+  Object.assign(s, { tfEnabled: false, tfAiFxOn: false, tfUserFxOn: false, ovEnabled: false, ovBubOn: false, ovBubInk: 'auto' });
+});

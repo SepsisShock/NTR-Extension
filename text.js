@@ -4,7 +4,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const TEXT_VERSION = '2.75.1';
+  const TEXT_VERSION = '2.75.2';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { askImageUrl, card, deleteFileIfUnused, escapeHTML, onPills, pageHtml, pills, rangeNum, save, subHead, uploadImage } = A;
@@ -20,6 +20,19 @@
     if (fx === 'glow') return { 'text-shadow': `0 0 ${n * 2}px ${c}, 0 0 ${n}px ${c}` };
     if (fx === 'shadow') return { 'text-shadow': `${Math.ceil(n / 3)}px ${Math.ceil(n / 3)}px ${n}px ${c}` };
     return { '-webkit-text-stroke': `${(n * 0.2).toFixed(1)}px ${c}`, 'paint-order': 'stroke fill' };
+  }
+
+  // The Text Effect on the text inside a message or the Visual Novel box. SillyTavern gives every element its own text
+  // shadow, so Glow and Shadow are passed down to each one, or they'd only reach text outside a paragraph. Code blocks,
+  // tables and the edit box keep ST's look; Outline, which passes down by itself, is taken off them. Message Details'
+  // corner, at the end of the text, keeps ST's shadow. Speech Bubbles' Dark and Light text turn Glow and Shadow off
+  // (decor.js), so there the text inside keeps ST's.
+  const FX_SKIP = ':is(pre, table, textarea)';
+  function fxInnerCss(fx, box, inked) {
+    if (fx['-webkit-text-stroke']) return cssRule(`${box} ${FX_SKIP}`, { '-webkit-text-stroke': '0' });
+    if (!fx['text-shadow'] || inked) return '';
+    return cssRule(`${box} :not(${FX_SKIP}, ${FX_SKIP} *)`, { 'text-shadow': 'inherit' })
+      + cssRule(`body:not(.ntr_book) ${box} > *::after`, { 'text-shadow': '0 0 calc(var(--shadowWidth) * 1px) var(--SmartThemeShadowColor)' });
   }
 
   // Nameplate: a color or picture, border and roundness behind the name, on chat messages and the Visual Novel name tag.
@@ -92,10 +105,13 @@
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
     const align = (p) => (on(p + 'Align') && TEXT_ALIGN.includes(s[p + 'Align']) ? s[p + 'Align'] : '');
+    const inked = bubblesOn(s) && s.ovBubInk !== 'auto';
+    const fx = { tfUser: fxProps(s, 'tfUser'), tfAi: fxProps(s, 'tfAi') };
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
-      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fxProps(s, p) });
+      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fx[p] });
+      css += fxInnerCss(fx[p], m, inked);
       // Lists, tables, code blocks and the edit box keep SillyTavern's alignment: bullets, columns and code don't center or justify well.
       if (align(p)) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
       css += cssRule(`${m} i, ${m} em`, { color: col(p + 'Em') });
@@ -103,7 +119,8 @@
       css += cssRule(`${m} q`, { color: col(p + 'Quote') });
       if (col(p + 'Em')) css += cssRule(`${m} q i, ${m} q em`, { color: 'inherit' });
     }
-    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fxProps(s, 'tfAi') });
+    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fx.tfAi });
+    css += fxInnerCss(fx.tfAi, '#cb_node .cb_n_text', false);
     css += cssRule('#cb_node .cb_n_text em', { color: col('tfAiEm') });
     css += cssRule('#cb_node .cb_q', { color: col('tfAiQuote') });
     if (col('tfAiEm')) css += cssRule('#cb_node .cb_q em', { color: 'inherit' });

@@ -987,6 +987,8 @@
     if (!cnt.querySelector('input')) cnt.textContent = countText();
 
     const text = ov.querySelector('.cb_n_text');
+    // The new segment counts as shown once it's typed (see done).
+    text.classList.remove('cb_shown');
     const arrow = ov.querySelector('.cb_n_arrow');
     const more = node.i < node.segs.length - 1;
     const html = nodeFmt(seg.text);

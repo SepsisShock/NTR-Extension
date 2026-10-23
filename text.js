@@ -66,7 +66,8 @@
     const n = rangeNum(s, p + 'FxStr');
     const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : quote || 'var(--SmartThemeQuoteColor)';
     if (s[p + 'Fx'] === 'gradient') return { shimmer: false, image: `linear-gradient(90deg, currentColor, ${c} ${100 - (n - 1) * 8}%)` };
-    return { shimmer: true, size: '250% 100%', image: `linear-gradient(100deg, currentColor ${50 - n * 1.5}%, ${c} 50%, currentColor ${50 + n * 1.5}%)` };
+    // Three times the text's width keeps the widest band (30% of it) off the text at both ends of the sweep.
+    return { shimmer: true, size: '300% 100%', image: `linear-gradient(90deg, currentColor ${50 - n * 1.5}%, ${c} 50%, currentColor ${50 + n * 1.5}%)` };
   }
   // The paint, under a Nameplate's picture and color when there is one (layer: the picture's url()).
   function paintProps(paint, layer) {
@@ -84,9 +85,9 @@
   // draw the bubble on the box itself, which the paint would cut down to the letters. Code blocks and tables are left
   // out; the text in a list item is painted with it. Text outside these, like a card's own HTML boxes, stays plain.
   const BLOCKS = ':is(p, li, h1, h2, h3, h4, h5, h6):not(li *, pre *, table *)';
-  // Inside, bold and plain spans take the paint; everything else keeps its own color: italics, quotes, underlines,
+  // Inside, plain bold and spans take the paint; everything else keeps its own color: italics, quotes, underlines,
   // links, code, a card's colored or faded text, and ST's streaming fade-in, whose fading the paint can't show.
-  const PASS = 'strong, b, p, ul, ol, li, br, span:not([class], [style])';
+  const PASS = 'p, ul, ol, li, br, :is(strong, b, span):not([class], [style])';
   function paintTextCss(sel, paint) {
     return cssRule(sel, paintProps(paint))
       + cssRule(`${sel} :not(${PASS})`, { '-webkit-text-fill-color': 'currentColor' })

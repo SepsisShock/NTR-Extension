@@ -51,12 +51,12 @@ test('Gradient and Shimmer paint the text blocks, with Shimmer only on the newes
   const blocks = ':is(p, li, h1, h2, h3, h4, h5, h6):not(li *, pre *, table *)';
   // Gradient on every AI message, to ST's Quote Color, with Glow's rules left out.
   assert.ok(css.includes(`body:not(.ntr_book) .mes[is_user="false"] .mes_text ${blocks} { background-image: linear-gradient(90deg, currentColor, var(--SmartThemeQuoteColor) 84%) !important;`));
-  assert.ok(css.includes(`.mes[is_user="false"] .mes_text ${blocks} :not(strong, b, p, ul, ol, li, br, span:not([class], [style])) { -webkit-text-fill-color: currentColor !important; }`));
+  assert.ok(css.includes(`.mes[is_user="false"] .mes_text ${blocks} :not(p, ul, ol, li, br, :is(strong, b, span):not([class], [style])) { -webkit-text-fill-color: currentColor !important; }`));
   assert.ok(!/\.mes\[is_user="false"\] \.mes_text \{[^}]*text-shadow/.test(css));
   assert.ok(css.includes(`#cb_node .cb_n_text { background-attachment: local !important; }`));
   // Shimmer on the newest user message only, playing only without Reduced Motion and while nothing is being written.
   const newest = '#chat > .mes[is_user="true"]:nth-last-child(1 of .mes[is_user="true"]:not([is_system="true"]))';
-  assert.ok(css.includes(`body:not(.ntr_book) ${newest} .mes_text ${blocks} { background-image: linear-gradient(100deg, currentColor 47%, rgba(0, 0, 255, 1) 50%, currentColor 53%) !important; background-size: 250% 100% !important;`));
+  assert.ok(css.includes(`body:not(.ntr_book) ${newest} .mes_text ${blocks} { background-image: linear-gradient(90deg, currentColor 47%, rgba(0, 0, 255, 1) 50%, currentColor 53%) !important; background-size: 300% 100% !important;`));
   assert.ok(css.includes(`body:not(.ntr_book):not(.reduced-motion):not([data-generating]) ${newest} .mes_text ${blocks} { animation: ntr_shine_`));
   assert.match(css, /animation: ntr_shine_[ab] 2\.5s ease-in-out 2 !important;/);
   // A changed Shimmer setting switches the keyframes' name, so it plays again; anything else keeps it.
@@ -68,6 +68,11 @@ test('Gradient and Shimmer paint the text blocks, with Shimmer only on the newes
   s.tfAiFxStr = 4;
   assert.equal(shine(), now);
   s.tfAiFxStr = 3;
+  // At the widest band, it still rests fully off the text at both ends of the sweep: the band starts 35% into a
+  // background three times the text's width.
+  s.tfUserFxStr = 10;
+  const [, start, size] = window.NTR.text.css(s).match(/currentColor (\d+)%, rgba\(0, 0, 255, 1\) 50%, currentColor \d+%\) !important; background-size: (\d+)%/);
+  assert.ok((start / 100) * (size / 100) >= 1);
   // The part's own Quote Color, when it has one.
   Object.assign(s, { tfAiQuoteOn: true, tfAiQuote: 'rgba(0, 128, 0, 1)' });
   assert.ok(window.NTR.text.css(s).includes('linear-gradient(90deg, currentColor, rgba(0, 128, 0, 1) 84%)'));
@@ -89,8 +94,8 @@ test('Gradient and Shimmer on names keep the Nameplate, and Shimmer plays on the
   let css = window.NTR.text.css(s);
   const name = 'body:not(.ntr_book) #chat > .mes:nth-last-child(1 of .mes:not([is_system="true"])) .name_text';
   // A Nameplate color stays under the paint: a second, empty layer keeps it to the whole box.
-  assert.ok(css.includes(`${name} { background-image: linear-gradient(100deg,`));
-  assert.ok(/, none !important; background-size: 250% 100%, cover !important;[^}]*background-clip: text, border-box !important;/.test(css));
+  assert.ok(css.includes(`${name} { background-image: linear-gradient(90deg,`));
+  assert.ok(/, none !important; background-size: 300% 100%, cover !important;[^}]*background-clip: text, border-box !important;/.test(css));
   assert.ok(css.includes('body:not(.reduced-motion):not([data-generating]) #cb_node .cb_n_name.cb_shown { animation:'));
   // A Nameplate picture's place loses its !important under a Shimmer, which would hold the band still.
   s.tfPlateImg = '/user/files/plate.png';

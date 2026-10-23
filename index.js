@@ -1828,6 +1828,17 @@ await (async () => {
         <div role="group" aria-label="${g}"><div class="ntr_fgroup" aria-hidden="true">${g}</div>${names.map((n) => `
           <div role="option" id="${id}_${i++}" class="ntr_fopt" data-font="${n}" aria-selected="${n.toLowerCase() === cur}" style="font-family: ${previewFamily(n)}, ${fb};">${n}${n.toLowerCase() === cur ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : ''}</div>`).join('')}</div>`).join('')}</div>` : '';
     };
+    // The list fits in the part of the menu that shows under the box. The menu scrolls to make room for the list's
+    // full height, but never past the box's top, so what's typed stays in sight in a short menu.
+    const fit = (p) => {
+      const body = el.closest('.ntr_body');
+      if (!body) return;
+      const full = Math.min(300, innerHeight * 0.4);
+      const room = () => body.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom - 8;
+      const short = full - room();
+      if (short > 0) body.scrollTop += Math.min(short, box.getBoundingClientRect().top - body.getBoundingClientRect().top);
+      p.style.maxHeight = `${Math.max(0, Math.min(full, room()))}px`;
+    };
     const close = () => { closePops(box); active = -1; el.removeAttribute('aria-activedescendant'); };
     const pick = (f) => { el.value = f; close(); el.onchange(); };
     // q is what's typed, or '' for the whole list.
@@ -1844,7 +1855,7 @@ await (async () => {
         p.onclick = (e) => { const o = e.target.closest('[role="option"]'); if (o) pick(o.dataset.font); };
         el.setAttribute('aria-controls', id);
         loadPreviews(PRESET_NAMES, PRESET_TEXT);
-        p.scrollIntoView({ block: 'nearest' });
+        fit(p);
       }
       active = q ? 0 : opts().findIndex((o) => o.getAttribute('aria-selected') === 'true');
       mark();

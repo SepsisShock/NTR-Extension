@@ -488,6 +488,8 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
   #cb_modal_overlay .m_ag_roster { --m-ag-grip: 40px; }
   #cb_modal_overlay .ntr_avlab { min-height: 40px; }
   #cb_modal_overlay .ntr_avlab > label { align-self: stretch; display: flex; align-items: center; }
+  #cb_modal_overlay .cb_posgrid { grid-template-columns: repeat(3, 38px); }
+  #cb_modal_overlay .cb_posgrid label { width: 38px; height: 38px; }
 }
 /* Agent Results in a Pinned Block (agents.js): each agent's name and buttons, then its saved result. */
 #ntr_pin_layer .ntr_agres + .ntr_agres { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ntr-line); }

@@ -9,7 +9,7 @@
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
-    rangeAttrs, rangeNum, save, settings, startPlacement, tiles, uploadImage } = A;
+    rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
   const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
     restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
@@ -43,7 +43,7 @@
     star: `width: 24px; height: 24px; -webkit-mask: ${OUTLINES.star} center / 100% 100% no-repeat; mask: ${OUTLINES.star} center / 100% 100% no-repeat;`,
   };
   const shapeTiles = (prefix, cur) => tiles(`${prefix}shape`, 'Shape', SHAPE_OPTS.map(([v, l]) => [v, l,
-    SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur);
+    SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur).replace('class="ntr_tiles', 'class="ntr_tiles ntr_shapes');
 
   // Filters, at a Filter Strength s from 0 to 1, as the picture's CSS filter. k sizes Dreamy's blur for a smaller
   // picture (the menu's previews).
@@ -594,11 +594,19 @@
         ${f.frames.length ? '' : '<div class="cb_hint" style="margin: 0;">Use a picture with a see-through middle, like a PNG.</div>'}` : ''}`;
   }
 
+  // A column's choices that show or hide other rows: Corners for Rectangle and Square, Keep Picture Upright for a
+  // Shape, Use Picture's Own Size for None, and Short Messages for None at a set size (only Backdrop cuts a picture to
+  // a short message). Picture Size waits while the picture keeps its own size; Pop Out always uses Picture Size.
+  function colState(s, prefix) {
+    const shaped = !!SHAPES[s[`${prefix}Shape`]];
+    const own = !shaped && s[`${prefix}Fit`] === 'original';
+    return { shaped, own, cornersOn: ['rectangle', 'square'].includes(s[`${prefix}Shape`]), scaleOff: s[`${prefix}Style`] !== 'popout' && own };
+  }
+
   function getColHtml(prefix, title, s) {
     const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
-    const shaped = !!SHAPES[s[`${prefix}Shape`]];
-    const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
-    const scaleOff = style !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
+    const { shaped, own, cornersOn, scaleOff } = colState(s, prefix);
+    const show = (on) => (on ? '' : ' style="display: none;"');
 
     const slider = (id, key, label) => `
       <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val" class="ntr_slval">${rangeNum(s, prefix + key)}</span>${numRange(prefix + key)[3]}</span></div>
@@ -618,33 +626,29 @@
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
 
-        ${grp('popout', `<div class="cb_sub">Placement</div>
-          <button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
-          <div class="cb_hint" style="margin: 0;">Hides the menu while you drag the picture. Position counts from the chat panel, not the screen.</div>
+        ${grp('popout', `<button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
+          <div class="cb_hint" style="margin: 0;">Position counts from the chat panel, not the screen.</div>
           <div id="m_${prefix}_pstat" class="cb_hint" style="margin: 0;">${escapeHTML(popMsg[prefix] || '')}</div>`
-          + slider('ox', 'PopX', 'Move Horizontal:')
-          + slider('oy', 'PopY', 'Move Vertical:'))}
-
-        <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Picture Size:')}</div>
-        <div id="m_${prefix}_orighint" class="cb_hint" style="margin: 0;${scaleOff ? '' : ' display: none;'}">Original uses the picture's own size.</div>
-        <div id="m_${prefix}_padwrap" class="${style === 'inline' ? 'cb_dim' : ''}">${slider('pad', 'Pad', 'Text Padding:')}</div>
+          + slider('ox', 'PopX', 'Move Left/Right:')
+          + slider('oy', 'PopY', 'Move Up/Down:'))}
 
         <div class="cb_sub">Shape</div>
         ${shapeTiles(prefix, s[`${prefix}Shape`])}
-        <div id="m_${prefix}_crwrap" class="${cornersOn ? '' : 'cb_dim'}">${slider('cr', 'Corner', 'Corners:')}</div>
-        <div id="m_${prefix}_croff" class="cb_hint" style="margin: 0;${cornersOn ? ' display: none;' : ''}">Only for Rectangle and Square.</div>
+        <div id="m_${prefix}_crwrap"${show(cornersOn)}>${slider('cr', 'Corner', 'Corners:')}</div>
         ${slider('rt', 'Rotate', 'Rotation:')}
-        <div id="m_${prefix}_rmwrap" class="${shaped ? '' : 'cb_dim'}"><strong>Rotate:</strong>${pills(`${prefix}rmode`, [['shape', 'Shape Only'], ['both', 'Shape and Picture']], s[`${prefix}RotateMode`] === 'both' ? 'both' : 'shape')}</div>
-        <div id="m_${prefix}_rmoff" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">Shape None turns the whole picture.</div>
+        <label id="m_${prefix}_rmwrap" class="checkbox_label${rangeNum(s, prefix + 'Rotate') ? '' : ' cb_dim'}"${show(shaped)}><input type="checkbox" id="m_${prefix}_upright" ${s[`${prefix}RotateMode`] === 'both' ? '' : 'checked'}><span>Keep Picture Upright</span></label>
 
-        <div class="cb_sub">Picture</div>
-        ${grp('inline backdrop', `<div id="m_${prefix}_fitwrap" class="${shaped ? 'cb_dim' : ''}"><strong>Picture Fit:</strong>${pills(`${prefix}fit`, [['contain', 'Fit'], ['cover', 'Fill'], ['original', 'Original']], s[`${prefix}Fit`])}</div>
-          <div id="m_${prefix}_fithint" class="cb_hint" style="margin: 0;${shaped ? '' : ' display: none;'}">Only for Shape None. A Shape is always filled.</div>`)}
-        ${grp('backdrop', `<div id="m_${prefix}_fitnone" class="cb_hint" style="margin: 0;${shaped ? ' display: none;' : ''}">In a short message, Fit shrinks the picture to show all of it; Fill and Original get cut off.</div>`)}
+        <div class="cb_sub">Size</div>
+        <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Picture Size:')}</div>
+        ${grp('inline backdrop', `<label id="m_${prefix}_ownwrap" class="checkbox_label"${show(!shaped)}><input type="checkbox" id="m_${prefix}_own" ${s[`${prefix}Fit`] === 'original' ? 'checked' : ''}><span>Use Picture's Own Size</span></label>`)}
+        ${grp('backdrop popout', slider('pad', 'Pad', 'Text Padding:'))}
+
+        <div class="cb_sub">Crop</div>
+        ${grp('backdrop', `<div id="m_${prefix}_fitwrap"${show(!shaped && !own)}><strong>Short Messages:</strong>${pills(`${prefix}fit`, [['contain', 'Shrink Picture'], ['cover', 'Crop Picture']], s[`${prefix}Fit`] === 'cover' ? 'cover' : 'contain')}</div>`)}
         ${slider('zm', 'Zoom', 'Zoom:')}
         <div id="m_${prefix}_fowrap" class="${room.y ? '' : 'cb_dim'}">${slider('fo', 'Focus', 'Shift Up/Down:')}</div>
         <div id="m_${prefix}_sxwrap" class="${room.x ? '' : 'cb_dim'}">${slider('sx', 'ShiftX', 'Shift Left/Right:')}</div>
-        <div id="m_${prefix}_shint" class="cb_hint" style="margin: 0;${room.x && room.y ? ' display: none;' : ''}">Zoom in to shift a picture that already fits.</div>
+        <div id="m_${prefix}_shint" class="cb_hint" style="margin: 0;${room.x && room.y ? ' display: none;' : ''}">Zoom in to move a picture that already fits.</div>
 
         ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
           + fadeGrid(prefix, s, fadeCur)
@@ -662,8 +666,8 @@
         ${textureTiles(prefix, TEXTURES[s[`${prefix}Texture`]] ? s[`${prefix}Texture`] : 'none')}
         <div id="m_${prefix}_txwrap" class="${TEXTURES[s[`${prefix}Texture`]] ? '' : 'cb_dim'}">${slider('tx', 'TextureStr', 'Texture Strength:')}</div>
 
-        <div class="cb_sub">Frame</div>
-        ${grp('inline popout', `<div class="cb_cur_slot" style="margin: 0;">
+        ${grp('inline popout', `<div class="cb_sub">Frame</div>
+          <div class="cb_cur_slot" style="margin: 0;">
             <div class="cb_cur_row">
               <div id="m_${prefix}_frprev" style="position: relative; flex: none; width: ${FRAME_TILE}px; height: ${FRAME_TILE}px; border-radius: 8px; background: var(--ntr-well-deep);">${framePrevHtml(s, prefix)}</div>
               <span class="cb_cur_name" id="m_${prefix}_frname">${frameNameHtml(s, prefix)}</span>
@@ -678,11 +682,12 @@
             <div>${slider('frx', 'FrameX', 'Frame Left/Right:')}</div>
             <div>${slider('fry', 'FrameY', 'Frame Up/Down:')}</div>
           </div>`)}
-        ${grp('backdrop', '<div class="cb_hint" style="margin: 0;">Frames show for In Line and Pop Out.</div>')}
 
-        <div class="cb_sub">Advanced: Custom CSS</div>
-        ${ovRow(s, `${prefix}CssOn`, `${title} Avatar CSS`, customCssBox(s, `${prefix}Css`, 'border: 2px solid white !important;&#10;box-shadow: inset 0 0 12px black;')
-          + `<div class="cb_hint">CSS properties for this avatar, without a selector. ${CSS_NOTE}</div>`)}
+        ${subHead(`av_css_${prefix}`, `Advanced: Custom CSS<span id="m_${prefix}_csstag" class="ntr_scope"${show(s[`${prefix}CssOn`])}>On</span>`)}
+        <div class="cb_collapse_content">
+          ${ovRow(s, `${prefix}CssOn`, `${title} Avatar CSS`, customCssBox(s, `${prefix}Css`, 'border: 2px solid white !important;&#10;box-shadow: inset 0 0 12px black;')
+            + `<div class="cb_hint">CSS properties for this avatar, without a selector. ${CSS_NOTE}</div>`)}
+        </div>
 
         <button type="button" id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px; width: max-content;"><i class="fa-solid fa-rotate-left"></i> Reset ${title} Avatar</button>
         </div>
@@ -718,30 +723,24 @@
       const col = overlay.querySelector(`#m_${prefix}_col`);
       const label = prefix === 'ai' ? 'AI' : 'User';
 
-      // Corners are for Rectangle and Square. Picture Fit is off with a Shape, which the picture always fills. Picture Size is off for Original, which keeps the
-      // picture's own size. Text Padding is off for In Line, which never puts the avatar under the text. Rotate is for a
-      // Shape, the Shift sliders for a picture bigger than its box, and Fade Strength for a fade that's on.
+      // What colState shows and hides follows the Shape, Style and Own Size. Keep Picture Upright waits for a turn, the
+      // Shift sliders for a picture bigger than its box, and each Strength for a pick or a fade that's on.
       const syncScale = () => {
-        const shaped = !!SHAPES[s[`${prefix}Shape`]];
-        const cornersOn = ['rectangle', 'square'].includes(s[`${prefix}Shape`]);
+        const { shaped, own, cornersOn, scaleOff } = colState(s, prefix);
         const room = shiftRoom(s, prefix);
+        const show = (id, on) => { col.querySelector(`#m_${prefix}_${id}`).style.display = on ? '' : 'none'; };
         col.querySelector(`#m_${prefix}_fowrap`).classList.toggle('cb_dim', !room.y);
         col.querySelector(`#m_${prefix}_sxwrap`).classList.toggle('cb_dim', !room.x);
-        col.querySelector(`#m_${prefix}_shint`).style.display = room.x && room.y ? 'none' : '';
-        col.querySelector(`#m_${prefix}_rmwrap`).classList.toggle('cb_dim', !shaped);
-        col.querySelector(`#m_${prefix}_rmoff`).style.display = shaped ? 'none' : '';
+        show('shint', !(room.x && room.y));
+        show('rmwrap', shaped);
+        col.querySelector(`#m_${prefix}_rmwrap`).classList.toggle('cb_dim', !rangeNum(s, prefix + 'Rotate'));
         col.querySelector(`#m_${prefix}_fswrap`).classList.toggle('cb_dim', !anyFade(s, prefix));
         col.querySelector(`#m_${prefix}_fxwrap`).classList.toggle('cb_dim', !FILTERS[s[`${prefix}Filter`]]);
         col.querySelector(`#m_${prefix}_txwrap`).classList.toggle('cb_dim', !TEXTURES[s[`${prefix}Texture`]]);
-        col.querySelector(`#m_${prefix}_crwrap`).classList.toggle('cb_dim', !cornersOn);
-        col.querySelector(`#m_${prefix}_croff`).style.display = cornersOn ? 'none' : '';
-        col.querySelector(`#m_${prefix}_fitwrap`).classList.toggle('cb_dim', shaped);
-        col.querySelector(`#m_${prefix}_fithint`).style.display = shaped ? '' : 'none';
-        col.querySelector(`#m_${prefix}_fitnone`).style.display = shaped ? 'none' : '';
-        const off = s[`${prefix}Style`] !== 'popout' && !shaped && s[`${prefix}Fit`] === 'original';
-        col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', off);
-        col.querySelector(`#m_${prefix}_orighint`).style.display = off ? '' : 'none';
-        col.querySelector(`#m_${prefix}_padwrap`).classList.toggle('cb_dim', s[`${prefix}Style`] === 'inline');
+        show('crwrap', cornersOn);
+        show('ownwrap', !shaped);
+        show('fitwrap', !shaped && !own);
+        col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', scaleOff);
         drawFrame();
       };
       // The Frame: its preview, name, Delete and the rows, which wait for a frame.
@@ -926,7 +925,19 @@
       overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); syncScale(); updateAvatarStyle(); });
-      onPills(col, `${prefix}rmode`, (v) => { s[`${prefix}RotateMode`] = v; save(); syncScale(); updateAvatarStyle(); });
+      // Own Size is Fit's Original; unticked, Short Messages starts at Shrink Picture.
+      col.querySelector(`#m_${prefix}_own`).onchange = function() {
+        s[`${prefix}Fit`] = this.checked ? 'original' : 'contain';
+        if (!this.checked) col.querySelector(`input[name="cbr_${prefix}fit"][value="contain"]`).checked = true;
+        save(); syncScale(); updateAvatarStyle();
+      };
+      col.querySelector(`#m_${prefix}_upright`).onchange = function() {
+        s[`${prefix}RotateMode`] = this.checked ? 'shape' : 'both'; save(); updateAvatarStyle();
+      };
+      // The Custom CSS fold says On while that side's CSS is ticked.
+      col.addEventListener('change', (e) => {
+        if (e.target.matches(`.m_o_on[data-key="${prefix}CssOn"]`)) col.querySelector(`#m_${prefix}_csstag`).style.display = e.target.checked ? '' : 'none';
+      });
       onPills(col, `${prefix}filter`, (v) => { s[`${prefix}Filter`] = v; save(); syncScale(); updateAvatarStyle(); });
       onPills(col, `${prefix}texture`, (v) => { s[`${prefix}Texture`] = v; save(); syncScale(); updateAvatarStyle(); });
       col.querySelectorAll('.m_css').forEach((box) => {

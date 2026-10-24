@@ -647,7 +647,7 @@ await (async () => {
       .cb_col { display: flex; flex-direction: column; gap: 8px; }
       .cb_grp { flex-direction: column; gap: 8px; }
       .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
-      .cb_sub { font-size: 0.75em; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--ntr-line); }
+      .cb_sub { font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--ntr-line); }
       
 
       .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
@@ -686,6 +686,8 @@ await (async () => {
       .ntr_tile input:checked + .ntr_tile_face > * { opacity: 1; }
       .ntr_tile input:focus-visible + .ntr_tile_face { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
       .ntr_tile_text { font-size: .8em; }
+      .ntr_tiles.ntr_shapes { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 48px); gap: 4px; width: auto; }
+      .ntr_shapes .ntr_tile_face { width: 100%; }
       .ntr_tiles.ntr_frtiles { grid-template-columns: repeat(auto-fill, 64px); width: auto; }
       .ntr_frtiles .ntr_tile_face { width: 64px; height: 64px; padding: 4px; background: rgba(128,128,128,.22); }
       .ntr_frtiles .ntr_tile_face > img { width: 100%; height: 100%; object-fit: contain; opacity: 1; }
@@ -1313,7 +1315,7 @@ await (async () => {
   // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
+  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_css_ai', 'av_css_us', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   // An optional Font Awesome icon goes before the title, like card's.
   function subHead(sec, title, icon = '') {
     const ic = icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : '';

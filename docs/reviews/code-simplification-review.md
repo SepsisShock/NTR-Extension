@@ -6,14 +6,17 @@ Review the requested code and the code paths it touches for unnecessary complexi
 
 ## What to check
 
-- Code that could be simpler without compromising performance, readability, maintainability, reliability, or compatibility.
-- Excessive checks, fallbacks, and guards against impossible or implausible scenarios in SillyTavern. Consider how likely each scenario is, what happens if it occurs, and the maintenance cost of the safeguard.
-- Guards or complexity made obsolete by earlier refactoring.
+- Code that could be simpler without hurting performance, readability, maintainability or reliability.
+- Copied code, within a module or across modules, that a shared helper could replace.
+- One value or rule kept in two places that can drift apart.
+- Work repeated on every call that could run once.
+- Checks, fallbacks and guards for cases no caller or SillyTavern produces for any user, not just in the owner's setup, or that another check already covers. Weigh how likely the case is, what happens if it occurs, and the cost of keeping the guard.
+- Checks, parameters or return values that no caller uses, often left by earlier refactoring.
 
-Preserve the protections provided by card-data cleaning (`cleanStore`, `cardNum`, safe links), saved-settings compatibility, and `rangeNum`/`NUM_RANGE` checks. Recommend changes to their implementation only when equivalent protection is demonstrated.
+Preserve card-data cleaning (`cleanStore`, `cardNum`, safe links), settings upgrades in `loadSettings`, `rangeNum`/`NUM_RANGE` checks, missing-module handling, and checks for SillyTavern features that may be absent. Recommend changes to how they work only when equivalent protection is demonstrated.
 
-Suggest changes only when they provide a meaningful benefit. Reducing line count alone is not sufficient, nor is a rare triggering condition. Base findings on actual code paths and explain the reasoning and tradeoffs.
+Suggest a change only when it gives a meaningful benefit. Fewer lines alone is not enough, and a case being rare is not by itself a reason to remove its guard. Base findings on actual code paths and explain the reasoning and tradeoffs. If nothing qualifies, say so.
 
 ## Output
 
-Present a concise findings report with a proposed implementation plan. Do not modify files during this review. Implementation requires separate approval and follows the Workflow in `CLAUDE.md`.
+Present a concise findings report with a proposed implementation plan. For each finding, say whether behavior changes and which tests need updating. Do not modify files during this review. Implementation requires separate approval and follows the Workflow in `CLAUDE.md`.

@@ -1235,16 +1235,16 @@ await (async () => {
     const close = () => { cancelAsks(overlay); overlay.remove(); syncPopouts(); rotRestart(); };
     overlay.querySelector('.cb_close_btn').onclick = close;
     
-    window.NTR.overlays?.bind(overlay, s);
+    callModule('overlays', 'bind', overlay, s);
 
-    window.NTR.themes?.bind(overlay, s);
+    callModule('themes', 'bind', overlay, s);
     callModule('layout', 'bind', overlay, s);
     bindWand(overlay, s);
     bindVNSection(overlay, s);
     bindReader(overlay, s);
     bindRegexPage(overlay, s);
-    window.NTR.agents?.bind(overlay, s);
-    window.NTR.cast?.bind(overlay, s);
+    callModule('agents', 'bind', overlay, s);
+    callModule('cast', 'bind', overlay, s);
     bindRows(overlay, s);
     callModule('decor', 'bind', overlay, s);
     callModule('text', 'bind', overlay, s);
@@ -2908,10 +2908,12 @@ await (async () => {
   }
   // Some look pages live in their own files, like Elements in elements.js. These load before NTR starts (see
   // loadLookModules). This lists each one's file name and the menu page it draws. Each call into one is guarded, so a
-  // failure there leaves the rest of NTR running with SillyTavern's look for those parts. It's logged once per module
-  // and kind of call, since css and sync run on every restyle.
+  // failure there leaves the rest of NTR running with SillyTavern's look for those parts. So is each menu call into the
+  // modules that load later (Themes, Agents, Overlays, Emotions, Regexes and Visual Novel's settings): one that breaks
+  // while drawing or binding leaves the rest of the menu working. A failure is logged once per module and kind of call,
+  // since css and sync run on every restyle.
   const LOOK_MODULES = { elements: 'elements', text: 'text', avatars: 'pfp', decor: 'display', layout: 'layout' };
-  const lookFailed = new Set();
+  const callFailed = new Set();
   function callModule(name, fn, ...args) {
     const m = window.NTR[name];
     if (!m) return undefined;
@@ -2919,10 +2921,17 @@ await (async () => {
       return m[fn](...args);
     } catch (e) {
       const k = `${name}.${fn}`;
-      if (!lookFailed.has(k)) { lookFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
+      if (!callFailed.has(k)) { callFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
       return undefined;
     }
   }
+  const bindOf = (name) => (overlay, s) => callModule(name, 'bind', overlay, s);
+  // Whether a page or part waits for module `name`: it isn't there and hasn't failed to load.
+  const waiting = (name) => !window.NTR[name] && !modError[name];
+  // What a module's page or part says when the module doesn't draw it: it failed to load, it broke while drawing, or
+  // `loading`.
+  const moduleNote = (name, loading) => (modError[name] ? `${MOD_LABEL[name]} failed to load: ` + escapeHTML(modError[name])
+    : window.NTR[name] ? `${MOD_LABEL[name]} couldn't be drawn. The browser console has the details.` : loading);
   // What a look module's page keeps without the module: parts from other modules, like Emotions (cast.js) on Avatar
   // Management, which saves some things per character.
   const LOOK_KEEP = { avatars: () => castPartHtml() };
@@ -2930,9 +2939,7 @@ await (async () => {
   function lookPageHtml(name, s) {
     const html = callModule(name, 'sectionHtml', s);
     if (html !== undefined) return html;
-    const label = MOD_LABEL[name];
-    const msg = modError[name] ? `${label} failed to load: ` + escapeHTML(modError[name])
-      : window.NTR[name] ? `${label} couldn't be drawn. The browser console has the details.` : `Loading ${label}.`;
+    const msg = moduleNote(name, `Loading ${MOD_LABEL[name]}.`);
     return pageHtml(LOOK_MODULES[name], LOOK_KEEP[name]?.() || '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, });
   }
   // Waits for the look modules, side by side and at most 5 seconds in all. SillyTavern waits for them behind its loading
@@ -2958,14 +2965,14 @@ await (async () => {
     }
   }
 
-  // A whole menu page from module `name`, or a note while it loads or after it failed. `draw` is the caller, drawn
-  // again when the module arrives; `opts` go to pageHtml.
-  function modulePageHtml(s, name, page, draw, loading, opts = {}) {
-    const m = window.NTR[name];
-    if (m) return m.sectionHtml(s);
-    if (!modError[name]) loadModule(name).then((mod) => fillIn(name, draw, mod?.bind));
-    const msg = modError[name] ? `${MOD_LABEL[name]} failed to load: ` + escapeHTML(modError[name]) : loading;
-    return pageHtml(page, '', { ...opts, note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError[name] ? '' : name });
+  // A whole menu page from module `name`, or a note while it loads, after it failed, or when it broke while drawing.
+  // `draw` is the caller, drawn again with `bind` when the module arrives; `opts` go to pageHtml.
+  function modulePageHtml(s, name, page, draw, loading, opts = {}, bind = bindOf(name)) {
+    const html = callModule(name, 'sectionHtml', s);
+    if (html !== undefined) return html;
+    const wait = waiting(name);
+    if (wait) loadModule(name).then(() => fillIn(name, draw, bind));
+    return pageHtml(page, '', { ...opts, note: `<div class="cb_hint ntr_pnote">${moduleNote(name, loading)}</div>`, wait: wait ? name : '' });
   }
 
   // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
@@ -2974,11 +2981,11 @@ await (async () => {
   // The Emotions part of the Avatars page comes from cast.js, loaded at start while NTR is on, or else the first time the
   // menu opens.
   function castPartHtml() {
-    const c = window.NTR.cast;
-    if (c) return c.partHtml(settings());
-    if (!modError.cast) loadModule('cast').then((m) => fillIn('cast', castPartHtml, m?.bind));
-    const msg = modError.cast ? 'Emotions failed to load: ' + escapeHTML(modError.cast) : 'Loading emotions.';
-    return `<div class="cb_hint ntr_keepon"${modError.cast ? '' : ' data-ntr-wait="cast"'}>${msg}</div>`;
+    const html = callModule('cast', 'partHtml', settings());
+    if (html !== undefined) return html;
+    const wait = waiting('cast');
+    if (wait) loadModule('cast').then(() => fillIn('cast', castPartHtml, bindOf('cast')));
+    return `<div class="cb_hint ntr_keepon"${wait ? ' data-ntr-wait="cast"' : ''}>${moduleNote('cast', 'Loading emotions.')}</div>`;
   }
 
   // The Overlays page comes from overlays.js, loaded the first time the menu opens if a banner or foreground image
@@ -2990,29 +2997,25 @@ await (async () => {
     if (!s.rxEnabled) {
       return pageHtml('regex', '', { sw: ['m_rx_enable', false], note: '<div class="cb_hint ntr_pnote">Your regexes still run in ST as usual. While this is off, themes leave regex folders alone.</div>' });
     }
-    const rx = window.NTR.regex;
-    if (rx) return rx.sectionHtml(s);
-    if (!modError.regex) loadModule('regex').then(() => fillIn('regex', regexSectionHtml, bindRegexPage));
-    const msg = modError.regex ? 'Regexes failed to load: ' + escapeHTML(modError.regex) : 'Loading your regexes.';
-    return pageHtml('regex', '', { sw: ['m_rx_enable', true], note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError.regex ? '' : 'regex' });
+    return modulePageHtml(s, 'regex', 'regex', regexSectionHtml, 'Loading your regexes.', { sw: ['m_rx_enable', true] }, bindRegexPage);
   }
-  // The page's switch is there whether regex.js loaded or not.
+  // The page's switch is there whether regex.js loaded, failed or broke while drawing.
   function bindRegexPage(overlay, s) {
     overlay.querySelector('#m_rx_enable').onchange = function() { s.rxEnabled = this.checked; save(); openCombinedModal(); };
-    if (s.rxEnabled) window.NTR.regex?.bind(overlay, s);
+    if (s.rxEnabled) callModule('regex', 'bind', overlay, s);
   }
 
   // Visual Novel's settings, for the Visual Novel part of the Reader Mode page. vn.js loads when the menu first needs them.
   function vnSectionHtml(s) {
-    const vn = window.NTR.vn;
-    if (vn) return vn.sectionHtml(s);
-    const wait = isOn() && !modError.vn;
-    if (wait) loadVN().then((m) => fillIn('vn', vnSectionHtml, m && bindVNSection));
-    const msg = modError.vn ? 'Visual Novel Mode failed to load: ' + escapeHTML(modError.vn) : isOn() ? 'Loading its settings.' : 'Its settings show while the extension is on.';
+    const html = callModule('vn', 'sectionHtml', s);
+    if (html !== undefined) return html;
+    const wait = isOn() && waiting('vn');
+    if (wait) loadVN().then(() => fillIn('vn', vnSectionHtml, bindVNSection));
+    const msg = moduleNote('vn', isOn() ? 'Loading its settings.' : 'Its settings show while the extension is on.');
     return `<div class="cb_hint"${wait ? ' data-ntr-wait="vn"' : ''}>${msg}</div>`;
   }
 
-  const bindVNSection = (overlay, s) => { if (readerPart(s) === 'vn') window.NTR.vn?.bind(overlay, s); };
+  const bindVNSection = (overlay, s) => { if (readerPart(s) === 'vn') callModule('vn', 'bind', overlay, s); };
 
   function syncVNToggle() {
     // Pinned Blocks can hide in Visual Novel Mode.

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.1';
+  const VERSION = '2.77.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -3030,14 +3030,15 @@ await (async () => {
   // ===== Module loader + the Visual Novel toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
   const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening Video', overlays: 'Overlays', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions', elements: 'Elements', text: 'Text Formatting', avatars: 'Avatar Management', decor: 'UI Decor', layout: 'Layout', fonts: 'Font List' };
-  const modPromise = {}, modError = {};
+  const modPromise = {}, modError = {}, modRetries = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
     // A retry counts as loading again, so the menu marks its part to fill in and every draw shares this one load.
-    if (retry && modError[name]) { modPromise[name] = null; modError[name] = ''; }
+    // It asks at a new address: Chrome remembers a failed import by its address until the page reloads.
+    if (retry && modError[name]) { modPromise[name] = null; modError[name] = ''; modRetries[name] = (modRetries[name] || 0) + 1; }
     if (!modPromise[name]) {
       const label = MOD_LABEL[name] || name;
-      modPromise[name] = import(`${NTR_BASE}${name}.js?v=${VERSION}`)
+      modPromise[name] = import(`${NTR_BASE}${name}.js?v=${VERSION}${modRetries[name] ? '&retry=' + modRetries[name] : ''}`)
         .then(() => {
           const m = window.NTR[name];
           if (!m) throw new Error(`${name}.js did not register itself`);

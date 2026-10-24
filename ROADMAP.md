@@ -103,6 +103,9 @@ Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI
 
 - Open questions: where the editor opens; how automatic scene detection works; whether pinned facts belong to one branch or the whole chat.
 
+### Test against SillyTavern's staging branch
+- [ ] Let `st.sh setup` pick SillyTavern's branch (release now), and run the scenarios on `staging` now and then, or before updating SillyTavern, to catch what its next release breaks in NTR.
+
 ## Visual Novel Mode (Low Priority, Needs Overhaul)
 
 Visual Novel Mode needs a complete overhaul before it gets any new features. The rest of NTR has changed a lot since it was built, and the plans below were written before those changes. Treat them as ideas to revisit during the overhaul, not as a to-do list. Until then, it only gets bug fixes.
@@ -159,3 +162,4 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Maps: pins and popups near the screen edge.
 - [ ] Opening video and banner video: autoplay, sound button, YouTube.
 - [ ] Reader Mode: Book on a phone held sideways, the page flip, and dragging a Floating page bar and banner by touch.
+- [ ] Test tools: touch drags in the driver for all three browsers (`NTR_PHONE` has `tap` but no drag yet), for popup characters, Edit Layout, and the Floating page bar and banner. The speed test's drags work by touch in Chromium only.

@@ -46,6 +46,9 @@ Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Re
 
 - Open question: whether the shapes also go on the VN portrait box.
 
+### Avatars: Hue
+Split each avatar column's color choices into Hue, Filter and Texture. Hue gets its own section between Fades and Filter: tiles, then a Strength slider, like Filter and Texture.
+
 ### Horizontal Scrollbar color
 - [ ] Default shows up as grey currently.
 

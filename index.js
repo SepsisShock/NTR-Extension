@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.11';
+  const VERSION = '2.77.12';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2913,7 +2913,7 @@ await (async () => {
   // while drawing or binding leaves the rest of the menu working. A failure is logged once per module and kind of call,
   // since css and sync run on every restyle.
   const LOOK_MODULES = { elements: 'elements', text: 'text', avatars: 'pfp', decor: 'display', layout: 'layout' };
-  const callFailed = new Set();
+  const lookFailed = new Set();
   function callModule(name, fn, ...args) {
     const m = window.NTR[name];
     if (!m) return undefined;
@@ -2921,7 +2921,7 @@ await (async () => {
       return m[fn](...args);
     } catch (e) {
       const k = `${name}.${fn}`;
-      if (!callFailed.has(k)) { callFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
+      if (!lookFailed.has(k)) { lookFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
       return undefined;
     }
   }

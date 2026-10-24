@@ -2,7 +2,7 @@
 // it arrives in time and works from what the core shares; where things sit on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api } from './env.mjs';
+import { api, reloadSettings } from './env.mjs';
 
 test('the core loads Layout before it starts', () => {
   assert.ok(window.NTR.layout, 'layout.js was not loaded by the core');
@@ -43,8 +43,7 @@ test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s,
 });
 
 test('Names and Pictures on with Show, which hid nothing, loads as Hide Names and Avatars off', () => {
-  Object.assign(api.settings(), { ovNamesOn: true, ovNames: 'show' });
-  const s = api.settings();
+  const s = reloadSettings({ ovNamesOn: true, ovNames: 'show' });
   assert.equal(s.ovNamesOn, false);
   assert.equal(s.ovNames, 'hide');
 });

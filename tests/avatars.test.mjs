@@ -2,7 +2,7 @@
 // and builds its CSS from what the core shares; what it looks like on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api } from './env.mjs';
+import { api, reloadSettings } from './env.mjs';
 
 test('the core loads Avatar Management before it starts', () => {
   assert.ok(window.NTR.avatars, 'avatars.js was not loaded by the core');
@@ -89,20 +89,20 @@ test('a built-in frame draws from the extension\'s own pictures, and an unknown 
 });
 
 test('the Frame library keeps safe links and short names, and drops the rest', () => {
-  const s = api.settings();
-  s.frameLib = { folders: [
-    { id: 'f1', name: 'x'.repeat(100), frames: [
-      { id: 'a', name: 'Good', img: '/user/files/avframe_a.png' },
-      { id: 'b', name: 'Bad', img: 'javascript:alert(1)' },
-      { id: 'a', name: 'Same id', img: '/user/files/avframe_c.png' },
-      { id: 'd', name: 'Embedded', img: 'data:image/png;base64,iVBORw0KGgo=' },
+  const c = reloadSettings({
+    frameLib: { folders: [
+      { id: 'f1', name: 'x'.repeat(100), frames: [
+        { id: 'a', name: 'Good', img: '/user/files/avframe_a.png' },
+        { id: 'b', name: 'Bad', img: 'javascript:alert(1)' },
+        { id: 'a', name: 'Same id', img: '/user/files/avframe_c.png' },
+        { id: 'd', name: 'Embedded', img: 'data:image/png;base64,iVBORw0KGgo=' },
+      ] },
+      { id: 'bad id!', name: 'Gone', frames: [] },
+      'not a folder',
     ] },
-    { id: 'bad id!', name: 'Gone', frames: [] },
-    'not a folder',
-  ] };
-  s.frameHidden = ['nouveau', 'nope'];
-  s.frameFits = { ai: { '/user/files/avframe_a.png': [9999, -9999, 'x'], short: [1] }, us: 'no' };
-  const c = api.settings();
+    frameHidden: ['nouveau', 'nope'],
+    frameFits: { ai: { '/user/files/avframe_a.png': [9999, -9999, 'x'], short: [1] }, us: 'no' },
+  });
   assert.equal(c.frameLib.folders.length, 1);
   assert.equal(c.frameLib.folders[0].name.length, 60);
   assert.deepEqual(c.frameLib.folders[0].frames.map((f) => f.id), ['a']);
@@ -116,11 +116,9 @@ test('the Frame library keeps safe links and short names, and drops the rest', (
 });
 
 test('a frame uploaded before the library keeps each side\'s fit, even when both sides use it', () => {
-  const s = api.settings();
   const img = '/user/files/avframe_old.png';
-  Object.assign(s, { frameLibMoved: false, aiFrame: '', aiFrameImg: img, aiFrameSize: 235, aiFrameX: 11, aiFrameY: -6,
+  const c = reloadSettings({ frameLibMoved: false, aiFrame: '', aiFrameImg: img, aiFrameSize: 235, aiFrameX: 11, aiFrameY: -6,
     usFrame: '', usFrameImg: img, usFrameSize: 210, usFrameX: -9, usFrameY: 4 });
-  const c = api.settings();
   assert.equal(c.frameLib.folders[0].frames.filter((f) => f.img === img).length, 1);
   assert.deepEqual(c.frameFits.ai[img], [235, 11, -6]);
   assert.deepEqual(c.frameFits.us[img], [210, -9, 4]);

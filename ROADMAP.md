@@ -47,7 +47,7 @@ Chat avatars have Circle, Rectangle, Square, Heart and Star, with Corners for Re
 - Open question: whether the shapes also go on the VN portrait box.
 
 ### Horizontal Scrollbar color
-- [ ] Default is grey currently.
+- [ ] Default shows up as grey currently.
 
 - [ ] A second color for the right side of the scrollbar, with Scrollbar Color as the left.
 - [ ] Sideways scrollbars (like in wide code blocks) turn it to run top to bottom, so it still goes across the bar.
@@ -72,9 +72,6 @@ Decorative image borders around interface parts, stretched to fit any size.
 
 ### Folder of pre-generated locations
 - [ ] A set of ready-made location backgrounds included with the extension, to pick from when adding a location.
-
-### Group chats
-- [ ] Revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
 
 ### Replace the once-a-second check with events
 `injectExtensionMenuButton` in `index.js` runs a check every second to put back its buttons and the wand menu entry and to keep Visual Novel Mode running. In a sandbox test it was most of NTR's idle cost: about 0.8% CPU with everything on, which no user would notice. Users would see no difference, so this is tidying, not a fix.
@@ -105,6 +102,9 @@ Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI
 - [ ] Consider integrations and semantic search later; neither is required for the basic system.
 
 - Open questions: where the editor opens; how automatic scene detection works; whether pinned facts belong to one branch or the whole chat.
+
+### Test against SillyTavern's staging branch
+- [ ] Let `st.sh setup` pick SillyTavern's branch (release now), and run the scenarios on `staging` now and then, or before updating SillyTavern, to catch what its next release breaks in NTR.
 
 ## Visual Novel Mode (Low Priority, Needs Overhaul)
 
@@ -144,6 +144,8 @@ Keep the open-world feel, and let a card optionally have endings.
 
 Start this work only when the repository owner, SepsisShock, says release is approaching.
 
+### Group chats
+- [ ] Revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
 - Open questions: whether a group can have its own banner like This Character; where Lock to Top and Overlap Messages are saved for a group.
 
 ### Mobile compatibility testing
@@ -160,3 +162,4 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Maps: pins and popups near the screen edge.
 - [ ] Opening video and banner video: autoplay, sound button, YouTube.
 - [ ] Reader Mode: Book on a phone held sideways, the page flip, and dragging a Floating page bar and banner by touch.
+- [ ] Test tools: touch drags in the driver for all three browsers (`NTR_PHONE` has `tap` but no drag yet), for popup characters, Edit Layout, and the Floating page bar and banner. The speed test's drags work by touch in Chromium only.

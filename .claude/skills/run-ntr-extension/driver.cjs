@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { launch } = require('./browser.cjs');
+const { launch, contextOptions, MODE } = require('./browser.cjs');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const SHOTS = process.env.NTR_SHOTS || '/tmp/ntr-shots';
@@ -26,7 +26,7 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
   const lines = fs.readFileSync(0, 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await launch();
-  const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
+  const page = await (await browser.newContext(contextOptions(browser))).newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + (/\/horde\.js:/.test(e.stack || '') ? ' (horde.js)' : '')));
   page.on('console', (m) => {
@@ -90,10 +90,10 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       return 'menu open';
     },
     async close() { await page.evaluate(() => window.NTR.api.closeMenu()); return 'menu closed'; },
-    // Visual Novel Mode through its toolbar button; `vn on` waits for the module to load.
+    // Visual Novel Mode through its toolbar button (tapped on a phone); `vn on` waits for the module to load.
     async vn(rest) {
       const want = rest === 'on';
-      if (await page.evaluate(() => !!window.NTR.api.settings().nodeEnabled) !== want) await page.click('#cb_node_toggle');
+      if (await page.evaluate(() => !!window.NTR.api.settings().nodeEnabled) !== want) await page[MODE === 'desktop' ? 'click' : 'tap']('#cb_node_toggle');
       if (want) await page.waitForFunction(() => window.NTR.vn, null, { timeout: 20000 });
       await sleep(800);
       return 'Visual Novel Mode ' + rest;
@@ -112,6 +112,29 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       const disabled = await page.evaluate((sel) => { const el = document.querySelector(sel); el.click(); return !!el.disabled; }, sel);
       await sleep(300);
       return disabled ? 'clicked (it is disabled, so nothing happened)' : 'clicked';
+    },
+    // Taps the element's middle by touch, like a finger, after scrolling to it. Unlike `click`, it fails on a hidden,
+    // covered or empty element, and says what covers it.
+    async tap(sel) {
+      if (MODE === 'desktop') throw new Error('tap needs NTR_PHONE');
+      await need(sel);
+      try {
+        await page.tap(sel, { timeout: 5000 });
+      } catch (e) {
+        // Playwright's log, without its colors: what covers the element, or why it can't be tapped.
+        const lines = e.message.replace(/\u001b\[\d+m/g, '').split('\n').map((l) => l.trim().replace(/^- /, ''));
+        throw new Error('not tappable: ' + (lines.find((l) => /intercepts pointer events/.test(l)) || lines.find((l) => /^element is not/.test(l)) || lines[0]));
+      }
+      await sleep(300);
+      return 'tapped';
+    },
+    // resize <W>x<H>   changes the screen size, for example to stand in for a phone's address bar showing or hiding.
+    async resize(rest) {
+      const m = rest.match(/^(\d+)x(\d+)$/);
+      if (!m) throw new Error('usage: resize <width>x<height>');
+      await page.setViewportSize({ width: +m[1], height: +m[2] });
+      await sleep(500);
+      return 'resized';
     },
     // set <css> | <text>   types into a field (also hidden ones) and fires input and change.
     async set(rest) {

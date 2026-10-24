@@ -24,7 +24,7 @@ if (!/^[\w.-]+$/.test(NAME) || NAME === '.' || NAME === '..') {
 }
 const OUT = path.join(process.env.NTR_SCENARIOS || '/tmp/ntr-scenarios', NAME);
 
-const { launch } = require('./browser.cjs');
+const { launch, contextOptions, MODE } = require('./browser.cjs');
 
 // NTR's style tags in page order, except the two that load side by side and land in either order: those go last, by id.
 const styleText = () => {
@@ -40,6 +40,8 @@ const styleText = () => {
   const browser = await launch();
   const out = (...a) => { console.log(...a); fs.appendFileSync(path.join(OUT, 'out.txt'), a.join(' ') + '\n'); };
   const save = (file, text) => fs.writeFileSync(path.join(OUT, file), text);
+  // Phone runs compare only with phone runs.
+  out('screen', MODE);
   // Scenario names by outcome, for the closing summary.
   const ran = [], skipped = [], failed = [];
 
@@ -71,7 +73,7 @@ const styleText = () => {
       ran.push(name); failed.push(name); out('FAILED', e.message.split('\n')[0]);
       return;
     }
-    const page = await (await browser.newContext({ viewport: { width: 1400, height: 1000 } })).newPage();
+    const page = await (await browser.newContext(contextOptions(browser))).newPage();
     const errors = [];
     // SillyTavern's offline Horde lookup: Chromium names it in the message, Firefox and WebKit only in the stack.
     page.on('pageerror', (e) => { if (!/Internal S/.test(e.message) && !/\/horde\.js:/.test(e.stack || '')) errors.push(e.message); });
@@ -705,7 +707,9 @@ const styleText = () => {
     await sleep(600);
     out('picked comic', await st(), 'menu redrawn:', !(await t.state()).sameMenu);
     await t.pick('oovbubtail', 'thought');
-    await sleep(300);
+    // The Style pills catch up in a timer after the change. A timer queued now runs after it, however long the redraw
+    // before it takes (WebKit drawing a phone screen without a graphics card took 400 ms).
+    await t.ev(() => new Promise((r) => setTimeout(r)));
     out('changed tail', await st());
     await t.tick('#m_ov_enable', false);
     await sleep(300);

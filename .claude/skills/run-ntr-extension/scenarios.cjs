@@ -490,7 +490,7 @@ const styleText = () => {
     await sleep(300);
     const s1 = await t.ev(() => { const s = NTR.api.settings(); return { tfEnabled: s.tfEnabled, weight: s.tfNameWeight, fx: s.tfUserFx, align: s.tfUserAlign }; });
     const css1 = await style();
-    out('settings', JSON.stringify(s1), 'css bold', /font-weight: 700/.test(css1), 'css shadow', /\.mes\[is_user="true"\] \.mes_text \{[^}]*text-shadow/.test(css1));
+    out('settings', JSON.stringify(s1), 'css bold', /font-weight: 700 !important/.test(css1), 'css shadow', /\.mes\[is_user="true"\] \.mes_text \{[^}]*text-shadow/.test(css1));
     await click('#m_plate_url');
     await sleep(300);
     await t.ev(() => { const box = document.querySelector('.ntr_ask'); box.querySelector('input').value = 'http://127.0.0.1:8000/img/ai4.png'; box.querySelector('.ntr_ask_ok').click(); });
@@ -501,7 +501,7 @@ const styleText = () => {
     out('plate cleared', JSON.stringify(await t.ev(() => ({ img: NTR.api.settings().tfPlateImg, prev: !!document.querySelector('#m_plate_prev img') }))));
     await t.tick('#m_tf_enable', false);
     await sleep(300);
-    out('off', await t.ev(() => NTR.api.settings().tfEnabled), 'css bold gone', !/font-weight: 700/.test(await style()));
+    out('off', await t.ev(() => NTR.api.settings().tfEnabled), 'css bold gone', !/font-weight: 700 !important/.test(await style()));
   });
 
   // Overall Font Scale: applied with text.js, SillyTavern's own without it, and applied once a late text.js arrives.
@@ -552,13 +552,26 @@ const styleText = () => {
     const st = () => t.ev(() => { const s = NTR.api.settings(); return ['avatarEnabled', 'aiEnabled', 'aiStyle', 'aiShape', 'aiSide', 'aiFit', 'aiFadeTop', 'aiFadeBR', 'aiScale', 'aiPopX', 'aiPopY', 'aiFilter', 'aiTexture', 'aiCorner'].map((k) => `${k}=${s[k]}`).join(' '); });
     const pick = t.pick;
     const grp = () => t.ev(() => [...document.querySelectorAll('#m_ai_col .cb_grp')].map((g) => g.dataset.only + ':' + g.style.display).join(' | '));
-    const dims = () => t.ev(() => ['fowrap', 'crwrap', 'fitwrap', 'scwrap', 'padwrap'].map((k) => `${k}${document.querySelector('#m_ai_' + k).classList.contains('cb_dim') ? '-dim' : ''}`).join(' '));
+    const dims = () => t.ev(() => ['fowrap', 'crwrap', 'fitwrap', 'ownwrap', 'scwrap', 'rmwrap'].map((k) => { const el = document.querySelector('#m_ai_' + k); return `${k}${el.style.display === 'none' ? '-hidden' : el.classList.contains('cb_dim') ? '-dim' : ''}`; }).join(' '));
     await pick('aishape', 'rectangle');
     await pick('aipos', 'tr');
-    await pick('aifit', 'original');
+    await t.tick('#m_ai_own', true);
     out('after picks', await st(), '|', await dims());
     await pick('aishape', 'none');
     out('shape none', await dims());
+    // Own Size off goes back to Shrink Picture, then Crop Picture; Keep Picture Upright; the Custom CSS fold's On tag.
+    await t.tick('#m_ai_own', false);
+    out('own off', await t.ev(() => NTR.api.settings().aiFit), await dims());
+    await pick('aifit', 'cover');
+    await pick('aishape', 'round');
+    await t.tick('#m_ai_upright', false);
+    await t.tick('#m_ai_col .m_o_on[data-key="aiCssOn"]', true);
+    out('crop and upright', await t.ev(() => { const s = NTR.api.settings(); return `aiFit=${s.aiFit} aiRotateMode=${s.aiRotateMode} aiCssOn=${s.aiCssOn} tag=${document.querySelector('#m_ai_csstag').style.display || 'shown'}`; }), await dims());
+    await t.tick('#m_ai_col .m_o_on[data-key="aiCssOn"]', false);
+    await t.tick('#m_ai_upright', true);
+    await pick('aishape', 'none');
+    await t.tick('#m_ai_own', true);
+    out('back', await t.ev(() => { const s = NTR.api.settings(); return `aiFit=${s.aiFit} aiRotateMode=${s.aiRotateMode} aiCssOn=${s.aiCssOn} tag=${document.querySelector('#m_ai_csstag').style.display || 'shown'}`; }));
     // A fade: pick a cell, then move the slider.
     await pick('aifade', 'br');
     await t.ev(() => { const sl = document.querySelector('#m_ai_fade'); sl.value = 35; sl.dispatchEvent(new Event('input', { bubbles: true })); sl.dispatchEvent(new Event('change', { bubbles: true })); });

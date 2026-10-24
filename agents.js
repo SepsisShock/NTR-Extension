@@ -8,7 +8,7 @@
 // Block set to Agent Results, layout.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.77.12';
+  const AGENTS_VERSION = '2.77.13';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -681,9 +681,9 @@
       ${l.length >= 2 ? '<div class="cb_hint" style="margin:6px 4px 0;">Agents run one at a time, top to bottom.</div>' : ''}`;
   }
 
-  // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, its switch,
-  // when it runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
-  // Department, Delete). The title shows here, in the roster and on a Dashboard set to Tabs.
+  // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, when it
+  // runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
+  // Department, Delete). Its switch is in the roster. The title shows here, in the roster and on a Dashboard set to Tabs.
   function headHtml(a, allOpen) {
     const busy = current?.id === a.id;
     return `<div class="m_ag_head">
@@ -695,7 +695,6 @@
               <input type="text" class="text_pole m_ag_prof m_ag_nm" data-f="name" value="${esc(a.name)}" maxlength="60" size="${nameSize(a.name)}" placeholder="Name" aria-label="Name">
               <input type="text" class="text_pole m_ag_prof m_ag_ttl" data-f="title" value="${esc(a.title)}" maxlength="60" placeholder="Job title" aria-label="Job title">
             </div>
-            ${onSwitch('m_ag_hon', a)}
           </div>
           <div class="m_ag_line">
             <span class="m_ag_status">${esc(status(a))}</span>
@@ -885,13 +884,11 @@
         <div class="cb_hint">Full Prompt sends everything your chat sends for a reply, with its instructions at the end. It costs more tokens.</div>` : ''}
         ${usesFull(a) ? '' : `${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
         <div class="cb_hint">Separate Messages sends yours as user and the rest as AI. Names are kept either way.${a.kind === 'cc' ? ' If your API rejects the message order, set Prompt Post-Processing to Semi-strict.' : ''}</div>`}
-        ${full ? '<div class="cb_hint">With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
+        ${full ? `<div class="cb_hint"${fields ? ' style="margin-bottom:0;"' : ''}>With your chat's full prompt, it reads as much of the chat as your chat does.</div>`
           : `${lab('Messages Read', slider(a, 'context', 'agContext'))}`}
         ${fields ? '' : `<div class="${lastOff ? 'cb_dim' : ''}"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}${lastOff ? ' disabled' : ''}><span>Include Its Last Result</span></label>
-        <div class="cb_hint"${lastOff ? ' style="margin-bottom:0;"' : ''}>It updates its last answer instead of starting over.</div></div>
-        ${lastOff ? '<div class="cb_hint">Needs Results set to Saved in the Chat, under When It Runs.</div>' : ''}`}
-        <div class="cb_actions" style="margin:6px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}</div>
-        <div id="m_ag_prevbox" hidden></div>`],
+        <div class="cb_hint" style="margin-bottom:0;">It updates its last answer instead of starting over.</div></div>
+        ${lastOff ? '<div class="cb_hint" style="margin:8px 0 0;">Needs Results set to Saved in the Chat, under When It Runs.</div>' : ''}`}`],
       ['test', 'Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
         <div id="m_ag_act">${activityHtml(a, past)}</div>`],
@@ -899,18 +896,36 @@
     const sum = sums(a);
     return `<div class="m_ag_frame">
         ${headHtml(a, parts.every(([k]) => isOpen(k)))}
-        <div class="m_ag_body">${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body)).join('')}</div>
+        <div class="m_ag_body">${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body) + (k === 'reads' ? prevRowHtml(a) : '')).join('')}</div>
       </div>`;
   }
 
   // What the agent sends on its next run, from the chat as it is now. Keys and links are never part of it.
   function previewHtml(a) {
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
-    if (usesFull(a)) return `<div class="cb_hint" style="margin:8px 0 0;">Your chat's full prompt, as ST builds it for a reply, then these instructions at the end:${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
+    if (usesFull(a)) return `<div class="cb_hint" style="margin:0;">Your chat's full prompt, as ST builds it for a reply, then these instructions at the end:${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
     const how = a.kind === 'chat' ? 'ST formats it for your chat\'s API before sending.'
       : a.kind === 'tc' ? (a.tcInstruct ? `Formatted with the ${esc(a.tcInstruct)} instruct template before sending.` : 'Sent in plain format.') : 'Sent as these messages.';
-    return prompt(a).map((m) => `<div class="cb_hint" style="margin:8px 0 0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('')
-      + `<div class="cb_hint" style="margin:8px 0 0;">${how}</div>`;
+    return prompt(a).map((m) => `<div class="cb_hint" style="margin:0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('')
+      + `<div class="cb_hint" style="margin:0;">${how}</div>`;
+  }
+  // Preview Prompt, under What It Reads: it shows what the agent sends, for every part of its settings. It stays open
+  // while you change them, until Collapse All or a reload.
+  let prevOpen = false;
+  const prevBtn = () => `<i class="fa-solid ${prevOpen ? 'fa-eye-slash' : 'fa-eye'}"></i>${prevOpen ? 'Hide Preview' : 'Preview Prompt'}`;
+  const prevRowHtml = (a) => `
+      <div class="cb_actions" style="margin:8px 0 0;"><button type="button" class="menu_button" id="m_ag_prev" aria-expanded="${prevOpen}" aria-controls="m_ag_prevbox" style="margin:0;">${prevBtn()}</button></div>
+      <div id="m_ag_prevbox" class="ntr_tpanel" role="region" aria-label="Prompt Preview" style="margin-top:6px;${prevOpen ? '' : 'display:none;'}">${prevOpen ? previewHtml(a) : ''}</div>`;
+  // style.display, not hidden: .ntr_tpanel is a flex box, which would show a hidden one anyway.
+  function syncPreview(a, open = prevOpen) {
+    prevOpen = open;
+    const b = root?.querySelector('#m_ag_prev');
+    const box = root?.querySelector('#m_ag_prevbox');
+    if (!b || !box) return;
+    b.innerHTML = prevBtn();
+    b.setAttribute('aria-expanded', String(open));
+    box.style.display = open ? '' : 'none';
+    box.innerHTML = open ? previewHtml(a) : '';
   }
 
   function activityHtml(a, l = runs.get(a.id) || []) {
@@ -1100,7 +1115,7 @@
   }
 
   function bindAll(s, a) {
-    const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else syncSums(a); };
+    const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); if (prevOpen) syncPreview(a); } };
     // A click anywhere but in a menu closes it.
     root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
@@ -1109,7 +1124,6 @@
         const x = byId(row.dataset.id);
         if (!x) return;
         x.on = this.checked;
-        if (x === a) root.querySelector('.m_ag_hon').checked = x.on;
         changed(false);
       };
     });
@@ -1195,15 +1209,9 @@
       };
     });
     if (!a) return;
-    root.querySelector('.m_ag_hon').onchange = function() {
-      a.on = this.checked;
-      const sw = root.querySelector(`.m_ag_row[data-id="${a.id}"] .m_ag_on`);
-      if (sw) sw.checked = a.on;
-      changed(false);
-    };
     root.querySelector('#m_ag_hrun').onclick = () => { if (current?.id === a.id) current.ctrl.abort(); else enqueue(a.id); };
 
-    // The folded parts, and Expand All or Collapse All for all of them.
+    // The folded parts, and Expand All or Collapse All for all of them. Collapse All closes the preview too.
     const folds = [...root.querySelectorAll('.m_ag_fold')];
     const allBtn = root.querySelector('#m_ag_all');
     const setFold = (h, open) => {
@@ -1226,6 +1234,7 @@
     allBtn.onclick = () => {
       const open = !folds.every((h) => h.classList.contains('ntr_open'));
       folds.forEach((h) => setFold(h, open));
+      if (!open) syncPreview(a, false);
       save();
       syncAll();
     };
@@ -1320,7 +1329,7 @@
           row.querySelector('.m_ag_rname').textContent = a.name;
           row.querySelector('.m_ag_rtitle').textContent = a.title ? ` · ${a.title}` : '';
         }
-        root.querySelectorAll(`.m_ag_row[data-id="${a.id}"] .m_ag_on, .m_ag_hon`).forEach((sw) => {
+        root.querySelectorAll(`.m_ag_row[data-id="${a.id}"] .m_ag_on`).forEach((sw) => {
           sw.title = `Turn ${a.name} on or off`;
           sw.setAttribute('aria-label', sw.title);
         });
@@ -1410,11 +1419,7 @@
       };
       el.onchange = () => changed(false);
     });
-    root.querySelector('#m_ag_prev').onclick = () => {
-      const box = root.querySelector('#m_ag_prevbox');
-      box.hidden = !box.hidden;
-      if (!box.hidden) box.innerHTML = previewHtml(a);
-    };
+    root.querySelector('#m_ag_prev').onclick = () => syncPreview(a, !prevOpen);
     root.querySelector('#m_ag_run').onclick = () => enqueue(a.id);
     root.querySelector('#m_ag_test').onclick = () => enqueue(a.id, true);
     root.querySelector('#m_ag_stop').onclick = () => current?.ctrl.abort();

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.8';
+  const VERSION = '2.77.9';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -571,6 +571,8 @@ await (async () => {
   const PIN_TAG = /^[a-z][a-z0-9-]{0,30}$/;
   const PIN_CLASS = /^[A-Za-z_-][\w-]{0,63}$/;
   const PIN_MAX = 20;
+  // The longest name, and the most agents and classes, a block keeps. The Pinned Blocks menu keeps to them too.
+  const PIN_LIMITS = { name: 60, agents: 10, classes: 5 };
   const pinRect = (r, d) => ({ x: cardNum(r?.x, 'pinX', d.x), y: cardNum(r?.y, 'pinY', d.y), w: cardNum(r?.w, 'pinW', d.w), h: cardNum(r?.h, 'pinH', d.h), moved: cBool(r?.moved, true) });
   // Saved blocks, and blocks from theme files, made safe to use.
   function cleanPins(v) {
@@ -581,11 +583,11 @@ await (async () => {
       ids.add(id);
       return {
         id,
-        name: cStr(p.name, 60).trim() || 'Pinned Block',
+        name: cStr(p.name, PIN_LIMITS.name).trim() || 'Pinned Block',
         from: cPick(p.from, ['chat', 'agents']),
-        agents: [...new Set((Array.isArray(p.agents) ? p.agents : []).map(cRef).filter(Boolean))].slice(0, 10),
+        agents: [...new Set((Array.isArray(p.agents) ? p.agents : []).map(cRef).filter(Boolean))].slice(0, PIN_LIMITS.agents),
         tag: typeof p.tag === 'string' && PIN_TAG.test(p.tag) ? p.tag : '',
-        classes: (Array.isArray(p.classes) ? p.classes : []).filter((c) => typeof c === 'string' && PIN_CLASS.test(c)).slice(0, 5),
+        classes: (Array.isArray(p.classes) ? p.classes : []).filter((c) => typeof c === 'string' && PIN_CLASS.test(c)).slice(0, PIN_LIMITS.classes),
         place: cPick(p.place, ['float', 'left', 'right']),
         show: cPick(p.show, ['always', 'newest', 'reading']),
         height: cPick(p.height, ['fixed', 'fit']),
@@ -3565,7 +3567,7 @@ await (async () => {
       cUrl, cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
-      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, pinRect, cleanPins, layoutPop, syncPopSliders, fgOwner, decorOn, clamp,
+      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, layoutPop, syncPopSliders, fgOwner, decorOn, clamp,
     },
   };
 

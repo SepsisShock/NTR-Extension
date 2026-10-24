@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.77.10';
+  const REGEX_VERSION = '2.77.11';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -601,7 +601,7 @@ try {
     });
   }
 
-  // ===== Themes (index.js): which folders are on =====
+  // ===== Themes (themes.js): which folders are on =====
   // Every folder with regexes SillyTavern can show right now: Global, the current preset's and the open character's.
   function states() {
     if (!ready()) return null;

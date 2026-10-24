@@ -26,6 +26,7 @@ const PLACES = [
   ['decor.js', 'DECOR_VERSION'],
   ['layout.js', 'LAYOUT_VERSION'],
   ['fonts.js', 'FONTS_VERSION'],
+  ['themes.js', 'THEMES_VERSION'],
 ];
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const ci = !!process.env.GITHUB_ACTIONS;

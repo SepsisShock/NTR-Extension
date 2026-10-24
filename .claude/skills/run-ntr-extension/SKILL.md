@@ -11,6 +11,8 @@ Node (verified with 22), git, curl, lsof, and Playwright with Chromium that Node
 
 **Other browsers:** the session start hook also downloads Firefox and WebKit (Safari's engine), which needs `cdn.playwright.dev` and `playwright.download.prss.microsoft.com` in the environment's Allowed domains. Set `NTR_BROWSER=firefox` or `NTR_BROWSER=webkit` to run the driver or scenarios in one of them; Chromium is the default. WebKit on Linux is close to Safari but not the same, and not iPhone Safari. The speed test runs in Chromium only.
 
+**Phone:** set `NTR_PHONE=1` (or `NTR_PHONE=landscape`) to run the driver or scenarios as a phone: a 390×844 touch screen (844×390 sideways) that tells SillyTavern it's a phone (Android in Chromium and Firefox, iPhone in WebKit). With `NTR_BROWSER=webkit` it's the closest to an iPhone, but still not a real one: there's no address bar, notch or home bar, so `env(safe-area-inset-*)` is always 0. Scenario results say which mode they ran in; compare phone runs only with phone runs. The speed test keeps its own `phone` option.
+
 ## Setup (once, about a minute)
 
 ```bash
@@ -51,6 +53,8 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | `vn on` / `vn off` | Visual Novel Mode, through its toolbar button |
 | `power on` / `power off` | the extension's own power button |
 | `click <css>` | clicks through the DOM, so it reaches other pages and folded parts. A disabled button ignores it, like for a user |
+| `tap <css>` | taps the element's middle by touch, scrolling to it first. Fails within 5 s if it's hidden, covered (and says by what) or has no size. On a phone the NTR menu's page icons sit in a drawer: `tap #cb_modal_overlay .ntr_navbtn` first. Needs `NTR_PHONE` |
+| `resize <W>x<H>` | changes the screen size, for example to stand in for a phone's address bar showing or hiding |
 | `set <css> \| <text>` | types into a field and fires `input` and `change` |
 | `upload <css> \| <file> [file...]` | puts files in a file input. Most Upload buttons pick a slot first, so `click` the button, then `upload` |
 | `ok` / `cancel` | presses the main button or Cancel of the question NTR shows under the last button clicked (Delete, Remove, Reset...) |

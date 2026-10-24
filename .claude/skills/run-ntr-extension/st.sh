@@ -152,7 +152,7 @@ bench() {
       banners+=("$img/banner${#banners[@]}.${f##*.}")
     done < <(ls -S "$ST_DIR/default/content/backgrounds" | grep -iE '\.(png|jpe?g|webp)$' | head -3)
     cp "$ST_DIR/default/content/default_Seraphina.png" "$img/fg.png"
-    sed -e "s#@BANNERS@#${banners[*]}#" -e "s#@IMG@#$img#g" "$here/bench-full.txt" | NTR_BROWSER=chromium node "$here/driver.cjs" \
+    sed -e "s#@BANNERS@#${banners[*]}#" -e "s#@IMG@#$img#g" "$here/bench-full.txt" | NTR_BROWSER=chromium NTR_PHONE= node "$here/driver.cjs" \
       || { echo "turning on NTR's features failed"; exit 1; }
   fi
   node "$here/bench.cjs" run "$name" --runs "$runs" "${flags[@]}"

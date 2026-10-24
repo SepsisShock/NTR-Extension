@@ -10,6 +10,7 @@
 //   node .claude/skills/run-ntr-extension/bench.cjs table <name> [name...]
 const fs = require('fs');
 const path = require('path');
+const { contextOptions } = require('./browser.cjs');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const OUT = process.env.NTR_BENCH || '/tmp/ntr-bench';
@@ -191,9 +192,7 @@ async function drag(page, cdp, opts, saves, { first, id, grip = '', axis, amp, s
 
 async function once(chromium, opts) {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
-  const context = await browser.newContext(opts.phone
-    ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
-    : { viewport: { width: 1400, height: 1000 } });
+  const context = await browser.newContext(contextOptions(browser, opts.phone ? 'phone' : 'desktop'));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => { if (!NOISE.test(e.message)) errors.push('pageerror: ' + e.message); });

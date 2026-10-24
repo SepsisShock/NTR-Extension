@@ -7,7 +7,7 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 - For anything beyond a small fix, propose a plan and wait for approval before writing code.
 - Keep changes scoped to the task. Ask before deleting or renaming files.
 - If a change touches files outside the task's obvious scope, explain why in the PR.
-- Summarize every PR: what changed, why, how to test it in SillyTavern.
+- Summarize every PR: what changed, why, how to test it in SillyTavern. If `index.js` grew by more than 100 lines (`git diff --numstat main -- index.js`), say why that code stays in core; move it only if a rule below puts it elsewhere.
 - When a change touches `.js` or `.css` files, test it with `/run-ntr-extension` before opening the PR, comparing `main` with the branch.
 
 ## Docs and Version
@@ -19,6 +19,9 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 - Match existing style and file structure.
 - Preserve existing settings keys so my saved config keeps working.
 - `index.js` is the core; the other modules use its helpers through `window.NTR`. Reuse them; don't copy them.
+- Settings data stays in `index.js`: keys, `DEFAULTS`, `NUM_RANGE`, upgrades in `loadSettings`, upload names, and card cleaning in `cleanStore`. So do helpers that more than one module reads, shared through `window.NTR.api.look`. A helper only its own module reads goes in that module. Modules reach each other only through `window.NTR`, never by importing files; anything several modules need goes through core.
+- Where new code goes: a menu part goes in the file with its `pageHtml` or `pagePart` call (page ids are in `PAGES`), or, when core only loads the part (like `castPartHtml`), the module that fills it in. The code that does the work goes in the module that already does that work (Book's is in `reader.js`, though its settings are built in core). A module's own line below wins over this. Plans name the page and file for each new part.
+- A new page, or a feature with no page that several pages use (like the font list), gets its own module, `<name>.js`, built from `window.NTR.api`: copy the wiring of `layout.js` (look page), `regex.js` (page that loads when opened) or `fonts.js` (shared feature), add it everywhere that module is listed, and add a missing-module test. Core keeps its settings data and menu entry.
 - All uploads go through `uploadImage` or `uploadVideo`.
 - Elements lives in `elements.js`, built from what core shares in `window.NTR.api.look`; its settings and upload names stay in `index.js`. Give each new part its own bind and CSS functions, like `bindMessageDetails` and `messageDetailsCss`. Rows built with `ovRow`, `rangeSlider`, `ovColor`, `ovText`, `ovFont`, `ovPick` and `ovWhen` are bound on every page by `bindRows`; to add behavior to them, listen on the part, like `syncFade`.
 - Text Formatting lives in `text.js` the same way, built from `window.NTR.api.look`; its settings stay in `index.js`.

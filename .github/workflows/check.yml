@@ -1,6 +1,7 @@
 # Runs on every PR and every push to main.
 # Checks that each .js file parses, runs the tests in tests/, checks that the version matches everywhere
 # (scripts/version.cjs), and (on PRs) that the version was bumped when a .js or .css file changed.
+# On PRs it also warns when index.js grows by more than 100 lines (see CLAUDE.md on where new code goes).
 name: Check
 
 on:
@@ -34,6 +35,17 @@ jobs:
 
       - name: Version matches everywhere
         run: node scripts/version.cjs check
+
+      - name: Core growth
+        if: github.event_name == 'pull_request'
+        run: |
+          grew=$(git diff --numstat HEAD^1 HEAD -- index.js | awk '{print $1-$2}')
+          echo "index.js grew by ${grew:-0} lines."
+          if [ "${grew:-0}" -gt 100 ]; then
+            msg="index.js grew by $grew lines. The PR summary should say why this stays in core (see CLAUDE.md)."
+            echo "::warning file=index.js,title=Core growth::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Version was bumped
         if: github.event_name == 'pull_request'

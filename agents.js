@@ -903,11 +903,8 @@
   // What the agent sends on its next run, from the chat as it is now. Keys and links are never part of it.
   function previewHtml(a) {
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
-    if (usesFull(a)) return `<div class="cb_hint" style="margin:0;">Your chat's full prompt, as ST builds it for a reply, then these instructions at the end:${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
-    const how = a.kind === 'chat' ? 'ST formats it for your chat\'s API before sending.'
-      : a.kind === 'tc' ? (a.tcInstruct ? `Formatted with the ${esc(a.tcInstruct)} instruct template before sending.` : 'Sent in plain format.') : 'Sent as these messages.';
-    return prompt(a).map((m) => `<div class="cb_hint" style="margin:0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('')
-      + `<div class="cb_hint" style="margin:0;">${how}</div>`;
+    if (usesFull(a)) return `<div class="cb_hint" style="margin:0;"><strong>Instructions</strong>${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
+    return prompt(a).map((m) => `<div class="cb_hint" style="margin:0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('');
   }
   // Preview Prompt, under What It Reads: it shows what the agent sends, for every part of its settings. It stays open
   // while you change them, until Collapse All or a reload.

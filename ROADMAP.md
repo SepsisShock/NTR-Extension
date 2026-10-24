@@ -61,10 +61,10 @@ Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The 
 - [ ] Have these sliders and the code that applies them use the ranges already shared through `window.NTR`, keeping setting names, defaults and the menu layout the same.
 - [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
 
-### Menu keeps working when a module breaks
-The menu copes when Themes, Agents, Overlays or Emotions fail to load. If one loads but then throws while drawing or binding its page, the whole menu draw fails, or every bind after it is skipped.
+### Visual Novel's Maps and Opening Video parts when they break
+If either part loads but throws while drawing, it says "Loading..." until the menu is closed.
 
-- [ ] Guard the menu's calls into these modules the way `callModule` guards the look modules, so the page says it failed and the rest of the menu still draws and works.
+- [ ] Have them say they couldn't be drawn, using the core's guard (`callModule` and its notes, shared through `window.NTR`).
 
 ### Graphic borders around the UI
 

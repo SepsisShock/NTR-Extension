@@ -166,3 +166,6 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Opening video and banner video: autoplay, sound button, YouTube.
 - [ ] Reader Mode: Book on a phone held sideways, the page flip, and dragging a Floating page bar and banner by touch.
 - [ ] Test tools: touch drags in the driver for all three browsers (`NTR_PHONE` has `tap` but no drag yet), for popup characters, Edit Layout, and the Floating page bar and banner. The speed test's drags work by touch in Chromium only.
+
+### Character tags on chat messages
+- [ ] SillyTavern marks each chat message with its character's tags (`data-char-tags`), so Custom CSS can style messages by tag. It finds the character from the avatar's thumbnail link, and NTR's full-size avatars have none, so those marks go missing. Keep them working for people who style by tag.

@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.77.7';
+  const AVATARS_VERSION = '2.77.8';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -404,21 +404,28 @@
   }
 
   // NTR's Backdrop shows the full-size picture, not SillyTavern's small thumbnail. It's loaded first and only swapped
-  // in once it's there: SillyTavern replaces a chat avatar that fails to load with a "missing" icon.
+  // in once it's there: SillyTavern replaces a chat avatar that fails to load with a "missing" icon. SillyTavern puts its
+  // thumbnail back when it redraws a message in place (a swipe, a finished reply), so it's swapped in again then.
   function fullAvatar(img) {
     const mes = img.closest('#chat .mes');
     const src = img.getAttribute('src');
-    if (!mes || !src) return;
+    // Already the full-size picture.
+    if (!mes || !src || img.dataset.ntrFull === src) return;
     const p = mes.getAttribute('is_user') === 'true' ? 'us' : 'ai';
     const s = settings();
     if (!ntrAvatars(s, p) || s[p + 'Style'] === 'popout') return;
     // A face from Emotions (cast.js) is already full size.
     if (img.dataset.ntrFace === src) return;
     const full = fullResUrl(src);
-    if (full === src || img.dataset.ntrFull === full) return;
-    img.dataset.ntrFull = full;
+    // Still loading, or it failed and isn't asked for again.
+    if (full === src || img.dataset.ntrLoading === full) return;
+    img.dataset.ntrLoading = full;
     const pre = new Image();
-    pre.onload = () => { if (img.getAttribute('src') === src) img.src = full; };
+    pre.onload = () => {
+      if (img.dataset.ntrLoading === full) delete img.dataset.ntrLoading;
+      img.dataset.ntrFull = full;
+      if (img.getAttribute('src') === src) img.src = full;
+    };
     pre.src = full;
   }
 

@@ -707,7 +707,9 @@ const styleText = () => {
     await sleep(600);
     out('picked comic', await st(), 'menu redrawn:', !(await t.state()).sameMenu);
     await t.pick('oovbubtail', 'thought');
-    await sleep(300);
+    // The Style pills catch up in a timer after the change. A timer queued now runs after it, however long the redraw
+    // before it takes (WebKit drawing a phone screen without a graphics card took 400 ms).
+    await t.ev(() => new Promise((r) => setTimeout(r)));
     out('changed tail', await st());
     await t.tick('#m_ov_enable', false);
     await sleep(300);

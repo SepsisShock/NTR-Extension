@@ -1,5 +1,5 @@
-// Without themes.js, the menu still opens and its Themes page says why it's empty. Saved themes stay in the settings,
-// and the core still brings old ones up to date. In Node the core never finds themes.js, so it's missing here.
+// Without themes.js, the menu still opens and the core knows the module failed (scenario W checks the page's note).
+// Saved themes stay in the settings, and the core still brings old ones up to date. In Node the core never finds themes.js, so it's missing here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { api, reloadSettings } from './env.mjs';

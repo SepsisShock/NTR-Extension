@@ -1,6 +1,6 @@
 // Nitwit Tavern Redesign: Themes module.
-// Loaded by index.js at start, for the Themes page. If this file breaks, the rest of the extension keeps working, and
-// saved themes stay in the settings.
+// Loaded by index.js at start, for the Themes page. If this file fails to load, the rest of the extension keeps working,
+// and saved themes stay in the settings.
 // A theme is a saved copy of the look settings (LOOK in index.js) and which regex folders are on. The core keeps what
 // a theme holds, how old ones are upgraded and cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.

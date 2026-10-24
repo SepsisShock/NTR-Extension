@@ -346,7 +346,7 @@ const styleText = () => {
     await t.show('drawn three times', pageInfo);
     t.release('themes');
     await sleep(1200);
-    await t.show('after themes', () => ({ pages: document.querySelectorAll('#cb_modal_overlay .ntr_page[data-page="themes"]').length, tbars: document.querySelectorAll('#cb_modal_overlay .ntr_tbar').length }));
+    await t.show('after themes', pageInfo);
     await t.newTheme();
     await t.show('new theme prompt');
   });

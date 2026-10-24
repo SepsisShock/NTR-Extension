@@ -10,6 +10,7 @@
 //   node .claude/skills/run-ntr-extension/bench.cjs table <name> [name...]
 const fs = require('fs');
 const path = require('path');
+const { loadPlaywright, contextOptions } = require('./browser.cjs');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const OUT = process.env.NTR_BENCH || '/tmp/ntr-bench';
@@ -17,17 +18,6 @@ const OUT = process.env.NTR_BENCH || '/tmp/ntr-bench';
 // only counts as noise by its address, so a missing NTR image still shows up.
 const NOISE = /Internal S.*not valid JSON|\/api\/horde\/|favicon/i;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function loadPlaywright() {
-  try { return require('playwright'); } catch (e) { /* try the global install below */ }
-  try {
-    const root = require('child_process').execSync('npm root -g').toString().trim();
-    return require(path.join(root, 'playwright'));
-  } catch (e) {
-    console.error('Playwright (with Chromium) is needed and wasn\'t found.');
-    process.exit(2);
-  }
-}
 
 async function metrics(cdp) {
   const { metrics } = await cdp.send('Performance.getMetrics');
@@ -191,9 +181,7 @@ async function drag(page, cdp, opts, saves, { first, id, grip = '', axis, amp, s
 
 async function once(chromium, opts) {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
-  const context = await browser.newContext(opts.phone
-    ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
-    : { viewport: { width: 1400, height: 1000 } });
+  const context = await browser.newContext(contextOptions(browser, opts.phone ? 'phone' : 'desktop'));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => { if (!NOISE.test(e.message)) errors.push('pageerror: ' + e.message); });

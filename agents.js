@@ -8,7 +8,7 @@
 // Block set to Agent Results, layout.js) shows them on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.77.13';
+  const AGENTS_VERSION = '2.77.12';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -617,6 +617,7 @@
   const status = (a) => `${nameOf(RUNS, a.runs)} · ${conn(a)}`;
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   // An agent's own switch, in a box that's easier to tap on a touch screen.
+  const onSwitch = (cls, a) => `<label class="m_ag_sw"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
   const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
 
@@ -638,7 +639,7 @@
           <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
             <span class="m_ag_rsub">${esc(status(a))}</span></span>
         </button>
-        <label class="m_ag_sw"><input type="checkbox" class="ntr_pswitch m_ag_on" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>
+        ${onSwitch('m_ag_on', a)}
       </div>`;
   }
   function deptHtml(d, s) {
@@ -680,8 +681,8 @@
       ${l.length >= 2 ? '<div class="cb_hint" style="margin:6px 4px 0;">Agents run one at a time, top to bottom.</div>' : ''}`;
   }
 
-  // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, when it
-  // runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
+  // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, its switch,
+  // when it runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
   // Department, Delete). The title shows here, in the roster and on a Dashboard set to Tabs.
   function headHtml(a, allOpen) {
     const busy = current?.id === a.id;
@@ -694,6 +695,7 @@
               <input type="text" class="text_pole m_ag_prof m_ag_nm" data-f="name" value="${esc(a.name)}" maxlength="60" size="${nameSize(a.name)}" placeholder="Name" aria-label="Name">
               <input type="text" class="text_pole m_ag_prof m_ag_ttl" data-f="title" value="${esc(a.title)}" maxlength="60" placeholder="Job title" aria-label="Job title">
             </div>
+            ${onSwitch('m_ag_hon', a)}
           </div>
           <div class="m_ag_line">
             <span class="m_ag_status">${esc(status(a))}</span>
@@ -711,7 +713,7 @@
   }
 
   // What each folded part is set to, in the words its buttons use. A setting that stops the agent from running gets a
-  // warning.
+  // warning; Test and Activity shows its latest run.
   function sums(a) {
     const fields = a.answer === 'fields';
     const n = fieldsOf(a).length;
@@ -722,6 +724,7 @@
     const missing = a.kind === 'cc' ? (!a.ccModel.trim() ? 'No Model' : a.ccSource === 'custom' && !a.ccUrl.trim() ? 'No Link' : '')
       : a.kind === 'tc' && !a.tcUrl.trim() ? 'No Server Link' : '';
     const last = a.keep === 'chat' && a.last && !fields ? ' · Its Last Result' : '';
+    const run = (runs.get(a.id) || [])[0];
     return {
       ins: !a.job.trim() && !usesFields(a) ? { warn: 'Empty: it won\'t run' } : { text: a.job.split('\n').map((l) => l.trim()).find(Boolean) || 'Empty' },
       ans: { text: !fields ? 'Free Text' : n ? `Fields · ${n} ${n === 1 ? 'Field' : 'Fields'}` : 'Fields · No Fields Yet' },
@@ -730,6 +733,8 @@
       conn: missing ? { warn: `${conn(a)} · ${missing}` } : { text: conn(a) },
       samp: { text: `${a.kind === 'chat' && (!OWN_SAMP_API[api] || !ticked.length) ? 'Your Chat\'s Samplers' : ticked.join(', ') || 'API Defaults'} · ${a.maxTokens} Tokens` },
       reads: { text: (usesFull(a) ? 'Your Chat\'s Full Prompt' : `${a.context} ${a.context === 1 ? 'Message' : 'Messages'} · ${a.split ? 'As Separate Messages' : 'As One Block'}`) + last },
+      test: current?.id === a.id ? { text: 'Running...' }
+        : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' },
     };
   }
   const sumHtml = (o) => (o.warn ? `<i class="fa-solid fa-triangle-exclamation"></i><span>${esc(o.warn)}</span>`
@@ -752,7 +757,7 @@
   // Instructions is.
   const isOpen = (k) => { const o = settings().uiOpen || {}; return `ag_${k}` in o ? !!o[`ag_${k}`] : k === 'ins'; };
   const FOLD_ICON = { ins: 'fa-scroll', ans: 'fa-clipboard-list', runs: 'fa-stopwatch', main: 'fa-share-from-square', conn: 'fa-plug',
-    samp: 'fa-temperature-half', reads: 'fa-book-open-reader' };
+    samp: 'fa-temperature-half', reads: 'fa-book-open-reader', test: 'fa-vial' };
   function foldHtml(k, title, sum, body) {
     const open = isOpen(k);
     return `
@@ -836,6 +841,7 @@
       <div class="cb_hint">Only the format is used, not your other settings. A saved key for this server type is used if needed.</div>
       ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is your chat\'s server, which answers one request at a time, so this agent waits until your reply is done.</div>' : ''}`
       : '<div class="cb_hint" style="margin-bottom:0;">Uses your chat\'s API, model and key, and waits until a reply is finished.</div>';
+    const past = runs.get(a.id) || [];
     const full = usesFull(a);
     // Same as Chat's samplers only reach your chat's API on Chat Completion or Text Completion (see ownSamplers).
     const api = ctx().mainApi;
@@ -852,7 +858,7 @@
         ${lab('Runs', pills('agruns', RUNS, a.runs))}
         ${lab('Results', pills('agkeep', KEEP, a.keep))}
         ${fields ? '<div class="cb_hint">Fields always saves in the chat.</div>' : ''}
-        <div class="cb_hint" style="margin-bottom:0;">Activity Only keeps answers under Run Now at the bottom until you reload. Saved in the Chat keeps each answer on its message, so swipes and deletes stay right. To show saved answers, add a Dashboard on the Layout page.</div>`],
+        <div class="cb_hint" style="margin-bottom:0;">Activity Only keeps answers under Test and Activity until you reload. Saved in the Chat keeps each answer on its message, so swipes and deletes stay right. To show saved answers, add a Dashboard on the Layout page.</div>`],
       ...(a.keep === 'chat' ? [['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
         <div class="cb_hint"${a.send ? '' : ' style="margin-bottom:0;"'}>Adds its latest saved answer, under its name, to your chat's prompt for every reply. After a swipe, it's the answer from before that reply.</div>
@@ -882,17 +888,18 @@
         ${full ? '<div class="cb_hint">With your chat\'s full prompt, it reads as much of the chat as your chat does.</div>'
           : `${lab('Messages Read', slider(a, 'context', 'agContext'))}`}
         ${fields ? '' : `<div class="${lastOff ? 'cb_dim' : ''}"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}${lastOff ? ' disabled' : ''}><span>Include Its Last Result</span></label>
-        <div class="cb_hint" style="margin-bottom:0;">It updates its last answer instead of starting over.</div></div>
-        ${lastOff ? '<div class="cb_hint" style="margin-bottom:0;">Needs Results set to Saved in the Chat, under When It Runs.</div>' : ''}`}`],
+        <div class="cb_hint"${lastOff ? ' style="margin-bottom:0;"' : ''}>It updates its last answer instead of starting over.</div></div>
+        ${lastOff ? '<div class="cb_hint">Needs Results set to Saved in the Chat, under When It Runs.</div>' : ''}`}
+        <div class="cb_actions" style="margin:6px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}</div>
+        <div id="m_ag_prevbox" hidden></div>`],
+      ['test', 'Test and Activity', `
+        <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
+        <div id="m_ag_act">${activityHtml(a, past)}</div>`],
     ];
     const sum = sums(a);
     return `<div class="m_ag_frame">
         ${headHtml(a, parts.every(([k]) => isOpen(k)))}
-        <div class="m_ag_body">${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body)).join('')}
-          <div class="cb_actions" style="margin:12px 0 0;">${btn('m_ag_prev', 'fa-eye', 'Preview')}${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
-          <div id="m_ag_prevbox" hidden></div>
-          <div id="m_ag_act">${activityHtml(a)}</div>
-        </div>
+        <div class="m_ag_body">${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body)).join('')}</div>
       </div>`;
   }
 
@@ -932,6 +939,7 @@
       run.setAttribute('aria-label', run.title);
       run.querySelector('i').className = `fa-solid fa-fw ${busy ? 'fa-stop' : 'fa-play'}`;
     }
+    if (a) setSum('test', sums(a).test);
   }
 
   // Your saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
@@ -1101,6 +1109,7 @@
         const x = byId(row.dataset.id);
         if (!x) return;
         x.on = this.checked;
+        if (x === a) root.querySelector('.m_ag_hon').checked = x.on;
         changed(false);
       };
     });
@@ -1186,6 +1195,12 @@
       };
     });
     if (!a) return;
+    root.querySelector('.m_ag_hon').onchange = function() {
+      a.on = this.checked;
+      const sw = root.querySelector(`.m_ag_row[data-id="${a.id}"] .m_ag_on`);
+      if (sw) sw.checked = a.on;
+      changed(false);
+    };
     root.querySelector('#m_ag_hrun').onclick = () => { if (current?.id === a.id) current.ctrl.abort(); else enqueue(a.id); };
 
     // The folded parts, and Expand All or Collapse All for all of them.
@@ -1305,11 +1320,10 @@
           row.querySelector('.m_ag_rname').textContent = a.name;
           row.querySelector('.m_ag_rtitle').textContent = a.title ? ` · ${a.title}` : '';
         }
-        const sw = root.querySelector(`.m_ag_row[data-id="${a.id}"] .m_ag_on`);
-        if (sw) {
+        root.querySelectorAll(`.m_ag_row[data-id="${a.id}"] .m_ag_on, .m_ag_hon`).forEach((sw) => {
           sw.title = `Turn ${a.name} on or off`;
           sw.setAttribute('aria-label', sw.title);
-        }
+        });
         const macro = root.querySelector('.m_ag_macro');
         if (macro) macro.textContent = `{{agent::${a.name}}}`;
         refreshBoxes();

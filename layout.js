@@ -8,7 +8,7 @@
 // Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages, Hide Names and Avatars and Attached
 // Style (overrideCss, layoutChatCss, namesCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const LAYOUT_VERSION = '2.77.4';
+  const LAYOUT_VERSION = '2.77.5';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -176,20 +176,23 @@
   // saved as a % of it. Everything here is in the screen's own pixels: dx, dy and the pointer (px, py) too.
   // A box (r: left, right, top, bottom) moved by dx, dy, or resized from d.grip, kept on a W by H screen and at least
   // minW by minH, with whichever edge is nearer a grid line (every g pixels, 0 for none) landing on it.
+  // v on the nearest grid line, every g pixels (0 for none).
+  const snapTo = (v, g) => (g ? Math.round(v / g) * g : v);
+  // A span from a to b moved by t, kept within 0 to max, with whichever end is nearer a grid line landing on it.
+  function shiftSpan(a, b, t, max, g) {
+    t = clamp(t, -a, max - b);
+    if (g) {
+      const sa = snapTo(a + t, g) - a - t, sb = snapTo(b + t, g) - b - t;
+      t = clamp(t + (Math.abs(sa) <= Math.abs(sb) ? sa : sb), -a, max - b);
+    }
+    return [a + t, b + t];
+  }
   function dragBox(r, grip, dx, dy, W, H, minW, minH, g) {
-    const snap = (v) => (g ? Math.round(v / g) * g : v);
-    const shift = (a, b, t, max) => {
-      t = clamp(t, -a, max - b);
-      if (g) {
-        const sa = snap(a + t) - a - t, sb = snap(b + t) - b - t;
-        t = clamp(t + (Math.abs(sa) <= Math.abs(sb) ? sa : sb), -a, max - b);
-      }
-      return [a + t, b + t];
-    };
+    const snap = (v) => snapTo(v, g);
     let [L, R, T, B] = [r.left, r.right, r.top, r.bottom];
     if (!grip) {
-      [L, R] = shift(L, R, dx, W);
-      [T, B] = shift(T, B, dy, H);
+      [L, R] = shiftSpan(L, R, dx, W, g);
+      [T, B] = shiftSpan(T, B, dy, H, g);
     } else {
       if (grip.includes('w')) L = clamp(snap(L + dx), 0, R - minW);
       if (grip.includes('e')) R = clamp(snap(R + dx), L + minW, W);
@@ -224,16 +227,7 @@
     const s = settings();
     const W = innerWidth, H = innerHeight;
     const g = s.placeSnap && !free ? rangeNum(s, 'placeGrid') : 0;
-    const snap = (v) => (g ? Math.round(v / g) * g : v);
-    // A span from a to b moved by t, kept within 0 to max, with whichever end is nearer a grid line landing on it.
-    const shift = (a, b, t, max) => {
-      t = clamp(t, -a, max - b);
-      if (g) {
-        const sa = snap(a + t) - a - t, sb = snap(b + t) - b - t;
-        t = clamp(t + (Math.abs(sa) <= Math.abs(sb) ? sa : sb), -a, max - b);
-      }
-      return [a + t, b + t];
-    };
+    const snap = (v) => snapTo(v, g);
     const pct = (v, size) => Math.round(v / size * 10000) / 100;
     const r = d.r0;
 
@@ -258,7 +252,7 @@
         const at = up ? py : px;
         // Held where it was grabbed; on another edge, by its middle.
         const grab = d.switched ? len / 2 : up0 ? d.py0 - r.top : d.px0 - r.left;
-        [a, b] = shift(at - grab, at - grab + len, 0, size);
+        [a, b] = shiftSpan(at - grab, at - grab + len, 0, size, g);
       }
       const size = barUpright(edge) ? H : W;
       return placeSet(d.it, layNames({ BarEdge: edge, BarMoved: true, BarPos: pct(a, size), BarLen: pct(b - a, size) }));

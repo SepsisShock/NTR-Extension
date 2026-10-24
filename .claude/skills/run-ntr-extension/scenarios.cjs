@@ -526,8 +526,8 @@ const styleText = () => {
     starOriginal: { ...AV, aiStyle: 'inline', aiShape: 'star', aiSide: 'bl', usStyle: 'backdrop', usShape: 'none', usFit: 'original', usFadeLeft: 25 },
     stShapes: { ...AV, aiEnabled: false, aiShape: 'heart', usEnabled: false, usShape: 'square', usCorner: 15, usFocus: 70 },
     pageOff: { ...AV, avatarEnabled: false, aiShape: 'star', usShape: 'rectangle', usCorner: 30 },
-    namesHide: { ...AV, aiStyle: 'backdrop', ovNamesOn: true, ovNames: 'hide' },
-    namesHidePageOff: { ...AV, avatarEnabled: false, ovNamesOn: true, ovNames: 'hide', aiShape: 'heart' },
+    namesHide: { ...AV, aiStyle: 'backdrop', layEnabled: true, ovNamesOn: true, ovNames: 'hide' },
+    namesHideLayoutOff: { ...AV, layEnabled: false, ovNamesOn: true, ovNames: 'hide', aiShape: 'heart' },
     bubbles: { ...AV, aiStyle: 'backdrop', ovEnabled: true, ovBubOn: true, ovBubAlign: 'sides', ovBubTail: 'curved' },
     plateEdge: { ...AV, usStyle: 'inline', usSide: 'tc', aiStyle: 'backdrop', tfEnabled: true, tfPlatePosOn: true, tfPlatePos: 'edge', tfPlateBgOn: true, tfPlateBg: 'rgba(40, 40, 90, 1)' },
     decorBoxes: { ...AV, aiStyle: 'backdrop', ovEnabled: true, ovAiBgOn: true, ovAiBg: 'color', ovAiBgColor: 'rgba(10, 10, 40, 1)', ovUsBorderOn: true, ovUsBorder: 'line' },
@@ -629,8 +629,8 @@ const styleText = () => {
     out('pictures again', JSON.stringify(await imgs()));
   });
 
-  // Avatar Management without avatars.js (failed, or late): no NTR avatar CSS, no pop-out, Names Hide off, other pages
-  // stop making room for NTR's avatars, and the page keeps Emotions.
+  // Avatar Management without avatars.js (failed, or late): no NTR avatar CSS, no pop-out, other pages stop making room
+  // for NTR's avatars, and the page keeps Emotions. Hide Names and Avatars is Layout's, so it still hides.
   const AVF = { ...AV, ovNamesOn: false, aiStyle: 'popout', usStyle: 'backdrop', tfEnabled: true, tfPlatePosOn: true, tfPlatePos: 'edge', tfPlateBgOn: true, tfPlateBg: 'rgba(40, 40, 90, 1)' };
   const avfInfo = () => {
     const css = document.getElementById('aw_dynamic_style')?.textContent || '';
@@ -648,7 +648,7 @@ const styleText = () => {
   };
   for (const [label, opts, settings, rel] of [
     ['failed at once', { abort: ['avatars'] }, AVF, []],
-    ['failed, Names Hide', { abort: ['avatars'] }, { ...AV, ovNamesOn: true, ovNames: 'hide' }, []],
+    ['failed, Names Hide', { abort: ['avatars'] }, { ...AV, layEnabled: true, ovNamesOn: true, ovNames: 'hide' }, []],
     ['late', { seq: { avatars: ['hold'] } }, AVF, [['avatars', 'ok']]],
   ]) {
     await session(`R avatars ${label}`, { settings, ...opts }, async (t) => {
@@ -672,7 +672,7 @@ const styleText = () => {
   const DOFF = { ovShapeOn: false, ovBlurOn: false, ovShadowOn: false, ovPanelBgOn: false, ovPanelBorderOn: false, ovAiShapeOn: false, ovAiBgOn: false, ovAiBorderOn: false,
     ovUsShapeOn: false, ovUsBgOn: false, ovUsBorderOn: false, ovSendShapeOn: false, ovSendBgOn: false, ovSendBorderOn: false, ovBubOn: false };
   const GAPS = { layEnabled: true, ovMesGapOn: true, ovMesGap: 20, ovSendPosOn: true, ovSendPos: 'separate', ovSendGap: 12 };
-  const HIDE = { avatarEnabled: true, ovNamesOn: true, ovNames: 'hide' };
+  const HIDE = { layEnabled: true, ovNamesOn: true, ovNames: 'hide' };
   const BUB = (tail, more = {}) => ({ ovEnabled: true, ovBubOn: true, ovBubTail: tail, ...more });
   const D_COMBOS = {
     decorOffGapsHide: { ...DOFF, ovEnabled: false, ...GAPS, ...HIDE },

@@ -5,10 +5,10 @@
 // of the extension keeps working, with SillyTavern's own layout; pop-outs and foreground images keep their place and
 // their sliders.
 // The settings, their limits and the lists they're checked against stay in index.js, and so do cleaning saved Pinned
-// Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages and Attached Style (overrideCss,
-// layoutChatCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
+// Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages, Hide Names and Avatars and Attached
+// Style (overrideCss, layoutChatCss, namesCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const LAYOUT_VERSION = '2.77.3';
+  const LAYOUT_VERSION = '2.77.4';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -781,7 +781,8 @@
         ${card('Chat Panel', `
           <div class="m_l_over" data-lay="width phone">${ovRow(s, 'ovWidthOn', `Chat Width${layScope('Desktop Only')}`, rangeSlider(s, 'ovWidth'))}</div>
           <div class="cb_hint m_l_note" data-lay="width" hidden>Off: the chat panel was moved. Reset it in Edit Layout to use this.</div>
-          ${ovRow(s, 'ovMesGapOn', `Space Between Messages${layScope('Both Layouts')}`, rangeSlider(s, 'ovMesGap'))}`, 'fa-comments')}
+          ${ovRow(s, 'ovMesGapOn', `Space Between Messages${layScope('Both Layouts')}`, rangeSlider(s, 'ovMesGap'))}
+          ${ovRow(s, 'ovNamesOn', `Hide Names and Avatars${layScope('Both Layouts')}`, '<div class="cb_hint" style="margin: 0;">Also hides timestamps and pop-outs. Message Details\' Avatar spot goes with the avatar.</div>')}`, 'fa-comments')}
         ${card('ST Menu Bar', `
           ${pills('lbaredge', [['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']], s[lk(ph, 'BarEdge')])}
           <div class="cb_hint" style="margin-bottom: 0;">Picking an edge puts the bar back at its start there.</div>`, 'fa-window-maximize')}

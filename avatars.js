@@ -5,12 +5,12 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.77.3';
+  const AVATARS_VERSION = '2.77.4';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askText, askYes, card, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
+  const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
     rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
-  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, ntrAvatars, ovPick, ovRow, popMsg,
+  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
     restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
@@ -696,11 +696,10 @@
     `;
   }
 
-  // The Avatar Management page: Names and Pictures, a column for each side, and Emotions (cast.js).
+  // The Avatar Management page: a note while ST hides chat avatars, a column for each side, and Emotions (cast.js).
   function avatarsSectionHtml(s) {
     return pageHtml('pfp', `
-            ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
-              + '<div class="cb_hint">Hide removes avatars, names and timestamps, pop-outs included. Message Details (Elements) still shows its details where ticked, except under the avatar.</div>'))}
+            <div id="m_av_sthidden" class="ntr_offnote" hidden><i class="fa-solid fa-eye-slash"></i> ST's Hide Chat Avatars is on, so In Line and Backdrop avatars stay hidden. Pop Out still shows.</div>
             <div class="ntr_cols">
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
@@ -715,6 +714,10 @@
       s.avatarEnabled = this.checked; save(); updateAvatarStyle();
       window.NTR.cast?.refresh();
     };
+    // SillyTavern's own Hide Chat Avatars hides In Line and Backdrop. It may change while the menu is open.
+    const syncStNote = () => { overlay.querySelector('#m_av_sthidden').hidden = !document.body.classList.contains('hideChatAvatars'); };
+    overlay.querySelector('.ntr_navi[data-page="pfp"]')?.addEventListener('click', syncStNote);
+    syncStNote();
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.3';
+  const VERSION = '2.77.4';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -135,7 +135,7 @@ await (async () => {
     ovShapeOn: false, ovShape: 'rounded', ovRound: 10,
     ovPanelBgOn: true, ovPanelBg: 'clear', ovPanelBgColor: '', ovPanelBgOpacity: 100,
     ovPanelBorderOn: false, ovPanelBorder: 'line', ovPanelBorderColor: '', ovPanelBorderWidth: 1, ovPanelBorderOpacity: 100,
-    ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false, ovNames: 'show',
+    ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false, ovNames: 'hide',
     ovSendPosOn: false, ovSendPos: 'separate', ovSendGap: 8,
     // Speech Bubbles: AI and User messages as chat bubbles around the message text (see bubbleCss in decor.js). Their color, roundness
     // and border come from AI Message and User Message.
@@ -246,6 +246,9 @@ await (async () => {
     // Avatar Shape was one setting for SillyTavern's chat avatars where NTR Avatars was off. NTR leaves SillyTavern's
     // avatars alone now, so it just switches off.
     if (o.ovAvatarOn) o.ovAvatarOn = false;
+    // Names and Pictures had Show and Hide, and Show changed nothing. It's one tick now, Hide Names and Avatars, so
+    // Hide is the only value, and on with Show stays as it was: off.
+    if (o.ovNames === 'show') { o.ovNamesOn = false; o.ovNames = 'hide'; }
     // Rounded was a Shape of its own: a square with corners a fifth of its width.
     for (const p of ['ai', 'us']) if (o[p + 'Shape'] === 'rounded') { o[p + 'Shape'] = 'square'; put(p + 'Corner', 20); }
     // Avatar Blur is gone; Filter took its place.
@@ -1431,11 +1434,11 @@ await (async () => {
     return v ? `\n      :root { ${v}}\n` : '';
   }
 
-  // Names and Pictures: Hide takes away avatars, names and timestamps, NTR Avatars and pop-outs included.
-  // It sits in Avatar Management, so that section's switch is the one that counts. Without avatars.js both of these
+  // Hide Names and Avatars takes away avatars, names and timestamps, NTR Avatars and pop-outs included. It sits in
+  // Layout, so Layout's switch is the one that counts, and without layout.js it stays off, whatever is saved.
+  const namesHidden = (s) => isOn() && layoutOn(s) && s.ovNamesOn && s.ovNames === 'hide';
+  // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar. Without avatars.js they
   // stay off, whatever is saved, and other pages stop making room for NTR's avatars.
-  const namesHidden = (s) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s.ovNamesOn && s.ovNames === 'hide';
-  // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar.
   const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
 
   // One CSS rule, each property !important. Empty properties are left out, and a rule with none left is no rule.
@@ -1477,7 +1480,7 @@ await (async () => {
     return css;
   }
 
-  // Names and Pictures: Hide, from Avatar Management (see namesHidden).
+  // Hide Names and Avatars, from Layout (see namesHidden).
   function namesCss(s) {
     if (!namesHidden(s)) return '';
     return cssRule('#chat .mes .mesAvatarWrapper, #chat .mes .ch_name .name_text, #chat .mes .ch_name .timestamp, #chat .mes .ch_name .timestamp-icon', { display: 'none' });
@@ -2276,10 +2279,10 @@ await (async () => {
   const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...AVATAR_SHAPE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
   // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
-    layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
+    layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS, ...NAMES_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
-    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, ...NAMES_KEYS, 'emoStageScale', 'emoStageOpacity'] },
+    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, 'emoStageScale', 'emoStageOpacity'] },
     reasoning: { label: 'Elements', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb') || k.startsWith('md') || k.startsWith('mb')), ...ELEMENT_OV_KEYS] },
     banner: { label: 'Banner Look (Height, Gap, Transparent Areas, Rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global Banner (Pictures, YouTube Link, Video)', keys: ['bannerGlobal'] },
@@ -3562,7 +3565,7 @@ await (async () => {
     // lists their settings are checked against.
     look: {
       POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
-      COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, ovLabel,
+      COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, namesHidden, ovLabel,
       RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
       cUrl, cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,

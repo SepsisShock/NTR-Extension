@@ -4,7 +4,7 @@
 // The boxes, their settings and the chat's fonts (ovFont, fontName, syncGoogleFonts) stay in index.js; this file builds
 // from what it shares in window.NTR.api.
 (() => {
-  const FONTS_VERSION = '2.77.9';
+  const FONTS_VERSION = '2.77.10';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] fonts.js loaded without the core (index.js).'); return; }
   const { cleanFont, closePops, fontName, popMenu } = A;
@@ -144,24 +144,16 @@
   }
 
   // Adds the list to a drawn menu's font boxes. The core saves a box on its change (bindRows); first the name of a
-  // listed font gets Google's capitals, and after the save the box shows the new font. The menu is drawn anew often,
-  // and each draw calls this, so a box or menu already done is skipped.
-  const done = new WeakSet();
+  // listed font gets Google's capitals, and after the save the box shows the new font. Each draw of the menu is a new
+  // menu, and calls this once.
   function bind(overlay) {
-    if (!done.has(overlay)) {
-      done.add(overlay);
-      overlay.addEventListener('change', (e) => {
-        if (!e.target.matches?.('.m_o_txt')) return;
-        const f = fontName(e.target.value);
-        e.target.value = PRESET_CASE.get(f.toLowerCase()) || f;
-      }, true);
-      overlay.addEventListener('change', (e) => { if (e.target.matches?.('.m_o_txt')) fontLook(e.target); });
-    }
-    overlay.querySelectorAll('.m_o_txt').forEach((el) => {
-      if (done.has(el)) return;
-      done.add(el);
-      bindFontBox(el);
-    });
+    overlay.addEventListener('change', (e) => {
+      if (!e.target.matches('.m_o_txt')) return;
+      const f = fontName(e.target.value);
+      e.target.value = PRESET_CASE.get(f.toLowerCase()) || f;
+    }, true);
+    overlay.addEventListener('change', (e) => { if (e.target.matches('.m_o_txt')) fontLook(e.target); });
+    overlay.querySelectorAll('.m_o_txt').forEach((el) => bindFontBox(el));
   }
 
   // What index.js calls.

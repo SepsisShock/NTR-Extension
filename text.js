@@ -4,10 +4,10 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const TEXT_VERSION = '2.77.9';
+  const TEXT_VERSION = '2.77.10';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
-  const { askImageUrl, card, deleteFileIfUnused, escapeHTML, onPills, pageHtml, pills, rangeNum, save, subHead, uploadImage } = A;
+  const { bindPicSlot, card, onPills, pageHtml, picSlotHtml, pills, rangeNum, save, subHead } = A;
   const { COLOR_RE, FONT_NOTE, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, bubblesOn, bubRight, cUrl, cssReaders, cssRule, ntrAvatars,
     restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel } = A.look;
 
@@ -125,12 +125,12 @@
       // message's top edge, and the avatar moves down to clear it.
       const side = String(s[prefix + 'Side']);
       if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
-        css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)', 'max-width': 'calc(100% - 30px)' });
-        css += cssRule(m, { 'margin-top': `calc(${half} + 2px)`, 'padding-top': `max(10px, calc(${half} + 4px))` });
         // Speech Bubbles put this side's name row on the right: the name lines up with the row's right end instead of
         // running past the message.
-        const p = prefix === 'ai' ? 'Ai' : 'Us';
-        if (bubblesOn(s) && bubRight(s, p)) css += cssRule(`body:not(.ntr_book) #chat .mes[is_user="${flag}"] .ch_name .name_text`, { left: 'auto', right: '10px' });
+        const right = bubblesOn(s) && bubRight(s, prefix === 'ai' ? 'Ai' : 'Us');
+        css += cssRule(`${m} .ch_name .name_text`, { ...one, position: 'absolute', 'z-index': '2', top: '0', transform: 'translateY(-50%)', 'max-width': 'calc(100% - 30px)',
+          left: right ? 'auto' : '', right: right ? '10px' : '' });
+        css += cssRule(m, { 'margin-top': `calc(${half} + 2px)`, 'padding-top': `max(10px, calc(${half} + 4px))` });
         continue;
       }
       // 10px is SillyTavern's room between the message's top edge and its name row.
@@ -239,6 +239,8 @@
           ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + `<div class="cb_hint">Unticked, Glow uses the text color, Shadow and Outline are black, and Gradient and Shimmer use ${quote}.</div>`)}`;
   }
 
+  const PLATE_PIC = { id: 'plate', key: 'tfPlateImg', title: 'Nameplate Picture', upload: ['plate', { maxWidth: 800 }], wide: true, hint: 'Covers the Color.' };
+
   function textSectionHtml(s) {
     const part = (p) => `
           ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
@@ -263,16 +265,7 @@
           <div class="cb_collapse_content">
             <div class="cb_hint">A box behind the name.</div>
             ${ovRow(s, 'tfPlateBgOn', 'Color', ovColor(s, 'tfPlateBg'))}
-            <div class="cb_cur_slot">
-              <div class="cb_cur_row">
-                <div class="cb_cur_prev ntr_rd_pic" id="m_plate_prev"></div>
-                <span class="cb_cur_name">Picture<small>Covers the Color.</small></span>
-                <button class="menu_button" id="m_plate_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
-                <button class="menu_button" id="m_plate_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
-                <button class="menu_button" id="m_plate_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
-              </div>
-              <input type="file" id="m_plate_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-            </div>
+            ${picSlotHtml(PLATE_PIC)}
             ${ovRow(s, 'tfPlateBorderOn', 'Border', ovColor(s, 'tfPlateBorder') + ovLabel('Width', rangeSlider(s, 'tfPlateBorderWidth')))}
             ${ovRow(s, 'tfPlateRoundOn', 'Roundness', rangeSlider(s, 'tfPlateRound'))}
             ${ovRow(s, 'tfPlatePosOn', 'Position', pills('tfplatepos', [['row', 'Name Row', 'ST\'s default'], ['edge', 'On the Top Edge']], s.tfPlatePos)
@@ -292,43 +285,8 @@
     onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
     for (const p of ['tfUser', 'tfAi']) onPills(overlay, p.toLowerCase() + 'align', (v) => { s[p + 'Align'] = v; save(); updateAvatarStyle(); });
     onPills(overlay, 'tfplatepos', (v) => { s.tfPlatePos = v; save(); updateAvatarStyle(); });
-    bindNameplatePic(overlay, s);
+    bindPicSlot(overlay, s, PLATE_PIC);
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
-  }
-
-  // Nameplate Picture: Upload / Link / Remove.
-  function bindNameplatePic(overlay, s) {
-    const prev = overlay.querySelector('#m_plate_prev');
-    const render = () => {
-      prev.innerHTML = s.tfPlateImg ? `<img src="${escapeHTML(s.tfPlateImg)}" alt="">` : '<i class="fa-solid fa-image"></i>';
-      overlay.querySelector('#m_plate_clr').disabled = !s.tfPlateImg;
-    };
-    const setImg = (url) => {
-      const old = s.tfPlateImg;
-      s.tfPlateImg = url;
-      save();
-      updateAvatarStyle();
-      render();
-      deleteFileIfUnused(old);
-    };
-    const file = overlay.querySelector('#m_plate_file');
-    overlay.querySelector('#m_plate_up').onclick = () => file.click();
-    overlay.querySelector('#m_plate_url').onclick = async function() {
-      const url = await askImageUrl('Nameplate Picture', this, false);
-      if (url) setImg(url);
-    };
-    overlay.querySelector('#m_plate_clr').onclick = () => setImg('');
-    file.onchange = async () => {
-      if (!file.files.length) return;
-      try {
-        setImg(await uploadImage(file.files[0], 'plate', { maxWidth: 800 }));
-      } catch (e) {
-        console.error('[NTR nameplate upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Nameplate');
-      }
-      file.value = '';
-    };
-    render();
   }
 
   // What index.js calls.

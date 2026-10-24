@@ -5,10 +5,10 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.77.4';
+  const AVATARS_VERSION = '2.77.5';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
+  const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
     rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
   const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
     restyle: updateAvatarStyle, svgMask } = A.look;
@@ -101,7 +101,7 @@
   function syncAvatarCss() {
     const s = settings();
     for (const [p, flag] of [['ai', 'false'], ['us', 'true']]) {
-      const c = isOn() && s.avatarEnabled && ntrAvatars(s, p) && s[p + 'CssOn'] ? String(s[p + 'Css'] || '').slice(0, 2000).trim() : '';
+      const c = ntrAvatars(s, p) && s[p + 'CssOn'] ? String(s[p + 'Css'] || '').slice(0, 2000).trim() : '';
       cssTag(`ntr_av_css_${p}`, c ? `${s[p + 'Style'] === 'popout' ? `#cb_popf_${p}` : `#chat .mes[is_user="${flag}"] .avatar`} { ${c} }` : '');
     }
   }
@@ -437,20 +437,18 @@
   // NTR Avatars on each side. A side that's switched off keeps SillyTavern's own avatar.
   function avatarsCss(s) {
     let css = '';
-    if (isOn() && s.avatarEnabled) {
-      for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-        if (!ntrAvatars(s, prefix)) continue;
-        const m = `.mes[is_user="${flag}"]`;
-        // In Line keeps SillyTavern's own message layout.
-        if (s[prefix + 'Style'] === 'inline') { css += getAvatarCss(prefix, flag, s); continue; }
-        css += `
+    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+      if (!ntrAvatars(s, prefix)) continue;
+      const m = `.mes[is_user="${flag}"]`;
+      // In Line keeps SillyTavern's own message layout.
+      if (s[prefix + 'Style'] === 'inline') { css += getAvatarCss(prefix, flag, s); continue; }
+      css += `
         ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; overflow: clip !important; }
         ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
         ${m} .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
 
         ${getAvatarCss(prefix, flag, s)}
       `;
-      }
     }
     return css;
   }

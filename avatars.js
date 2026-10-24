@@ -640,7 +640,7 @@
 
         <div class="cb_sub">Size</div>
         <div id="m_${prefix}_scwrap" class="${scaleOff ? 'cb_dim' : ''}">${slider('sc', 'Scale', 'Picture Size:')}</div>
-        ${grp('inline backdrop', `<label id="m_${prefix}_ownwrap" class="checkbox_label"${show(!shaped)}><input type="checkbox" id="m_${prefix}_own" ${own ? 'checked' : ''}><span>Use Picture's Own Size</span></label>`)}
+        ${grp('inline backdrop', `<label id="m_${prefix}_ownwrap" class="checkbox_label"${show(!shaped)}><input type="checkbox" id="m_${prefix}_own" ${s[`${prefix}Fit`] === 'original' ? 'checked' : ''}><span>Use Picture's Own Size</span></label>`)}
         ${grp('backdrop popout', slider('pad', 'Pad', 'Text Padding:'))}
 
         <div class="cb_sub">Crop</div>

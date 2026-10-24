@@ -5,11 +5,11 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.77.9';
+  const ELEMENTS_VERSION = '2.77.10';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
-    pills, posGrid, onPills, pageHtml, pagePart, subHead, card, reducedMotion } = A;
+    pills, posGrid, onPills, pageHtml, pagePart, subHead, card, picSlotHtml, bindPicSlot, reducedMotion } = A;
   const { COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
     RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
     cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, bubblesOn, bubRight, restyle: updateAvatarStyle,
@@ -688,6 +688,11 @@
     renderCursor();
   }
 
+  // The Reasoning Block's pictures.
+  const RB_BG_PIC = { id: 'rbbg', key: 'rbBgImg', title: 'Background Picture', upload: ['rbbg', { maxWidth: 1600 }], wide: true };
+  const RB_ARROW_PIC = { id: 'rba', key: 'rbArrowImg', title: 'Arrow Picture', upload: ['arrow', { max: 128 }], icon: 'fa-chevron-up',
+    hint: 'Empty shows ST\'s arrow.', attrs: 'data-rbarrow="image"' };
+
   function reasoningPartHtml(s) {
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => `
@@ -733,16 +738,7 @@
           ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}
           ${subHead('rb_bgimg', 'Background Picture')}
           <div class="cb_collapse_content">
-          <div class="cb_cur_slot">
-            <div class="cb_cur_row">
-              <div class="cb_cur_prev ntr_rd_pic" id="m_rbbg_prev"></div>
-              <span class="cb_cur_name">Picture</span>
-              <button class="menu_button" id="m_rbbg_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button" id="m_rbbg_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button" id="m_rbbg_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
-            </div>
-            <input type="file" id="m_rbbg_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-          </div>
+          ${picSlotHtml(RB_BG_PIC)}
           <div class="m_rbbg_rows">
           ${pickRow('Fit', pills('rbbgfit', [['cover', 'Cover'], ['tile', 'Tile']], s.rbBgFit))}
           ${pickRow('Keep in View', posGrid('rbbgpos', s.rbBgPos), ' data-rbbg="cover"')}
@@ -770,16 +766,7 @@
           ${card('Reasoning Arrow', `
           ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'ST\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']], s.rbArrow))}
           ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼', 16) + '<div class="cb_hint">Empty shows ST\'s arrow.</div>', ' data-rbarrow="symbol"')}
-          <div class="cb_cur_slot" data-rbarrow="image">
-            <div class="cb_cur_row">
-              <div class="cb_cur_prev" id="m_rba_prev"></div>
-              <span class="cb_cur_name">Picture<small>Empty shows ST's arrow.</small></span>
-              <button class="menu_button" id="m_rba_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button" id="m_rba_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button" id="m_rba_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
-            </div>
-            <input type="file" id="m_rba_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-          </div>
+          ${picSlotHtml(RB_ARROW_PIC)}
           <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Color emoji keep their own colors.</div>')}</div>
           <div data-rbarrow="shown">
           ${ovRow(s, 'rbArrowSizeOn', 'Arrow Size', rangeSlider(s, 'rbArrowSize'))}
@@ -832,35 +819,7 @@
     const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
     onPills(overlay, 'rbbgfit', (v) => set('rbBgFit', v));
     onPills(overlay, 'rbbgpos', (v) => set('rbBgPos', v));
-    const prev = overlay.querySelector('#m_rbbg_prev');
-    const render = () => {
-      prev.innerHTML = s.rbBgImg ? `<img src="${escapeHTML(s.rbBgImg)}" alt="">` : '<i class="fa-solid fa-image"></i>';
-      overlay.querySelector('#m_rbbg_clr').disabled = !s.rbBgImg;
-    };
-    const setImg = (url) => {
-      const old = s.rbBgImg;
-      set('rbBgImg', url);
-      render();
-      deleteFileIfUnused(old);
-    };
-    const file = overlay.querySelector('#m_rbbg_file');
-    overlay.querySelector('#m_rbbg_up').onclick = () => file.click();
-    overlay.querySelector('#m_rbbg_url').onclick = async function() {
-      const url = await askImageUrl('Reasoning background', this, false);
-      if (url) setImg(url);
-    };
-    overlay.querySelector('#m_rbbg_clr').onclick = () => setImg('');
-    file.onchange = async () => {
-      if (!file.files.length) return;
-      try {
-        setImg(await uploadImage(file.files[0], 'rbbg', { maxWidth: 1600 }));
-      } catch (e) {
-        console.error('[NTR reasoning background upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Background Picture');
-      }
-      file.value = '';
-    };
-    render();
+    bindPicSlot(overlay, s, { ...RB_BG_PIC, onSet: syncRows });
     syncRows();
   }
 
@@ -877,35 +836,7 @@
     onPills(overlay, 'rbarrow', (v) => set('rbArrow', v));
     onPills(overlay, 'rbarrowturn', (v) => set('rbArrowTurn', v));
     onPills(overlay, 'rbarrowanim', (v) => set('rbArrowAnim', v));
-    const prev = overlay.querySelector('#m_rba_prev');
-    const render = () => {
-      prev.innerHTML = s.rbArrowImg ? `<img src="${escapeHTML(s.rbArrowImg)}" alt="">` : '<i class="fa-solid fa-chevron-up"></i>';
-      overlay.querySelector('#m_rba_clr').disabled = !s.rbArrowImg;
-    };
-    const setImg = (url) => {
-      const old = s.rbArrowImg;
-      set('rbArrowImg', url);
-      render();
-      deleteFileIfUnused(old);
-    };
-    const file = overlay.querySelector('#m_rba_file');
-    overlay.querySelector('#m_rba_up').onclick = () => file.click();
-    overlay.querySelector('#m_rba_url').onclick = async function() {
-      const url = await askImageUrl('Arrow picture', this, false);
-      if (url) setImg(url);
-    };
-    overlay.querySelector('#m_rba_clr').onclick = () => setImg('');
-    file.onchange = async () => {
-      if (!file.files.length) return;
-      try {
-        setImg(await uploadImage(file.files[0], 'arrow', { max: 128 }));
-      } catch (e) {
-        console.error('[NTR arrow upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Reasoning Arrow');
-      }
-      file.value = '';
-    };
-    render();
+    bindPicSlot(overlay, s, RB_ARROW_PIC);
     syncRows();
   }
 

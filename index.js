@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.9';
+  const VERSION = '2.77.10';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1311,6 +1311,57 @@ await (async () => {
   }
   // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
+  // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
+  // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
+  // optionally icon (the empty preview's), wide (a wide preview), hint (under the name), attrs (on the slot) and onSet
+  // (after a change).
+  function picSlotHtml(o) {
+    return `
+          <div class="cb_cur_slot"${o.attrs ? ' ' + o.attrs : ''}>
+            <div class="cb_cur_row">
+              <div class="cb_cur_prev${o.wide ? ' ntr_rd_pic' : ''}" id="m_${o.id}_prev"></div>
+              <span class="cb_cur_name">Picture${o.hint ? `<small>${o.hint}</small>` : ''}</span>
+              <button class="menu_button" id="m_${o.id}_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button" id="m_${o.id}_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button" id="m_${o.id}_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+            </div>
+            <input type="file" id="m_${o.id}_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          </div>`;
+  }
+  function bindPicSlot(overlay, s, o) {
+    const part = (p) => overlay.querySelector(`#m_${o.id}_${p}`);
+    const file = part('file');
+    const render = () => {
+      part('prev').innerHTML = s[o.key] ? `<img src="${escapeHTML(s[o.key])}" alt="">` : `<i class="fa-solid ${o.icon || 'fa-image'}"></i>`;
+      part('clr').disabled = !s[o.key];
+    };
+    const setImg = (url) => {
+      const old = s[o.key];
+      s[o.key] = url;
+      save();
+      updateAvatarStyle();
+      o.onSet?.();
+      render();
+      deleteFileIfUnused(old);
+    };
+    part('up').onclick = () => file.click();
+    part('url').onclick = async function() {
+      const url = await askImageUrl(o.title, this, false);
+      if (url) setImg(url);
+    };
+    part('clr').onclick = () => setImg('');
+    file.onchange = async () => {
+      if (!file.files.length) return;
+      try {
+        setImg(await uploadImage(file.files[0], ...o.upload));
+      } catch (e) {
+        console.error(`[NTR ${o.title} upload]`, e);
+        toastr.error(e.message || 'Upload failed', o.title);
+      }
+      file.value = '';
+    };
+    render();
+  }
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
   const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_css_ai', 'av_css_us', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
   // An optional Font Awesome icon goes before the title, like card's.
@@ -3532,7 +3583,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, pageHtml, subHead, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'),

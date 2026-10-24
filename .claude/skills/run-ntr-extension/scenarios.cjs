@@ -161,7 +161,8 @@ const styleText = () => {
           };
         }),
         async show(label, extra) { out(label, JSON.stringify({ ...(await t.state()), ...(extra ? await ev(extra) : {}) })); },
-        async newTheme() { await t.nav('themes'); await ev(() => document.querySelector('#m_t_new').click()); await sleep(300); await ev(() => { document.querySelector('.ntr_ask input').value = 'Half typed'; }); },
+        // Waits for the Themes page, which themes.js may still be filling in.
+        async newTheme() { await t.nav('themes'); await page.waitForSelector('#m_t_new', { timeout: 10000 }); await ev(() => document.querySelector('#m_t_new').click()); await sleep(300); await ev(() => { document.querySelector('.ntr_ask input').value = 'Half typed'; }); },
         // Clicks a fold's title once; says whether it changed (a doubled handler opens and closes it again).
         fold: (sec) => ev((sec) => {
           const h = document.querySelector(`#cb_modal_overlay .cb_collapse_toggle[data-sec="${sec}"]`);
@@ -221,6 +222,7 @@ const styleText = () => {
       agents: { note: note('agents'), drawn: document.querySelector('#m_ag_root')?.childElementCount ?? null, navOff: navOff('agents') },
       fg: { note: note('fg'), banner: !!document.querySelector('#m_b_enable'), navOff: navOff('fg') },
       cast: { hint: document.querySelector('#cb_modal_overlay .ntr_page[data-page="pfp"] .ntr_keepon')?.textContent.trim().slice(0, 50), emoList: document.querySelector('#m_emo_list')?.childElementCount ?? null },
+      themes: { note: note('themes'), sel: !!document.querySelector('#m_t_sel') },
     };
   };
 
@@ -306,6 +308,47 @@ const styleText = () => {
     t.release('overlays');
     await sleep(1200);
     await t.show('overlays into reopened menu', pageInfo);
+  });
+
+  // The Themes page (themes.js, loaded at start) arriving late, after the menu was drawn again, or not at all.
+  // themes.js is held from the start, so the Themes page's own prompt can't be opened yet: Regexes' New Folder is.
+  await session('V themes late, prompt open', { hold: ['themes'] }, async (t) => {
+    await t.menu('regex');
+    await t.page.waitForSelector('#cb_modal_overlay .ntr_page[data-page="regex"] [data-act="newf"]', { timeout: 10000 });
+    await t.ev(() => document.querySelector('#cb_modal_overlay .ntr_page[data-page="regex"] [data-act="newf"]').click());
+    await sleep(300);
+    await t.ev(() => { document.querySelector('.ntr_ask input').value = 'Half typed'; });
+    await t.mark();
+    await t.show('before', pageInfo);
+    t.release('themes');
+    await sleep(1200);
+    await t.show('after themes', pageInfo);
+  });
+
+  await session('W themes failed', { abort: ['themes'] }, async (t) => {
+    await t.menu();
+    await t.mark();
+    await t.show('after failure', pageInfo);
+    await t.ev(() => document.querySelector('#m_wand').click());
+    await sleep(300);
+    out('wand', await t.ev(() => NTR.api.settings().wandEntry));
+    await t.tick('#m_rx_enable', false);
+    await sleep(300);
+    out('regex switch', await t.ev(() => NTR.api.settings().rxEnabled));
+  });
+
+  await session('X themes late, menu reopened', { hold: ['themes'] }, async (t) => {
+    await t.menu();
+    await t.ev(() => NTR.api.closeMenu());
+    await t.menu();
+    await t.menu();
+    await t.mark();
+    await t.show('drawn three times', pageInfo);
+    t.release('themes');
+    await sleep(1200);
+    await t.show('after themes', pageInfo);
+    await t.newTheme();
+    await t.show('new theme prompt');
   });
 
   // The font boxes' list (fonts.js) arriving late, after the menu was drawn twice, or not at all. The boxes save either

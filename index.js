@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.10';
+  const VERSION = '2.77.11';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1237,7 +1237,7 @@ await (async () => {
     
     window.NTR.overlays?.bind(overlay, s);
 
-    bindThemes(overlay, s);
+    window.NTR.themes?.bind(overlay, s);
     callModule('layout', 'bind', overlay, s);
     bindWand(overlay, s);
     bindVNSection(overlay, s);
@@ -1612,7 +1612,7 @@ await (async () => {
   }
 
   // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick and ovWhen, bound once for the
-  // whole menu. It runs after the modules', Themes', Layout's and Reader Mode's binders and before UI Decor's, Text
+  // whole menu. It runs after the modules', Layout's and Reader Mode's binders and before UI Decor's, Text
   // Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows earlier. Empty
   // colors get SillyTavern's own (stColor). The font boxes' list comes after, from fonts.js, which only listens.
   function bindRows(overlay, s) {
@@ -2318,7 +2318,7 @@ await (async () => {
     return deleteFile(p);
   }
 
-  // ===== Themes =====
+  // ===== Theme data =====
   const PFP_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ai') || k.startsWith('us'));
   // UI Display keys that sit on other pages now, and go in those pages' theme sections.
   const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap'];
@@ -2538,17 +2538,6 @@ await (async () => {
     return out;
   }
 
-  function lookMatches(data) {
-    const s = settings();
-    for (const sec of Object.keys(data || {})) {
-      if (!LOOK[sec]) continue;
-      for (const k of Object.keys(data[sec])) {
-        if (LOOK[sec].keys.includes(k) && JSON.stringify(s[k]) !== JSON.stringify(data[sec][k])) return false;
-      }
-    }
-    return true;
-  }
-
   function refreshVisuals() {
     renderAll();
     syncPopouts();
@@ -2556,15 +2545,23 @@ await (async () => {
     window.NTR.cast?.refresh();
   }
 
-  function applyLook(data) {
+  // Changes the look settings with `write`, then brings everything up to date and deletes the files the old look used
+  // that nothing uses now.
+  function setLook(write) {
     const s = settings();
     const before = collectFileRefs(lookSnapshot());
-    for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data && data[sec]));
+    write(s);
     loadSettings(s);
     save();
     refreshVisuals();
     before.forEach((p) => deleteFileIfUnused(p));
   }
+  const applyLook = (data) => setLook((s) => { for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data && data[sec])); });
+  // The default look, with no theme picked.
+  const resetLook = () => setLook((s) => {
+    for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
+    s.themeActive = null;
+  });
 
   async function mapStrings(obj, fn) {
     const out = structuredClone(obj);
@@ -2607,240 +2604,8 @@ await (async () => {
     return { data, fails };
   }
 
-  function themesSectionHtml(s) {
-    const cur = s.themes.some((t) => t.id === s.themeActive) ? s.themeActive : '';
-    const opts = [['', 'Default Look'], ...s.themes.map((t) => [t.id, t.name])]
-      .map(([v, l]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(l)}</option>`).join('');
-    const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
-    return pageHtml('themes', `
-        <div class="cb_hint">Saves your look from the look pages, Reader Mode and Visual Novel Mode, the shared banner, and which regex folders are on. Anything saved per character stays out. Picking a theme applies it.</div>
-        ${card('Saved Themes', `
-          <select id="m_t_sel" class="text_pole ntr_tsel" aria-label="Theme">${opts}</select>
-          <div class="ntr_tbar">
-            ${b('m_t_new', 'fa-plus', 'Save as New Theme')}
-            ${b('m_t_upd', 'fa-floppy-disk', 'Save Over Selected Theme')}
-            ${b('m_t_ren', 'fa-pen', 'Rename Theme')}
-            ${b('m_t_del', 'fa-trash', 'Delete Theme', 'danger_button')}
-            ${b('m_t_imp', 'fa-file-import', 'Import Theme')}
-            ${b('m_t_exp', 'fa-file-export', 'Export Theme')}
-          </div>
-          <div id="m_t_panel"></div>
-          <input type="file" id="m_t_file" accept=".json,application/json" hidden>`, 'fa-swatchbook')}
-    `);
-  }
-
-  function bindThemes(overlay, s) {
-    const panel = overlay.querySelector('#m_t_panel');
-    const sel = overlay.querySelector('#m_t_sel');
-    const active = () => s.themes.find((t) => t.id === s.themeActive) || null;
-    const need = () => { const t = active(); if (!t) toastr.info('Pick a theme first.', 'Themes'); return t; };
-    const nameTaken = (name, self) => s.themes.some((t) => t !== self && t.name.toLowerCase() === name.toLowerCase());
-    const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
-    // The menu fills empty colors with SillyTavern's own (see bindRows), so those count as default too.
-    const atDefault = (k) => JSON.stringify(s[k]) === JSON.stringify(DEFAULTS[k]) || (k in COLOR_FROM && s[k] === stColor(k));
-    // Unsaved: the look differs from the selected theme, or from the default look when Default Look is selected.
-    const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };
-    const shown = () => { sel.value = active() ? s.themeActive : ''; };
-
-    const tbar = overlay.querySelector('.ntr_tbar');
-    const askName = (value, self = null) => askText(tbar, {
-      label: 'Theme Name',
-      value,
-      ok: '<i class="fa-solid fa-floppy-disk"></i> Save',
-      check: (name) => (!name ? { error: 'Type a name first.' }
-        : nameTaken(name, self) ? { error: 'A theme with that name already exists.' } : { value: name }),
-    });
-
-    const resetLook = () => {
-      const oldRefs = collectFileRefs(lookSnapshot());
-      for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
-      s.themeActive = null;
-      loadSettings(s);
-      save();
-      refreshVisuals();
-      oldRefs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
-    };
-    // Which regex folders are on (regex.js) is kept with a theme, outside its look settings, and never exported.
-    // With the Regexes page off, themes leave regex folders alone.
-    const regexStates = async () => (s.rxEnabled ? (await loadModule('regex'))?.states?.() || null : null);
-    const saveNew = async () => {
-      const name = await askName(`Theme ${s.themes.length + 1}`);
-      if (!name) return;
-      const t = { id: newId('th'), name, data: lookSnapshot() };
-      const rs = await regexStates();
-      if (rs) t.regex = rs;
-      s.themes.push(t);
-      s.themeActive = t.id;
-      save();
-      openCombinedModal();
-      toastr.success(`Saved "${name}"`, 'Themes');
-    };
-
-    sel.onchange = async () => {
-      const t = s.themes.find((x) => x.id === sel.value);
-      const q = t ? `Your current look isn't saved as a theme and will be replaced. Apply "${t.name}" anyway?`
-        : 'Your current look isn\'t saved as a theme. Go back to the default look?';
-      if (unsaved() && !(await askYes(tbar, q, t ? 'Apply' : 'Reset'))) { shown(); return; }
-      if (!t) { resetLook(); return; }
-      s.themeActive = t.id;
-      applyLook(t.data);
-      openCombinedModal();
-      if (t.regex && s.rxEnabled) (await loadModule('regex'))?.applyStates?.(t.regex);
-    };
-
-    overlay.querySelector('#m_t_new').onclick = saveNew;
-
-    // None can't be overwritten, so saving over it makes a new theme.
-    overlay.querySelector('#m_t_upd').onclick = async () => {
-      const t = active();
-      if (!t) { saveNew(); return; }
-      if (!(await askYes(tbar, `Save your current look over "${t.name}"?`, 'Save'))) return;
-      const oldRefs = collectFileRefs(t.data);
-      t.data = lookSnapshot();
-      const rs = await regexStates();
-      if (rs) t.regex = rs;
-      save();
-      oldRefs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
-      toastr.success(`Updated "${t.name}"`, 'Themes');
-    };
-
-    overlay.querySelector('#m_t_ren').onclick = async () => {
-      const t = need();
-      if (!t) return;
-      const name = await askName(t.name, t);
-      if (!name || name === t.name) return;
-      t.name = name;
-      save();
-      openCombinedModal();
-    };
-
-    overlay.querySelector('#m_t_del').onclick = async () => {
-      const t = need();
-      if (!t || !(await askYes(tbar, `Delete the theme "${t.name}"? Your current look stays as it is.`, 'Delete', { danger: true }))) return;
-      const refs = collectFileRefs(t.data);
-      s.themes = s.themes.filter((x) => x !== t);
-      s.themeActive = null;
-      save();
-      refs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
-    };
-
-    overlay.querySelector('#m_t_exp').onclick = () => {
-      const t = active();
-      const data = t ? t.data : lookSnapshot();
-      const name = t ? t.name : 'My Look';
-      const secs = Object.keys(LOOK).filter((k) => data[k]);
-      const nImg = collectFileRefs(data).size;
-      panel.innerHTML = `
-        <div class="ntr_tpanel">
-          <strong><i class="fa-solid fa-fw fa-file-export ntr_glab_icon"></i>Export "${escapeHTML(name)}"</strong>
-          <div class="cb_plab">Sections</div>
-          ${secBoxes(secs)}
-          ${nImg ? `<label class="checkbox_label" style="margin-top:4px;"><input type="checkbox" id="m_t_img" checked><span>Include Pictures (${nImg})</span></label>
-          <div class="cb_hint">Needed on another install.</div>` : ''}
-          <div class="cb_actions">
-            <button class="menu_button" id="m_t_dl"><i class="fa-solid fa-download"></i> Download</button>
-            <button class="menu_button" id="m_t_cancel">Cancel</button>
-          </div>
-        </div>`;
-      panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
-      panel.querySelector('#m_t_dl').onclick = async () => {
-        const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
-        if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
-        let sections = Object.fromEntries(chosen.map((k) => [k, data[k]]));
-        if (panel.querySelector('#m_t_img')?.checked && collectFileRefs(sections).size) {
-          const r = await embedFiles(sections);
-          sections = r.data;
-          if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be read and were left as links.`, 'Themes');
-        }
-        const out = { ntrTheme: 1, version: VERSION, name, sections };
-        const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${name.replace(/[^\w\- ]+/g, '').trim() || 'theme'}.ntr-theme.json`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-        panel.innerHTML = '';
-      };
-    };
-
-    const tf = overlay.querySelector('#m_t_file');
-    overlay.querySelector('#m_t_imp').onclick = () => tf.click();
-    tf.onchange = async () => {
-      const f = tf.files[0];
-      tf.value = '';
-      if (!f) return;
-      let j;
-      try { j = JSON.parse(await readText(f)); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
-      if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
-      upgradeTheme(j.sections);
-      const secs = Object.keys(LOOK).filter((k) => Object.keys(cleanLookSection(k, j.sections[k])).length);
-      // Tag symbols that are fine one by one but clash together get left out (see cleanLookSection); say so, so it's clear why yours stay.
-      const vnIn = isObj(j.sections.vn) ? j.sections.vn : {};
-      const tagsOut = TAG_KEYS.some((k) => k in vnIn && validLookValue(k, vnIn[k])) && !TAG_KEYS.some((k) => k in cleanLookSection('vn', vnIn));
-      if (!secs.length) {
-        toastr.error(`That theme file has nothing this version can use.${tagsOut ? ' Its tag symbols and keywords clash with yours, so they\'re left out.' : ''}`, 'Themes');
-        return;
-      }
-      // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
-      const rbPart = secs.includes('reasoning') ? cleanLookSection('reasoning', j.sections.reasoning) : {};
-      const css = rbCssText((k) => rbPart[k]);
-      const scrollCss = String(rbPart.ovScrollCss || '').slice(0, 2000).trim();
-      const cursorCssIn = String(rbPart.ovCursorCss || '').slice(0, 2000).trim();
-      const qrCssIn = String(rbPart.ovQrCss || '').slice(0, 2000).trim();
-      const cssIn = (part) => `This theme has Custom CSS for ${part}. It comes in switched off: check it under Elements, ${part}, Advanced: Custom CSS, then tick it.`;
-      const pfpPart = secs.includes('pfp') ? cleanLookSection('pfp', j.sections.pfp) : {};
-      const avCssIn = [['ai', 'AI'], ['us', 'User']].map(([p, side]) => [side, String(pfpPart[p + 'Css'] || '').slice(0, 2000).trim()]).filter(([, c]) => c);
-      panel.innerHTML = `
-        <div class="ntr_tpanel">
-          <strong><i class="fa-solid fa-fw fa-file-import ntr_glab_icon"></i>Import Theme</strong>
-          <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported Theme'))}"></label>
-          <div class="cb_plab">Sections</div>
-          ${secBoxes(secs)}
-          ${css ? `<div class="cb_hint">${cssIn('Reasoning Block')}</div>
-          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>` : ''}
-          ${scrollCss ? `<div class="cb_hint">${cssIn('Scrollbar')}</div>
-          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(scrollCss)}</pre>` : ''}
-          ${cursorCssIn ? `<div class="cb_hint">${cssIn('Cursor')}</div>
-          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(cursorCssIn)}</pre>` : ''}
-          ${qrCssIn ? `<div class="cb_hint">${cssIn('Quick Replies')}</div>
-          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(qrCssIn)}</pre>` : ''}
-          ${avCssIn.map(([side, c]) => `<div class="cb_hint">This theme has Custom CSS for the ${side} avatar. It comes in switched off: check it under Avatars, ${side} Avatar, Advanced: Custom CSS, then tick it.</div>
-          <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(c)}</pre>`).join('')}
-          ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Avatars, Emotions, Tags and Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
-          <div class="cb_actions">
-            <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add Theme</button>
-            <button class="menu_button" id="m_t_cancel">Cancel</button>
-          </div>
-        </div>`;
-      panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
-      panel.querySelector('#m_t_add').onclick = async () => {
-        const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
-        if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
-        let name = panel.querySelector('#m_t_iname').value.trim() || 'Imported Theme';
-        const base = name;
-        for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
-        let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
-        for (const [k] of RB_CSS) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
-        for (const k of ['ovScrollCss', 'ovCursorCss', 'ovQrCss']) if (data.reasoning && String(data.reasoning[k] || '').trim()) data.reasoning[k + 'On'] = false;
-        for (const k of ['aiCss', 'usCss']) if (data.pfp && String(data.pfp[k] || '').trim()) data.pfp[k + 'On'] = false;
-        if (hasEmbedded(data)) {
-          toastr.info('Uploading the theme\'s pictures...', 'Themes');
-          const r = await unpackFiles(data);
-          data = r.data;
-          if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be uploaded.`, 'Themes');
-        }
-        s.themes.push({ id: newId('th'), name, data });
-        save();
-        openCombinedModal();
-        toastr.success(`Added "${name}". Pick it in the list to apply it.`, 'Themes');
-      };
-    };
-  }
+  // The Themes page comes from themes.js, loaded at start.
+  const themesSectionHtml = (s) => modulePageHtml(s, 'themes', 'themes', themesSectionHtml, 'Loading your themes.');
 
   // The wand button in the menu's title bar adds the menu to SillyTavern's wand menu. Lit means it's in there.
   function bindWand(overlay, s) {
@@ -3082,7 +2847,7 @@ await (async () => {
 
   // ===== Module loader + the Visual Novel toggle button =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
-  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening Video', overlays: 'Overlays', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions', elements: 'Elements', text: 'Text Formatting', avatars: 'Avatar Management', decor: 'UI Decor', layout: 'Layout', fonts: 'Font List' };
+  const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening Video', overlays: 'Overlays', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions', elements: 'Elements', text: 'Text Formatting', avatars: 'Avatar Management', decor: 'UI Decor', layout: 'Layout', fonts: 'Font List', themes: 'Themes' };
   const modPromise = {}, modError = {}, modRetries = {};
   function loadModule(name, retry = false) {
     if (window.NTR[name]) return Promise.resolve(window.NTR[name]);
@@ -3120,7 +2885,8 @@ await (async () => {
   // A module that arrives after the menu was drawn fills in only its own page or part: the element marked
   // data-ntr-wait with its name, drawn again by `draw`. Redrawing the whole menu would close a question being answered,
   // like a theme's name, and bring the menu back over Edit Layout. With `head`, the heading just before the mark goes
-  // too, since `draw` brings its own. Nothing happens if the menu was closed or drawn again in the meantime.
+  // too, since `draw` brings its own. It fills in the menu showing now; nothing happens if that menu has no mark left,
+  // because it was closed or drawn after the module arrived.
   function fillIn(name, draw, bind, { head = false } = {}) {
     const overlay = document.getElementById('cb_modal_overlay');
     const mark = overlay?.querySelector(`[data-ntr-wait="${name}"]`);
@@ -3192,14 +2958,18 @@ await (async () => {
     }
   }
 
-  // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
-  function agentsSectionHtml(s) {
-    const ag = window.NTR.agents;
-    if (ag) return ag.sectionHtml(s);
-    if (!modError.agents) loadModule('agents').then((m) => fillIn('agents', agentsSectionHtml, m?.bind));
-    const msg = modError.agents ? 'Agents failed to load: ' + escapeHTML(modError.agents) : 'Loading your agents.';
-    return pageHtml('agents', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError.agents ? '' : 'agents' });
+  // A whole menu page from module `name`, or a note while it loads or after it failed. `draw` is the caller, drawn
+  // again when the module arrives; `opts` go to pageHtml.
+  function modulePageHtml(s, name, page, draw, loading, opts = {}) {
+    const m = window.NTR[name];
+    if (m) return m.sectionHtml(s);
+    if (!modError[name]) loadModule(name).then((mod) => fillIn(name, draw, mod?.bind));
+    const msg = modError[name] ? `${MOD_LABEL[name]} failed to load: ` + escapeHTML(modError[name]) : loading;
+    return pageHtml(page, '', { ...opts, note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError[name] ? '' : name });
   }
+
+  // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
+  const agentsSectionHtml = (s) => modulePageHtml(s, 'agents', 'agents', agentsSectionHtml, 'Loading your agents.');
 
   // The Emotions part of the Avatars page comes from cast.js, loaded at start while NTR is on, or else the first time the
   // menu opens.
@@ -3213,13 +2983,7 @@ await (async () => {
 
   // The Overlays page comes from overlays.js, loaded the first time the menu opens if a banner or foreground image
   // hasn't loaded it already.
-  function overlaysSectionHtml(s) {
-    const m = window.NTR.overlays;
-    if (m) return m.sectionHtml(s);
-    if (!modError.overlays) loadModule('overlays').then((o) => fillIn('overlays', overlaysSectionHtml, o?.bind));
-    const msg = modError.overlays ? 'Overlays failed to load: ' + escapeHTML(modError.overlays) : 'Loading the banner and foreground images.';
-    return pageHtml('fg', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, legend: true, wait: modError.overlays ? '' : 'overlays' });
-  }
+  const overlaysSectionHtml = (s) => modulePageHtml(s, 'overlays', 'fg', overlaysSectionHtml, 'Loading the banner and foreground images.', { legend: true });
 
   // The Regexes page comes from regex.js, loaded the first time the menu opens.
   function regexSectionHtml(s) {
@@ -3591,6 +3355,9 @@ await (async () => {
     // both on.
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
     refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v), fontName: (v) => fontName(v),
+    // For themes.js: what a theme holds, how it's cleaned and applied, and its files
+    LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, upgradeTheme, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
+    unpackFiles, isObj, stColor,
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For cast.js: Pop Out catches up after a face changes
@@ -3615,7 +3382,7 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
       COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, ntrAvatars, namesHidden, ovLabel,
       RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
-      cUrl, cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
+      cUrl, cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
       LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, layoutPop, syncPopSliders, fgOwner, decorOn, clamp,
@@ -3727,6 +3494,8 @@ await (async () => {
     // Visual Novel Mode loads when it's switched on (see setReader).
     if (isOn() && s0.nodeEnabled) rdLoad.catch(() => {}).then(() => loadVN()).then((vn) => { if (vn) vn.refresh(); });
     if (isOn() && s0.agEnabled) loadModule('agents');
+    // The Themes page works with NTR on or off.
+    loadModule('themes');
   });
 })();
 

@@ -21,7 +21,6 @@ Share agents as files. A shared agent brings its job, never its connection.
 - [ ] Export, next to Duplicate and Delete: a JSON file with the agent's name, title, picture (embedded in the file), instructions, Answer type and fields, samplers, effort, how it reads the chat, Max Tokens, what it keeps, and its Send to Main AI settings. Never its connection: no connection type, source, model, links, key or instruct template. An optional Made With note names the model as a hint; off by default, never applied.
 - [ ] Import, next to Create Agent: one file holds one agent or several. Each starts as a new agent with only those settings filled in, so it runs on Same as Chat, gets a new id, and arrives switched off with Send to Main AI off. A name already in use becomes "Name (2)", "(3)" and so on. Pictures only from inside the file, about 1 MB at most, checked as real images (GIFs too) and uploaded only after you confirm. Keeps to the 30-agent limit and says how many were skipped.
 - [ ] A confirm window before adding: each agent's full instructions and field hints, with a warning on macros that change variables or read other agents, and a note when it triggers lorebooks, inserts as a chosen role, or uses Your Chat's Full Prompt. Two unticked boxes, shown only when the sharer had them on: "Run After Every Reply (On When Shared)" and "Send to Main AI (On When Shared)".
-- [ ] Share `readText` and `embedFiles` through `window.NTR` instead of copying them.
 
 ### Dashboard: follow-ups
 - [ ] Group field type: a small card per character with its own fields, for when List lines aren't enough.
@@ -61,6 +60,11 @@ Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The 
 
 - [ ] Have these sliders and the code that applies them use the ranges already shared through `window.NTR`, keeping setting names, defaults and the menu layout the same.
 - [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
+
+### Menu keeps working when a module breaks
+The menu copes when Themes, Agents, Overlays or Emotions fail to load. If one loads but then throws while drawing or binding its page, the whole menu draw fails, or every bind after it is skipped.
+
+- [ ] Guard the menu's calls into these modules the way `callModule` guards the look modules, so the page says it failed and the rest of the menu still draws and works.
 
 ### Graphic borders around the UI
 

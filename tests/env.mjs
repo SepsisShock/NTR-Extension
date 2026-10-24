@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
-export const MODULES = ['cast', 'vn', 'map', 'opening', 'overlays', 'regex', 'reader', 'agents', 'elements', 'text', 'avatars', 'decor', 'layout', 'fonts'];
+export const MODULES = ['cast', 'vn', 'map', 'opening', 'overlays', 'regex', 'reader', 'agents', 'elements', 'text', 'avatars', 'decor', 'layout', 'fonts', 'themes'];
 // The look modules, which the core loads itself before it starts (LOOK_MODULES in index.js).
 export const LOOK = ['elements', 'text', 'avatars', 'decor', 'layout'];
 

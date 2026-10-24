@@ -2605,13 +2605,7 @@ await (async () => {
   }
 
   // The Themes page comes from themes.js, loaded at start.
-  function themesSectionHtml(s) {
-    const th = window.NTR.themes;
-    if (th) return th.sectionHtml(s);
-    if (!modError.themes) loadModule('themes').then((m) => fillIn('themes', themesSectionHtml, m?.bind));
-    const msg = modError.themes ? 'Themes failed to load: ' + escapeHTML(modError.themes) : 'Loading your themes.';
-    return pageHtml('themes', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError.themes ? '' : 'themes' });
-  }
+  const themesSectionHtml = (s) => modulePageHtml(s, 'themes', 'themes', themesSectionHtml, 'Loading your themes.');
 
   // The wand button in the menu's title bar adds the menu to SillyTavern's wand menu. Lit means it's in there.
   function bindWand(overlay, s) {
@@ -2891,7 +2885,8 @@ await (async () => {
   // A module that arrives after the menu was drawn fills in only its own page or part: the element marked
   // data-ntr-wait with its name, drawn again by `draw`. Redrawing the whole menu would close a question being answered,
   // like a theme's name, and bring the menu back over Edit Layout. With `head`, the heading just before the mark goes
-  // too, since `draw` brings its own. Nothing happens if the menu was closed or drawn again in the meantime.
+  // too, since `draw` brings its own. It fills in the menu showing now; nothing happens if that menu has no mark left,
+  // because it was closed or drawn after the module arrived.
   function fillIn(name, draw, bind, { head = false } = {}) {
     const overlay = document.getElementById('cb_modal_overlay');
     const mark = overlay?.querySelector(`[data-ntr-wait="${name}"]`);
@@ -2963,14 +2958,18 @@ await (async () => {
     }
   }
 
-  // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
-  function agentsSectionHtml(s) {
-    const ag = window.NTR.agents;
-    if (ag) return ag.sectionHtml(s);
-    if (!modError.agents) loadModule('agents').then((m) => fillIn('agents', agentsSectionHtml, m?.bind));
-    const msg = modError.agents ? 'Agents failed to load: ' + escapeHTML(modError.agents) : 'Loading your agents.';
-    return pageHtml('agents', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError.agents ? '' : 'agents' });
+  // A whole menu page from module `name`, or a note while it loads or after it failed. `draw` is the caller, drawn
+  // again when the module arrives; `opts` go to pageHtml.
+  function modulePageHtml(s, name, page, draw, loading, opts = {}) {
+    const m = window.NTR[name];
+    if (m) return m.sectionHtml(s);
+    if (!modError[name]) loadModule(name).then((mod) => fillIn(name, draw, mod?.bind));
+    const msg = modError[name] ? `${MOD_LABEL[name]} failed to load: ` + escapeHTML(modError[name]) : loading;
+    return pageHtml(page, '', { ...opts, note: `<div class="cb_hint ntr_pnote">${msg}</div>`, wait: modError[name] ? '' : name });
   }
+
+  // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
+  const agentsSectionHtml = (s) => modulePageHtml(s, 'agents', 'agents', agentsSectionHtml, 'Loading your agents.');
 
   // The Emotions part of the Avatars page comes from cast.js, loaded at start while NTR is on, or else the first time the
   // menu opens.
@@ -2984,13 +2983,7 @@ await (async () => {
 
   // The Overlays page comes from overlays.js, loaded the first time the menu opens if a banner or foreground image
   // hasn't loaded it already.
-  function overlaysSectionHtml(s) {
-    const m = window.NTR.overlays;
-    if (m) return m.sectionHtml(s);
-    if (!modError.overlays) loadModule('overlays').then((o) => fillIn('overlays', overlaysSectionHtml, o?.bind));
-    const msg = modError.overlays ? 'Overlays failed to load: ' + escapeHTML(modError.overlays) : 'Loading the banner and foreground images.';
-    return pageHtml('fg', '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, legend: true, wait: modError.overlays ? '' : 'overlays' });
-  }
+  const overlaysSectionHtml = (s) => modulePageHtml(s, 'overlays', 'fg', overlaysSectionHtml, 'Loading the banner and foreground images.', { legend: true });
 
   // The Regexes page comes from regex.js, loaded the first time the menu opens.
   function regexSectionHtml(s) {

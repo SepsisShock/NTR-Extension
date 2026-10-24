@@ -110,7 +110,7 @@
 
     overlay.querySelector('#m_t_new').onclick = saveNew;
 
-    // None can't be overwritten, so saving over it makes a new theme.
+    // Default Look can't be overwritten, so saving over it makes a new theme.
     overlay.querySelector('#m_t_upd').onclick = async () => {
       const t = active();
       if (!t) { saveNew(); return; }
@@ -197,18 +197,18 @@
       try { j = JSON.parse(await readText(f)); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
       upgradeTheme(j.sections);
-      const secs = Object.keys(LOOK).filter((k) => Object.keys(cleanLookSection(k, j.sections[k])).length);
+      // Cleaned once for the preview. Adding cleans again, since the clash checks follow the settings, which can change meanwhile.
+      const cleaned = Object.fromEntries(Object.keys(LOOK).map((k) => [k, cleanLookSection(k, j.sections[k])]));
+      const secs = Object.keys(LOOK).filter((k) => Object.keys(cleaned[k]).length);
       // Tag symbols that are fine one by one but clash together get left out (see cleanLookSection); say so, so it's clear why yours stay.
       const vnIn = isObj(j.sections.vn) ? j.sections.vn : {};
-      const tagsOut = TAG_KEYS.some((k) => k in vnIn && validLookValue(k, vnIn[k])) && !TAG_KEYS.some((k) => k in cleanLookSection('vn', vnIn));
+      const tagsOut = TAG_KEYS.some((k) => k in vnIn && validLookValue(k, vnIn[k])) && !TAG_KEYS.some((k) => k in cleaned.vn);
       if (!secs.length) {
         toastr.error(`That theme file has nothing this version can use.${tagsOut ? ' Its tag symbols and keywords clash with yours, so they\'re left out.' : ''}`, 'Themes');
         return;
       }
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
-      const cleaned = {};
-      const part = (sec) => (cleaned[sec] ??= secs.includes(sec) ? cleanLookSection(sec, j.sections[sec]) : {});
-      const cssIn = CSS_PARTS.map(([sec, keys, name, where, text = (get) => String(get(keys[0]) || '').trim()]) => [name, where, text((k) => part(sec)[k])])
+      const cssIn = CSS_PARTS.map(([sec, keys, name, where, text = (get) => String(get(keys[0]) || '').trim()]) => [name, where, text((k) => cleaned[sec][k])])
         .filter(([, , css]) => css);
       panel.innerHTML = `
         <div class="ntr_tpanel">

@@ -44,4 +44,4 @@ function contextOptions(browser, mode = MODE) {
   return { viewport, userAgent, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 }
 
-module.exports = { launch, contextOptions, MODE };
+module.exports = { loadPlaywright, launch, contextOptions, MODE };

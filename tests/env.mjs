@@ -63,3 +63,10 @@ export const load = (name) => import(pathToFileURL(join(ext, `${name}.mjs`)).hre
 
 await load('index');
 export const api = window.NTR.api;
+
+// Saved settings as SillyTavern hands them over when the page loads: a new object (here the current settings with
+// `saved` on top), which the core brings up to date the first time it's asked for it.
+export const reloadSettings = (saved) => {
+  context.extensionSettings.chatvisuals = { ...structuredClone(context.extensionSettings.chatvisuals), ...saved };
+  return api.settings();
+};

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.5';
+  const VERSION = '2.77.6';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -339,12 +339,26 @@ await (async () => {
   // still runs gets a throwaway copy of the defaults.
   let wiping = false;
   let wipeStub = null;
+  // SillyTavern keeps one extension settings object for the whole page, so it's looked up once: getContext() builds a
+  // new object on every call, and settings() runs many times in every restyle.
+  let extSettings = null;
+  // The settings object already brought up to date (see loadSettings). Each one is, once, the first time it's asked for.
+  let loaded = null;
   function settings() {
-    const { extensionSettings } = ctx();
-    if (wiping && !extensionSettings[MODULE]) return (wipeStub ??= structuredClone(DEFAULTS));
-    const fresh = !extensionSettings[MODULE];
-    if (fresh) extensionSettings[MODULE] = {};
-    const s = extensionSettings[MODULE];
+    const all = (extSettings ??= ctx().extensionSettings);
+    const s = all[MODULE];
+    if (s && s === loaded) return s;
+    if (wiping && !s) return (wipeStub ??= structuredClone(DEFAULTS));
+    if (!s) all[MODULE] = {};
+    loadSettings(all[MODULE], !s);
+    loaded = all[MODULE];
+    return loaded;
+  }
+
+  // Saved settings brought up to date: settings from older versions turned into the new ones, missing ones filled in
+  // from DEFAULTS, and lists checked. Also run after a theme is applied, since a theme's Default Emotion can name an
+  // emotion it doesn't have.
+  function loadSettings(s, fresh = false) {
     const keepOldLook = !fresh && !('artBg' in s) && !!(s.vnUsed || s.nodeEnabled);
     // Border Style had no tick in 2.10.0, so a border picked there stays on.
     if ('rbBtnBorder' in s && !('rbBtnBorderOn' in s)) s.rbBtnBorderOn = s.rbBtnBorder !== 'none';
@@ -394,12 +408,9 @@ await (async () => {
     if (s.uiOpen && !('rd_vn' in s.uiOpen)) openStyleGroup(s);
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
-    if (!s.themeLookV3) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV3 = true; }
-    // Saved themes move the settings that changed pages (Chat Width to Layout, Scrollbar to Elements and so on) to their new sections.
-    if (!s.themeLookV4) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV4 = true; }
-    // Saved themes with Fade as their pattern move it to its own switch.
-    if (!s.themeLookV5) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV5 = true; }
-    // Saved themes drop the avatar Blur.
+    // Saved themes are brought up to date once. upgradeTheme makes every change in one go: the settings that changed
+    // pages (Chat Width to Layout, Scrollbar to Elements and so on) move to their new sections, Fade as a pattern gets
+    // its own switch, and the avatar Blur goes. themeLookV3 to V5 marked earlier changes; a new one needs themeLookV7.
     if (!s.themeLookV6) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV6 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
@@ -421,9 +432,7 @@ await (async () => {
       }
       s.frameLibMoved = true;
     }
-    if (!Array.isArray(s.layPins)) s.layPins = [];
     if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
-    return s;
   }
 
   // ===== Pop-out pictures and foreground images =====
@@ -832,7 +841,6 @@ await (async () => {
     }
     const def = defaultBanner();
     for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
-    if (!Array.isArray(r.images)) r.images = [];
     // Before 2.3 Global had no images of its own, so a Global character with its own images, link or video
     // becomes Char and keeps showing them. Checked once per banner, so switching to Global later sticks.
     if (!r.sharedChecked) {
@@ -915,9 +923,8 @@ await (async () => {
 
   // ===== Questions in the menu =====
   // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
-  // One question at a time. Without a button to show it under, SillyTavern's own popup asks instead.
-  // A new question closes the open one as if Cancel was pressed, and so does closing or redrawing the menu it's in, so
-  // code waiting on it never hangs.
+  // One question at a time: a new question closes the open one as if Cancel was pressed, and so does closing or
+  // redrawing the menu it's in, so code waiting on it never hangs.
   const cancelAsks = (root) => root?.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
   function askBox(anchor, html, cancel) {
     cancelAsks(document);
@@ -1052,11 +1059,6 @@ await (async () => {
 
   // Resolves to true for the main button, false for Cancel.
   function askYes(anchor, text, ok, { danger = false } = {}) {
-    if (!anchor) {
-      const c = ctx();
-      if (typeof c.callGenericPopup === 'function' && c.POPUP_TYPE) return c.callGenericPopup(escapeHTML(text), c.POPUP_TYPE.CONFIRM).then((r) => r === c.POPUP_RESULT?.AFFIRMATIVE || r === 1);
-      return Promise.resolve(confirm(text));
-    }
     return new Promise((res) => {
       const cancel = () => { box.remove(); res(false); };
       const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`, cancel);
@@ -1068,16 +1070,6 @@ await (async () => {
   // A text field. `check(text)` resolves to { value } to accept or { error } to show a red hint and keep asking.
   // Resolves to the accepted value, or null on Cancel.
   function askText(anchor, { label, value = '', ok = 'Add', check = (v) => ({ value: v }) }) {
-    if (!anchor) {
-      const c = ctx();
-      if (typeof c.callGenericPopup !== 'function' || !c.POPUP_TYPE) return Promise.resolve(null);
-      return c.callGenericPopup(escapeHTML(label), c.POPUP_TYPE.INPUT, value).then(async (raw) => {
-        if (typeof raw !== 'string') return null;
-        const r = await check(raw.trim());
-        if (r.error) { toastr.warning(r.error); return null; }
-        return r.value;
-      });
-    }
     return new Promise((res) => {
       const cancel = () => { box.remove(); res(null); };
       const box = askBox(anchor, `
@@ -1117,7 +1109,8 @@ await (async () => {
     if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
     if (!ext) { toastr.warning('Use an mp4 or webm video.', title); return ''; }
     if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     const data = String(await readDataURL(f));
     return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
   }
@@ -1142,7 +1135,7 @@ await (async () => {
       return '';
     });
   };
-  const askImageUrl = (label = 'Picture', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste a picture link (https://...)`, loadImg,
+  const askImageUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a picture link (https://...)`, loadImg,
     'That link did not load as a picture. Check it and try again.', perChat);
 
   // Ask for a video link (mp4 or webm).
@@ -1156,7 +1149,7 @@ await (async () => {
     v.onerror = () => done(false);
     v.src = u;
   });
-  const askVideoUrl = (label = 'Video', anchor = null, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
+  const askVideoUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
     'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
 
   // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
@@ -2512,7 +2505,7 @@ await (async () => {
     const s = settings();
     const before = collectFileRefs(lookSnapshot());
     for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data && data[sec]));
-    settings();
+    loadSettings(s);
     save();
     refreshVisuals();
     before.forEach((p) => deleteFileIfUnused(p));
@@ -2607,7 +2600,7 @@ await (async () => {
       const oldRefs = collectFileRefs(lookSnapshot());
       for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
       s.themeActive = null;
-      settings();
+      loadSettings(s);
       save();
       refreshVisuals();
       oldRefs.forEach((p) => deleteFileIfUnused(p));

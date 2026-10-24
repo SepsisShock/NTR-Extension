@@ -23,7 +23,7 @@ ChatGPT reviews pull requests and submits review comments directly on GitHub, un
 ### Before reviewing
 
 - Read the pull request description first: what changed, why, and how it was tested.
-- Judge the code against its stated purpose and what works for the user. Do not invent requirements for hypothetical users or setups, or flag a deliberate choice merely because you would implement it differently. If it causes a concrete failure, it can still be a Bug.
+- Judge the code against its stated purpose. NTR is built for release, so a failure with other cards, presets or screen sizes counts when you can name the trigger. Do not ask for compatibility with other people's existing saved settings, or flag a deliberate choice merely because you would implement it differently.
 - Read existing review comments and replies. Do not repeat findings already raised or resolved. If new evidence shows that a problem remains, explain it in the existing thread when possible.
 
 ### Writing findings
@@ -45,11 +45,11 @@ Read the Code section of `CLAUDE.md` and use it when reviewing. The implementati
 Pay particular attention to:
 
 - Card data comes from other people. Every new field read from a card must be cleaned in `cleanStore`.
-- Saved settings keys must not be renamed or removed, so saved configurations keep working.
+- Saved settings keys are kept, or renamed or removed with an upgrade in `loadSettings`, so saved configurations keep working.
 - Modules reuse helpers from `index.js` through `window.NTR` instead of copying them.
 - Number ranges live in `NUM_RANGE`, not typed directly into the menu or other code. Respect documented exceptions for modules that have not migrated yet.
 - Flag repeated helpers or logic, or old code the change leaves unused, only when you can name a concrete maintenance problem or suspected failure. Respect intentional exceptions (old saved settings, older SillyTavern versions) explained in the PR description or a code comment.
-- For changes to `.js` or `.css`, check that the version was bumped in all places required by `CLAUDE.md`. Documentation-only changes do not need a version bump.
+- For `.js` or `.css` changes, check the bump level: last number for fixes, middle for new features, first only with approval. CI checks that the bump happened everywhere. Docs-only changes need no bump.
 
 After the checklist, look for any other bugs the change could cause, including ones outside the listed areas. The same evidence standards apply.
 

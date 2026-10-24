@@ -418,10 +418,14 @@
     if (img.dataset.ntrFace === src) return;
     const full = fullResUrl(src);
     // Still loading, or it failed and isn't asked for again.
-    if (full === src || img.dataset.ntrWait === full) return;
-    img.dataset.ntrWait = full;
+    if (full === src || img.dataset.ntrLoading === full) return;
+    img.dataset.ntrLoading = full;
     const pre = new Image();
-    pre.onload = () => { delete img.dataset.ntrWait; img.dataset.ntrFull = full; if (img.getAttribute('src') === src) img.src = full; };
+    pre.onload = () => {
+      if (img.dataset.ntrLoading === full) delete img.dataset.ntrLoading;
+      img.dataset.ntrFull = full;
+      if (img.getAttribute('src') === src) img.src = full;
+    };
     pre.src = full;
   }
 

@@ -27,4 +27,24 @@ test('the send bar, page bar and banner are Free only with Layout on', () => {
 test('the Layout page draws, with its switch and Pinned Blocks', () => {
   const html = window.NTR.layout.sectionHtml(api.settings());
   for (const id of ['m_l_enable', 'm_l_edit', 'm_l_reset', 'm_pin_list', 'm_pin_add']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /data-key="ovNamesOn"/);
+});
+
+test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s, and takes NTR Avatars with it', () => {
+  const s = api.settings();
+  Object.assign(s, { masterEnabled: true, layEnabled: true, avatarEnabled: false, aiEnabled: true, ovNamesOn: true, ovNames: 'hide' });
+  assert.equal(api.look.namesHidden(s), true);
+  s.avatarEnabled = true;
+  assert.equal(api.look.ntrAvatars(s, 'ai'), false);
+  s.layEnabled = false;
+  assert.equal(api.look.namesHidden(s), false);
+  assert.equal(api.look.ntrAvatars(s, 'ai'), true);
+  s.ovNamesOn = false;
+});
+
+test('Names and Pictures on with Show, which hid nothing, loads as Hide Names and Avatars off', () => {
+  Object.assign(api.settings(), { ovNamesOn: true, ovNames: 'show' });
+  const s = api.settings();
+  assert.equal(s.ovNamesOn, false);
+  assert.equal(s.ovNames, 'hide');
 });

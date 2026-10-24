@@ -5,12 +5,12 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.77.1';
+  const AVATARS_VERSION = '2.77.2';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askText, askYes, card, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
+  const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, isOn, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
     rangeAttrs, rangeNum, save, settings, startPlacement, tiles, uploadImage } = A;
-  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, ntrAvatars, ovPick, ovRow, popMsg,
+  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, namesHidden, ntrAvatars, ovRow, popMsg,
     restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
@@ -691,11 +691,12 @@
     `;
   }
 
-  // The Avatar Management page: Names and Pictures, a column for each side, and Emotions (cast.js).
+  // The Avatar Management page: a note while avatars are hidden elsewhere, a column for each side, and Emotions (cast.js).
   function avatarsSectionHtml(s) {
     return pageHtml('pfp', `
-            ${card('', ovRow(s, 'ovNamesOn', 'Names and Pictures', ovPick(s, 'ovNames', [['show', 'Show'], ['hide', 'Hide']])
-              + '<div class="cb_hint">Hide removes avatars, names and timestamps, pop-outs included. Message Details (Elements) still shows its details where ticked, except under the avatar.</div>'))}
+            <div id="m_av_hidden" class="ntr_offnote m_av_note" hidden><i class="fa-solid fa-eye-slash"></i> Hide Names and Avatars is on in Layout. These settings wait until it's off.
+              <button type="button" id="m_av_layout" class="menu_button" style="margin: 6px 0 0; width: max-content;"><i class="fa-solid fa-table-cells-large"></i> Open Layout</button></div>
+            <div id="m_av_sthidden" class="ntr_offnote m_av_note" hidden><i class="fa-solid fa-eye-slash"></i> ST's Hide Chat Avatars is on, so In Line and Backdrop avatars stay hidden. Pop Out still shows.</div>
             <div class="ntr_cols">
               ${getColHtml('ai', 'AI', s)}
               ${getColHtml('us', 'User', s)}
@@ -710,6 +711,18 @@
       s.avatarEnabled = this.checked; save(); updateAvatarStyle();
       window.NTR.cast?.refresh();
     };
+    // While Layout's Hide Names and Avatars is on, both columns wait. SillyTavern's own Hide Chat Avatars hides only the
+    // avatars in the chat, so it just gets a note. Either may change while the menu is open.
+    const syncHidden = () => {
+      const hidden = namesHidden(s);
+      overlay.querySelector('#m_av_hidden').hidden = !hidden;
+      overlay.querySelector('#m_av_sthidden').hidden = hidden || !document.body.classList.contains('hideChatAvatars');
+      overlay.querySelector('.ntr_page[data-page="pfp"] .ntr_cols').classList.toggle('cb_dim', hidden);
+    };
+    overlay.addEventListener('change', syncHidden);
+    overlay.querySelector('.ntr_navi[data-page="pfp"]')?.addEventListener('click', syncHidden);
+    overlay.querySelector('#m_av_layout').onclick = () => overlay.querySelector('.ntr_navi[data-page="layout"]')?.click();
+    syncHidden();
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);

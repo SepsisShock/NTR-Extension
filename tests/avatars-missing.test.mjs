@@ -1,5 +1,5 @@
 // Without avatars.js, the core still starts, at once rather than after its 5-second wait, says what's missing, and
-// still loads the other look modules. NTR Avatars and Names and Pictures are set only on its page, so they stay off.
+// still loads the other look modules. NTR Avatars are set only on its page, so they stay off.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

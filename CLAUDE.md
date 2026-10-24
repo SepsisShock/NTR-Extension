@@ -19,6 +19,8 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 - Match existing style and file structure.
 - Preserve existing settings keys so my saved config keeps working.
 - `index.js` is the core; the other modules use its helpers through `window.NTR`. Reuse them; don't copy them.
+- Settings data stays in `index.js`: keys, `DEFAULTS`, `NUM_RANGE`, upgrades in `loadSettings`, upload names, and card cleaning in `cleanStore`. So do helpers that more than one module reads, shared through `window.NTR.api.look`. A helper only its own module reads goes in that module. Modules never import from each other; anything two need goes through core.
+- A new menu page starts in its own module, `<name>.js`, built from `window.NTR.api`. Copy how the closest existing page is wired (`layout.js` for a look page, `regex.js` for a page that loads when opened) and add the new file everywhere that module is listed, a missing-module test included. Core keeps its settings data (see above) and its menu entry. A new part of an existing page goes in that page's module.
 - All uploads go through `uploadImage` or `uploadVideo`.
 - Elements lives in `elements.js`, built from what core shares in `window.NTR.api.look`; its settings and upload names stay in `index.js`. Give each new part its own bind and CSS functions, like `bindMessageDetails` and `messageDetailsCss`. Rows built with `ovRow`, `rangeSlider`, `ovColor`, `ovText`, `ovFont`, `ovPick` and `ovWhen` are bound on every page by `bindRows`; to add behavior to them, listen on the part, like `syncFade`.
 - Text Formatting lives in `text.js` the same way, built from `window.NTR.api.look`; its settings stay in `index.js`.

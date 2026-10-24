@@ -8,11 +8,11 @@
 // Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages, Hide Names and Avatars and Attached
 // Style (overrideCss, layoutChatCss, namesCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const LAYOUT_VERSION = '2.77.8';
+  const LAYOUT_VERSION = '2.77.9';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
-  const { LAY_EDGES, PIN_CLASS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, fgOwner, joinCss, layoutPop, lk, ovLabel, ovPick,
+  const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, fgOwner, joinCss, layoutPop, lk, ovLabel, ovPick,
     ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, syncPopSliders } = A.look;
 
   // ===== Edit Placement =====
@@ -58,7 +58,6 @@
   const layNames = (o) => Object.fromEntries(Object.entries(o).map(([k, x]) => [lk(phoneNow(), k), x]));
   const placeKind = (it) => (it.lay ? 'lay' : it.pin ? 'pin' : it.pos ? 'fg' : 'pop');
   const place = { on: false, sel: null, drag: null, undo: [], step: null, dirty: false, frame: 0 };
-  let placeTouchGuard = false;
 
   function syncFgSliders(pos) {
     const F = fgData();
@@ -95,18 +94,14 @@
     const s = settings();
     const el = placeEl(it);
     const att = { send: 'Send', page: 'Page', ban: 'Ban' }[it.lay];
-    if (!el || !layOn(s) || (att && s[lk(phoneNow(), att)] !== 'free')) return null;
+    if (!el || !layOn(s) || (att && !partFree(att, s))) return null;
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 ? r : null;
   }
 
   // An item's outline on this page.
   function placeRect(it) {
-    if (it.lay) {
-      const r = layRect(it);
-      if (!r) return null;
-      return r;
-    }
+    if (it.lay) return layRect(it);
     if (it.pin && !pinBoxed(pinOf(it), phoneNow())) {
       // Still in its message: the copy it shows there, if it's on screen. Pinned Blocks are part of Layout, so none with it off.
       const r = layOn(settings()) ? pinSource(pinOf(it))?.el.getBoundingClientRect() : null;
@@ -171,22 +166,23 @@
     drawPlace();
   }
 
-  // Dragging a Layout part. The chat panel and send bar move anywhere and resize from their handles. The menu bar slides
-  // along its edge, changes length from its ends, and goes to another edge when dragged close to it. Kept on screen and
-  // saved as a % of it. Everything here is in the screen's own pixels: dx, dy and the pointer (px, py) too.
-  // A box (r: left, right, top, bottom) moved by dx, dy, or resized from d.grip, kept on a W by H screen and at least
-  // minW by minH, with whichever edge is nearer a grid line (every g pixels, 0 for none) landing on it.
   // v on the nearest grid line, every g pixels (0 for none).
   const snapTo = (v, g) => (g ? Math.round(v / g) * g : v);
+  // How far a span from a to b moves so whichever end is nearer a grid line lands on it.
+  function edgeSnap(a, b, g) {
+    const sa = snapTo(a, g) - a, sb = snapTo(b, g) - b;
+    return Math.abs(sa) <= Math.abs(sb) ? sa : sb;
+  }
+  // v as a % of size, the way Layout parts and Pinned Blocks are saved.
+  const pct = (v, size) => Math.round(v / size * 10000) / 100;
   // A span from a to b moved by t, kept within 0 to max, with whichever end is nearer a grid line landing on it.
   function shiftSpan(a, b, t, max, g) {
     t = clamp(t, -a, max - b);
-    if (g) {
-      const sa = snapTo(a + t, g) - a - t, sb = snapTo(b + t, g) - b - t;
-      t = clamp(t + (Math.abs(sa) <= Math.abs(sb) ? sa : sb), -a, max - b);
-    }
+    if (g) t = clamp(t + edgeSnap(a + t, b + t, g), -a, max - b);
     return [a + t, b + t];
   }
+  // A box (r: left, right, top, bottom) moved by dx, dy, or resized from grip, kept on a W by H screen and at least
+  // minW by minH, with whichever edge is nearer a grid line (every g pixels, 0 for none) landing on it.
   function dragBox(r, grip, dx, dy, W, H, minW, minH, g) {
     const snap = (v) => snapTo(v, g);
     let [L, R, T, B] = [r.left, r.right, r.top, r.bottom];
@@ -205,14 +201,11 @@
   // Dragging a Pinned Block. A floating one moves anywhere and resizes from its handles, and dragging one out of its message
   // gives it its own box there; a docked one stays on its edge and only gets wider or narrower. Saved as a % of the screen.
   // A Fit Content box saves the spot it has on screen, so the edge it grows from stays where it was dropped.
-  function dragPin(d, dx, dy, free) {
-    const s = settings();
+  function dragPin(d, dx, dy, g) {
     const p = pinOf(d.it);
     if (!p || (p.place !== 'float' && !d.grip)) return;
     const W = window.innerWidth, H = window.innerHeight;
-    const g = s.placeSnap && !free ? rangeNum(s, 'placeGrid') : 0;
     const [L, R, T, B] = dragBox(d.r0, d.grip, dx, dy, W, H, W * numRange('pinW')[0] / 100, H * numRange('pinH')[0] / 100, g);
-    const pct = (v, size) => Math.round(v / size * 10000) / 100;
     const r = p[pinPhone(phoneNow())];
     if (p.place !== 'float') return placeSet(d.it, { ...r, w: pct(R - L, W) });
     let y = pct(T, H);
@@ -223,18 +216,17 @@
     placeSet(d.it, { x: pct(L, W), y, w: pct(R - L, W), h, moved: true });
   }
 
-  function dragLayout(d, dx, dy, px, py, free) {
-    const s = settings();
+  // Dragging a Layout part. The chat panel and send bar move anywhere and resize from their handles. The menu bar slides
+  // along its edge, changes length from its ends, and goes to another edge when dragged close to it. Kept on screen and
+  // saved as a % of it. Everything here is in the screen's own pixels: dx, dy and the pointer (px, py) too.
+  function dragLayout(d, dx, dy, px, py, g) {
     const W = innerWidth, H = innerHeight;
-    const g = s.placeSnap && !free ? rangeNum(s, 'placeGrid') : 0;
     const snap = (v) => snapTo(v, g);
-    const pct = (v, size) => Math.round(v / size * 10000) / 100;
     const r = d.r0;
 
     if (d.it.lay === 'bar') {
       const up0 = barUpright(d.edge0);
-      const doc = document;
-      const min = (d.min ??= barIcons(doc) * barCell(doc));
+      const min = (d.min ??= barIcons() * barCell());
       let edge = d.edge0, a, b;
       if (d.grip) {
         [a, b] = up0 ? [r.top, r.bottom] : [r.left, r.right];
@@ -251,7 +243,7 @@
         const len = clamp(up0 ? r.height : r.width, Math.min(min, size), size);
         const at = up ? py : px;
         // Held where it was grabbed; on another edge, by its middle.
-        const grab = d.switched ? len / 2 : up0 ? d.py0 - r.top : d.px0 - r.left;
+        const grab = d.switched ? len / 2 : up0 ? d.sy - r.top : d.sx - r.left;
         [a, b] = shiftSpan(at - grab, at - grab + len, 0, size, g);
       }
       const size = barUpright(edge) ? H : W;
@@ -270,12 +262,6 @@
 
   function onPlaceTouchMove(e) {
     if (place.drag && e.cancelable) e.preventDefault();
-  }
-
-  function setPlaceTouchGuard(on) {
-    if (on === placeTouchGuard) return;
-    placeTouchGuard = on;
-    window[on ? 'addEventListener' : 'removeEventListener']('touchmove', onPlaceTouchMove, { passive: false, capture: true });
   }
 
   function ensurePlaceLayer() {
@@ -334,10 +320,9 @@
       // For a cancelled drag (see endPlacement): a foreground picture's place belongs to the open chat, so the drag keeps
       // whose it is; Layout parts and Pinned Blocks have a place for each layout, so it keeps both, as the window can
       // cross 1000 px while the drag goes on.
-      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, start, grip, moved: false, fg: it.pos ? { data: fgData(), owner: fgOwner() } : null, both: placeBoth(it) };
-      if (it.lay) Object.assign(place.drag, { r0: layRect(it), px0: e.clientX, py0: e.clientY, edge0: settings()[lk(phoneNow(), 'BarEdge')] });
-      else place.drag.r0 = placeRect(it);
-      place.drag.edge = place.drag.edge0;
+      place.drag = { it, id: e.pointerId, sx: e.clientX, sy: e.clientY, r0: placeRect(it), start, grip, moved: false, fg: it.pos ? { data: fgData(), owner: fgOwner() } : null, both: placeBoth(it) };
+      // The menu bar can go to another edge on the way (see dragLayout), so it keeps the one it started on.
+      if (it.lay === 'bar') place.drag.edge = place.drag.edge0 = settings()[lk(phoneNow(), 'BarEdge')];
       box.classList.add('cb_dragging');
     });
 
@@ -414,18 +399,15 @@
     const d = st?.d;
     if (!d || place.drag !== d) return;
     let dx = st.x - d.sx, dy = st.y - d.sy;
-    if (d.it.lay) return d.r0 && dragLayout(d, dx, dy, st.x, st.y, st.alt);
-    if (d.it.pin) return d.r0 && dragPin(d, dx, dy, st.alt);
+    // The grid spacing, or 0 for none: Snap to Grid off, or Alt held for this move.
     const s = settings();
-    if (s.placeSnap && !st.alt && d.r0) {
+    const g = s.placeSnap && !st.alt ? rangeNum(s, 'placeGrid') : 0;
+    if (d.it.lay) return d.r0 && dragLayout(d, dx, dy, st.x, st.y, g);
+    if (d.it.pin) return d.r0 && dragPin(d, dx, dy, g);
+    if (g && d.r0) {
       // The picture's nearest edge lands on a grid line, whichever corner or center it's tied to.
-      const g = rangeNum(s, 'placeGrid');
-      const snap = (a, b) => {
-        const sa = Math.round(a / g) * g - a, sb = Math.round(b / g) * g - b;
-        return Math.abs(sa) <= Math.abs(sb) ? sa : sb;
-      };
-      dx += snap(d.r0.left + dx, d.r0.right + dx);
-      dy += snap(d.r0.top + dy, d.r0.bottom + dy);
+      dx += edgeSnap(d.r0.left + dx, d.r0.right + dx, g);
+      dy += edgeSnap(d.r0.top + dy, d.r0.bottom + dy, g);
     }
     placeSet(d.it, { x: d.start.x + dx, y: d.start.y + dy });
   }
@@ -496,7 +478,7 @@
       document.body.classList.remove('ntr_placing');
       syncPins();
       toastr.info('Nothing to move yet. Set an avatar to Pop Out, add a foreground image, or pick a Pinned Block with Layout on, first.', 'Edit Placement');
-      return false;
+      return;
     }
     place.undo = [];
     place.sel = (shown.find((it) => it.id === first) || shown.find((it) => placeKind(it) === first) || shown[0]).id;
@@ -507,11 +489,10 @@
     layer.querySelectorAll('.cb_place_box').forEach((b) => b.remove());
     layer.querySelector('#cb_place_pill').insertAdjacentHTML('beforebegin', placeItems().map((it) => `<div class="cb_place_box" data-id="${it.id}"><span>${escapeHTML(it.label)}</span>${it.lay || it.pin ? GRIPS.map((g) => `<i class="cb_place_grip" data-g="${g}"></i>`).join('') : ''}</div>`).join(''));
     layer.style.display = 'block';
-    setPlaceTouchGuard(true);
+    window.addEventListener('touchmove', onPlaceTouchMove, { passive: false, capture: true });
     // A block still in its message moves with the chat, so the outlines follow any scroll, like Page Down in Reader Mode.
     document.addEventListener('scroll', drawPlace, true);
     drawPlaceNow();
-    return true;
   }
 
   function endPlacement() {
@@ -533,7 +514,7 @@
     place.dirty = false;
     const layer = document.getElementById('cb_place_layer');
     if (layer) layer.style.display = 'none';
-    setPlaceTouchGuard(false);
+    window.removeEventListener('touchmove', onPlaceTouchMove, true);
     document.removeEventListener('scroll', drawPlace, true);
     document.body.classList.remove('ntr_placing');
     syncPins();
@@ -553,17 +534,19 @@
   // The layout this page uses now.
   const phoneNow = () => !LAY_WIDE.matches;
   const layOn = (s) => isOn() && s.layEnabled;
-  const sendFree = (s = settings()) => layOn(s) && s[lk(phoneNow(), 'Send')] === 'free';
-  const pageFree = (s = settings()) => layOn(s) && s[lk(phoneNow(), 'Page')] === 'free';
-  const banFree = (s = settings()) => layOn(s) && s[lk(phoneNow(), 'Ban')] === 'free';
+  // Whether the send bar, page bar or banner ('Send', 'Page', 'Ban') is Floating in the layout this page uses.
+  const partFree = (part, s = settings()) => layOn(s) && s[lk(phoneNow(), part)] === 'free';
+  const sendFree = (s) => partFree('Send', s);
+  const pageFree = (s) => partFree('Page', s);
+  const banFree = (s) => partFree('Ban', s);
   const barUpright = (edge) => edge === 'left' || edge === 'right';
   // The menu bar's icons. The bar is never shorter than one icon's room (SillyTavern's bar thickness) for each of them,
   // unless the screen edge is shorter than that: then the icons squeeze to fit.
-  const barIcons = (doc = document) => Math.max(1, [...doc.querySelectorAll('#top-settings-holder > .drawer')].filter((d) => doc.defaultView.getComputedStyle(d).display !== 'none').length);
-  function barCell(doc = document) {
-    const probe = doc.createElement('div');
+  const barIcons = () => Math.max(1, [...document.querySelectorAll('#top-settings-holder > .drawer')].filter((d) => getComputedStyle(d).display !== 'none').length);
+  function barCell() {
+    const probe = document.createElement('div');
     probe.style.cssText = 'position: fixed; visibility: hidden; height: var(--topBarBlockSize);';
-    doc.body.appendChild(probe);
+    document.body.appendChild(probe);
     const h = probe.getBoundingClientRect().height;
     probe.remove();
     return h || 35;
@@ -817,7 +800,6 @@
       const r = el?.getBoundingClientRect();
       if (v === 'free' && s[lk(ph, part)] !== 'free' && layOn(s) && r?.width) {
         const W = window.innerWidth, H = window.innerHeight;
-        const pct = (x, size) => Math.round(x / size * 10000) / 100;
         Object.assign(s, { [lk(ph, part + 'X')]: pct(r.left, W), [lk(ph, part + 'W')]: pct(r.width, W) });
         if (part === 'Ban') Object.assign(s, { [lk(ph, 'BanY')]: pct(Math.max(0, r.top), H), [lk(ph, 'BanH')]: pct(r.height, H) });
         else s[lk(ph, part + 'B')] = pct(Math.max(0, H - r.bottom), H);
@@ -849,7 +831,7 @@
       if (r) r.checked = true;
     }
     overlay.querySelectorAll('.m_l_now').forEach((el) => { el.innerHTML = layNowHtml(ph); });
-    const over = { phone: ph, width: !ph && layOn(s) && s.layChatMoved, send: layOn(s) && s[lk(ph, 'Send')] === 'free' };
+    const over = { phone: ph, width: !ph && layOn(s) && s.layChatMoved, send: sendFree(s) };
     overlay.querySelectorAll('.m_l_over').forEach((el) => el.classList.toggle('cb_dim', el.dataset.lay.split(' ').some((k) => over[k])));
     overlay.querySelectorAll('.m_l_note').forEach((el) => { el.hidden = !over[el.dataset.lay]; });
   }
@@ -1174,7 +1156,7 @@
       pinPicking = false;
       if (el) {
         p.tag = el.tagName.toLowerCase();
-        p.classes = [...el.classList].filter((c) => PIN_CLASS.test(c)).slice(0, 5);
+        p.classes = [...el.classList].filter((c) => PIN_CLASS.test(c)).slice(0, PIN_LIMITS.classes);
         save();
       }
       if (ov) ov.style.display = '';
@@ -1215,7 +1197,7 @@
       if (pinOpen !== p.id) return row;
       return row + `
           <div class="ntr_tpanel ntr_pinedit" data-pin="${p.id}">
-            <label>Name <input type="text" class="text_pole m_pin_name" maxlength="60" value="${escapeHTML(p.name)}"></label>
+            <label>Name <input type="text" class="text_pole m_pin_name" maxlength="${PIN_LIMITS.name}" value="${escapeHTML(p.name)}"></label>
             <div class="cb_plab">Source</div>
             ${pick(p, 'from', [['chat', 'A Block From the Chat'], ['agents', 'Agent Results']], p.from)}
             ${p.from === 'agents' ? `
@@ -1249,7 +1231,6 @@
 
   function bindPins(overlay, s) {
     const list = overlay.querySelector('#m_pin_list');
-    if (!list) return;
     const render = () => { list.innerHTML = pinListHtml(s); };
     const changed = () => { save(); syncPins(); };
     const pinAt = (el) => s.layPins.find((p) => p.id === el.closest('[data-pin]')?.dataset.pin);
@@ -1303,10 +1284,10 @@
       const t = e.target;
       const p = pinAt(t);
       if (!p) return;
-      if (t.classList.contains('m_pin_name')) { p.name = t.value.trim().slice(0, 60) || 'Pinned Block'; changed(); render(); return; }
+      if (t.classList.contains('m_pin_name')) { p.name = t.value.trim().slice(0, PIN_LIMITS.name) || 'Pinned Block'; changed(); render(); return; }
       if (t.classList.contains('m_pin_hide')) { p.hide = t.checked; changed(); return; }
       if (t.classList.contains('m_pin_ag')) {
-        p.agents = t.checked ? [...new Set([...p.agents, t.value])].slice(0, 10) : p.agents.filter((id) => id !== t.value);
+        p.agents = t.checked ? [...new Set([...p.agents, t.value])].slice(0, PIN_LIMITS.agents) : p.agents.filter((id) => id !== t.value);
         changed();
         render();
         return;

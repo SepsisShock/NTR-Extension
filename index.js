@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.77.6';
+  const VERSION = '2.77.7';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -789,7 +789,9 @@ await (async () => {
 
     cssString += callModule('avatars', 'css', s) || '';
 
-    styleEl.textContent = cssString;
+    // Rewriting the same text still makes the browser redo the page's styles (like cssTag), and nothing may have changed:
+    // a chat switch, or a setting saved without a new look.
+    if (styleEl.textContent !== cssString) styleEl.textContent = cssString;
     callModule('layout', 'apply');
     callModule('avatars', 'sync');
     syncGoogleFonts();

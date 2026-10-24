@@ -2966,8 +2966,8 @@ await (async () => {
   }
 
   // A whole menu page from module `name`, or a note while it loads, after it failed, or when it broke while drawing.
-  // `draw` is the caller, drawn again with `bind` when the module arrives; `opts` go to pageHtml.
-  function modulePageHtml(s, name, page, draw, loading, opts = {}, bind = bindOf(name)) {
+  // `draw` is the caller, drawn again with `bind` when the module arrives; the other options go to pageHtml.
+  function modulePageHtml(s, name, page, draw, loading, { bind = bindOf(name), ...opts } = {}) {
     const html = callModule(name, 'sectionHtml', s);
     if (html !== undefined) return html;
     const wait = waiting(name);
@@ -2997,7 +2997,7 @@ await (async () => {
     if (!s.rxEnabled) {
       return pageHtml('regex', '', { sw: ['m_rx_enable', false], note: '<div class="cb_hint ntr_pnote">Your regexes still run in ST as usual. While this is off, themes leave regex folders alone.</div>' });
     }
-    return modulePageHtml(s, 'regex', 'regex', regexSectionHtml, 'Loading your regexes.', { sw: ['m_rx_enable', true] }, bindRegexPage);
+    return modulePageHtml(s, 'regex', 'regex', regexSectionHtml, 'Loading your regexes.', { sw: ['m_rx_enable', true], bind: bindRegexPage });
   }
   // The page's switch is there whether regex.js loaded, failed or broke while drawing.
   function bindRegexPage(overlay, s) {

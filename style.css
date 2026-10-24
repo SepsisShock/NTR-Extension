@@ -482,6 +482,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .ntr_compact .m_ag_fsum { justify-content: flex-start; }
 @media (pointer: coarse) {
   #cb_modal_overlay .m_ag_hbtn { min-width: 40px; min-height: 40px; }
+  #cb_modal_overlay #m_ag_prev { min-height: 40px; }
   #cb_modal_overlay .m_ag_sw { padding: 11px 6px; margin: -11px -6px; }
   #cb_modal_overlay .ntr_pop button, #cb_modal_overlay .ntr_fopt { min-height: 40px; }
   #cb_modal_overlay .ntr_agfl_row .menu_button, #cb_modal_overlay #m_ag_picmenu .menu_button { min-width: 40px; min-height: 40px; }

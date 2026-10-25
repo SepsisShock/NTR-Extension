@@ -21,6 +21,7 @@ test('agent fields are cleaned', () => {
   window.NTR.agents.answer('ag_t'); // reading an agent cleans the saved list
   const [a] = api.settings().agents;
   assert.equal(a.fields.length, 7, 'entries that are not objects are dropped');
+  assert.deepEqual(a.runOn, ['ai'], 'an agent saved before Which Messages runs after AI replies, as it did');
   const [num, head, text, ...names] = a.fields;
   // Names are read back from the agent's answer, so they lose what reading would strip: Markdown marks, list markers
   // in front and underscores at the end. An underscore inside stays.

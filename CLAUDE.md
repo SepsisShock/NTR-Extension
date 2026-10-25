@@ -10,7 +10,7 @@ Nitwit Tavern Redesign (NTR), a SillyTavern extension.
 - Summarize every PR: what changed, why, how to test it in SillyTavern. If `index.js` grew by more than 100 lines (`git diff --numstat origin/main -- index.js`), say why that code stays in core; move it only if a rule below puts it elsewhere.
 - When a change touches `.js` or `.css` files, test it with `/run-ntr-extension` before opening the PR, comparing `main` with the branch:
   - Run scenarios `H`, `K` and those whose names in `scenarios.cjs` cover the changed code, plus driver commands for changed parts no scenario covers.
-  - Run every scenario when module loading in `index.js`, a `window.NTR.api` helper several modules call, or `style.css` changes.
+  - Run every scenario when module loading in `index.js`, a `window.NTR.api` helper several modules call, or `style.css` changes; a `style.css` rule that only matches inside one menu page (like `#cb_modal_overlay .m_ag_row`) counts as that page's code.
   - Ignore the version bump's edits when choosing. Skip the run only when no changed code can run differently, such as JS comments outside strings.
   - Say in the PR what was run, or why nothing was.
 

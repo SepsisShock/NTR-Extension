@@ -4,8 +4,8 @@
 // samplers and limits. Its connection never changes your chat's connection or SillyTavern's Connection Profiles: it sends
 // its own request through SillyTavern (Chat Completion or Text Completion), or uses your chat's connection (Same as Chat).
 // Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
-// An agent's answer shows in its activity. An agent can also save its answers in the chat, and a Dashboard (a Pinned
-// Block set to Agent Results, layout.js) shows them on screen. With Answer set to Fields, it keeps named values instead
+// An agent's answer shows in its activity and is saved in the chat, and a Dashboard (a Pinned Block set to Agent
+// Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
   const AGENTS_VERSION = '2.77.14';

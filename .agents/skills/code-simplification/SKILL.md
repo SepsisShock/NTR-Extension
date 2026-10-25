@@ -5,7 +5,7 @@ description: Use when the user explicitly asks for a code simplification review.
 
 # Code Simplification Review
 
-Run only when explicitly requested. This is separate from routine PR reviews.
+Run only when explicitly requested.
 
 Review the requested code and the code paths it touches for unnecessary complexity and overengineering.
 

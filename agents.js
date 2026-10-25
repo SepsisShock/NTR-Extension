@@ -314,8 +314,8 @@
   // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}, {{agent::Name}}...), and with Include Its
   // Last Result, the newest result saved before message `at`. With Fields, the format part and the current values
   // instead. A saved result is left as it is. {{agent::Name}} looks only up to message `at` meanwhile (macroAt), so Run
-  // Again on an older message doesn't see later results. {{messagesRead}} becomes `read`, the chat messages it reads;
-  // they go in after SillyTavern's macros, so macros in the chat stay as typed.
+  // Again on an older message doesn't see later results. {{messagesRead}} becomes `read`, the chat messages it reads,
+  // after SillyTavern's macros. Same as Chat's request fills in macros again, chat messages included, as it always has.
   let macroAt = null;
   const TAG = /\{\{\s*messagesRead\s*\}\}/gi;
   const TAG_MARK = '\u0000ntr_messagesRead\u0000';

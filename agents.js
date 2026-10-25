@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.77.15';
+  const AGENTS_VERSION = '2.78.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -42,7 +42,7 @@
     tcType: 'koboldcpp', tcUrl: 'http://127.0.0.1:5001', tcModel: '', tcInstruct: '',
     tempOn: true, temp: 0.3, topPOn: false, topP: 1, topKOn: false, topK: 0, minPOn: false, minP: 0,
     freqOn: false, freq: 0, presOn: false, pres: 0, repOn: false, rep: 1, effOn: false, eff: 'auto',
-    maxTokens: 600, context: 6, split: false, full: false, last: false,
+    maxTokens: 600, context: 6, readBy: 'recent', readFrom: 0, readTo: null, split: false, full: false, last: false,
     send: false, sendWhere: 'chat', sendDepth: 1, sendRole: 'system', sendScan: false,
     answer: 'text', fields: [],
   });
@@ -114,6 +114,7 @@
       tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
       effOn: a?.effOn === true, eff: pick(a?.eff, EFFORT, 'auto'),
       maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context),
+      readBy: a?.readBy === 'num' ? 'num' : 'recent', readFrom: Math.round(num('agMsgNum', a?.readFrom, 0)), readTo: a?.readTo == null ? null : Math.round(num('agMsgNum', a.readTo, 0)),
       split: a?.split === true, full: a?.full === true, last: a?.last === true,
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
@@ -313,13 +314,18 @@
   // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}, {{agent::Name}}...), and with Include Its
   // Last Result, the newest result saved before message `at`. With Fields, the format part and the current values
   // instead. A saved result is left as it is. {{agent::Name}} looks only up to message `at` meanwhile (macroAt), so Run
-  // Again on an older message doesn't see later results.
+  // Again on an older message doesn't see later results. {{messagesRead}} becomes `read`, the chat messages it reads,
+  // after SillyTavern's macros. Same as Chat's request fills in macros again, chat messages included, as it always has.
   let macroAt = null;
-  function withLast(a, at) {
+  const TAG = /\{\{\s*messagesRead\s*\}\}/gi;
+  const TAG_MARK = '\u0000ntr_messagesRead\u0000';
+  const hasTag = (a) => /\{\{\s*messagesRead\s*\}\}/i.test(a.job);
+  function withLast(a, at, read = '') {
     const fields = usesFields(a);
-    let job = fields ? [a.job.trim(), fieldRules(a)].filter(Boolean).join('\n\n') : a.job;
+    let job = (fields ? [a.job.trim(), fieldRules(a)].filter(Boolean).join('\n\n') : a.job).replace(TAG, TAG_MARK);
     macroAt = at;
     try { job = ctx().substituteParams(job); } catch (e) { /* as typed */ } finally { macroAt = null; }
+    job = job.split(TAG_MARK).join(read);
     if (fields) return `${job}\n\nCurrent values:\n${writeFields(a, valuesBefore(a, at))}`;
     const prev = a.last ? latest(a.id, at - 1) : null;
     return prev ? `${job}\n\nYour last result:\n${prev.text}` : job;
@@ -375,23 +381,39 @@
     return a.kind === 'tc' && c.mainApi === 'textgenerationwebui' && !!t && sameUrl(t.server_urls?.[t.type]) === sameUrl(a.tcUrl);
   }
 
-  // What the agent reads: its instructions, then the latest chat messages, oldest first. In one block, or as separate
-  // messages (yours as user, the rest as AI), each with its speaker's name. Separate messages end with a user line:
-  // a chat ending on an AI message would otherwise be read as the start of the agent's own answer.
+  // What the agent reads: its instructions, then the chat messages Messages Read picks (the most recent ones, or a range
+  // by message number), oldest first. In one block, or as separate messages (yours as user, the rest as AI), each with
+  // its speaker's name. Separate messages end with a user line: a chat ending on an AI message would otherwise be read
+  // as the start of the agent's own answer. With {{messagesRead}} in the instructions, they go there instead, as text.
   const ROLE = { system: 'System', user: 'User', assistant: 'AI' };
-  // at: the message it runs on (the last one when null); it reads the chat up to there.
-  function prompt(a, test, at = null) {
-    if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];
+  // By Number's range in order (To is null for the most recent message), and as the drawer and the activity name it:
+  // "#40 to #55", or "#40 to Most Recent" with To left empty.
+  const span = (a) => (a.readTo != null && a.readFrom > a.readTo ? [a.readTo, a.readFrom] : [a.readFrom, a.readTo]);
+  const rangeName = (a) => { const [lo, hi] = span(a); return `#${lo} to ${hi == null ? 'Most Recent' : `#${hi}`}`; };
+  // The messages it reads, up to message `at` (the last one when null). By Number never reads past it either.
+  function readMsgs(a, at = null) {
     const all = ctx().chat || [];
     const end = at ?? all.length - 1;
-    const chat = all.slice(0, end + 1).filter((m) => m && !m.is_system && typeof m.mes === 'string').slice(-a.context);
+    const ok = (m) => m && !m.is_system && typeof m.mes === 'string';
+    if (a.readBy !== 'num') return all.slice(0, end + 1).filter(ok).slice(-a.context);
+    const [lo, hi] = span(a);
+    return all.slice(lo, Math.min(hi ?? end, end) + 1).filter(ok);
+  }
+  const splits = (a) => a.split && !hasTag(a);
+  function prompt(a, test, at = null) {
+    if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];
+    const end = at ?? (ctx().chat || []).length - 1;
+    const chat = readMsgs(a, end);
     const said = (m) => `${m.name || (m.is_user ? 'User' : 'Character')}: ${m.mes}`;
+    const text = chat.map(said).join('\n\n');
+    if (hasTag(a)) return [{ role: 'system', content: withLast(a, end, text) }, { role: 'user', content: 'Follow your instructions.' }];
     const job = withLast(a, end);
     if (a.split) {
       return [{ role: 'system', content: job }, ...chat.map((m) => ({ role: m.is_user ? 'user' : 'assistant', content: said(m) })),
         { role: 'user', content: 'Follow your instructions for the chat messages above.' }];
     }
-    return [{ role: 'system', content: job }, { role: 'user', content: `The latest chat messages, oldest first:\n\n${chat.map(said).join('\n\n')}` }];
+    const head = a.readBy === 'num' ? `Chat messages ${rangeName(a)}, oldest first:` : 'The latest chat messages, oldest first:';
+    return [{ role: 'system', content: job }, { role: 'user', content: `${head}\n\n${text}` }];
   }
   // Your chat's full prompt: Same as Chat only, and never for Test Connection.
   const usesFull = (a, test) => a.kind === 'chat' && a.full && !test;
@@ -491,7 +513,7 @@
         }
         const messages = prompt(a, test, test ? null : aim(o));
         // The speaker's name is already in each message, so SillyTavern doesn't add one (name: '').
-        const chatPart = a.split && !test ? messages.slice(1).map((m) => ({ ...m, name: '' })) : messages[1].content;
+        const chatPart = splits(a) && !test ? messages.slice(1).map((m) => ({ ...m, name: '' })) : messages[1].content;
         return String(await abortable(c.generateRaw({ prompt: chatPart, systemPrompt: messages[0].content, responseLength: max }), signal) ?? '');
       } finally {
         unhook();
@@ -561,7 +583,8 @@
     chain = chain.then(async () => {
       const a = byId(id);
       if (!a) return { ok: false, text: 'This agent was deleted.' };
-      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : !test && !a.on ? (auto ? '' : 'Switch it on first.') : !test && !a.job.trim() && !usesFields(a) ? 'Write its instructions first.' : null;
+      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : !test && !a.on ? (auto ? '' : 'Switch it on first.') : !test && !a.job.trim() && !usesFields(a) ? 'Write its instructions first.'
+        : !test && !usesFull(a) && a.readBy === 'num' && !readMsgs(a, at).length ? `Skipped: no messages ${rangeName(a)} in this chat yet.` : null;
       if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return { ok: false, text: skip || 'Skipped' }; }
       const ctrl = new AbortController();
       let timedOut = false;
@@ -726,7 +749,9 @@
       main: { text: !a.send ? 'Not Sent' : a.sendWhere === 'chat' ? `In Chat · Depth ${a.sendDepth} · As ${nameOf(ROLES, a.sendRole)}` : nameOf(WHERE, a.sendWhere) },
       conn: missing ? { warn: `${conn(a)} · ${missing}` } : { text: conn(a) },
       samp: { text: `${a.kind === 'chat' && (!OWN_SAMP_API[api] || !ticked.length) ? 'Your Chat\'s Samplers' : ticked.join(', ') || 'API Defaults'} · ${a.maxTokens} Tokens` },
-      reads: { text: (usesFull(a) ? 'Your Chat\'s Full Prompt' : `${a.context} ${a.context === 1 ? 'Message' : 'Messages'} · ${a.split ? 'As Separate Messages' : 'As One Block'}`) + last },
+      reads: usesFull(a) ? { text: `Your Chat's Full Prompt${last}` }
+        : a.readBy === 'num' && !readMsgs(a).length ? { warn: `${rangeName(a)} · Not in This Chat Yet` }
+          : { text: `${a.readBy === 'num' ? rangeName(a) : `${a.context} ${a.context === 1 ? 'Message' : 'Messages'}`} · ${hasTag(a) ? 'In Instructions' : a.split ? 'As Separate Messages' : 'As One Block'}${last}` },
       test: current?.id === a.id ? { text: 'Running...' }
         : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' },
     };
@@ -738,6 +763,12 @@
     if (!el) return;
     el.innerHTML = sumHtml(o);
     el.classList.toggle('cb_warn', !!o.warn);
+  }
+  // Where {{messagesRead}} puts the messages: its hint, and Chat Messages grayed out while the tag places them.
+  function syncTag(a) {
+    const hint = root?.querySelector('#m_ag_taghint');
+    if (hint) hint.innerHTML = tagHint(a);
+    root?.querySelector('#m_ag_splitwrap')?.classList.toggle('cb_dim', hasTag(a));
   }
   // The summaries and the header's status line, after a change that doesn't redraw the page.
   function syncSums(a) {
@@ -844,7 +875,8 @@
         : 'Your chat isn\'t on Chat Completion or Text Completion, so it uses your chat\'s samplers. Switch your chat\'s API, or this agent\'s connection, to use these.';
     const parts = [
       ['ins', 'Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="${fields ? 'What to track and any rules, like: only count injuries that happen on screen.' : 'What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list.'}" style="width:100%;margin:0;">${esc(a.job)}</textarea>
-        ${fields ? '<div class="cb_hint" style="margin-bottom:0;">NTR adds the answer format from your fields.</div>' : ''}`],
+        ${fields ? '<div class="cb_hint" style="margin-bottom:0;">NTR adds the answer format from your fields.</div>' : ''}
+        ${macRowHtml(a)}`],
       ['ans', 'Answer', answerHtml(a)],
       ['runs', 'When It Runs', `
         ${lab('Runs', pills('agruns', RUNS, a.runs))}
@@ -873,10 +905,12 @@
       ['reads', 'What It Reads', `
         ${a.kind === 'chat' ? `${lab('What It Sends', pills('agfull', [['own', 'Its Own Prompt'], ['full', 'Your Chat\'s Full Prompt']], a.full ? 'full' : 'own'))}
         <div class="cb_hint">Full Prompt sends everything your chat sends for a reply, with its instructions at the end. It costs more tokens.</div>` : ''}
-        ${usesFull(a) ? '' : `${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
-        <div class="cb_hint">Separate Messages sends yours as user and the rest as AI. Names are kept either way.${a.kind === 'cc' ? ' If your API rejects the message order, set Prompt Post-Processing to Semi-strict.' : ''}</div>`}
+        ${usesFull(a) ? '' : `<div id="m_ag_splitwrap" class="${hasTag(a) ? 'cb_dim' : ''}">${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
+        <div class="cb_hint">Separate Messages sends yours as user and the rest as AI. Names are kept either way.${a.kind === 'cc' ? ' If your API rejects the message order, set Prompt Post-Processing to Semi-strict.' : ''}</div></div>`}
         ${full ? `<div class="cb_hint"${fields ? ' style="margin-bottom:0;"' : ''}>With your chat's full prompt, it reads as much of the chat as your chat does.</div>`
-          : `${lab('Messages Read', slider(a, 'context', 'agContext'))}`}
+          : `${lab('Messages Read', pills('agreadby', [['recent', 'Most Recent'], ['num', 'By Number']], a.readBy))}
+        ${a.readBy === 'num' ? `<div class="cb_row m_ag_range">${rangeBox(a, 'readFrom', 'From', '')}${rangeBox(a, 'readTo', 'To', 'Most Recent')}</div>` : slider(a, 'context', 'agContext', 'Messages Read')}
+        <div class="cb_hint" id="m_ag_taghint">${tagHint(a)}</div>`}
         ${fields ? '' : `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">It updates its last answer instead of starting over.</div>`}`],
       ['test', 'Test and Activity', `
@@ -895,6 +929,37 @@
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
     if (usesFull(a)) return `<div class="cb_hint" style="margin:0;"><strong>Instructions</strong>${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
     return prompt(a).map((m) => `<div class="cb_hint" style="margin:0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('');
+  }
+  // By Number's From and To boxes. To left empty reads up to the most recent message.
+  const rangeBox = (a, f, label, ph) => `<label>${label} #<input type="number" class="text_pole m_ag_rng" data-f="${f}" ${A.rangeAttrs('agMsgNum')} inputmode="numeric" value="${a[f] ?? ''}"${ph ? ` placeholder="${ph}"` : ''} aria-label="${label} message number"></label>`;
+  const tagHint = (a) => (hasTag(a) ? 'Placed where <code class="m_ag_tag">{{messagesRead}}</code> is.'
+    : 'To place them yourself, type <code class="m_ag_tag">{{messagesRead}}</code> in the instructions.');
+  // Macros, under the instructions: NTR's and some of SillyTavern's. A tap puts one where the cursor was in the
+  // instructions. It stays open until Collapse All or a reload, like the preview.
+  let macOpen = false;
+  const ST_MACROS = [['{{char}}', 'The character\'s name.'], ['{{user}}', 'Your current Persona username.'],
+    ['{{charDescription}}', 'The character\'s description.'], ['{{charPersonality}}', 'The character\'s personality.'],
+    ['{{charScenario}}', 'The character\'s scenario.'], ['{{persona}}', 'Your current Persona description.'],
+    ['{{lastUserMessage}}', 'Last user message in the chat.'], ['{{lastCharMessage}}', 'Last character message in the chat.']];
+  function macListHtml(a) {
+    const row = ([m, d]) => `<button type="button" class="m_ag_mac" data-mac="${esc(m)}"><code>${esc(m)}</code><span>${esc(d)}</span></button>`;
+    const ntr = [['{{messagesRead}}', 'The messages chosen in Messages Read.'],
+      ...list().filter((x) => x.id !== a.id).map((x) => [`{{agent::${x.name}}}`, `${x.name}'s latest saved answer.`])];
+    return `<div class="cb_sub" style="margin-top:0;border-top:0;padding-top:0;">NTR</div>${ntr.map(row).join('')}<div class="cb_sub">SillyTavern</div>${ST_MACROS.map(row).join('')}`;
+  }
+  const macBtn = () => `<i class="fa-solid fa-code"></i>${macOpen ? 'Hide Macros' : 'Macros'}`;
+  const macRowHtml = (a) => `
+        <div class="cb_actions" style="margin:8px 0 0;"><button type="button" class="menu_button" id="m_ag_macbtn" aria-expanded="${macOpen}" aria-controls="m_ag_macbox" style="margin:0;">${macBtn()}</button></div>
+        <div id="m_ag_macbox" class="ntr_tpanel" role="region" aria-label="Macros" style="margin-top:6px;gap:0;${macOpen ? '' : 'display:none;'}">${macOpen ? macListHtml(a) : ''}</div>`;
+  function syncMacros(a, open) {
+    macOpen = open;
+    const b = root?.querySelector('#m_ag_macbtn');
+    const box = root?.querySelector('#m_ag_macbox');
+    if (!b || !box) return;
+    b.innerHTML = macBtn();
+    b.setAttribute('aria-expanded', String(open));
+    box.style.display = open ? '' : 'none';
+    box.innerHTML = open ? macListHtml(a) : '';
   }
   // Preview Prompt, under What It Reads: it shows what the agent sends, for every part of its settings. It stays open
   // while you change them, until Collapse All or a reload.
@@ -1105,7 +1170,7 @@
   }
 
   function bindAll(s, a) {
-    const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); if (prevOpen) syncPreview(a); } };
+    const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); syncTag(a); if (prevOpen) syncPreview(a); } };
     // A click anywhere but in a menu closes it.
     root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
@@ -1203,7 +1268,7 @@
     if (!a) return;
     root.querySelector('#m_ag_hrun').onclick = () => { if (current?.id === a.id) current.ctrl.abort(); else enqueue(a.id); };
 
-    // The folded parts, and Expand All or Collapse All for all of them. Collapse All closes the preview too.
+    // The folded parts, and Expand All or Collapse All for all of them. Collapse All closes the preview and Macros too.
     const folds = [...root.querySelectorAll('.m_ag_fold')];
     const allBtn = root.querySelector('#m_ag_all');
     const setFold = (h, open) => {
@@ -1226,7 +1291,7 @@
     allBtn.onclick = () => {
       const open = !folds.every((h) => h.classList.contains('ntr_open'));
       folds.forEach((h) => setFold(h, open));
-      if (!open) syncPreview(a, false);
+      if (!open) { syncPreview(a, false); syncMacros(a, false); }
       save();
       syncAll();
     };
@@ -1372,6 +1437,26 @@
     onPills(root, 'agkind', (v) => { a.kind = v; changed(true); });
     onPills(root, 'agfull', (v) => { a.full = v === 'full'; changed(true); });
     onPills(root, 'agsplit', (v) => { a.split = v === 'split'; changed(true); });
+    onPills(root, 'agreadby', (v) => { a.readBy = v; changed(true); });
+    // By Number: To left empty is the most recent message. From above To swaps them once focus leaves both boxes, so
+    // a pair still being typed isn't swapped halfway.
+    const rng = root.querySelector('.m_ag_range');
+    rng?.querySelectorAll('.m_ag_rng').forEach((el) => {
+      el.onchange = () => {
+        const v = el.value.trim();
+        a[el.dataset.f] = v === '' && el.dataset.f === 'readTo' ? null : Math.round(num('agMsgNum', v || 0, 0));
+        el.value = a[el.dataset.f] ?? '';
+        changed(false);
+      };
+    });
+    if (rng) {
+      rng.onfocusout = (e) => {
+        if (rng.contains(e.relatedTarget) || a.readTo == null || a.readFrom <= a.readTo) return;
+        [a.readFrom, a.readTo] = span(a);
+        rng.querySelectorAll('.m_ag_rng').forEach((x) => { x.value = a[x.dataset.f]; });
+        changed(false);
+      };
+    }
     onPills(root, 'aganswer', (v) => { a.answer = v; changed(true); refreshBoxes(); });
     bindFields(a, changed);
     onPills(root, 'agwhere', (v) => { a.sendWhere = v; changed(true); });
@@ -1389,6 +1474,21 @@
     // Instructions' summary follows what's typed; the text itself saves when the box loses focus.
     const job = root.querySelector('.m_ag_txt[data-f="job"]');
     job.oninput = () => setSum('ins', sums({ ...a, job: job.value }).ins);
+    // Macros: a tap puts the macro where the cursor last was in the instructions, or at the end.
+    let sel = null;
+    job.onblur = () => { sel = [job.selectionStart, job.selectionEnd]; };
+    root.querySelector('#m_ag_macbtn').onclick = () => syncMacros(a, !macOpen);
+    root.querySelector('#m_ag_macbox').onclick = (e) => {
+      const m = e.target.closest('.m_ag_mac')?.dataset.mac;
+      if (!m) return;
+      const [s0, e0] = sel || [job.value.length, job.value.length];
+      job.value = (job.value.slice(0, s0) + m + job.value.slice(e0)).slice(0, 8000);
+      const pos = Math.min(s0 + m.length, job.value.length);
+      job.focus();
+      job.setSelectionRange(pos, pos);
+      a.job = job.value;
+      changed(false);
+    };
     root.querySelectorAll('.m_ag_chk').forEach((el) => {
       el.onchange = () => {
         a[el.dataset.f] = el.checked;

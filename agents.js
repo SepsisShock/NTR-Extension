@@ -1585,10 +1585,10 @@
       + (r ? iconBtn('edit', 'fa-pen', 'Edit Saved Text', ` aria-pressed="${!!edit}"`) : '') + (r?.prev != null ? iconBtn('undo', 'fa-rotate-left', 'Undo') : '');
     const head = isTabs ? `<span class="ntr_agres_name ntr_agres_title">${esc(a.title)}</span>`
       : `<button type="button" class="ntr_agres_fold" data-act="fold" data-fold="${esc(key)}" aria-expanded="${open}"><i class="fa-solid fa-fw fa-chevron-${open ? 'down' : 'right'} ntr_agres_chev"></i>${picHtml(a, 18)}<span class="ntr_agres_name">${esc(a.name)}</span>${!open && fv?.changed ? DOT + sr(', changed') : ''}</button>`;
-    const body = edit ? `${usesFields(a) ? '<div class="ntr_agres_note">Saved as plain text, in the same format the agent answers in. Lists are edited here.</div>' : ''}<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
+    const body = !a.on ? '<div class="ntr_agres_note">On Vacation</div>'
+      : edit ? `${usesFields(a) ? '<div class="ntr_agres_note">Saved as plain text, in the same format the agent answers in. Lists are edited here.</div>' : ''}<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
       <div class="ntr_agres_editbtns"><button type="button" class="menu_button" data-act="save"><i class="fa-solid fa-check"></i> Save</button><button type="button" class="menu_button" data-act="cancel">Cancel</button></div>`
-      : !a.on ? '<div class="ntr_agres_note">On Vacation</div>'
-        : fv ? fv.html : r ? `<div class="ntr_agres_text">${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
+      : fv ? fv.html : r ? `<div class="ntr_agres_text">${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
     return `<div class="ntr_agres" data-ag="${esc(a.id)}" data-mes="${r ? r.mes : ''}">
       <div class="ntr_agres_head">${head}<span class="ntr_agres_btns">${btns}</span></div>
       ${open ? body : ''}

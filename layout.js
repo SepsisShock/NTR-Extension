@@ -1245,11 +1245,14 @@
       changed();
       render();
     };
-    // A Dashboard: Agent Results docked right, with every agent, starting on the message you're reading.
+    // A Dashboard: Agent Results docked right, with every agent, starting on the message you're reading. Past the
+    // block's agent limit, agents that are on go in first.
     overlay.querySelector('#m_pin_dash').onclick = () => {
       if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Dashboard'); return; }
-      const agents = (Array.isArray(s.agents) ? s.agents : []).map((a) => a?.id).filter(Boolean);
-      if (!agents.length) { toastr.info('Hire an agent on the Agents page first.', 'Dashboard'); return; }
+      const all = (Array.isArray(s.agents) ? s.agents : []).filter((a) => a?.id);
+      if (!all.length) { toastr.info('Hire an agent on the Agents page first.', 'Dashboard'); return; }
+      const agents = [...all.filter((a) => a.on), ...all.filter((a) => !a.on)].slice(0, PIN_LIMITS.agents).map((a) => a.id);
+      if (all.length > agents.length) toastr.info(`A Dashboard holds up to ${PIN_LIMITS.agents} agents. Agents that are on went in first; change them in its settings.`, 'Dashboard');
       const n = s.layPins.filter((x) => x.name === 'Dashboard' || x.name.startsWith('Dashboard ')).length;
       const [p] = cleanPins([{ name: n ? `Dashboard ${n + 1}` : 'Dashboard', from: 'agents', agents, place: 'right', frame: 'panel', show: 'reading', view: 'stacked', height: 'fit' }]);
       s.layPins.push(p);

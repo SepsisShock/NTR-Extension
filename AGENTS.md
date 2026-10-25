@@ -48,7 +48,7 @@ ChatGPT reviews pull requests and submits review comments directly on GitHub, un
 
 ### What to check
 
-Read the Code section of `CLAUDE.md` and use it when reviewing. The implementation workflow in that file applies to Claude Code.
+Read the Architecture & Module Routing and Data, Controls & Hygiene sections of `CLAUDE.md` and use them when reviewing. The implementation workflow in that file applies to Claude Code.
 
 Pay particular attention to:
 

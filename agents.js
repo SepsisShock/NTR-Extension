@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.77.14';
+  const AGENTS_VERSION = '2.77.15';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -438,12 +438,12 @@
     signal.addEventListener('abort', stop, { once: true });
     p.then(res, rej).finally(() => signal.removeEventListener('abort', stop));
   });
-  // After waiting for your reply, the page (or the agent, for a run after a reply) may have been switched off meanwhile,
-  // or the agent deleted.
-  const stillAllowed = (a, auto) => {
+  // After waiting for your reply, the page or the agent (for anything but Test Connection) may have been switched off
+  // meanwhile, or the agent deleted.
+  const stillAllowed = (a, test) => {
     if (!byId(a.id)) throw new Error('Skipped: this agent was deleted');
     if (!pageOn()) throw new Error('Skipped: the Agents page is off');
-    if (auto && !a.on) throw new Error('Skipped: this agent is off');
+    if (!test && !a.on) throw new Error('Skipped: this agent is off');
   };
 
   // The chat is read only after any wait for your reply, so the agent sees that reply finished. That's also when the
@@ -460,12 +460,12 @@
     return i;
   }
   async function call(a, o, signal) {
-    const { test, auto } = o;
+    const { test } = o;
     const c = ctx();
     const max = test ? 20 : a.maxTokens;
     if (a.kind === 'chat') {
       await abortable(chatIdle(), signal);
-      stillAllowed(a, auto);
+      stillAllowed(a, test);
       const full = usesFull(a, test);
       // SillyTavern's own request can't take our Stop, but its "generation stopped" event cancels it, and Stop Generation
       // cancels a full-prompt request. Both would also stop a reply being written, so they're only used while no reply is.
@@ -510,7 +510,7 @@
       return String(r?.content ?? '');
     }
     if (!a.tcUrl.trim()) throw new Error('Type the server link first.');
-    if (sharesChatServer(a)) { await abortable(chatIdle(), signal); stillAllowed(a, auto); }
+    if (sharesChatServer(a)) { await abortable(chatIdle(), signal); stillAllowed(a, test); }
     const messages = prompt(a, test, test ? null : aim(o));
     const r = await c.TextCompletionService.processRequest({
       stream: false, prompt: messages, max_tokens: max, api_type: a.tcType, api_server: a.tcUrl.trim(),
@@ -552,16 +552,16 @@
     saveAt(m, a.id, { text: text.slice(0, MAX_SAVED), at: Date.now(), ...(old ? { prev: old.text } : {}) });
     return '';
   }
-  // auto: a run after a reply, which also needs the agent's own switch on. at: the message to run on (the reply that
-  // set off a run after a reply, or Run Again in a Pinned Block); the last one when null. Resolves with the run's
-  // result: { ok, text }.
+  // auto: a run after a reply. Every run but Test Connection needs the agent's own switch on. at: the message to run on
+  // (the reply that set off a run after a reply, or Run Again in a Pinned Block); the last one when null. Resolves with
+  // the run's result: { ok, text }.
   function enqueue(id, test = false, auto = false, at = null) {
     const from = chatId();
     const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
     chain = chain.then(async () => {
       const a = byId(id);
       if (!a) return { ok: false, text: 'This agent was deleted.' };
-      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : auto && !a.on ? '' : !test && !a.job.trim() && !usesFields(a) ? 'Write its instructions first.' : null;
+      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : !test && !a.on ? (auto ? '' : 'Switch it on first.') : !test && !a.job.trim() && !usesFields(a) ? 'Write its instructions first.' : null;
       if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return { ok: false, text: skip || 'Skipped' }; }
       const ctrl = new AbortController();
       let timedOut = false;
@@ -933,14 +933,17 @@
     const stop = root.querySelector('#m_ag_stop');
     // style.display, not hidden: SillyTavern's buttons are flex boxes, which would show a hidden one anyway.
     if (stop) stop.style.display = current ? '' : 'none';
-    // The header's Run Now is Stop while this agent runs.
+    // The header's Run Now is Stop while this agent runs. Both Run Nows are grayed out while it's off.
     const run = root.querySelector('#m_ag_hrun');
     if (a && run) {
       const busy = current?.id === a.id;
       run.title = busy ? 'Stop' : 'Run Now';
       run.setAttribute('aria-label', run.title);
       run.querySelector('i').className = `fa-solid fa-fw ${busy ? 'fa-stop' : 'fa-play'}`;
+      run.disabled = !busy && !a.on;
     }
+    const run2 = root.querySelector('#m_ag_run');
+    if (a && run2) run2.disabled = !a.on;
     if (a) setSum('test', sums(a).test);
   }
 
@@ -1112,6 +1115,7 @@
         if (!x) return;
         x.on = this.checked;
         changed(false);
+        renderActivity();
         refreshBoxes();
       };
     });

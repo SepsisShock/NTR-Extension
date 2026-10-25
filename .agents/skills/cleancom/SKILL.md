@@ -5,6 +5,8 @@ description: Use when the user explicitly asks for cleancom or a four-point clea
 
 # cleancom
 
+Run only when explicitly requested.
+
 Check for...
 
 1. Outdated comments describing code that has moved or changed

@@ -8,7 +8,7 @@
 // Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages, Hide Names and Avatars and Attached
 // Style (overrideCss, layoutChatCss, namesCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const LAYOUT_VERSION = '2.77.13';
+  const LAYOUT_VERSION = '2.77.14';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -1203,7 +1203,7 @@
             ${p.from === 'agents' ? `
             <div class="cb_plab">Agents</div>
             ${(Array.isArray(s.agents) ? s.agents : []).map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
-            <div class="cb_hint">Needs the Agents page on and each agent's Results set to Saved in the Chat. They show in the Agents page's order.</div>
+            <div class="cb_hint">Needs the Agents page on. They show in the Agents page's order.</div>
             <div class="cb_plab">Show Agents</div>
             ${pick(p, 'view', [['stacked', 'Stacked'], ['tabs', 'Tabs']], p.view)}
             <div class="cb_hint">Stacked shows every agent, each folding open and closed. Tabs shows one at a time. ▲ ▼ and ◆ mark what changed since the agent's previous result.</div>` : `
@@ -1245,12 +1245,11 @@
       changed();
       render();
     };
-    // A Dashboard: Agent Results docked right, with every agent that saves in the chat, starting on the message you're
-    // reading.
+    // A Dashboard: Agent Results docked right, with every agent, starting on the message you're reading.
     overlay.querySelector('#m_pin_dash').onclick = () => {
       if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Dashboard'); return; }
-      const agents = (Array.isArray(s.agents) ? s.agents : []).filter((a) => a?.keep === 'chat').map((a) => a.id);
-      if (!agents.length) { toastr.info('Make an agent with Results set to Saved in the Chat on the Agents page first.', 'Dashboard'); return; }
+      const agents = (Array.isArray(s.agents) ? s.agents : []).map((a) => a?.id).filter(Boolean);
+      if (!agents.length) { toastr.info('Hire an agent on the Agents page first.', 'Dashboard'); return; }
       const n = s.layPins.filter((x) => x.name === 'Dashboard' || x.name.startsWith('Dashboard ')).length;
       const [p] = cleanPins([{ name: n ? `Dashboard ${n + 1}` : 'Dashboard', from: 'agents', agents, place: 'right', frame: 'panel', show: 'reading', view: 'stacked', height: 'fit' }]);
       s.layPins.push(p);

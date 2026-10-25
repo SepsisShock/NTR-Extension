@@ -6,6 +6,14 @@ By default, Claude Code handles implementation, branches, opening pull requests,
 
 ChatGPT reviews pull requests and submits review comments directly on GitHub, unless the user explicitly requests a different task.
 
+## Review skills
+
+- When the user says "cleancom", "$cleancom", or requests the four-point cleanup review, read and follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).
+- When the user asks for a "code simplification review" or "$code-simplification", read and follow [.agents/skills/code-simplification/SKILL.md](.agents/skills/code-simplification/SKILL.md).
+- These are review requests, not instructions to edit source code. Use the review target established in the conversation.
+- For these explicitly requested reviews, concrete comment/naming cleanup and behavior-preserving simplification suggestions are allowed in addition to Bug or Verify findings. Prefix them with `ChatGPT review: Cleanup:` or `ChatGPT review: Simplification:`, respectively. The Bug/Verify-only rule below still applies to ordinary PR reviews.
+- Follow the existing rules for where to post, avoiding duplicate findings, and reporting validation.
+
 ## Writing
 
 - Use plain, literal language. In PR comments, name exact functions, keys, and files; in chat, explain in layman terms.

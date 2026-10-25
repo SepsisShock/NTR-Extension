@@ -377,6 +377,9 @@
   // Your chat's reply being written. Same as Chat, and a local server your chat also uses, wait for it to finish.
   let chatBusy = false;
   let waiters = [];
+  // Full-prompt agents set off by your message or a system message while the reply is being written: they run on the
+  // reply once it's in, so the reply doesn't run them again.
+  const onReply = new Set();
   const chatIdle = () => (chatBusy ? new Promise((r) => { waiters.push(r); setTimeout(r, 300000); }) : Promise.resolve());
   const sameUrl = (u) => String(u || '').trim().replace(/\/+$/, '').toLowerCase();
   function sharesChatServer(a) {
@@ -587,9 +590,9 @@
     saveAt(m, a.id, { text: text.slice(0, MAX_SAVED), at: Date.now(), ...(old ? { prev: old.text } : {}) });
     return '';
   }
-  // auto: a run after a reply. Every run but Test Connection needs the agent's own switch on. at: the message to run on
-  // (the reply that set off a run after a reply, or Run Again in a Pinned Block); the last one when null. Resolves with
-  // the run's result: { ok, text }.
+  // auto: a run a message set off. Every run but Test Connection needs the agent's own switch on. at: the message to run
+  // on (the one that set off the run, or Run Again's in a Pinned Block); the last one when it runs, when null. Resolves
+  // with the run's result: { ok, text }.
   function enqueue(id, test = false, auto = false, at = null) {
     const from = chatId();
     const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
@@ -1875,30 +1878,30 @@
     version: AGENTS_VERSION,
     sectionHtml,
     bind,
-    // Your chat's reply (message id): agents set to After Every Reply run, one after another, once it's in, each on that
-    // reply even if more messages come in before its turn. A Continue only adds to a reply they already ran on, so it
-    // doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
-    // A message came in (index.js): an AI reply (type is SillyTavern's), or your message or a system message ('sent').
-    // Agents set to After Messages run if it's a kind they're ticked for, from a name in Only From. A full-prompt run
-    // can only run on the newest message, so one set off while the AI's reply is being written runs on that reply
-    // instead, or not at all when the reply runs it anyway.
+    // A message came in (index.js, message id): an AI reply (type is SillyTavern's), or your message or a system message
+    // ('sent'). Agents set to After Messages run, one after another, if it's a kind they're ticked for, from a name in
+    // Only From, each on that message even if more come in before its turn. A full-prompt run can only run on the newest
+    // message, so one set off while the AI's reply is being written runs on that reply instead. A Continue only adds to
+    // a reply they already ran on, so it doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
     replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
       sortAgents();
-      const m = (ctx().chat || [])[at ?? (ctx().chat || []).length - 1];
+      const chat = ctx().chat || [];
+      const m = chat[at ?? chat.length - 1];
       if (!m || m.is_system) return;
       // 'narrator' is SillyTavern's mark for /sys and /narrator messages.
       const kind = m.extra?.type === 'narrator' ? 'sys' : m.is_user ? 'user' : 'ai';
       for (const a of list()) {
         if (!a.on || a.runs !== 'reply' || !a.runOn.includes(kind) || !fromOk(a, m.name) || !(a.job.trim() || usesFields(a))) continue;
-        if (kind === 'ai' || !chatBusy || !usesFull(a)) enqueue(a.id, false, true, at);
-        else if (!a.runOn.includes('ai')) enqueue(a.id, false, true, null);
+        if (kind !== 'ai' && chatBusy && usesFull(a)) {
+          if (!onReply.has(a.id)) { onReply.add(a.id); enqueue(a.id, false, true, null); }
+        } else if (kind !== 'ai' || !onReply.has(a.id)) enqueue(a.id, false, true, at);
       }
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
     genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type, dryRun); },
-    genEnded: () => { chatBusy = false; sendAt = null; const w = waiters; waiters = []; w.forEach((r) => r()); },
+    genEnded: () => { chatBusy = false; sendAt = null; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
     // {{agent::Name}} (index.js): that agent's current saved result, chosen like Send to Main AI's. Blank while it's off.
     macro: (name) => {
       const want = String(name ?? '').trim().toLowerCase();

@@ -386,15 +386,18 @@
   // its speaker's name. Separate messages end with a user line: a chat ending on an AI message would otherwise be read
   // as the start of the agent's own answer. With {{messagesRead}} in the instructions, they go there instead, as text.
   const ROLE = { system: 'System', user: 'User', assistant: 'AI' };
-  // By Number as the drawer and the activity name it: "#40 to #55", or "#40 to Most Recent" with To left empty.
-  const rangeName = (a) => `#${a.readFrom} to ${a.readTo == null ? 'Most Recent' : `#${a.readTo}`}`;
+  // By Number's range in order (To is null for the most recent message), and as the drawer and the activity name it:
+  // "#40 to #55", or "#40 to Most Recent" with To left empty.
+  const span = (a) => (a.readTo != null && a.readFrom > a.readTo ? [a.readTo, a.readFrom] : [a.readFrom, a.readTo]);
+  const rangeName = (a) => { const [lo, hi] = span(a); return `#${lo} to ${hi == null ? 'Most Recent' : `#${hi}`}`; };
   // The messages it reads, up to message `at` (the last one when null). By Number never reads past it either.
   function readMsgs(a, at = null) {
     const all = ctx().chat || [];
     const end = at ?? all.length - 1;
     const ok = (m) => m && !m.is_system && typeof m.mes === 'string';
     if (a.readBy !== 'num') return all.slice(0, end + 1).filter(ok).slice(-a.context);
-    return all.slice(a.readFrom, Math.min(a.readTo ?? end, end) + 1).filter(ok);
+    const [lo, hi] = span(a);
+    return all.slice(lo, Math.min(hi ?? end, end) + 1).filter(ok);
   }
   const splits = (a) => a.split && !hasTag(a);
   function prompt(a, test, at = null) {
@@ -1435,16 +1438,25 @@
     onPills(root, 'agfull', (v) => { a.full = v === 'full'; changed(true); });
     onPills(root, 'agsplit', (v) => { a.split = v === 'split'; changed(true); });
     onPills(root, 'agreadby', (v) => { a.readBy = v; changed(true); });
-    // By Number: To left empty is the most recent message. From above To swaps them, once both are typed.
-    root.querySelectorAll('.m_ag_rng').forEach((el) => {
+    // By Number: To left empty is the most recent message. From above To swaps them once focus leaves both boxes, so
+    // a pair still being typed isn't swapped halfway.
+    const rng = root.querySelector('.m_ag_range');
+    rng?.querySelectorAll('.m_ag_rng').forEach((el) => {
       el.onchange = () => {
         const v = el.value.trim();
         a[el.dataset.f] = v === '' && el.dataset.f === 'readTo' ? null : Math.round(num('agMsgNum', v || 0, 0));
-        if (a.readTo != null && a.readFrom > a.readTo) [a.readFrom, a.readTo] = [a.readTo, a.readFrom];
-        root.querySelectorAll('.m_ag_rng').forEach((x) => { x.value = a[x.dataset.f] ?? ''; });
+        el.value = a[el.dataset.f] ?? '';
         changed(false);
       };
     });
+    if (rng) {
+      rng.onfocusout = (e) => {
+        if (rng.contains(e.relatedTarget) || a.readTo == null || a.readFrom <= a.readTo) return;
+        [a.readFrom, a.readTo] = span(a);
+        rng.querySelectorAll('.m_ag_rng').forEach((x) => { x.value = a[x.dataset.f]; });
+        changed(false);
+      };
+    }
     onPills(root, 'aganswer', (v) => { a.answer = v; changed(true); refreshBoxes(); });
     bindFields(a, changed);
     onPills(root, 'agwhere', (v) => { a.sendWhere = v; changed(true); });

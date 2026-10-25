@@ -1,6 +1,6 @@
 ---
 name: code-simplification
-Use when the user explicitly asks for a code simplification review.
+description: Use when the user explicitly asks for a code simplification review.
 ---
 
 # Code Simplification Review:

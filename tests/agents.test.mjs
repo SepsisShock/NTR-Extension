@@ -2,14 +2,14 @@
 // Agents page or a Dashboard.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api, load } from './env.mjs';
+import { api, context, load } from './env.mjs';
 
 await load('agents');
 const R = new Proxy({}, { get: (_, k) => api.numRange(k) });
 
 test('agent fields are cleaned', () => {
   api.settings().agents = [{
-    id: 'ag_t', name: 'T', answer: 'fields', keep: 'off',
+    id: 'ag_t', name: 'T', answer: 'fields',
     fields: [
       { id: 'f1', name: 'Na:me\nX', type: 'num', min: 5, max: 2, start: 99, step: -3, cap: 999 },
       { id: 'f1', kind: 'heading', name: '' },
@@ -20,7 +20,6 @@ test('agent fields are cleaned', () => {
   }];
   window.NTR.agents.answer('ag_t'); // reading an agent cleans the saved list
   const [a] = api.settings().agents;
-  assert.equal(a.keep, 'chat', 'Fields always saves in the chat');
   assert.equal(a.fields.length, 7, 'entries that are not objects are dropped');
   const [num, head, text, ...names] = a.fields;
   // Names are read back from the agent's answer, so they lose what reading would strip: Markdown marks, list markers
@@ -57,4 +56,23 @@ test('departments are cleaned, and the agents list follows the roster', () => {
   assert.notEqual(one.id, two.id, 'a repeated id gets a new one');
   assert.deepEqual([one.ids, two.ids], [['ag_c'], ['ag_a']], 'unknown and repeated agents are dropped, and an agent stays where it is listed first');
   assert.deepEqual(s.agents.map((a) => a.id), ['ag_b', 'ag_d', 'ag_c', 'ag_a'], 'no department first, then each department');
+});
+
+// An agent that's off reaches the main AI neither through Send to Main AI nor through {{agent::Name}}.
+test('an agent that is off sends nothing to the main AI', () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  s.agents = [{ id: 'ag_on', name: 'On', on: true, send: true }, { id: 'ag_off', name: 'Off', send: true }];
+  s.agDepts = [];
+  const saved = { ag_on: { text: 'On answer', date: 'd' }, ag_off: { text: 'Off answer', date: 'd' } };
+  context.chat = [{ send_date: 'd', extra: { ntr_agents: saved } }];
+  const sent = {};
+  context.setExtensionPrompt = (k, v) => { sent[k] = v; };
+  window.NTR.agents.genStarted('normal', true);
+  assert.equal(sent.ntr_agent_ag_on, '[On]\nOn answer');
+  assert.equal(sent.ntr_agent_ag_off, undefined);
+  assert.equal(window.NTR.agents.macro('On'), 'On answer');
+  assert.equal(window.NTR.agents.macro('Off'), '');
+  delete context.chat;
+  delete context.setExtensionPrompt;
 });

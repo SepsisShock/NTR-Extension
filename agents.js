@@ -908,7 +908,7 @@
         ${a.runs === 'reply' ? `${lab('Which Messages', `<div class="m_ag_kinds">${KINDS.map(([k, l]) => `<label class="checkbox_label"><input type="checkbox" class="m_ag_kind" value="${k}" ${a.runOn.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`)}
         ${lab('Only From', `<input type="text" class="text_pole m_ag_txt" data-f="runFrom" data-redraw="1" value="${esc(a.runFrom)}" maxlength="500" placeholder="Anyone" style="width:100%;">`)}
         <div class="cb_hint">Names, separated by commas. Macros like {{char}} work.</div>
-        ${a.kind === 'chat' && (a.runOn.includes('user') || a.runOn.includes('sys')) ? '<div class="cb_hint">With Same as Chat, it waits until the AI\'s reply is done.</div>' : ''}` : ''}
+        ${a.kind === 'chat' && (a.runOn.includes('user') || a.runOn.includes('sys')) ? `<div class="cb_hint">${a.full ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.'}</div>` : ''}` : ''}
         <div class="cb_hint" style="margin-bottom:0;">To show its answers, add a Dashboard on the Layout page.</div>`],
       ['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
@@ -1879,7 +1879,9 @@
     // reply even if more messages come in before its turn. A Continue only adds to a reply they already ran on, so it
     // doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
     // A message came in (index.js): an AI reply (type is SillyTavern's), or your message or a system message ('sent').
-    // Agents set to After Messages run if it's a kind they're ticked for, from a name in Only From.
+    // Agents set to After Messages run if it's a kind they're ticked for, from a name in Only From. A full-prompt run
+    // can only run on the newest message, so one set off while the AI's reply is being written runs on that reply
+    // instead, or not at all when the reply runs it anyway.
     replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
@@ -1889,7 +1891,9 @@
       // 'narrator' is SillyTavern's mark for /sys and /narrator messages.
       const kind = m.extra?.type === 'narrator' ? 'sys' : m.is_user ? 'user' : 'ai';
       for (const a of list()) {
-        if (a.on && a.runs === 'reply' && a.runOn.includes(kind) && fromOk(a, m.name) && (a.job.trim() || usesFields(a))) enqueue(a.id, false, true, at);
+        if (!a.on || a.runs !== 'reply' || !a.runOn.includes(kind) || !fromOk(a, m.name) || !(a.job.trim() || usesFields(a))) continue;
+        if (kind === 'ai' || !chatBusy || !usesFull(a)) enqueue(a.id, false, true, at);
+        else if (!a.runOn.includes('ai')) enqueue(a.id, false, true, null);
       }
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.

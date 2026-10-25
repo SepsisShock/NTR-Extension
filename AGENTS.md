@@ -48,16 +48,16 @@ ChatGPT reviews pull requests and submits review comments directly on GitHub, un
 
 ### What to check
 
-Read the Code section of `CLAUDE.md` and use it when reviewing. The implementation workflow in that file applies to Claude Code.
+Read the Architecture & Module Routing and Data, Controls & Hygiene sections of `CLAUDE.md` and use them when reviewing. The implementation workflow in that file applies to Claude Code.
 
 Pay particular attention to:
 
 - Card data comes from other people. Every new field read from a card must be cleaned in `cleanStore`.
-- Saved settings keys are kept, or renamed or removed with an upgrade in `loadSettings`, so saved configurations keep working.
+- Saved settings keys are kept, or renamed or removed with an upgrade in `loadSettings`.
 - Modules reuse helpers from `index.js` through `window.NTR` instead of copying them.
 - Number ranges live in `NUM_RANGE`, not typed directly into the menu or other code. Respect documented exceptions for modules that have not migrated yet.
-- Flag repeated helpers or logic, or old code the change leaves unused, only when you can name a concrete maintenance problem or suspected failure. Respect intentional exceptions (old saved settings, older SillyTavern versions) explained in the PR description or a code comment.
-- For `.js` or `.css` changes, check the bump level: last number for fixes, middle for new features, first only with approval. CI checks that the bump happened everywhere. Docs-only changes need no bump.
+- Flag repeated helpers or logic when the copies could drift apart and give different results, and old code the change no longer updates but that still runs. Don't flag code `CLAUDE.md` always keeps (`loadSettings` upgrades, `cleanStore` checks, `NUM_RANGE` checks, missing-module handling, checks for optional SillyTavern features), or other exceptions explained in the PR description or a code comment.
+- For `.js` or `.css` changes, check the bump level: last number for fixes, middle for new features, first only when the PR description states approval. Judge the bump for the whole PR against `main`. A PR bumps once, so fix commits pushed later don't bump again. CI checks that the bump happened everywhere. Docs-only changes need no bump.
 
 After the checklist, look for any other bugs the change could cause, including ones outside the listed areas. The same evidence standards apply.
 

@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.78.0';
+  const AGENTS_VERSION = '2.79.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -27,6 +27,9 @@
   const POST = [['', 'None'], ['merge', 'Merge consecutive roles (no tools)'], ['semi', 'Semi-strict (alternating roles; no tools)'],
     ['strict', 'Strict (user first, alternating roles; no tools)'], ['single', 'Single user message (no tools)'], ['merge_tools', 'Merge consecutive roles (with tools)'],
     ['semi_tools', 'Semi-strict (alternating roles; with tools)'], ['strict_tools', 'Strict (user first, alternating roles; with tools)']];
+  // The messages that can set off an agent after messages: AI replies, your messages, and system messages (/sys and
+  // /narrator, which SillyTavern sends to the AI as system).
+  const KINDS = [['ai', 'AI Replies'], ['user', 'Your Messages'], ['sys', 'System Messages']];
   // Samplers: the agent's field, its label, its range in NUM_RANGE, and its name in Chat Completion and Text Completion requests.
   const SAMP = [['temp', 'Temperature', 'agTemp', 'temperature', 'temperature'], ['topP', 'Top P', 'agTopP', 'top_p', 'top_p'], ['topK', 'Top K', 'agTopK', 'top_k', 'top_k'],
     ['minP', 'Min P', 'agMinP', 'min_p', 'min_p'], ['freq', 'Frequency Penalty', 'agFreq', 'frequency_penalty', 'frequency_penalty'],
@@ -37,7 +40,7 @@
 
   // A new agent: off, run on the button, Same as Chat. Temperature starts low: agents keep records, they don't write prose.
   const fresh = (name) => ({
-    id: newId('ag'), name, title: '', example: false, on: false, pic: '', job: '', runs: 'button', kind: 'chat',
+    id: newId('ag'), name, title: '', example: false, on: false, pic: '', job: '', runs: 'button', runOn: ['ai'], runFrom: '', kind: 'chat',
     ccSource: 'openrouter', ccModel: '', ccUrl: '', ccKey: '', ccPost: '',
     tcType: 'koboldcpp', tcUrl: 'http://127.0.0.1:5001', tcModel: '', tcInstruct: '',
     tempOn: true, temp: 0.3, topPOn: false, topP: 1, topKOn: false, topK: 0, minPOn: false, minP: 0,
@@ -109,6 +112,7 @@
     const o = { ...d, id: typeof a?.id === 'string' && /^[\w-]{1,40}$/.test(a.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
       title: str(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
       pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
+      runOn: Array.isArray(a?.runOn) ? KINDS.map(([k]) => k).filter((k) => a.runOn.includes(k)) : d.runOn, runFrom: str(a?.runFrom, 500),
       kind: ['chat', 'cc', 'tc'].includes(a?.kind) ? a.kind : 'chat',
       ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: str(a?.ccModel, 200), ccUrl: str(a?.ccUrl, 500), ccKey: str(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
       tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
@@ -400,6 +404,15 @@
     return all.slice(lo, Math.min(hi ?? end, end) + 1).filter(ok);
   }
   const splits = (a) => a.split && !hasTag(a);
+  // Only From: the names in it, with macros filled in for the open chat, each matched whole and ignoring capitals.
+  // Empty is anyone.
+  function fromOk(a, name) {
+    if (!a.runFrom.trim()) return true;
+    let names = a.runFrom;
+    try { names = ctx().substituteParams(names); } catch (e) { /* as typed */ }
+    const want = String(name ?? '').trim().toLowerCase();
+    return names.split(',').some((x) => x.trim().toLowerCase() === want && want !== '');
+  }
   function prompt(a, test, at = null) {
     if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];
     const end = at ?? (ctx().chat || []).length - 1;
@@ -628,11 +641,20 @@
   };
   const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${(CC.find(([v]) => v === a.ccSource) || [, ''])[1]}${a.ccModel ? ' · ' + a.ccModel : ''}`
     : `${(TC.find(([v]) => v === a.tcType) || [, ''])[1]} (local)`);
-  const slider = (a, f, k, name = '') => `<div class="cb_row"><input type="range" class="m_ag_num" data-f="${f}" data-k="${k}"${name ? ` aria-label="${esc(name)}"` : ''} ${A.rangeAttrs(k)} value="${a[f]}" style="flex:1;"><span style="min-width:72px;text-align:right;"><span id="m_ag_v_${f}" class="ntr_slval">${a[f]}</span>${A.numRange(k)[3] || ''}</span></div>`;
-  const RUNS = [['reply', 'After Every Reply'], ['button', 'On the Button Only']];
+  // A sampler's slider, and the number box every number setting has. A whole-number box gets the number pad on phones;
+  // one that can go below 0 gets the full keyboard, since phone number pads may have no minus key.
+  const slider = (a, f, k, name) => `<input type="range" class="m_ag_num" data-f="${f}" data-k="${k}" aria-label="${esc(name)}" ${A.rangeAttrs(k)} value="${a[f]}" style="width:100%;">`;
+  const numBox = (a, f, k, name) => {
+    const [min, , step, unit] = A.numRange(k);
+    const mode = min < 0 ? 'text' : Number.isInteger(step) ? 'numeric' : 'decimal';
+    return `<span class="m_ag_boxw"><input type="text" class="text_pole m_ag_box" data-f="${f}" data-k="${k}" inputmode="${mode}" value="${a[f]}" aria-label="${esc(name)}">${unit ? `<span>${unit.trim()}</span>` : ''}</span>`;
+  };
+  const RUNS = [['reply', 'After Messages'], ['button', 'On the Button Only']];
   const nameOf = (pairs, v) => (pairs.find(([x]) => x === v) || [, ''])[1];
   // When it runs and on what, under its name in the roster and in its header.
-  const status = (a) => `${nameOf(RUNS, a.runs)} · ${conn(a)}`;
+  const runsText = (a) => (a.runs !== 'reply' ? nameOf(RUNS, a.runs)
+    : `After ${KINDS.filter(([k]) => a.runOn.includes(k)).map(([, l]) => l).join(', ') || 'Messages'}`);
+  const status = (a) => `${runsText(a)} · ${conn(a)}`;
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   // An agent's own switch, in a box that's easier to tap on a touch screen.
   const onSwitch = (cls, a) => `<label class="m_ag_sw"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
@@ -745,7 +767,8 @@
     return {
       ins: !a.job.trim() && !usesFields(a) ? { warn: 'Empty: it won\'t run' } : { text: a.job.split('\n').map((l) => l.trim()).find(Boolean) || 'Empty' },
       ans: { text: !fields ? 'Free Text' : n ? `Fields · ${n} ${n === 1 ? 'Field' : 'Fields'}` : 'Fields · No Fields Yet' },
-      runs: { text: nameOf(RUNS, a.runs) },
+      runs: a.runs === 'reply' && !a.runOn.length ? { warn: 'No Messages Ticked: it won\'t run' }
+        : { text: runsText(a) + (a.runs === 'reply' && a.runFrom.trim() ? ` · Only From ${a.runFrom.trim()}` : '') },
       main: { text: !a.send ? 'Not Sent' : a.sendWhere === 'chat' ? `In Chat · Depth ${a.sendDepth} · As ${nameOf(ROLES, a.sendRole)}` : nameOf(WHERE, a.sendWhere) },
       conn: missing ? { warn: `${conn(a)} · ${missing}` } : { text: conn(a) },
       samp: { text: `${a.kind === 'chat' && (!OWN_SAMP_API[api] || !ticked.length) ? 'Your Chat\'s Samplers' : ticked.join(', ') || 'API Defaults'} · ${a.maxTokens} Tokens` },
@@ -847,9 +870,11 @@
   function editorHtml(a) {
     if (!a) return '';
     const fields = a.answer === 'fields';
+    // Unticked samplers are dimmed but still work: dragging or typing ticks them. Top K is a whole-number count, so it
+    // gets only the box.
     const sampRows = SAMP.map(([f, label, k]) => `
-      <div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="${f}On" ${a[f + 'On'] ? 'checked' : ''}><span>${label}</span></label>
-        <div class="m_o_body${a[f + 'On'] ? '' : ' cb_dim'}" data-for="${f}On">${slider(a, f, k, label)}</div></div>`).join('');
+      <div class="cb_ovrow m_ag_samp${a[f + 'On'] ? '' : ' m_ag_unset'}"><div class="m_ag_srow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="${f}On" ${a[f + 'On'] ? 'checked' : ''}><span>${label}</span></label>${numBox(a, f, k, label)}</div>
+        ${f === 'topK' ? '' : `<div class="m_o_body">${slider(a, f, k, label)}</div>`}</div>`).join('');
     const instructs = (() => { try { return ctx().getPresetManager('instruct')?.getAllPresets() || []; } catch (e) { return []; } })();
     const connBody = a.kind === 'cc' ? `
       ${lab('API', `<select class="text_pole m_ag_txt" data-f="ccSource" data-redraw="1" style="width:100%;">${opt(CC, a.ccSource)}</select>`)}
@@ -880,12 +905,16 @@
       ['ans', 'Answer', answerHtml(a)],
       ['runs', 'When It Runs', `
         ${lab('Runs', pills('agruns', RUNS, a.runs))}
+        ${a.runs === 'reply' ? `${lab('Which Messages', `<div class="m_ag_kinds">${KINDS.map(([k, l]) => `<label class="checkbox_label"><input type="checkbox" class="m_ag_kind" value="${k}" ${a.runOn.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`)}
+        ${lab('Only From', `<input type="text" class="text_pole m_ag_txt" data-f="runFrom" data-redraw="1" value="${esc(a.runFrom)}" maxlength="500" placeholder="Anyone" style="width:100%;">`)}
+        <div class="cb_hint">Names, separated by commas. Macros like {{char}} work.</div>
+        ${a.kind === 'chat' && (a.runOn.includes('user') || a.runOn.includes('sys')) ? '<div class="cb_hint">With Same as Chat, it waits until the AI\'s reply is done.</div>' : ''}` : ''}
         <div class="cb_hint" style="margin-bottom:0;">To show its answers, add a Dashboard on the Layout page.</div>`],
       ['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
         <div class="cb_hint"${a.send ? '' : ' style="margin-bottom:0;"'}>Adds its latest saved answer, under its name, to your chat's prompt for every reply. After a swipe, it's the answer from before that reply.</div>
         ${a.send ? `${lab('Where', pills('agwhere', WHERE.map(([v, l]) => [v, l]), a.sendWhere))}
-        ${a.sendWhere === 'chat' ? `${lab('Depth', slider(a, 'sendDepth', 'agSendDepth'))}${lab('As', pills('agrole', ROLES.map(([v, l]) => [v, l]), a.sendRole))}
+        ${a.sendWhere === 'chat' ? `${lab('Depth', `<div class="cb_row">${numBox(a, 'sendDepth', 'agSendDepth', 'Depth')}</div>`)}${lab('As', pills('agrole', ROLES.map(([v, l]) => [v, l]), a.sendRole))}
         <div class="cb_hint">Depth 0 is after the last message, 1 is before it, and so on.</div>` : ''}
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Can Trigger Lorebooks</span></label>` : ''}
         <div class="cb_hint" style="margin-bottom:0;">To place it yourself, type <code class="m_ag_macro">{{agent::${esc(a.name)}}}</code> anywhere ST reads macros, like the Author's Note.</div>`],
@@ -899,9 +928,8 @@
         ${a.kind === 'chat' && api !== 'openai' ? '' : `<div class="cb_ovrow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="effOn" ${a.effOn ? 'checked' : ''}><span>Reasoning Effort</span></label>
           <div class="m_o_body${a.effOn ? '' : ' cb_dim'}" data-for="effOn">${pills('ageff', EFFORT, a.eff)}</div></div>`}
         </div>
-        <div class="cb_hint" style="margin-bottom:0;">${sampNote}</div>
-        <div class="cb_sub">Reply</div>
-        ${lab('Max Reply Length', slider(a, 'maxTokens', 'agMaxTokens'))}`],
+        <div class="cb_hint">${sampNote}</div>
+        <div class="m_ag_srow"><span>Max Reply Length</span>${numBox(a, 'maxTokens', 'agMaxTokens', 'Max Reply Length')}</div>`],
       ['reads', 'What It Reads', `
         ${a.kind === 'chat' ? `${lab('What It Sends', pills('agfull', [['own', 'Its Own Prompt'], ['full', 'Your Chat\'s Full Prompt']], a.full ? 'full' : 'own'))}
         <div class="cb_hint">Full Prompt sends everything your chat sends for a reply, with its instructions at the end. It costs more tokens.</div>` : ''}
@@ -909,7 +937,7 @@
         <div class="cb_hint">Separate Messages sends yours as user and the rest as AI. Names are kept either way.${a.kind === 'cc' ? ' If your API rejects the message order, set Prompt Post-Processing to Semi-strict.' : ''}</div></div>`}
         ${full ? `<div class="cb_hint"${fields ? ' style="margin-bottom:0;"' : ''}>With your chat's full prompt, it reads as much of the chat as your chat does.</div>`
           : `${lab('Messages Read', pills('agreadby', [['recent', 'Most Recent'], ['num', 'By Number']], a.readBy))}
-        ${a.readBy === 'num' ? `<div class="cb_row m_ag_range">${rangeBox(a, 'readFrom', 'From', '')}${rangeBox(a, 'readTo', 'To', 'Most Recent')}</div>` : slider(a, 'context', 'agContext', 'Messages Read')}
+        ${a.readBy === 'num' ? `<div class="cb_row m_ag_range">${rangeBox(a, 'readFrom', 'From', '')}${rangeBox(a, 'readTo', 'To', 'Most Recent')}</div>` : `<div class="cb_row">${numBox(a, 'context', 'agContext', 'Messages Read')}</div>`}
         <div class="cb_hint" id="m_ag_taghint">${tagHint(a)}</div>`}
         ${fields ? '' : `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">It updates its last answer instead of starting over.</div>`}`],
@@ -1493,17 +1521,51 @@
       el.onchange = () => {
         a[el.dataset.f] = el.checked;
         root.querySelector(`.m_o_body[data-for="${el.dataset.f}"]`)?.classList.toggle('cb_dim', !el.checked);
+        el.closest('.m_ag_samp')?.classList.toggle('m_ag_unset', !el.checked);
         changed(!!el.dataset.redraw);
       };
     });
+    // Dragging or typing an unticked sampler ticks it.
+    const tick = (f) => {
+      const c = root.querySelector(`.m_ag_chk[data-f="${f}On"]`);
+      if (!c || c.checked) return;
+      c.checked = true;
+      a[f + 'On'] = true;
+      c.closest('.m_ag_samp')?.classList.remove('m_ag_unset');
+    };
     root.querySelectorAll('.m_ag_num').forEach((el) => {
       el.oninput = () => {
         const f = el.dataset.f;
         a[f] = num(el.dataset.k, el.value, a[f]);
-        root.querySelector(`#m_ag_v_${f}`).textContent = a[f];
+        root.querySelector(`.m_ag_box[data-f="${f}"]`).value = a[f];
+        tick(f);
         syncSums(a);
       };
       el.onchange = () => changed(false);
+    });
+    // A number box saves on Enter or when it loses focus. Past the range it stops at the limit; anything that isn't a
+    // number puts back the saved value.
+    root.querySelectorAll('.m_ag_box').forEach((el) => {
+      el.onkeydown = (e) => { if (e.key === 'Enter') el.blur(); };
+      el.onchange = () => {
+        const { f, k } = el.dataset;
+        const v = el.value.trim();
+        const n = Number(v);
+        if (v !== '' && Number.isFinite(n)) {
+          a[f] = num(k, Number.isInteger(A.numRange(k)[2]) ? Math.round(n) : n, a[f]);
+          tick(f);
+        }
+        el.value = a[f];
+        const sl = root.querySelector(`.m_ag_num[data-f="${f}"]`);
+        if (sl) sl.value = a[f];
+        changed(false);
+      };
+    });
+    root.querySelectorAll('.m_ag_kind').forEach((el) => {
+      el.onchange = () => {
+        a.runOn = [...root.querySelectorAll('.m_ag_kind:checked')].map((x) => x.value);
+        changed(true);
+      };
     });
     root.querySelector('#m_ag_prev').onclick = () => syncPreview(a, !prevOpen);
     root.querySelector('#m_ag_run').onclick = () => enqueue(a.id);
@@ -1816,11 +1878,19 @@
     // Your chat's reply (message id): agents set to After Every Reply run, one after another, once it's in, each on that
     // reply even if more messages come in before its turn. A Continue only adds to a reply they already ran on, so it
     // doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
+    // A message came in (index.js): an AI reply (type is SillyTavern's), or your message or a system message ('sent').
+    // Agents set to After Messages run if it's a kind they're ticked for, from a name in Only From.
     replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
       sortAgents();
-      for (const a of list()) if (a.on && a.runs === 'reply' && (a.job.trim() || usesFields(a))) enqueue(a.id, false, true, at);
+      const m = (ctx().chat || [])[at ?? (ctx().chat || []).length - 1];
+      if (!m || m.is_system) return;
+      // 'narrator' is SillyTavern's mark for /sys and /narrator messages.
+      const kind = m.extra?.type === 'narrator' ? 'sys' : m.is_user ? 'user' : 'ai';
+      for (const a of list()) {
+        if (a.on && a.runs === 'reply' && a.runOn.includes(kind) && fromOk(a, m.name) && (a.job.trim() || usesFields(a))) enqueue(a.id, false, true, at);
+      }
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
     genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type, dryRun); },

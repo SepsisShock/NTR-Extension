@@ -480,6 +480,13 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .m_ag_fsum.cb_warn { opacity: 1; }
 #cb_modal_overlay .ntr_compact .m_ag_fwrap { flex-direction: column; align-items: stretch; gap: 1px; }
 #cb_modal_overlay .ntr_compact .m_ag_fsum { justify-content: flex-start; }
+/* A setting's name with its number box on the right (samplers, Max Reply Length), the box and its unit, unticked
+   samplers dimmed but still usable, and the Which Messages ticks. */
+#cb_modal_overlay .m_ag_srow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#cb_modal_overlay .m_ag_boxw { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+#cb_modal_overlay .m_ag_box { width: 8ch; margin: 0; text-align: right; box-sizing: content-box; }
+#cb_modal_overlay .m_ag_unset :is(.m_ag_boxw, .m_o_body) { opacity: 0.45; }
+#cb_modal_overlay .m_ag_kinds { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 /* By Number's From and To, the {{messagesRead}} tag (one tap selects it to copy), and the Macros list. */
 #cb_modal_overlay .m_ag_range { display: grid; grid-template-columns: max-content 8em; justify-content: start; align-items: center; gap: 6px 8px; }
 #cb_modal_overlay .m_ag_range label { display: contents; }
@@ -490,7 +497,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .m_ag_mac span { font-size: 0.85em; opacity: 0.75; }
 @media (pointer: coarse) {
   #cb_modal_overlay .m_ag_hbtn { min-width: 40px; min-height: 40px; }
-  #cb_modal_overlay :is(#m_ag_macbtn, .m_ag_mac, .m_ag_range input) { min-height: 40px; }
+  #cb_modal_overlay :is(#m_ag_macbtn, .m_ag_mac, .m_ag_range input, .m_ag_box, .m_ag_kinds .checkbox_label) { min-height: 40px; }
   #cb_modal_overlay #m_ag_prev { min-height: 40px; }
   #cb_modal_overlay .m_ag_sw { padding: 11px 6px; margin: -11px -6px; }
   #cb_modal_overlay .ntr_pop button, #cb_modal_overlay .ntr_fopt { min-height: 40px; }

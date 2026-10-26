@@ -308,10 +308,12 @@
 .ntr_tbar .menu_button { margin: 0; padding: 5px 10px; width: auto; }
 .ntr_tsearch { width: 100%; margin: 10px 0 0; }
 .ntr_page .ntr_tlist { padding: 2px 12px; }
-.ntr_trow { display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--ntr-line); }
-.ntr_trow:last-child { border-bottom: 0; }
+.ntr_trow { display: flex; align-items: center; gap: 6px; }
+.ntr_trow[hidden] { display: none; }
+/* A line between the rows a search leaves showing. */
+.ntr_trow:not([hidden]) ~ .ntr_trow { border-top: 1px solid var(--ntr-line); }
 /* Default Look, under the search: a line above shows it's a choice, not part of the search. */
-.ntr_tsearch + .ntr_trow { margin-top: 8px; border-top: 1px solid var(--ntr-line); border-bottom: 0; padding-top: 4px; }
+.ntr_tsearch + .ntr_trow { margin-top: 8px; border-top: 1px solid var(--ntr-line); padding-top: 4px; }
 .ntr_trow > .ntr_menu > .menu_button { margin: 0; padding: 4px 8px; }
 .ntr_tname { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; margin: 2px 0; padding: 6px; border: 0; border-radius: 6px;
   background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

@@ -8,18 +8,18 @@ const { execFileSync } = require('child_process');
 
 const REPO = path.resolve(__dirname, '../../..');
 const COVERAGE = path.join(__dirname, 'coverage.json');
-const PAGES = ['themes', 'reader', 'layout', 'display', 'text', 'pfp', 'elements', 'fg', 'regex', 'agents'];
 // The menu pages each module draws into. index.js's own menu code names its page in a pageHtml, lookPageHtml or
 // modulePageHtml call, or takes the pages of the code using it.
 const FILE_PAGES = { agents: ['agents'], avatars: ['pfp'], cast: ['pfp'], decor: ['display'], elements: ['elements'], fonts: ['text', 'elements'],
   layout: ['layout'], map: ['reader'], opening: ['reader'], overlays: ['fg'], reader: ['reader'], regex: ['regex'], text: ['text'], themes: ['themes'], vn: ['reader'] };
+const PAGES = [...new Set(Object.values(FILE_PAGES).flat())];
 // Code that builds CSS, by name (textFormatCss, updateAvatarStyle): scenarios see it only in the style tags.
 const CSS_NAME = /css|style/i;
 // index.js code that loads NTR: settings, the modules and startup. Changing it can change anything.
 const LOADS = new Set(['settings', 'loadSettings', 'loadModule', 'loadLookModules', 'callModule', 'startup', 'window.NTR', 'window.NTR.api']);
 
-// The unit each line belongs to: top level is the file's outer wrapper, indented 2. Comments go with the unit below
-// them, and other statements (a loop filling in DEFAULTS) with the declaration above. In index.js's startup, each
+// The unit each line belongs to: top level is the file's outer wrapper, indented 2. Comments and other statements (a
+// loop filling in DEFAULTS) go with the declaration above them; pick() skips comment lines anyway. In index.js's startup, each
 // event handler it sets up is its own unit (startup CHAT_CHANGED).
 function units(text) {
   const lines = text.split('\n');
@@ -134,10 +134,15 @@ function pick(ref, head, scenarios) {
       return { set, why: 'CSS every scenario builds while loading: the ones reading style tags' };
     }
     if (!bodyRun) return { set, why: 'runs only while loading' };
+    // Menu code: the scenarios using its pages. When a scenario opening no menu page runs it too, it also builds CSS
+    // (avatars.js ellipse), so add the ones reading style tags that run it.
     if (bodyRun.includes('H')) {
       const ps = pagesOf(files, f, u, new Set());
       for (const l of onPages(ps)) set.add(l);
-      return { set, why: `menu code, ${ps.length === PAGES.length ? 'every page' : 'pages ' + ps.join(', ')}` };
+      const outside = letters.some((l) => bodyRun.includes(l) && !scenarios[l].pages.length);
+      const tags = outside ? cssReaders.filter((l) => bodyRun.includes(l) && !set.has(l)) : [];
+      for (const l of tags) set.add(l);
+      return { set, why: `menu code, ${ps.length === PAGES.length ? 'every page' : 'pages ' + ps.join(', ')}${tags.length ? `, and ${tags.join('')} reading style tags` : ''}` };
     }
     for (const l of bodyRun) if (!css || cssReaders.includes(l)) set.add(l);
     return { set, why: `run by ${[...bodyRun].join(' ')}${css ? ', of those reading style tags' : ''}` };

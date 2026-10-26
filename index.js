@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.80.1';
+  const VERSION = '2.80.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -968,22 +968,27 @@ await (async () => {
     scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
   }
 
-  // Dragging by a grip (.ntr_grip), with a mouse or a finger, on the Regexes and Agents pages. A copy of what's dragged
-  // follows the pointer and its own place in the list becomes the gap that shows where it lands. Near the top or bottom
-  // of the menu the page scrolls, even while the pointer stays still. Escape puts it back.
-  //   pick(grip): what the grip drags, as { item, kind, scope } (scope: the box it stays in), or null.
+  // Dragging a row, with a mouse or a finger, on the Regexes and Agents pages. A mouse starts the drag once it moves a
+  // few pixels, so a click still clicks. A finger or pen starts it by holding still for a moment, so a swipe still
+  // scrolls; a hold let go without moving is a tap. A copy of what's dragged follows the pointer and its own place in
+  // the list becomes the gap that shows where it lands. Near the top or bottom of the menu the page scrolls, even while
+  // the pointer stays still. Escape puts it back.
+  //   pick(el): what a press on el drags, as { item, kind, scope, face } (scope: the box it stays in; face: the part of
+  //     item that follows the pointer, if not all of it), or null.
   //   place(el, drag, after): moves drag.item to where the pointer is, over el; after(box) says if the pointer is in the
   //     lower half of box. Returns a header to light up as where it goes, if any.
-  //   done(drag): the drag is over; drag.moved is false for a click or Escape.
+  //   done(drag): the drag is over; drag.moved is false for a hold let go in place or Escape.
   // Gives back { busy() }, true while dragging, so a page doesn't redraw under it.
   function dragSort(page, { pick, place, done }) {
     let drag = null;
     let raf = 0;
+    // The click the browser sends after a drop is dropped, so a row let go near where it started isn't clicked.
+    let eatUntil = 0;
     const unlit = () => page.querySelectorAll('.ntr_drop').forEach((el) => el.classList.remove('ntr_drop'));
     const follow = () => {
       if (!drag.ghost) {
         const r = drag.item.getBoundingClientRect();
-        const g = drag.item.cloneNode(true);
+        const g = (drag.face || drag.item).cloneNode(true);
         g.classList.add('ntr_ghost');
         g.setAttribute('aria-hidden', 'true');
         for (const el of [g, ...g.querySelectorAll('[id], [data-id]')]) [...el.attributes].forEach((x) => { if (x.name === 'id' || x.name.startsWith('data-')) el.removeAttribute(x.name); });
@@ -1019,47 +1024,82 @@ await (async () => {
       aim();
       raf = requestAnimationFrame(scroll);
     };
+    // The row lifts. If the page was drawn again while the press waited, the row pressed is gone and nothing happens.
+    const start = () => {
+      clearTimeout(drag.hold);
+      if (!drag.item.isConnected) { end(false); return; }
+      drag.on = true;
+      closePops(page);
+      page.classList.add('ntr_sorting');
+      follow();
+    };
     // Only the finger (or mouse) that started the drag moves or drops it, so a second finger can't.
     const onMove = (e) => {
       if (e.pointerId !== drag.pointer) return;
-      drag.moved = true;
       drag.x = e.clientX;
       drag.y = e.clientY;
+      const far = Math.hypot(drag.x - drag.x0, drag.y - drag.y0) > (drag.touch ? 8 : 4);
+      if (!drag.on) {
+        if (!far) return;
+        // A finger that moves before the hold is up is scrolling.
+        if (drag.touch) { end(false); return; }
+        start();
+        if (!drag) return;
+      }
+      if (far) drag.moved = true;
       follow();
       aim();
       if (!raf) raf = requestAnimationFrame(scroll);
     };
+    // Once a finger's drag starts, it moves the row instead of scrolling, and no long-press menu opens.
+    const noScroll = (e) => { if (drag?.on) e.preventDefault(); };
+    const noMenu = (e) => e.preventDefault();
     const end = (keep) => {
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
       document.removeEventListener('pointercancel', onUp);
       document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('touchmove', noScroll, { passive: false });
+      document.removeEventListener('contextmenu', noMenu, true);
+      clearTimeout(drag.hold);
       cancelAnimationFrame(raf);
       raf = 0;
       const d = drag;
       drag = null;
+      if (!d.on) return;
       d.ghost?.remove();
       d.item.classList.remove('ntr_dragging');
+      page.classList.remove('ntr_sorting');
       unlit();
       d.moved = keep && d.moved;
+      if (keep && !d.moved) d.target.click();
+      eatUntil = Date.now() + 400;
       done(d);
     };
-    const onUp = (e) => { if (e.pointerId === drag.pointer) end(true); };
+    const onUp = (e) => { if (e.pointerId === drag.pointer) end(e.type === 'pointerup'); };
     const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } };
+    page.addEventListener('click', (e) => {
+      if (e.isTrusted && Date.now() < eatUntil) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
+    page.addEventListener('dragstart', (e) => { if (pick(e.target)) e.preventDefault(); });
     page.addEventListener('pointerdown', (e) => {
-      const grip = e.target.closest('.ntr_grip');
-      if (drag || !grip || e.button !== 0) return;
-      const p = pick(grip);
+      eatUntil = 0;
+      if (drag || e.button !== 0 || !e.isPrimary) return;
+      const p = pick(e.target);
       if (!p) return;
-      e.preventDefault();
-      closePops(page);
-      drag = { ...p, scope: p.scope || page, moved: false, ghost: null, x: e.clientX, y: e.clientY, pointer: e.pointerId };
+      const touch = e.pointerType !== 'mouse';
+      drag = { ...p, scope: p.scope || page, target: e.target, touch, on: false, moved: false, ghost: null, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, pointer: e.pointerId };
+      if (touch) {
+        drag.hold = setTimeout(start, 300);
+        document.addEventListener('touchmove', noScroll, { passive: false });
+        document.addEventListener('contextmenu', noMenu, true);
+      }
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
       document.addEventListener('pointercancel', onUp);
       document.addEventListener('keydown', onKey, true);
     });
-    return { busy: () => !!drag };
+    return { busy: () => !!drag?.on };
   }
 
   // Resolves to true for the main button, false for Cancel.

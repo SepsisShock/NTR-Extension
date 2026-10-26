@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.80.1';
+  const REGEX_VERSION = '2.80.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -214,11 +214,13 @@ try {
     #cb_modal_overlay .rx_top { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
     #cb_modal_overlay .rx_top .text_pole { flex: 1; margin: 0; }
     #cb_modal_overlay .rx_btn { margin: 0; padding: 4px 8px; flex: none; }
-    #cb_modal_overlay .rx_swbox { flex: none; display: inline-flex; align-items: center; padding: 2px; margin: -2px; cursor: pointer; }
+    /* Switches in one column at the left, each as tall as its row so it's easy to hit. No Folder keeps the column empty. */
+    #cb_modal_overlay .rx_list { --rx-sw: 36px; }
+    #cb_modal_overlay :is(.rx_swbox, .rx_swgap) { flex: none; align-self: stretch; width: var(--rx-sw); display: flex; align-items: center; justify-content: center; }
+    #cb_modal_overlay .rx_swbox { cursor: pointer; }
     @media (pointer: coarse) {
       #cb_modal_overlay .rx_btn { min-width: 40px; min-height: 40px; }
-      #cb_modal_overlay .rx_swbox { padding: 11px 6px; margin: -11px -6px; }
-      #cb_modal_overlay .rx_list .ntr_grip { width: 40px; align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0; }
+      #cb_modal_overlay .rx_list { --rx-sw: 44px; }
     }
     #cb_modal_overlay .rx_sec { margin-top: 8px; }
     #cb_modal_overlay .rx_sec + .rx_sec { margin-top: 22px; padding-top: 4px; border-top: 1px solid var(--ntr-line); }
@@ -242,14 +244,16 @@ try {
     #cb_modal_overlay .rx_ublock { margin-top: 10px; }
     #cb_modal_overlay .ntr_page .rx_uhead { display: flex; align-items: center; gap: 8px; margin-top: 0; padding: 8px 10px; border-radius: 10px 10px 0 0; }
     #cb_modal_overlay .ntr_page .rx_loose { margin-top: 0; padding: 2px 12px 8px; border-top: 0; border-radius: 0 0 10px 10px; }
-    #cb_modal_overlay .rx_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--ntr-line); }
+    #cb_modal_overlay .rx_row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--ntr-line); user-select: none; -webkit-user-select: none; }
+    #cb_modal_overlay :is(.rx_row, .rx_fhead) { -webkit-touch-callout: none; }
+    #cb_modal_overlay .rx_drag .rx_name { cursor: grab; }
     #cb_modal_overlay .rx_row:last-child { border-bottom: 0; }
     #cb_modal_overlay .rx_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_dim .rx_name { opacity: .45; text-decoration: line-through; }
     #cb_modal_overlay .ntr_dragging + .rx_empty { display: none; }
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
     #cb_modal_overlay input.rx_sw[type=checkbox] {
-      appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0 4px 0 0;
+      appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0;
       border: 1px solid var(--SmartThemeBorderColor, #888); border-radius: 999px; background: var(--ntr-well-deep); cursor: pointer;
       outline: none; box-shadow: none; transform: none; align-self: center; transition: background .15s, border-color .15s;
     }
@@ -274,10 +278,9 @@ try {
   function rowHtml(x) {
     const on = !x.disabled;
     const n = esc(x.scriptName || 'Untitled');
-    return `<div class="rx_row${on ? '' : ' rx_dim'}" data-id="${esc(x.id)}">
-      ${query ? '' : '<i class="fa-solid fa-grip-lines ntr_grip" title="Drag to reorder or move to a folder"></i>'}
-      <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
+    return `<div class="rx_row${on ? '' : ' rx_dim'}${query ? '' : ' rx_drag'}" data-id="${esc(x.id)}">
       ${sw('rx_rsw', on, `Turn ${n} on or off`)}
+      <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
       <span class="ntr_menu">${btn('mvmenu', 'fa-share', `Move ${n} to a folder`)}</span>
       ${btn('edit', 'fa-pen', `Edit ${n}`)}
       ${btn('del', 'fa-trash', `Delete ${n}`, ' danger_button')}
@@ -295,10 +298,9 @@ try {
       const open = query ? true : !!s.uiOpen[openKey(f)];
       return `<div class="rx_folder${open ? ' rx_open' : ''}" data-fid="${esc(f.id)}">
         <div class="ntr_fold rx_fhead" tabindex="0" role="button" aria-expanded="${open}">
-          ${query ? '' : '<i class="fa-solid fa-grip-lines ntr_grip rx_fgrip" title="Drag to reorder folders"></i>'}
+          ${sw('rx_fsw', items.some((x) => !x.disabled), `Turn ${esc(f.name)} on or off`, items.length ? '' : ' disabled')}
           <i class="fa-solid fa-fw ${open ? 'fa-folder-open' : 'fa-folder'} rx_ficon"></i>
           <span class="rx_fname">${esc(f.name)} <span class="rx_count">${items.length}</span></span>
-          ${sw('rx_fsw', items.some((x) => !x.disabled), `Turn ${esc(f.name)} on or off`, items.length ? '' : ' disabled')}
           <span class="ntr_menu">${btn('fmenu', 'fa-ellipsis', `More for ${esc(f.name)}`)}</span>
         </div>
         <div class="ntr_card rx_fbody">${list.map(rowHtml).join('') || '<div class="rx_empty">Empty. Drag a regex here.</div>'}</div>
@@ -307,7 +309,7 @@ try {
     const loose = v.loose.filter(hit);
     // Regexes in no folder: always last, since SillyTavern adds new regexes at the end of its list.
     const looseHtml = !query || loose.length ? `<div class="rx_ublock">
-        <div class="ntr_fold rx_uhead"><i class="fa-solid fa-fw fa-inbox rx_ficon"></i><span class="rx_fname">No Folder <span class="rx_count">${v.loose.length}</span></span></div>
+        <div class="ntr_fold rx_uhead"><span class="rx_swgap" aria-hidden="true"></span><i class="fa-solid fa-fw fa-inbox rx_ficon"></i><span class="rx_fname">No Folder <span class="rx_count">${v.loose.length}</span></span></div>
         <div class="ntr_card rx_loose">${loose.map(rowHtml).join('') || `<div class="rx_empty">${v.groups.length ? 'Drag or move a regex here to take it out of its folder.' : 'No regexes here yet.'}</div>`}</div>
       </div>` : '';
     const allowTitle = sec.k === 'preset' ? 'Let this preset\'s regexes run' : 'Let this character\'s regexes run';
@@ -423,7 +425,7 @@ try {
     const f = fEl && sec ? folders(sec).find((x) => x.id === fEl.dataset.fid) : null;
     const id = e.target.closest('.rx_row')?.dataset.id;
     if (!b) {
-      if (f && !query && e.target.closest('.rx_fhead') && !e.target.closest('input, .rx_swbox, .ntr_grip')) {
+      if (f && !query && e.target.closest('.rx_fhead') && !e.target.closest('input, .rx_swbox')) {
         const s = settings();
         s.uiOpen[openKey(f)] = !s.uiOpen[openKey(f)];
         save();
@@ -521,12 +523,15 @@ try {
     }
   }
 
-  // ===== Dragging: by the grip, with a mouse or a finger (dragSort in index.js) =====
-  // A regex moves within its section, into a folder or out of one; a folder moves among the section's folders.
-  function dragPick(grip) {
-    if (query) return null;
-    const folder = grip.classList.contains('rx_fgrip');
-    return { item: folder ? grip.closest('.rx_folder') : grip.closest('.rx_row'), kind: folder ? 'folder' : 'regex', scope: grip.closest('.rx_sec') };
+  // ===== Dragging a row, with a mouse or a finger (dragSort in index.js) =====
+  // A regex moves within its section, into a folder or out of one; a folder moves among the section's folders, its
+  // header following the pointer. A press on a switch or button doesn't drag, and nothing drags while searching.
+  function dragPick(el) {
+    if (query || el.closest('.rx_swbox, .rx_btn')) return null;
+    const row = el.closest('.rx_row');
+    if (row) return { item: row, kind: 'regex', scope: row.closest('.rx_sec') };
+    const head = el.closest('.rx_fhead');
+    return head && { item: head.parentElement, kind: 'folder', scope: head.closest('.rx_sec'), face: head };
   }
 
   function dragPlace(el, d, after) {

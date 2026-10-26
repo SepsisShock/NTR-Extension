@@ -121,6 +121,7 @@
       "nameSize": ["A",""],
       "sectionHtml": ["ABCDEFGHIJLMOQRTUVWX",""],
       "rowHtml": ["A",""],
+      "deptSum": ["",""],
       "deptHtml": ["",""],
       "listHtml": ["ABCDEFGHIJLMOQRTUVWX",""],
       "headHtml": ["A",""],

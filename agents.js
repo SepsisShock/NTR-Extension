@@ -226,13 +226,11 @@
     if (sw && typeof sw === 'object') put(sw);
     ctx().saveChat();
   }
-  // The newest saved result at or before message upTo (the last message when null), and which message it's on. With
-  // `before` (a time), only results saved by then count: one saved later stands for the text it replaced there, if any.
-  function latest(id, upTo = null, before = null) {
+  // The newest saved result at or before message upTo (the last message when null), and which message it's on.
+  function latest(id, upTo = null) {
     const chat = ctx().chat || [];
     for (let i = Math.min(upTo ?? chat.length - 1, chat.length - 1); i >= 0; i--) {
       const r = savedAt(chat[i], id);
-      if (r && before != null && r.at > before) { if (r.prev != null) return { ...r, text: r.prev, prev: null, mes: i }; continue; }
       if (r) return { ...r, mes: i };
     }
     return null;
@@ -351,15 +349,33 @@
   let sendAt = null;
   // An agent's own run with your chat's full prompt leaves its own result out, so it doesn't get it twice.
   let fullRun = null;
-  // While a run builds its prompt: when it was asked for (t), and the agents whose runs it waited for (fresh). Any other
-  // agent's result counts only if it was saved by t, so what a run reads of an agent below it, or of one that started
-  // after it, doesn't depend on which run finishes first.
-  let asOf = null;
-  const savedBy = (id) => (asOf && !asOf.fresh.has(id) ? asOf.t : null);
+  // A run reads the agents it doesn't wait for as they were when it was asked for (o.snap: by agent id, the text, which
+  // message it's on and that message's date, or null for none), so what it reads of an agent below it, or of one asked
+  // for after it, doesn't depend on which run finishes first. snap is set while a run builds its own prompt; fullSnap
+  // while SillyTavern builds a full-prompt run's quiet request, and never counts for your own reply (chatBusy).
+  let snap = null;
+  let fullSnap = null;
   function readingAs(o, build) {
-    const was = asOf;
-    asOf = o.asOf;
-    try { return build(); } finally { asOf = was; }
+    const was = snap;
+    snap = o.snap;
+    try { return build(); } finally { snap = was; }
+  }
+  // An agent's saved text up to message upTo, as the run being built sees it. Null when it has none. A snapshot of a
+  // message that's gone or moved meanwhile gives way to what's saved now.
+  function seenText(id, upTo, from = snap || (!chatBusy && fullSnap)) {
+    const v = from ? from.get(id) : undefined;
+    if (v === null) return null;
+    if (v && v.i <= upTo && (ctx().chat || [])[v.i]?.send_date === v.date) return v.text;
+    return latest(id, upTo)?.text ?? null;
+  }
+  // The snapshot for a run asked for now, on message `at` (the last one when null): every agent but `fresh`, the ones
+  // it waits for.
+  function snapshot(fresh, at) {
+    const chat = ctx().chat || [];
+    return new Map(list().filter((x) => !fresh.has(x.id)).map((x) => {
+      const r = latest(x.id, at);
+      return [x.id, r ? { text: r.text, i: r.mes, date: chat[r.mes].send_date } : null];
+    }));
   }
   function upToFor(type) {
     const chat = ctx().chat || [];
@@ -377,11 +393,11 @@
     if (pageOn()) {
       for (const a of list()) {
         if (!a.on || !a.send || (type === 'quiet' && a.id === fullRun)) continue;
-        const r = latest(a.id, at, savedBy(a.id));
-        if (!r) continue;
+        const text = seenText(a.id, at, type === 'quiet' ? fullSnap : null);
+        if (text == null) continue;
         const where = WHERE.find(([v]) => v === a.sendWhere)[2];
         const role = a.sendWhere === 'chat' ? ROLES.find(([v]) => v === a.sendRole)[2] : 0;
-        try { c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${r.text}`, where, a.sendDepth, a.sendScan, role); sent.add(a.id); } catch (e) { console.error('[NTR] Could not send an agent result', e); }
+        try { c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${text}`, where, a.sendDepth, a.sendScan, role); sent.add(a.id); } catch (e) { console.error('[NTR] Could not send an agent result', e); }
       }
     }
     for (const id of injected) if (!sent.has(id)) { try { c.setExtensionPrompt(injKey(id), '', 1, 0); } catch (e) { /* gone */ } }
@@ -539,10 +555,10 @@
               : 'With your chat\'s full prompt, it can only run on the last message.');
           }
           fullRun = a.id;
-          asOf = o.asOf;
+          fullSnap = o.snap;
           try {
-            return String(await abortable(c.generateQuietPrompt({ quietPrompt: withLast(a, i), responseLength: max }), signal) ?? '');
-          } finally { fullRun = null; asOf = null; }
+            return String(await abortable(c.generateQuietPrompt({ quietPrompt: readingAs(o, () => withLast(a, i)), responseLength: max }), signal) ?? '');
+          } finally { fullRun = null; fullSnap = null; }
         }
         const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
         // The speaker's name is already in each message, so SillyTavern doesn't add one (name: '').
@@ -690,8 +706,8 @@
     const all = !test && (usesFull(first) || r.dynamic);
     const reads = test ? [] : r.ids.filter((x) => byId(x)?.on);
     const deps = jobs.filter((j) => !lane.includes(j) && !j.test && (all || reads.includes(j.id)));
-    // What it reads of the agents it doesn't wait for is what was saved by now (asOf).
-    const asked = { t: Date.now(), fresh: new Set([...lane, ...deps].map((j) => j.id)) };
+    // What it reads of the agents it doesn't wait for, as saved now.
+    const seen = test ? null : snapshot(new Set([id, ...lane.map((j) => j.id), ...deps.map((j) => j.id)]), at);
     let finished;
     job.done = new Promise((res) => { finished = res; });
     jobs.push(job);
@@ -703,7 +719,7 @@
       let timer = 0;
       let timedOut = false;
       let t0 = performance.now();
-      const o = { test, auto, at, date, chat: from, target: null, asOf: asked };
+      const o = { test, auto, at, date, chat: from, target: null, snap: seen };
       try {
         await wait(Promise.all(lane.map((j) => j.done)));
         for (const j of deps) {
@@ -2203,7 +2219,7 @@
     // {{agent::Name}} (index.js): that agent's current saved result, chosen like Send to Main AI's. Blank while it's off.
     macro: (name) => {
       const a = named(name);
-      return a?.on ? latest(a.id, macroAt ?? sendUpTo(), savedBy(a.id))?.text ?? '' : '';
+      return a?.on ? seenText(a.id, macroAt ?? sendUpTo()) ?? '' : '';
     },
     // For Pinned Blocks set to Agent Results (layout.js).
     pinView,

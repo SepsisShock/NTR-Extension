@@ -226,11 +226,13 @@
     if (sw && typeof sw === 'object') put(sw);
     ctx().saveChat();
   }
-  // The newest saved result at or before message upTo (the last message when null), and which message it's on.
-  function latest(id, upTo = null) {
+  // The newest saved result at or before message upTo (the last message when null), and which message it's on. With
+  // `before` (a time), only results saved by then count: one saved later stands for the text it replaced there, if any.
+  function latest(id, upTo = null, before = null) {
     const chat = ctx().chat || [];
     for (let i = Math.min(upTo ?? chat.length - 1, chat.length - 1); i >= 0; i--) {
       const r = savedAt(chat[i], id);
+      if (r && before != null && r.at > before) { if (r.prev != null) return { ...r, text: r.prev, prev: null, mes: i }; continue; }
       if (r) return { ...r, mes: i };
     }
     return null;
@@ -349,6 +351,16 @@
   let sendAt = null;
   // An agent's own run with your chat's full prompt leaves its own result out, so it doesn't get it twice.
   let fullRun = null;
+  // While a run builds its prompt: when it was asked for (t), and the agents whose runs it waited for (fresh). Any other
+  // agent's result counts only if it was saved by t, so what a run reads of an agent below it, or of one that started
+  // after it, doesn't depend on which run finishes first.
+  let asOf = null;
+  const savedBy = (id) => (asOf && !asOf.fresh.has(id) ? asOf.t : null);
+  function readingAs(o, build) {
+    const was = asOf;
+    asOf = o.asOf;
+    try { return build(); } finally { asOf = was; }
+  }
   function upToFor(type) {
     const chat = ctx().chat || [];
     const last = chat.length - 1;
@@ -365,7 +377,7 @@
     if (pageOn()) {
       for (const a of list()) {
         if (!a.on || !a.send || (type === 'quiet' && a.id === fullRun)) continue;
-        const r = latest(a.id, at);
+        const r = latest(a.id, at, savedBy(a.id));
         if (!r) continue;
         const where = WHERE.find(([v]) => v === a.sendWhere)[2];
         const role = a.sendWhere === 'chat' ? ROLES.find(([v]) => v === a.sendRole)[2] : 0;
@@ -527,11 +539,12 @@
               : 'With your chat\'s full prompt, it can only run on the last message.');
           }
           fullRun = a.id;
+          asOf = o.asOf;
           try {
             return String(await abortable(c.generateQuietPrompt({ quietPrompt: withLast(a, i), responseLength: max }), signal) ?? '');
-          } finally { fullRun = null; }
+          } finally { fullRun = null; asOf = null; }
         }
-        const messages = prompt(a, test, test ? null : aim(o));
+        const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
         // The speaker's name is already in each message, so SillyTavern doesn't add one (name: '').
         const chatPart = splits(a) && !test ? messages.slice(1).map((m) => ({ ...m, name: '' })) : messages[1].content;
         return String(await abortable(c.generateRaw({ prompt: chatPart, systemPrompt: messages[0].content, responseLength: max }), signal) ?? '');
@@ -542,7 +555,7 @@
     }
     if (a.kind === 'cc') {
       if (!a.ccModel.trim()) throw new Error('Type a model name first.');
-      const messages = prompt(a, test, test ? null : aim(o));
+      const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
       if (a.ccSource === 'custom' && !a.ccUrl.trim()) throw new Error('Type the Custom link first.');
       const r = await c.ChatCompletionService.processRequest({
         stream: false, messages, model: a.ccModel.trim(), chat_completion_source: a.ccSource, max_tokens: max,
@@ -553,7 +566,7 @@
     }
     if (!a.tcUrl.trim()) throw new Error('Type the server link first.');
     if (sharesChatServer(a)) { await abortable(chatIdle(), signal); stillAllowed(a, test); }
-    const messages = prompt(a, test, test ? null : aim(o));
+    const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
     const r = await c.TextCompletionService.processRequest({
       stream: false, prompt: messages, max_tokens: max, api_type: a.tcType, api_server: a.tcUrl.trim(),
       model: TC_MODEL.has(a.tcType) && a.tcModel.trim() ? a.tcModel.trim() : undefined, ...samplers(a, true),
@@ -586,8 +599,8 @@
   }
 
   // ----- Runs side by side -----
-  // Every run gets a number when it's asked for (n) and only waits for runs with a lower one, so no two runs wait for
-  // each other. A run waits, in this order:
+  // A run only waits for runs asked for before it (the ones already in `jobs` when it's asked for), so no two runs wait
+  // for each other. A run waits, in this order:
   // - for the runs before it in its lane: the agents in no department are one lane, each department another. A run set
   //   off by a message in a department also waits for that message's runs in no department. Test Connection has no lane.
   // - for the same agent's earlier runs, and the earlier runs of the agents it reads. With your chat's full prompt, or a
@@ -600,11 +613,10 @@
   // fails: each agent's last failed run in a chat, shown in the Pinned Block until it runs fine again.
   const runs = new Map();
   const fails = new Map();
-  // The runs not finished yet, oldest first: { n, id, lane, batch, test, ctrl, state, waitFor, done }. lane: the
+  // The runs not finished yet, oldest first: { id, lane, batch, test, ctrl, state, waitFor, done }. lane: the
   // department's id, '' for no department, null for Test Connection. state: 'queue', 'wait' (for waitFor, an agent in
   // another lane) or 'run'.
   const jobs = [];
-  let lastN = 0;
   let batchN = 0;
   // Lets `size` runs through at a time, in the order they came. Gives a run the function that lets the next one through.
   // Stop takes a run out of the line.
@@ -644,7 +656,6 @@
     const l = runs.get(a.id) || [];
     l.unshift(entry);
     runs.set(a.id, l.slice(0, 10));
-    renderActivity();
   }
   // Saves an answer on the message it was made for, if that message is still there as it was. Gives back why it wasn't
   // saved, for the activity.
@@ -672,13 +683,15 @@
     if (!first) return;
     const from = chatId();
     const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
-    const job = { n: ++lastN, id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, ctrl: new AbortController(), state: 'queue', waitFor: null };
-    // Who it waits for, from the runs already asked for (all with a lower number).
+    const job = { id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, ctrl: new AbortController(), state: 'queue', waitFor: null };
+    // Who it waits for, from the runs already asked for.
     const lane = jobs.filter((j) => j.id === id || (job.lane !== null && j.lane === job.lane) || (batch && job.lane && j.batch === batch && j.lane === ''));
     const r = test ? null : readsOf(first);
     const all = !test && (usesFull(first) || r.dynamic);
     const reads = test ? [] : r.ids.filter((x) => byId(x)?.on);
     const deps = jobs.filter((j) => !lane.includes(j) && !j.test && (all || reads.includes(j.id)));
+    // What it reads of the agents it doesn't wait for is what was saved by now (asOf).
+    const asked = { t: Date.now(), fresh: new Set([...lane, ...deps].map((j) => j.id)) };
     let finished;
     job.done = new Promise((res) => { finished = res; });
     jobs.push(job);
@@ -690,7 +703,7 @@
       let timer = 0;
       let timedOut = false;
       let t0 = performance.now();
-      const o = { test, auto, at, date, chat: from, target: null };
+      const o = { test, auto, at, date, chat: from, target: null, asOf: asked };
       try {
         await wait(Promise.all(lane.map((j) => j.done)));
         for (const j of deps) {
@@ -843,8 +856,10 @@
   // instead of crossing. Other agents with lines show only their dot. A folded department's header stands in for its
   // agents, with how many are linked to the picked agent. Hidden while a row is dragged; drawn again from the new
   // order once it's dropped.
-  // typing: instructions being typed, before they're saved, so the lines follow them.
+  // typing: instructions being typed, before they're saved, so the lines follow them a moment later (linkWait). Drawing
+  // the page again drops both.
   let typing = null;
+  let linkWait = 0;
   const jobText = (a) => (typing?.id === a.id ? typing.job : a.job);
   // An agent that's off reads no one.
   const linkList = () => list().filter((r) => r.on).flatMap((r) => readsOf(r, jobText(r)).ids.map((x) => ({ r: r.id, s: x })));
@@ -1299,6 +1314,7 @@
     if (!s.agPick && list().length) s.agPick = list()[0].id;
     const a = byId(s.agPick);
     typing = null;
+    clearTimeout(linkWait);
     root.innerHTML = listHtml(s) + `<div id="m_ag_edit">${editorHtml(a)}</div>`;
     bindAll(s, a);
     renderActivity();
@@ -1780,7 +1796,6 @@
     });
     // Instructions' summary follows what's typed; the text itself saves when the box loses focus.
     const job = root.querySelector('.m_ag_txt[data-f="job"]');
-    let linkWait = 0;
     job.oninput = () => {
       setSum('ins', sums({ ...a, job: job.value }).ins);
       clearTimeout(linkWait);
@@ -2188,7 +2203,7 @@
     // {{agent::Name}} (index.js): that agent's current saved result, chosen like Send to Main AI's. Blank while it's off.
     macro: (name) => {
       const a = named(name);
-      return a?.on ? latest(a.id, macroAt ?? sendUpTo())?.text ?? '' : '';
+      return a?.on ? latest(a.id, macroAt ?? sendUpTo(), savedBy(a.id))?.text ?? '' : '';
     },
     // For Pinned Blocks set to Agent Results (layout.js).
     pinView,

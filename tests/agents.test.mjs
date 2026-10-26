@@ -128,3 +128,35 @@ test('departments run side by side, and an agent waits for the agents above it t
   delete context.chat;
   delete context.saveChat;
 });
+
+// An agent that reads an agent below it gets that agent's answer from before the run was asked for, even when the agent
+// below finishes first in another department.
+test('an agent reading an agent below it gets its last answer, whichever finishes first', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
+  s.agents = [agent('B'), agent('R', 'job R reads {{agent::P}}'), agent('P')];
+  s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_B', 'ag_R'] }, { id: 'dp_2', name: 'Two', ids: ['ag_P'] }];
+  context.chat = [{ send_date: 'd', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd', at: 1 } } } }];
+  context.saveChat = () => {};
+  context.substituteParams = (t) => t.replace(/\{\{agent::(\w+)\}\}/g, (m, n) => window.NTR.agents.macro(n));
+  const live = new Map();
+  const sent = {};
+  context.ChatCompletionService = {
+    processRequest: (data) => new Promise((res) => {
+      const name = /^job (\w)/.exec(data.messages[0].content)[1];
+      sent[name] = data.messages[0].content;
+      live.set(name, res);
+    }),
+  };
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const finish = async (x) => { live.get(x)({ content: 'NEW' }); live.delete(x); await settle(); };
+  window.NTR.agents.replied('normal', null);
+  await settle();
+  await finish('P');
+  assert.equal(window.NTR.agents.answer('ag_P'), 'NEW', 'P saved its new answer first');
+  await finish('B');
+  assert.equal(sent.R, 'job R reads OLD');
+  await finish('R');
+  for (const k of ['ChatCompletionService', 'chat', 'saveChat', 'substituteParams']) delete context[k];
+});

@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.80.1';
+  const AGENTS_VERSION = '2.80.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -660,7 +660,7 @@
   const status = (a) => `${runsText(a)} · ${conn(a)}`;
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   // An agent's own switch, in a box that's easier to tap on a touch screen.
-  const onSwitch = (cls, a) => `<label class="m_ag_sw"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
+  const onSwitch = (cls, a) => `<label class="m_ag_sw ntr_swcol"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
   const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
 
@@ -671,19 +671,18 @@
   }
 
   // The roster: the agents in no department, then Departments, a card per department with its agents. A row per agent:
-  // a grip to drag it, its picture, name and title picking it, and its switch. A department's header: a grip, its name
-  // and how many of its agents are on opening and folding it, and More (Rename, Move Up, Move Down, Delete). The order
-  // is the run order (sortAgents).
+  // its switch, then its picture, name and title picking it. A department's header: a gap in the switch column, its name
+  // and how many of its agents are on opening and folding it, and More (Rename, Move Up, Move Down, Delete). Rows and
+  // headers drag from anywhere but their switch and More. The order is the run order (sortAgents).
   function rowHtml(a, s) {
     return `
       <div class="m_ag_row${a.id === s.agPick ? ' m_ag_sel' : ''}" data-id="${a.id}">
-        <i class="fa-solid fa-grip-lines ntr_grip" aria-hidden="true" title="Drag to reorder or move to a department"></i>
+        ${onSwitch('m_ag_on', a)}
         <button type="button" class="m_ag_pick"${a.id === s.agPick ? ' aria-current="true"' : ''}>
           ${picHtml(a, 30)}
           <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
             <span class="m_ag_rsub">${esc(status(a))}</span></span>
         </button>
-        ${onSwitch('m_ag_on', a)}
       </div>`;
   }
   function deptSum(d) {
@@ -697,7 +696,7 @@
     return `
       <div class="ntr_card m_ag_dept" data-dept="${d.id}">
         <div class="m_ag_dhead${holds ? ' m_ag_sel' : ''}">
-          <i class="fa-solid fa-grip-lines ntr_grip m_ag_dgrip" aria-hidden="true" title="Drag to reorder departments"></i>
+          <span class="ntr_swcol" aria-hidden="true"></span>
           <button type="button" class="m_ag_dpick" aria-expanded="${open}">
             <span class="m_ag_dicon"><i class="fa-solid fa-fw ${open ? 'fa-door-open' : 'fa-door-closed'}"></i></span>
             <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}</strong><span class="m_ag_rsub m_ag_dsum">${deptSum(d)}</span></span>
@@ -716,17 +715,17 @@
     const top = free.map((a) => rowHtml(a, s)).join('')
       || (!l.length ? '<div class="cb_hint" style="margin:0;">No agents yet.</div>' : dl.length ? '<div class="m_ag_empty">Drag an agent here to take it out of its department.</div>' : '');
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
-        ${btn('m_ag_new', 'fa-plus', 'Hire Agent')}
-        ${btn('m_ag_dnew', 'fa-door-open', 'Create Department')}
+        ${btn('m_ag_new', 'fa-user-plus', 'Hire Agent')}
+        ${btn('m_ag_dnew', 'fa-building-shield', 'Create Department')}
         ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker')}
       </div>
       <div class="m_ag_roster">
-        <div class="ntr_glab"><i class="fa-solid fa-fw fa-people-group ntr_glab_icon"></i>Agent Roster</div>
+        <div class="ntr_glab"><i class="fa-solid fa-fw fa-id-badge ntr_glab_icon"></i>Agent Roster</div>
         <div class="ntr_card m_ag_loose"${dl.length ? ' role="group" aria-label="No department"' : ''}>${top}</div>
-        ${dl.length ? `<div class="ntr_glab"><i class="fa-solid fa-fw fa-door-closed ntr_glab_icon"></i>Departments</div>
+        ${dl.length ? `<div class="ntr_glab"><i class="fa-solid fa-fw fa-building ntr_glab_icon"></i>Departments</div>
         <div class="m_ag_depts" role="group" aria-label="Departments">${dl.map((d) => deptHtml(d, s)).join('')}</div>` : ''}
       </div>
-      ${l.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">Agents run one at a time, top to bottom${dl.length ? ': the roster first, then each department' : ''}.</div>` : ''}`;
+      ${l.length + dl.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">${l.length >= 2 ? `Agents run one at a time, top to bottom${dl.length ? ': the roster first, then each department' : ''}. ` : ''}Drag a row to change the order. On a touch screen, press and hold it first.</div>` : ''}`;
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, when it
@@ -1111,7 +1110,7 @@
   // A new department, at the end and open. Null on Cancel or at the limit.
   async function makeDept(anchor) {
     if (depts().length >= DEPT_MAX) { toastr.info(`Up to ${DEPT_MAX} departments.`, 'Agents'); return null; }
-    const name = await askDeptName(anchor, `Department ${depts().length + 1}`, '<i class="fa-solid fa-door-open"></i> Create');
+    const name = await askDeptName(anchor, `Department ${depts().length + 1}`, '<i class="fa-solid fa-building-shield"></i> Create');
     if (!name) return null;
     const d = { id: newId('dp'), name, ids: [] };
     depts().push(d);
@@ -1119,11 +1118,15 @@
   }
 
   // ----- Dragging in the roster (dragSort in index.js) -----
-  // An agent moves within its group or into another one; a department moves among the departments.
+  // An agent moves within its group or into another one; a department moves among the departments, its header following
+  // the pointer. A press on a switch or a More button doesn't drag.
   let dragger = null;
-  function dragPick(grip) {
-    const dept = grip.classList.contains('m_ag_dgrip');
-    return { item: dept ? grip.closest('.m_ag_dept') : grip.closest('.m_ag_row'), kind: dept ? 'dept' : 'agent', scope: grip.closest('.m_ag_roster') };
+  function dragPick(el) {
+    if (el.closest('.m_ag_sw, .ntr_menu')) return null;
+    const row = el.closest('.m_ag_row');
+    if (row) return { item: row, kind: 'agent', scope: row.closest('.m_ag_roster') };
+    const head = el.closest('.m_ag_dhead');
+    return head && { item: head.parentElement, kind: 'dept', scope: head.closest('.m_ag_roster'), face: head };
   }
   function dragPlace(el, d, after) {
     if (d.kind === 'dept') {
@@ -1383,7 +1386,7 @@
         if (act === 'to' && depts().length) {
           pop.innerHTML = depts().map((d) => `<button type="button" data-act="dept" data-dept="${d.id}"${d === cur ? ' class="ntr_here" disabled' : ''}><i class="fa-solid fa-door-closed fa-fw"></i>${esc(d.name)}</button>`).join('')
             + `<button type="button" data-act="none"${cur ? '' : ' class="ntr_here" disabled'}><i class="fa-solid fa-inbox fa-fw"></i>No Department</button>`
-            + '<button type="button" data-act="new"><i class="fa-solid fa-door-open fa-fw"></i>New Department…</button>';
+            + '<button type="button" data-act="new"><i class="fa-solid fa-building-shield fa-fw"></i>New Department…</button>';
           pop.querySelector('button:not(:disabled)')?.focus();
           return;
         }

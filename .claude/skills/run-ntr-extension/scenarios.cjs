@@ -250,7 +250,8 @@ const styleText = () => {
     }
     const order = () => t.ev(() => NTR.api.settings().agents.map((a) => a.name).join(','));
     out('agents hired', await order(), await t.ev(() => document.querySelectorAll('#m_ag_root .m_ag_row').length));
-    const grips = await t.ev(() => [...document.querySelectorAll('#m_ag_root .m_ag_row .ntr_grip')].map((g) => { const r = g.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
+    // By the grip where there is one, else by the row's name.
+    const grips = await t.ev(() => [...document.querySelectorAll('#m_ag_root .m_ag_row')].map((row) => { const r = (row.querySelector('.ntr_grip') || row.querySelector('.m_ag_rname')).getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
     if (grips.length >= 2) {
       const [a, b] = grips;
       await t.page.mouse.move(b[0], b[1]);

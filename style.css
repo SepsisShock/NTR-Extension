@@ -404,9 +404,17 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .ntr_fopt:is(:hover, .ntr_on) { background: var(--ntr-hover); }
 #cb_modal_overlay .ntr_fopt .fa-check { font-size: 0.8em; opacity: 0.8; }
 
-/* Dragging by a grip (dragSort in index.js): the copy that follows the pointer, the gap where it will land, and a
-   header lit up as where it goes. */
-#cb_modal_overlay .ntr_grip { flex: none; padding: 4px 2px; cursor: grab; opacity: 0.4; touch-action: none; }
+/* Switches for one row (an agent, a regex, a folder) in one column at the left, each as tall as its row so it's easy
+   to hit. A header without a switch keeps the column as an empty span, so names line up. Agents and Regexes. */
+#cb_modal_overlay .ntr_swcol { flex: none; align-self: stretch; width: 36px; display: flex; align-items: center; justify-content: center; }
+#cb_modal_overlay label.ntr_swcol { cursor: pointer; }
+@media (pointer: coarse) {
+  #cb_modal_overlay .ntr_swcol { width: 44px; }
+}
+
+/* Dragging a row (dragSort in index.js): the copy that follows the pointer, the gap where it will land, and a header
+   lit up as where it goes. */
+#cb_modal_overlay .ntr_sorting, #cb_modal_overlay .ntr_sorting * { cursor: grabbing !important; }
 #cb_modal_overlay :is(.ntr_dragging, .ntr_drop) { outline: 2px dashed var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px;
   background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 15%, transparent); }
 #cb_modal_overlay .ntr_dragging { border-radius: 8px; }
@@ -438,7 +446,9 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 /* Agents page (agents.js): the roster, then the picked agent in a frame. Its header stays at the top of the menu while its
    folded settings scroll under it, with the panel's own tint and blur so nothing shows through. overflow: clip rounds
    the header with the frame without making the frame a scroll box, which would stop the header from staying put. */
-#cb_modal_overlay .m_ag_row { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 2px; border-radius: 8px; }
+#cb_modal_overlay .m_ag_row { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 0; border-radius: 8px; }
+/* Rows drag, so a press doesn't select their text or open a phone's long-press menu. */
+#cb_modal_overlay :is(.m_ag_row, .m_ag_dhead) { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #cb_modal_overlay :is(.m_ag_row, .m_ag_dhead).m_ag_sel { background: var(--ntr-hover); outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }
 #cb_modal_overlay .m_ag_pick { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 0; border-radius: 6px; cursor: pointer; }
 #cb_modal_overlay :is(.m_ag_pick, .m_ag_dpick, #m_ag_pic):focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 2px; }
@@ -446,14 +456,12 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay :is(.m_ag_rline, .m_ag_rsub) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #cb_modal_overlay .m_ag_rtitle { opacity: 0.7; }
 #cb_modal_overlay .m_ag_rsub { font-size: 0.8em; opacity: 0.7; }
-/* A switch in a box that's easier to tap on a touch screen, without taking more room. */
-#cb_modal_overlay .m_ag_sw { flex: none; display: inline-flex; align-items: center; padding: 2px; margin: -2px; cursor: pointer; }
-/* Departments: a card each, its header above its agents. The grips stay in one column at the left, as tall as their row. */
-#cb_modal_overlay .m_ag_roster { --m-ag-grip: 22px; }
-#cb_modal_overlay .m_ag_roster .ntr_grip { align-self: stretch; width: var(--m-ag-grip); display: flex; align-items: center; justify-content: center; padding: 0; }
+/* An agent that's off has a gray picture. */
+#cb_modal_overlay .m_ag_row:has(.m_ag_on:not(:checked)) .m_ag_pick > :first-child { filter: grayscale(1); opacity: 0.6; }
+/* Departments: a card each, its header above its agents. */
 #cb_modal_overlay .m_ag_dept { margin-top: 0; }
 #cb_modal_overlay .m_ag_dept + .m_ag_dept { margin-top: 6px; }
-#cb_modal_overlay .m_ag_dhead { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 2px; border-radius: 8px; }
+#cb_modal_overlay .m_ag_dhead { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 0; border-radius: 8px; }
 #cb_modal_overlay .m_ag_dpick { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 0; border-radius: 6px; cursor: pointer; }
 #cb_modal_overlay .m_ag_dicon { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--SmartThemeQuoteColor, #6cf); }
 #cb_modal_overlay .m_ag_empty { padding: 8px 10px 6px; font-size: 0.85em; opacity: 0.5; }
@@ -512,10 +520,8 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
   #cb_modal_overlay .m_ag_hbtn { min-width: 40px; min-height: 40px; }
   #cb_modal_overlay :is(#m_ag_macbtn, .m_ag_mac, .m_ag_range input, .m_ag_box, .m_ag_kinds .checkbox_label) { min-height: 40px; }
   #cb_modal_overlay #m_ag_prev { min-height: 40px; }
-  #cb_modal_overlay .m_ag_sw { padding: 11px 6px; margin: -11px -6px; }
   #cb_modal_overlay .ntr_pop button, #cb_modal_overlay .ntr_fopt { min-height: 40px; }
   #cb_modal_overlay .ntr_agfl_row .menu_button, #cb_modal_overlay #m_ag_picmenu .menu_button { min-width: 40px; min-height: 40px; }
-  #cb_modal_overlay .m_ag_roster { --m-ag-grip: 40px; }
   #cb_modal_overlay .m_ag_dpick { min-height: 40px; }
   #cb_modal_overlay .ntr_avlab { min-height: 40px; }
   #cb_modal_overlay .ntr_avlab > label { align-self: stretch; display: flex; align-items: center; }

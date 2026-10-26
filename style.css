@@ -315,6 +315,7 @@
 .ntr_trow > .ntr_menu > .menu_button { margin: 0; padding: 4px 8px; }
 .ntr_tname { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; margin: 2px 0; padding: 6px; border: 0; border-radius: 6px;
   background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ntr_tname > i { flex: none; }
 .ntr_tname > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ntr_tname:hover { background: var(--ntr-hover); }
 .ntr_tname:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px; }

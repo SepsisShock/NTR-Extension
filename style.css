@@ -448,21 +448,15 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .m_ag_rsub { font-size: 0.8em; opacity: 0.7; }
 /* A switch in a box that's easier to tap on a touch screen, without taking more room. */
 #cb_modal_overlay .m_ag_sw { flex: none; display: inline-flex; align-items: center; padding: 2px; margin: -2px; cursor: pointer; }
-/* Departments: a row like an agent's, its agents indented under it along a line. The grips stay in one column at the
-   left, as tall as their row. */
-#cb_modal_overlay .m_ag_roster { --m-ag-grip: 22px; --m-ag-line: var(--ntr-line); }
+/* Departments: a card each, its header above its agents. The grips stay in one column at the left, as tall as their row. */
+#cb_modal_overlay .m_ag_roster { --m-ag-grip: 22px; }
 #cb_modal_overlay .m_ag_roster .ntr_grip { align-self: stretch; width: var(--m-ag-grip); display: flex; align-items: center; justify-content: center; padding: 0; }
-#cb_modal_overlay .m_ag_dept { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--m-ag-line); }
+#cb_modal_overlay .m_ag_dept { margin-top: 0; }
+#cb_modal_overlay .m_ag_dept + .m_ag_dept { margin-top: 6px; }
 #cb_modal_overlay .m_ag_dhead { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 2px; border-radius: 8px; }
-#cb_modal_overlay .m_ag_dpick { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 0; border-radius: 6px; font-weight: 600; cursor: pointer; }
+#cb_modal_overlay .m_ag_dpick { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 0; border-radius: 6px; cursor: pointer; }
 #cb_modal_overlay .m_ag_dicon { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--SmartThemeQuoteColor, #6cf); }
-#cb_modal_overlay .m_ag_dname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#cb_modal_overlay .m_ag_dcount { flex: none; font-size: 0.9em; font-weight: normal; opacity: 0.55; }
-#cb_modal_overlay .m_ag_dbody { position: relative; }
-#cb_modal_overlay .m_ag_dbody::before { content: ''; position: absolute; top: 2px; bottom: 2px; left: calc(var(--m-ag-grip) + 16px); border-left: 2px solid var(--m-ag-line); }
-#cb_modal_overlay .m_ag_dbody .m_ag_pick { margin-left: 16px; }
 #cb_modal_overlay .m_ag_empty { padding: 8px 10px 6px; font-size: 0.85em; opacity: 0.5; }
-#cb_modal_overlay .m_ag_dbody .m_ag_empty { padding-left: calc(var(--m-ag-grip) + 28px); }
 /* While an agent is dragged into a group, its empty note steps aside. */
 #cb_modal_overlay :is(.m_ag_loose, .m_ag_dbody):has(> .m_ag_row) > .m_ag_empty { display: none; }
 #cb_modal_overlay .m_ag_frame { margin-top: 14px; border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 50%, transparent); border-radius: 12px; overflow: clip; }
@@ -522,6 +516,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
   #cb_modal_overlay .ntr_pop button, #cb_modal_overlay .ntr_fopt { min-height: 40px; }
   #cb_modal_overlay .ntr_agfl_row .menu_button, #cb_modal_overlay #m_ag_picmenu .menu_button { min-width: 40px; min-height: 40px; }
   #cb_modal_overlay .m_ag_roster { --m-ag-grip: 40px; }
+  #cb_modal_overlay .m_ag_dpick { min-height: 40px; }
   #cb_modal_overlay .ntr_avlab { min-height: 40px; }
   #cb_modal_overlay .ntr_avlab > label { align-self: stretch; display: flex; align-items: center; }
   #cb_modal_overlay .cb_posgrid { grid-template-columns: repeat(3, 38px); }

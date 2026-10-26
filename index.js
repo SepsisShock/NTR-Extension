@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.80.2';
+  const VERSION = '2.81.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -966,6 +966,16 @@ await (async () => {
   }
   function closePops(scope = document) {
     scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
+  }
+
+  // A switch for a group of rows, like a regex folder or an agent department: g is { ids, was }, items its rows (with
+  // an id), isOn(x) whether a row is on. Gives back the ids to switch. Off remembers which were on, in was. Back on
+  // turns those on again: all of them for a group never switched off here, none if the remembered ones have left it.
+  function groupFlip(g, items, on, isOn) {
+    if (!on) { g.was = items.filter(isOn).map((x) => x.id); return g.was; }
+    const ids = Array.isArray(g.was) ? g.was.filter((id) => g.ids.includes(id)) : g.ids;
+    g.was = null;
+    return ids;
   }
 
   // Dragging a row, with a mouse or a finger, on the Regexes and Agents pages. A mouse starts the drag once it moves a
@@ -3412,7 +3422,7 @@ await (async () => {
     // sliders, and the buttons say why they do nothing.
     startPlacement: (first) => (window.NTR.layout ? callModule('layout', 'startPlacement', first) : toastr.info('Layout didn\'t load, so Edit Placement isn\'t available.', 'Edit Placement')),
     drawPlace: () => callModule('layout', 'drawPlace'),
-    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
+    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, groupFlip, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

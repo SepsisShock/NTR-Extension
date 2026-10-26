@@ -404,10 +404,13 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .ntr_fopt:is(:hover, .ntr_on) { background: var(--ntr-hover); }
 #cb_modal_overlay .ntr_fopt .fa-check { font-size: 0.8em; opacity: 0.8; }
 
-/* Switches for one row (an agent, a regex, a folder) in one column at the left, each as tall as its row so it's easy
-   to hit. A header without a switch keeps the column as an empty span, so names line up. Agents and Regexes. */
+/* Switches for one row (an agent, a department, a regex, a folder) in one column at the left, each as tall as its row
+   so it's easy to hit. A header without a switch keeps the column as an empty span, so names line up. A switch for an
+   empty group is grayed out. Agents and Regexes. */
 #cb_modal_overlay .ntr_swcol { flex: none; align-self: stretch; width: 36px; display: flex; align-items: center; justify-content: center; }
 #cb_modal_overlay label.ntr_swcol { cursor: pointer; }
+#cb_modal_overlay .ntr_swcol input[type=checkbox]:disabled { opacity: .35; cursor: default; }
+#cb_modal_overlay label.ntr_swcol:has(:disabled) { cursor: default; }
 @media (pointer: coarse) {
   #cb_modal_overlay .ntr_swcol { width: 44px; }
 }

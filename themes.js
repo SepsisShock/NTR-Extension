@@ -119,12 +119,13 @@
       toastr.success(`Saved "${name}"`, 'Themes');
     };
 
-    // t: the theme picked, or null for Default Look.
+    // t: the theme picked, or null for Default Look. Picking the one in use again throws away unsaved changes.
     const pick = async (t, row) => {
-      if (t === active()) return;
+      const dirty = unsaved();
+      if (t === active() && !dirty) return;
       const q = t ? `Your current look isn't saved as a theme and will be replaced. Apply "${t.name}" anyway?`
         : 'Your current look isn\'t saved as a theme. Go back to the default look?';
-      if (unsaved() && !(await askYes(row, q, t ? 'Apply' : 'Reset'))) return;
+      if (dirty && !(await askYes(row, q, t ? 'Apply' : 'Reset'))) return;
       if (!t) { resetLook(); openCombinedModal(); return; }
       s.themeActive = t.id;
       applyLook(t.data);

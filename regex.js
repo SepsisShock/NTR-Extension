@@ -214,13 +214,8 @@ try {
     #cb_modal_overlay .rx_top { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
     #cb_modal_overlay .rx_top .text_pole { flex: 1; margin: 0; }
     #cb_modal_overlay .rx_btn { margin: 0; padding: 4px 8px; flex: none; }
-    /* Switches in one column at the left, each as tall as its row so it's easy to hit. No Folder keeps the column empty. */
-    #cb_modal_overlay .rx_list { --rx-sw: 36px; }
-    #cb_modal_overlay :is(.rx_swbox, .rx_swgap) { flex: none; align-self: stretch; width: var(--rx-sw); display: flex; align-items: center; justify-content: center; }
-    #cb_modal_overlay .rx_swbox { cursor: pointer; }
     @media (pointer: coarse) {
       #cb_modal_overlay .rx_btn { min-width: 40px; min-height: 40px; }
-      #cb_modal_overlay .rx_list { --rx-sw: 44px; }
     }
     #cb_modal_overlay .rx_sec { margin-top: 8px; }
     #cb_modal_overlay .rx_sec + .rx_sec { margin-top: 22px; padding-top: 4px; border-top: 1px solid var(--ntr-line); }
@@ -272,7 +267,7 @@ try {
 
   let query = '';
   // In a label box, so a finger has room to hit it (see the CSS).
-  const sw = (cls, on, title, extra = '') => `<label class="rx_swbox"><input type="checkbox" class="rx_sw ${cls}" ${on ? 'checked' : ''} title="${title}" aria-label="${title}"${extra}></label>`;
+  const sw = (cls, on, title, extra = '') => `<label class="rx_swbox ntr_swcol"><input type="checkbox" class="rx_sw ${cls}" ${on ? 'checked' : ''} title="${title}" aria-label="${title}"${extra}></label>`;
   const btn = (act, icon, title, extra = '') => `<button class="menu_button rx_btn${extra}" data-act="${act}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
 
   function rowHtml(x) {
@@ -309,7 +304,7 @@ try {
     const loose = v.loose.filter(hit);
     // Regexes in no folder: always last, since SillyTavern adds new regexes at the end of its list.
     const looseHtml = !query || loose.length ? `<div class="rx_ublock">
-        <div class="ntr_fold rx_uhead"><span class="rx_swgap" aria-hidden="true"></span><i class="fa-solid fa-fw fa-inbox rx_ficon"></i><span class="rx_fname">No Folder <span class="rx_count">${v.loose.length}</span></span></div>
+        <div class="ntr_fold rx_uhead"><span class="ntr_swcol" aria-hidden="true"></span><i class="fa-solid fa-fw fa-inbox rx_ficon"></i><span class="rx_fname">No Folder <span class="rx_count">${v.loose.length}</span></span></div>
         <div class="ntr_card rx_loose">${loose.map(rowHtml).join('') || `<div class="rx_empty">${v.groups.length ? 'Drag or move a regex here to take it out of its folder.' : 'No regexes here yet.'}</div>`}</div>
       </div>` : '';
     const allowTitle = sec.k === 'preset' ? 'Let this preset\'s regexes run' : 'Let this character\'s regexes run';

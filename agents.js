@@ -660,7 +660,7 @@
   const status = (a) => `${runsText(a)} · ${conn(a)}`;
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   // An agent's own switch, in a box that's easier to tap on a touch screen.
-  const onSwitch = (cls, a) => `<label class="m_ag_sw"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
+  const onSwitch = (cls, a) => `<label class="m_ag_sw ntr_swcol"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
   const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
 
@@ -696,7 +696,7 @@
     return `
       <div class="ntr_card m_ag_dept" data-dept="${d.id}">
         <div class="m_ag_dhead${holds ? ' m_ag_sel' : ''}">
-          <span class="m_ag_swgap" aria-hidden="true"></span>
+          <span class="ntr_swcol" aria-hidden="true"></span>
           <button type="button" class="m_ag_dpick" aria-expanded="${open}">
             <span class="m_ag_dicon"><i class="fa-solid fa-fw ${open ? 'fa-door-open' : 'fa-door-closed'}"></i></span>
             <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}</strong><span class="m_ag_rsub m_ag_dsum">${deptSum(d)}</span></span>

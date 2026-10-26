@@ -404,6 +404,14 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay .ntr_fopt:is(:hover, .ntr_on) { background: var(--ntr-hover); }
 #cb_modal_overlay .ntr_fopt .fa-check { font-size: 0.8em; opacity: 0.8; }
 
+/* Switches for one row (an agent, a regex, a folder) in one column at the left, each as tall as its row so it's easy
+   to hit. A header without a switch keeps the column as an empty span, so names line up. Agents and Regexes. */
+#cb_modal_overlay .ntr_swcol { flex: none; align-self: stretch; width: 36px; display: flex; align-items: center; justify-content: center; }
+#cb_modal_overlay label.ntr_swcol { cursor: pointer; }
+@media (pointer: coarse) {
+  #cb_modal_overlay .ntr_swcol { width: 44px; }
+}
+
 /* Dragging a row (dragSort in index.js): the copy that follows the pointer, the gap where it will land, and a header
    lit up as where it goes. */
 #cb_modal_overlay .ntr_sorting, #cb_modal_overlay .ntr_sorting * { cursor: grabbing !important; }
@@ -448,11 +456,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay :is(.m_ag_rline, .m_ag_rsub) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #cb_modal_overlay .m_ag_rtitle { opacity: 0.7; }
 #cb_modal_overlay .m_ag_rsub { font-size: 0.8em; opacity: 0.7; }
-/* Switches in one column at the left, each as tall as its row so it's easy to hit. A department's header keeps the
-   column empty, so its door lines up with the pictures. An agent that's off has a gray picture. */
-#cb_modal_overlay .m_ag_roster { --m-ag-sw: 36px; }
-#cb_modal_overlay :is(.m_ag_sw, .m_ag_swgap) { flex: none; align-self: stretch; width: var(--m-ag-sw); display: flex; align-items: center; justify-content: center; }
-#cb_modal_overlay .m_ag_sw { cursor: pointer; }
+/* An agent that's off has a gray picture. */
 #cb_modal_overlay .m_ag_row:has(.m_ag_on:not(:checked)) .m_ag_pick > :first-child { filter: grayscale(1); opacity: 0.6; }
 /* Departments: a card each, its header above its agents. */
 #cb_modal_overlay .m_ag_dept { margin-top: 0; }
@@ -518,7 +522,6 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
   #cb_modal_overlay #m_ag_prev { min-height: 40px; }
   #cb_modal_overlay .ntr_pop button, #cb_modal_overlay .ntr_fopt { min-height: 40px; }
   #cb_modal_overlay .ntr_agfl_row .menu_button, #cb_modal_overlay #m_ag_picmenu .menu_button { min-width: 40px; min-height: 40px; }
-  #cb_modal_overlay .m_ag_roster { --m-ag-sw: 44px; }
   #cb_modal_overlay .m_ag_dpick { min-height: 40px; }
   #cb_modal_overlay .ntr_avlab { min-height: 40px; }
   #cb_modal_overlay .ntr_avlab > label { align-self: stretch; display: flex; align-items: center; }

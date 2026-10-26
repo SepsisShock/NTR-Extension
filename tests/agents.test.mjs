@@ -78,3 +78,120 @@ test('an agent that is off sends nothing to the main AI', () => {
   delete context.chat;
   delete context.setExtensionPrompt;
 });
+
+// Agents in no department run first; then each department is a lane, up to 3 runs at once. An agent that reads an
+// agent above it in another department waits for that agent's run.
+test('departments run side by side, and an agent waits for the agents above it that it reads', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
+  s.agents = [agent('L'), agent('A'), agent('B'), agent('C'), agent('E', 'job E {{agent::a}}'), agent('F')];
+  s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_A', 'ag_B'] }, { id: 'dp_2', name: 'Two', ids: ['ag_C', 'ag_E'] }, { id: 'dp_3', name: 'Three', ids: ['ag_F'] }];
+  context.chat = [{ send_date: 'd', mes: 'Hi', name: 'X', extra: {} }];
+  context.saveChat = () => {};
+  const live = new Map();
+  const started = [];
+  context.ChatCompletionService = {
+    processRequest: (data, o, x, signal) => new Promise((res, rej) => {
+      const name = /^job (\w)/.exec(data.messages[0].content)[1];
+      started.push(name);
+      live.set(name, res);
+      signal.addEventListener('abort', () => rej(new Error('Stopped')));
+    }),
+  };
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const finish = async (x) => { live.get(x)({ content: 'ok' }); live.delete(x); await settle(); };
+
+  window.NTR.agents.replied('normal', null);
+  await settle();
+  assert.deepEqual(started, ['L'], 'the agents in no department run first');
+  await finish('L');
+  assert.deepEqual(started.slice(1).sort(), ['A', 'C', 'F'], 'then the first agent of each department, side by side');
+  await finish('C');
+  assert.equal(started.length, 4, 'E waits for A, which it reads, and B for A in its own department');
+  await finish('A');
+  assert.deepEqual(started.slice(4).sort(), ['B', 'E']);
+  for (const x of ['B', 'E', 'F']) await finish(x);
+
+  // Four departments' runs at once: only 3 start, and the fourth once one of them ends.
+  s.agents = [...s.agents.filter((a) => a.id !== 'ag_E'), agent('E'), agent('G')];
+  s.agDepts.push({ id: 'dp_4', name: 'Four', ids: ['ag_G'] });
+  started.length = 0;
+  window.NTR.agents.replied('normal', null);
+  await settle();
+  await finish('L');
+  assert.equal(started.length, 4, 'L, then 3 at a time');
+  await finish(started[1]);
+  assert.equal(started.length, 5, 'one ends, and one more starts');
+  while (live.size) await finish([...live.keys()][0]);
+  delete context.ChatCompletionService;
+  delete context.chat;
+  delete context.saveChat;
+});
+
+// An agent that reads an agent below it gets that agent's answer from when the run was asked for, even when the agent
+// below, in another department, finishes first, and even twice.
+test('an agent reading an agent below it gets its last answer, whichever finishes first', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
+  s.agents = [agent('B'), agent('R', 'job R reads {{agent::P}}'), agent('P')];
+  s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_B', 'ag_R'] }, { id: 'dp_2', name: 'Two', ids: ['ag_P'] }];
+  context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd0', at: 1 } } } },
+    { send_date: 'd1', mes: 'Hello', name: 'Y', extra: {} }];
+  context.saveChat = () => {};
+  context.substituteParams = (t) => t.replace(/\{\{agent::(\w+)\}\}/g, (m, n) => window.NTR.agents.macro(n));
+  const live = new Map();
+  const sent = [];
+  context.ChatCompletionService = {
+    processRequest: (data) => new Promise((res) => {
+      const name = /^job (\w)/.exec(data.messages[0].content)[1];
+      sent.push(data.messages[0].content);
+      live.set(name, res);
+    }),
+  };
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const finish = async (x, text) => { live.get(x)({ content: text }); live.delete(x); await settle(); };
+  window.NTR.agents.replied('normal', null);
+  await settle();
+  await finish('P', 'NEW');
+  // A second message sets them all off again: P runs again before B, and so before the first R, is done.
+  window.NTR.agents.replied('normal', 1);
+  await settle();
+  await finish('P', 'SECOND');
+  assert.equal(window.NTR.agents.answer('ag_P'), 'SECOND', 'P saved twice');
+  await finish('B', 'x');
+  assert.equal(sent.at(-1), 'job R reads OLD', 'the first R reads P as it was before its own message set it off');
+  await finish('R', 'x');
+  await finish('B', 'x');
+  assert.equal(sent.at(-1), 'job R reads NEW', 'the second R was asked for after P saved NEW, and before P ran again');
+  await finish('R', 'x');
+  for (const k of ['ChatCompletionService', 'chat', 'saveChat', 'substituteParams']) delete context[k];
+});
+
+// A full-prompt agent's snapshot is for its own quiet request, never for your reply while it waits for an answer.
+test('your reply sends agents\' newest results while a full-prompt agent runs', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  s.agents = [{ id: 'ag_F', name: 'F', on: true, runs: 'reply', job: 'job F', kind: 'chat', full: true }, { id: 'ag_P', name: 'P', on: true, send: true, job: 'job P' }];
+  s.agDepts = [];
+  context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd0', at: 1 } } } }];
+  context.saveChat = () => {};
+  const sent = {};
+  context.setExtensionPrompt = (k, v) => { sent[k] = v; };
+  let answer;
+  context.generateQuietPrompt = () => {
+    window.NTR.agents.genStarted('quiet', false);
+    return new Promise((res) => { answer = res; });
+  };
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  window.NTR.agents.replied('normal', null); // F runs; P runs on the button only
+  await settle();
+  context.chat[0].extra.ntr_agents.ag_P = { text: 'NEW', date: 'd0', at: 2 };
+  window.NTR.agents.genStarted('normal', false);
+  assert.equal(sent.ntr_agent_ag_P, '[P]\nNEW');
+  window.NTR.agents.genEnded();
+  answer('done');
+  await settle();
+  for (const k of ['chat', 'saveChat', 'setExtensionPrompt', 'generateQuietPrompt']) delete context[k];
+});

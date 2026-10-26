@@ -11,8 +11,7 @@ The Agents page is still taking shape: its layout and how agents work may change
 
 - [ ] Show each agent's picture on the pages it tracks.
 - [ ] Every N Replies as a Runs choice, so an agent like a summarizer or tracker doesn't have to run after every reply.
-- To explore: request batching, parallel runs.
-  - Parallel runs: SillyTavern itself doesn't cap requests, but the browser keeps only about 6 open to it at once, and a streaming chat reply holds one. Only agents with their own Chat Completion or Text Completion connection could run side by side, about 4 at once; Same as Chat agents share the chat's busy state and reply length, so they keep running one at a time. Hosted APIs also have rate limits, and local servers often handle one request at a time.
+- To explore: request batching, and taking turns on the same hosted API to soften rate limits.
 - Open question: whether agents should also be able to run before a reply, not only after it. It matters once an agent's answer is needed for the reply to your own message, like a director, or Story Memory picking memories that fit what you just wrote. If they can, the roster's top-to-bottom run order has to work for agents that run before a reply too.
 
 ### Agents: import and export

@@ -13,10 +13,9 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - Use one branch per logical change and open a PR when complete: group changes that serve the same purpose and can be reviewed and tested together; give anything unrelated or substantially larger its own branch.
 - Keep edits scoped to the task. Ask before deleting or renaming files.
-- For anything beyond a small fix, present a concrete implementation plan naming the target page and file for each new part, and wait for explicit approval before modifying files. A request to investigate, review, discuss, or plan does not authorize implementation.
-- A fix pushed to an open PR needs no new plan unless it changes behavior the approved plan didn't cover; then show the choices first.
+- For anything beyond a small fix, propose a plan and wait for approval before changing files. A request to investigate, review, discuss or plan isn't approval.
 - Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
-- If a `CLAUDE.md` rule is wrong, outdated, or requires a workaround, flag it in the plan or PR summary with proposed wording.
+- If a `CLAUDE.md` rule or repo skill is wrong or outdated, flag it in the plan or PR summary.
 
 ## Testing & Releases
 - Before opening a PR that changes `.js` or `.css`, run `/run-ntr-extension`, comparing `main` with the branch:
@@ -28,14 +27,14 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - **Fixes to an open PR** (a reviewer's or your own): re-test what the fix changed.
 - **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features); bump `major` only with approval, and state the approval in the PR summary. Fixes pushed to an open PR don't bump again. The script maintains the list of versioned files and CI verifies consistency.
 - **Docs:** Remove shipped features from `ROADMAP.md`. Update `manifest.json` description in a few words only when a new top-level area ships.
-- **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
+- **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, which test, script or skill caught a real bug (or "none"), and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
 
 ## Architecture & Module Routing
 - **Existing conventions:** Match the project's established style and file structure.
 - **Core boundary:** `index.js` is core. Modules never import other NTR files; they communicate only through `window.NTR` (`window.NTR.api`, or `window.NTR.api.look` for look helpers).
 - **No copied code:** Don't copy code, within a module or across modules: search for a helper first, or write one. A short expression made only of built-in calls needs no new helper, but use one if it already exists. Helpers used by multiple modules belong in `index.js` (`window.NTR.api`); single-module helpers stay in their module.
 - **Menu & Logic placement:** Menu parts go in the file with their `pageHtml`/`pagePart` call (`PAGES` holds page IDs), or the module that fills them if core only loads the shell (like `castPartHtml`). Feature work goes in the module that already does that work (Book's is in `reader.js`, though its settings menu is built in `index.js`). Specific module rules in the table below override general placement.
-- **New modules:** A new page or shared pageless feature gets `<name>.js` built from `window.NTR.api`. Copy wiring from `layout.js` (look page), `agents.js` (lazy-loaded page), or `fonts.js` (shared feature), register it everywhere those modules appear, and add a missing-module test. Keep settings data and menu entries in `index.js`.
+- **New modules:** A new page or shared pageless feature gets `<name>.js` built from `window.NTR.api`. Copy wiring from `layout.js` (look page), `agents.js` (lazy-loaded page), or `fonts.js` (shared feature), and register it everywhere those modules appear. Look modules also get a missing-module test. Keep settings data and menu entries in `index.js`.
 
 | Area | Module | Stays in `index.js` | Rules |
 | --- | --- | --- | --- |

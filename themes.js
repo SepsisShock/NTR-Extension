@@ -5,10 +5,10 @@
 // a theme holds, how old ones are upgraded and cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.
 (() => {
-  const THEMES_VERSION = '2.79.1';
+  const THEMES_VERSION = '2.80.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
-  const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, newId, loadModule, deleteFileIfUnused,
+  const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
     lookSnapshot, applyLook, resetLook, upgradeTheme, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
     unpackFiles, isObj, stColor } = A;
   const { COLOR_FROM, rbCssText, RB_CSS } = A.look;
@@ -36,43 +36,66 @@
     return true;
   }
 
+  // The theme in use, or null for Default Look.
+  const active = () => { const s = settings(); return s.themes.find((t) => t.id === s.themeActive) || null; };
+  // The menu fills empty colors with SillyTavern's own (see bindRows), so those count as default too.
+  const atDefault = (k) => { const v = settings()[k]; return JSON.stringify(v) === JSON.stringify(DEFAULTS[k]) || (k in COLOR_FROM && v === stColor(k)); };
+  // Unsaved: the look differs from the theme in use, or from the default look when Default Look is in use.
+  const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };
+  // Kept between redraws, like the Regexes page's search.
+  let query = '';
+
   function themesSectionHtml(s) {
-    const cur = s.themes.some((t) => t.id === s.themeActive) ? s.themeActive : '';
-    const opts = [['', 'Default Look'], ...s.themes.map((t) => [t.id, t.name])]
-      .map(([v, l]) => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(l)}</option>`).join('');
-    const b = (id, icon, title, extra = '') => `<button class="menu_button ${extra}" id="${id}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
+    const cur = active()?.id || '';
+    const b = (id, icon, label) => `<button type="button" class="menu_button" id="${id}"><i class="fa-solid ${icon}"></i>${label}</button>`;
+    // Clicking a name applies it. Default Look (no id) has no menu: it can't be renamed, exported or deleted.
+    const row = (id, name) => `<div class="ntr_trow${id === cur ? ' ntr_ton' : ''}" data-id="${escapeHTML(id)}">
+            <button type="button" class="ntr_tname"${id === cur ? ' aria-current="true"' : ''}><i class="fa-solid fa-fw${id === cur ? ' fa-check' : ''}"></i><span>${escapeHTML(name)}</span></button>
+            ${id ? `<span class="ntr_menu"><button type="button" class="menu_button" title="More for ${escapeHTML(name)}" aria-label="More for ${escapeHTML(name)}"><i class="fa-solid fa-ellipsis"></i></button></span>` : ''}
+          </div>`;
+    const sorted = [...s.themes].sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true, sensitivity: 'base' }));
     return pageHtml('themes', `
         <div class="cb_hint">Saves your look from the look pages, Reader Mode and Visual Novel Mode, the shared banner, and which regex folders are on. Anything saved per character stays out. Picking a theme applies it.</div>
         ${card('Saved Themes', `
-          <select id="m_t_sel" class="text_pole ntr_tsel" aria-label="Theme">${opts}</select>
+          <div class="cb_hint ntr_tstat"></div>
           <div class="ntr_tbar">
-            ${b('m_t_new', 'fa-plus', 'Save as New Theme')}
-            ${b('m_t_upd', 'fa-floppy-disk', 'Save Over Selected Theme')}
-            ${b('m_t_ren', 'fa-pen', 'Rename Theme')}
-            ${b('m_t_del', 'fa-trash', 'Delete Theme', 'danger_button')}
-            ${b('m_t_imp', 'fa-file-import', 'Import Theme')}
-            ${b('m_t_exp', 'fa-file-export', 'Export Theme')}
+            ${b('m_t_new', 'fa-plus', 'Save as New')}
+            ${b('m_t_upd', 'fa-floppy-disk', 'Save')}
+            ${b('m_t_imp', 'fa-file-import', 'Import')}
           </div>
           <div id="m_t_panel"></div>
+          <input type="search" class="text_pole ntr_tsearch" placeholder="Search themes" aria-label="Search themes" value="${escapeHTML(query)}">
+          ${row('', 'Default Look')}
           <input type="file" id="m_t_file" accept=".json,application/json" hidden>`, 'fa-swatchbook')}
+        ${sorted.length ? `<div class="ntr_card ntr_tlist">${sorted.map((t) => row(t.id, t.name)).join('')}</div>` : ''}
     `);
   }
 
   function bindThemes(overlay, s) {
+    const page = overlay.querySelector('.ntr_page[data-page="themes"]');
     const panel = overlay.querySelector('#m_t_panel');
-    const sel = overlay.querySelector('#m_t_sel');
-    const active = () => s.themes.find((t) => t.id === s.themeActive) || null;
-    const need = () => { const t = active(); if (!t) toastr.info('Pick a theme first.', 'Themes'); return t; };
+    const list = page.querySelector('.ntr_tlist');
     const nameTaken = (name, self) => s.themes.some((t) => t !== self && t.name.toLowerCase() === name.toLowerCase());
     const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
-    // The menu fills empty colors with SillyTavern's own (see bindRows), so those count as default too.
-    const atDefault = (k) => JSON.stringify(s[k]) === JSON.stringify(DEFAULTS[k]) || (k in COLOR_FROM && s[k] === stColor(k));
-    // Unsaved: the look differs from the selected theme, or from the default look when Default Look is selected.
-    const unsaved = () => { const t = active(); return t ? !lookMatches(t.data) : !Object.values(LOOK).every((L) => L.keys.every(atDefault)); };
-    const shown = () => { sel.value = active() ? s.themeActive : ''; };
+    // Export and Import open their options under the row or bar they came from.
+    const showPanel = (after, html) => { after.after(panel); panel.innerHTML = html; };
+
+    // Other pages change the look while this one is hidden, so the line is filled again each time it's opened.
+    const stat = page.querySelector('.ntr_tstat');
+    const status = () => { stat.innerHTML = `In use: <b>${escapeHTML(active()?.name || 'Default Look')}</b>${unsaved() ? ' (unsaved changes)' : ''}`; };
+    status();
+    overlay.querySelector('.ntr_navi[data-page="themes"]').addEventListener('click', status);
+
+    const filter = () => {
+      if (!list) return;
+      let any = false;
+      list.querySelectorAll('.ntr_trow').forEach((r) => { r.hidden = !r.textContent.toLowerCase().includes(query); any ||= !r.hidden; });
+      list.hidden = !any;
+    };
+    filter();
 
     const tbar = overlay.querySelector('.ntr_tbar');
-    const askName = (value, self = null) => askText(tbar, {
+    const askName = (anchor, value, self = null) => askText(anchor, {
       label: 'Theme Name',
       value,
       ok: '<i class="fa-solid fa-floppy-disk"></i> Save',
@@ -84,7 +107,7 @@
     // With the Regexes page off, themes leave regex folders alone.
     const regexStates = async () => (s.rxEnabled ? (await loadModule('regex'))?.states?.() || null : null);
     const saveNew = async () => {
-      const name = await askName(`Theme ${s.themes.length + 1}`);
+      const name = await askName(tbar, `Theme ${s.themes.length + 1}`);
       if (!name) return;
       const t = { id: newId('th'), name, data: lookSnapshot() };
       const rs = await regexStates();
@@ -96,17 +119,57 @@
       toastr.success(`Saved "${name}"`, 'Themes');
     };
 
-    sel.onchange = async () => {
-      const t = s.themes.find((x) => x.id === sel.value);
+    // t: the theme picked, or null for Default Look. Picking the one in use again throws away unsaved changes.
+    const pick = async (t, row) => {
+      const dirty = unsaved();
+      if (t === active() && !dirty) return;
       const q = t ? `Your current look isn't saved as a theme and will be replaced. Apply "${t.name}" anyway?`
         : 'Your current look isn\'t saved as a theme. Go back to the default look?';
-      if (unsaved() && !(await askYes(tbar, q, t ? 'Apply' : 'Reset'))) { shown(); return; }
+      if (dirty && !(await askYes(row, q, t ? 'Apply' : 'Reset'))) return;
       if (!t) { resetLook(); openCombinedModal(); return; }
       s.themeActive = t.id;
       applyLook(t.data);
       openCombinedModal();
       if (t.regex && s.rxEnabled) (await loadModule('regex'))?.applyStates?.(t.regex);
     };
+
+    const rename = async (t, row) => {
+      const name = await askName(row, t.name, t);
+      if (!name || name === t.name) return;
+      t.name = name;
+      save();
+      openCombinedModal();
+    };
+
+    const del = async (t, row) => {
+      if (!(await askYes(row, `Delete the theme "${t.name}"? Your current look stays as it is.`, 'Delete', { danger: true }))) return;
+      const refs = collectFileRefs(t.data);
+      s.themes = s.themes.filter((x) => x !== t);
+      if (s.themeActive === t.id) s.themeActive = null;
+      save();
+      refs.forEach((p) => deleteFileIfUnused(p));
+      openCombinedModal();
+    };
+
+    page.addEventListener('click', (e) => {
+      if (!e.target.closest('.ntr_menu')) closePops(page);
+      const row = e.target.closest('.ntr_trow');
+      if (!row) return;
+      const t = s.themes.find((x) => x.id === row.dataset.id) || null;
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      const more = e.target.closest('.ntr_menu > .menu_button');
+      if (act) closePops(page);
+      if (act === 'ren') rename(t, row);
+      else if (act === 'exp') exportTheme(t, row);
+      else if (act === 'del') del(t, row);
+      else if (more) {
+        popMenu(more, `
+          <button data-act="ren"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
+          <button data-act="exp"><i class="fa-solid fa-file-export fa-fw"></i>Export</button>
+          <button data-act="del" class="ntr_danger"><i class="fa-solid fa-trash fa-fw"></i>Delete</button>`);
+      } else if (e.target.closest('.ntr_tname')) pick(t, row);
+    });
+    page.querySelector('.ntr_tsearch').addEventListener('input', (e) => { query = e.target.value.trim().toLowerCase(); filter(); });
 
     overlay.querySelector('#m_t_new').onclick = saveNew;
 
@@ -125,34 +188,11 @@
       toastr.success(`Updated "${t.name}"`, 'Themes');
     };
 
-    overlay.querySelector('#m_t_ren').onclick = async () => {
-      const t = need();
-      if (!t) return;
-      const name = await askName(t.name, t);
-      if (!name || name === t.name) return;
-      t.name = name;
-      save();
-      openCombinedModal();
-    };
-
-    overlay.querySelector('#m_t_del').onclick = async () => {
-      const t = need();
-      if (!t || !(await askYes(tbar, `Delete the theme "${t.name}"? Your current look stays as it is.`, 'Delete', { danger: true }))) return;
-      const refs = collectFileRefs(t.data);
-      s.themes = s.themes.filter((x) => x !== t);
-      s.themeActive = null;
-      save();
-      refs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
-    };
-
-    overlay.querySelector('#m_t_exp').onclick = () => {
-      const t = active();
-      const data = t ? t.data : lookSnapshot();
-      const name = t ? t.name : 'My Look';
+    function exportTheme(t, row) {
+      const { data, name } = t;
       const secs = Object.keys(LOOK).filter((k) => data[k]);
       const nImg = collectFileRefs(data).size;
-      panel.innerHTML = `
+      showPanel(row, `
         <div class="ntr_tpanel">
           <strong><i class="fa-solid fa-fw fa-file-export ntr_glab_icon"></i>Export "${escapeHTML(name)}"</strong>
           <div class="cb_plab">Sections</div>
@@ -163,7 +203,7 @@
             <button class="menu_button" id="m_t_dl"><i class="fa-solid fa-download"></i> Download</button>
             <button class="menu_button" id="m_t_cancel">Cancel</button>
           </div>
-        </div>`;
+        </div>`);
       panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
       panel.querySelector('#m_t_dl').onclick = async () => {
         const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
@@ -185,7 +225,7 @@
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         panel.innerHTML = '';
       };
-    };
+    }
 
     const tf = overlay.querySelector('#m_t_file');
     overlay.querySelector('#m_t_imp').onclick = () => tf.click();
@@ -210,7 +250,7 @@
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
       const cssIn = CSS_PARTS.map(([sec, keys, name, where, text = (get) => String(get(keys[0]) || '').trim()]) => [name, where, text((k) => cleaned[sec][k])])
         .filter(([, , css]) => css);
-      panel.innerHTML = `
+      showPanel(tbar, `
         <div class="ntr_tpanel">
           <strong><i class="fa-solid fa-fw fa-file-import ntr_glab_icon"></i>Import Theme</strong>
           <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported Theme'))}"></label>
@@ -223,7 +263,7 @@
             <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add Theme</button>
             <button class="menu_button" id="m_t_cancel">Cancel</button>
           </div>
-        </div>`;
+        </div>`);
       panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
       panel.querySelector('#m_t_add').onclick = async () => {
         const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);

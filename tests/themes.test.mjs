@@ -6,12 +6,12 @@ import { api, load } from './env.mjs';
 
 await load('themes');
 
-test('the Themes page lists the saved themes, with their names escaped', () => {
+test('the Themes page lists the saved themes A to Z after Default Look, with their names escaped', () => {
   const s = api.settings();
-  s.themes = [{ id: 'th_a', name: 'Plain', data: {} }, { id: 'th_b', name: '<b>x</b>', data: {} }];
+  s.themes = [{ id: 'th_a', name: 'theme 10', data: {} }, { id: 'th_b', name: '<b>x</b>', data: {} }, { id: 'th_c', name: 'Theme 9', data: {} }];
   const html = window.NTR.themes.sectionHtml(s);
-  for (const id of ['m_t_sel', 'm_t_new', 'm_t_upd', 'm_t_ren', 'm_t_del', 'm_t_imp', 'm_t_exp']) assert.match(html, new RegExp(`id="${id}"`));
-  for (const v of ['', 'th_a', 'th_b']) assert.match(html, new RegExp(`<option value="${v}"`));
+  for (const id of ['m_t_new', 'm_t_upd', 'm_t_imp']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.deepEqual([...html.matchAll(/class="ntr_trow[^"]*" data-id="([^"]*)"/g)].map((m) => m[1]), ['', 'th_b', 'th_c', 'th_a']);
   assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
   assert.doesNotMatch(html, /<b>x<\/b>/);
   s.themes = [];

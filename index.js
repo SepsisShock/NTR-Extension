@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.79.1';
+  const VERSION = '2.80.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -764,7 +764,8 @@ await (async () => {
         .cb_defdot { width: 40px; height: 40px; }
         .cb_emo_grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
         .ntr_rd_books label { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
-        .ntr_tbar .menu_button { min-width: 40px; min-height: 40px; }
+        .ntr_tbar .menu_button, .ntr_tname { min-height: 40px; }
+        .ntr_trow > .ntr_menu > .menu_button { min-width: 40px; min-height: 40px; }
       }
       .cb_dfield { display: flex; flex-direction: column; gap: 3px; font-size: .85em; }
       .cb_dfield input { margin: 0; font-family: monospace; }

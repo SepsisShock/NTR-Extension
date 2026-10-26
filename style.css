@@ -300,11 +300,29 @@
 .ntr_page .ntr_fgrid .ntr_card { margin: 0; padding: 8px; }
 .ntr_compact .ntr_fgrid { grid-template-columns: 1fr; }
 
-.ntr_tsel { width: 100%; margin: 8px 0 0; }
 .ntr_terr { color: var(--ntr-err); font-size: 0.85em; }
 .ntr_terr:empty { display: none; }
-.ntr_tbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.ntr_tbar .menu_button { margin: 0; padding: 5px 10px; }
+/* Themes page: the card with the buttons, search and Default Look, then the saved themes A to Z. */
+.ntr_tstat { margin-top: 0; }
+.ntr_tbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.ntr_tbar .menu_button { margin: 0; padding: 5px 10px; width: auto; }
+.ntr_tsearch { width: 100%; margin: 10px 0 0; }
+.ntr_page .ntr_tlist { padding: 2px 12px; }
+.ntr_trow { display: flex; align-items: center; gap: 6px; }
+.ntr_trow[hidden] { display: none; }
+/* A line between the rows a search leaves showing. */
+.ntr_trow:not([hidden]) ~ .ntr_trow { border-top: 1px solid var(--ntr-line); }
+/* Default Look, under the search: a line above shows it's a choice, not part of the search. */
+.ntr_tsearch + .ntr_trow { margin-top: 8px; border-top: 1px solid var(--ntr-line); padding-top: 4px; }
+.ntr_trow > .ntr_menu > .menu_button { margin: 0; padding: 4px 8px; }
+.ntr_tname { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; margin: 2px 0; padding: 6px; border: 0; border-radius: 6px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ntr_tname > i { flex: none; }
+.ntr_tname > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ntr_tname:hover { background: var(--ntr-hover); }
+.ntr_tname:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: -2px; }
+.ntr_ton .ntr_tname { font-weight: 700; background: color-mix(in srgb, var(--SmartThemeQuoteColor, #6cf) 15%, transparent); }
+.ntr_ton .ntr_tname > i { color: var(--SmartThemeQuoteColor, #6cf); }
 .ntr_tpanel {
   display: flex;
   flex-direction: column;

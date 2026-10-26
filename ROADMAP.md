@@ -110,7 +110,7 @@ Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI
 - Open questions: where the editor opens; how automatic scene detection works; whether pinned facts belong to one branch or the whole chat.
 
 ### Test against SillyTavern's staging branch
-- [ ] Let `st.sh setup` pick SillyTavern's branch (release now), and run the scenarios on `staging` now and then, or before updating SillyTavern, to catch what its next release breaks in NTR.
+- [ ] Let `st.sh setup` pick SillyTavern's branch (release now), to try NTR on `staging` before updating SillyTavern.
 
 ## Visual Novel Mode (Low Priority, Needs Overhaul)
 

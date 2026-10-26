@@ -2,8 +2,8 @@
 # A local SillyTavern with this repo installed as an extension, for running and testing it.
 #
 #   st.sh setup          clone SillyTavern, install it, first run, save clean data, install the extension
-#   st.sh hook           for the session start hook: setup in the background, in cloud sessions, if not done yet,
-#                        and Firefox and WebKit for the driver and scenarios (NTR_BROWSER)
+#   st.sh hook           for the session start hook: setup in the background, in cloud sessions, if not done yet
+#   st.sh browsers       download Firefox and WebKit for the driver (NTR_BROWSER)
 #   st.sh install [ref]  copy the extension into SillyTavern (working tree, or a git ref like origin/main)
 #   st.sh start | stop   start in the background (waits until it answers) | stop
 #   st.sh reset [ref]    stop, put back the clean data, install the extension (start again afterwards)
@@ -13,7 +13,7 @@
 #   st.sh bench table <name> [name...]   compare saved results
 #
 # SillyTavern lives in $ST_DIR (default ~/sillytavern) and answers on http://127.0.0.1:8000. Log: $ST_LOG.
-# The other commands wait while a setup is running.
+# The other commands, except browsers, wait while a setup is running.
 set -euo pipefail
 
 ST_DIR="${ST_DIR:-$HOME/sillytavern}"
@@ -24,7 +24,6 @@ EXT_DIR="$USER_DIR/extensions/NTR-Extension"
 CLEAN="$ST_DIR/.ntr-clean-data"
 PORT=8000
 SETUP_LOG="${SETUP_LOG:-/tmp/sillytavern-setup.log}"
-BROWSERS_LOG=/tmp/ntr-browsers.log
 LOCK=/tmp/ntr-st-setup.lock
 
 # Waits for a setup that's running (the hook's, in the background) to finish.
@@ -101,16 +100,13 @@ hook() {
   setsid nohup bash "${BASH_SOURCE[0]}" setup > "$SETUP_LOG" 2>&1 < /dev/null &
 }
 
-# Firefox and WebKit, for the same Playwright as the preinstalled Chromium. Separate from setup, so a blocked download
-# leaves SillyTavern and Chromium working. Needs cdn.playwright.dev and playwright.download.prss.microsoft.com allowed.
+# Firefox and WebKit, for the same Playwright as the preinstalled Chromium. Needs cdn.playwright.dev and
+# playwright.download.prss.microsoft.com allowed.
 browsers() {
-  [ "${CLAUDE_CODE_REMOTE:-}" = true ] || return 0
   local pw; pw="$(npm root -g)/playwright"
-  [ -d "$pw" ] || return 0
-  # The exact revisions this Playwright needs; its installer skips what's there and fetches the rest.
-  node -e 'const pw = require(process.argv[1]); process.exit(["firefox", "webkit"].every((b) => require("fs").existsSync(pw[b].executablePath())) ? 0 : 1)' "$pw" && return 0
-  setsid nohup node "$pw/cli.js" install --with-deps firefox webkit \
-    > "$BROWSERS_LOG" 2>&1 < /dev/null &
+  [ -d "$pw" ] || { echo "no global Playwright in $(npm root -g)"; exit 1; }
+  # The installer fetches the exact revisions this Playwright needs and skips what's there.
+  node "$pw/cli.js" install --with-deps firefox webkit
 }
 
 reset() {
@@ -158,10 +154,11 @@ bench() {
   node "$here/bench.cjs" run "$name" --runs "$runs" "${flags[@]}"
 }
 
-case "${1:-}" in setup | hook) ;; *) wait_setup ;; esac
+case "${1:-}" in setup | hook | browsers) ;; *) wait_setup ;; esac
 case "${1:-}" in
   setup) setup ;;
-  hook) hook; browsers ;;
+  hook) hook ;;
+  browsers) browsers ;;
   install) install_ext "${2:-}" ;;
   start) start ;;
   stop) stop ;;

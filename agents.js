@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.81.0';
+  const AGENTS_VERSION = '2.82.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, groupFlip, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -139,8 +139,8 @@
   // ----- Departments -----
   // Departments group agents in the roster: { id, name, ids: its agents, in order, was: the ids that were on when it was
   // switched off, or null }, in agDepts. An agent is in one at
-  // most; the rest come first, in no department. The roster is the order agents run in, so the agents list itself is
-  // kept in the order shown (sortAgents). Saved apart from the agents, so an agent's own data stays the same.
+  // most; the rest come first, in no department. The roster is the order agents are asked to run in (see Runs side by
+  // side), so the agents list itself is kept in the order shown (sortAgents). Saved apart from the agents, so an agent's own data stays the same.
   const DEPT_MAX = 30;
   const deptChecked = new WeakSet();
   function depts() {
@@ -561,14 +561,84 @@
     return String(r?.content ?? '');
   }
 
-  // One run at a time. Each agent keeps its last 10 runs until you reload.
+  // ----- Agents that read each other -----
+  // {{agent::Name}} in an agent's instructions, or in its fields' hints, reads that agent's saved answer. Names match
+  // the way the macro matches them (named). A name made by other macros, like {{agent::{{char}} Notes}}, isn't known
+  // until the run: dynamic.
+  const READ = /\{\{\s*agent\s*::([\s\S]*?)(?:::|\}\})/gi;
+  const named = (name) => {
+    const want = String(name ?? '').trim().toLowerCase();
+    return list().find((x) => x.name.toLowerCase() === want) || null;
+  };
+  function readsOf(a, job = a.job) {
+    const text = [job, ...(usesFields(a) ? fieldsOf(a).map((f) => f.hint) : [])].join('\n');
+    const ids = [];
+    const missing = [];
+    let dynamic = false;
+    for (const [, raw] of text.matchAll(READ)) {
+      const name = raw.trim();
+      const x = named(name);
+      if (raw.includes('{{')) dynamic = true;
+      else if (x) { if (x.id !== a.id && !ids.includes(x.id)) ids.push(x.id); }
+      else if (name && !missing.some((m) => m.toLowerCase() === name.toLowerCase())) missing.push(name);
+    }
+    return { ids, missing, dynamic };
+  }
+
+  // ----- Runs side by side -----
+  // Every run gets a number when it's asked for (n) and only waits for runs with a lower one, so no two runs wait for
+  // each other. A run waits, in this order:
+  // - for the runs before it in its lane: the agents in no department are one lane, each department another. A run set
+  //   off by a message in a department also waits for that message's runs in no department. Test Connection has no lane.
+  // - for the same agent's earlier runs, and the earlier runs of the agents it reads. With your chat's full prompt, or a
+  //   name made by other macros, for every earlier run.
+  // - for its connection: Same as Chat and your chat's own server take turns, and so do agents on the same local server.
+  // - for your reply, if it uses your chat's connection.
+  // - last, for one of RUN_MAX places, so nothing waits on anything else while it holds one. Its time limit starts there.
+  const RUN_MAX = 3;
+  // Each agent keeps its last 10 runs until you reload.
   // fails: each agent's last failed run in a chat, shown in the Pinned Block until it runs fine again.
   const runs = new Map();
   const fails = new Map();
-  let chain = Promise.resolve();
-  let current = null;
+  // The runs not finished yet, oldest first: { n, id, lane, batch, test, ctrl, state, waitFor, done }. lane: the
+  // department's id, '' for no department, null for Test Connection. state: 'queue', 'wait' (for waitFor, an agent in
+  // another lane) or 'run'.
+  const jobs = [];
+  let lastN = 0;
+  let batchN = 0;
+  // Lets `size` runs through at a time, in the order they came. Gives a run the function that lets the next one through.
+  // Stop takes a run out of the line.
+  function gate(size) {
+    let used = 0;
+    const line = [];
+    const free = () => { const next = line.shift(); if (next) next(); else used--; };
+    return (signal) => new Promise((res, rej) => {
+      if (signal.aborted) { rej(new Error('Stopped')); return; }
+      if (used < size) { used++; res(free); return; }
+      const stop = () => { line.splice(line.indexOf(go), 1); rej(new Error('Stopped')); };
+      const go = () => { signal.removeEventListener('abort', stop); res(free); };
+      line.push(go);
+      signal.addEventListener('abort', stop, { once: true });
+    });
+  }
+  const places = gate(RUN_MAX);
+  const turns = new Map();
+  // The connection an agent takes turns on: your chat's (Same as Chat, or your chat's own server), a local server's, or
+  // none (Chat Completion).
+  const turnKey = (a) => (a.kind === 'chat' || sharesChatServer(a) ? 'chat' : a.kind === 'tc' ? `tc:${sameUrl(a.tcUrl)}` : '');
+  const turnFor = (k) => turns.get(k) || turns.set(k, gate(1)).get(k);
+  const busy = (id) => jobs.some((j) => j.id === id);
+  // What an agent's runs are doing, as an icon and words: its run in progress, or else its oldest one waiting. Null
+  // with none.
+  function runState(id) {
+    const j = jobs.find((x) => x.id === id && x.state === 'run') || jobs.find((x) => x.id === id);
+    return !j ? null : j.state === 'run' ? ['fa-play', 'Running'] : j.state === 'wait' ? ['fa-hourglass-half', `Waiting for ${byId(j.waitFor)?.name ?? 'Another Agent'}`] : ['fa-clock', 'Queued'];
+  }
+  // Stop, for the runs that `which` picks: the one in progress ends right away, and waiting ones are dropped.
+  const stopRuns = (which = () => true) => jobs.filter(which).forEach((j) => j.ctrl.abort());
   // Pinned Blocks with agent results catch up (layout.js).
   const refreshBoxes = () => A.refreshPins?.();
+  const runsChanged = () => { renderActivity(); refreshBoxes(); };
   function log(a, entry) {
     if (!byId(a.id)) return;
     const l = runs.get(a.id) || [];
@@ -595,45 +665,73 @@
     return '';
   }
   // auto: a run a message set off. Every run but Test Connection needs the agent's own switch on. at: the message to run
-  // on (the one that set off the run, or Run Again's in a Pinned Block); the last one when it runs, when null. Resolves
-  // with the run's result: { ok, text }.
-  function enqueue(id, test = false, auto = false, at = null) {
+  // on (the one that set off the run, or Run Again's in a Pinned Block); the last one when it runs, when null. batch:
+  // the message that set it off, so its runs in a department wait for its runs in no department.
+  function enqueue(id, test = false, auto = false, at = null, batch = 0) {
+    const first = byId(id);
+    if (!first) return;
     const from = chatId();
     const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
-    chain = chain.then(async () => {
-      const a = byId(id);
-      if (!a) return { ok: false, text: 'This agent was deleted.' };
-      const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : !test && !a.on ? (auto ? '' : 'Switch it on first.') : !test && !a.job.trim() && !usesFields(a) ? 'Write its instructions first.'
-        : !test && !usesFull(a) && a.readBy === 'num' && !readMsgs(a, at).length ? `Skipped: no messages ${rangeName(a)} in this chat yet.` : null;
-      if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return { ok: false, text: skip || 'Skipped' }; }
-      const ctrl = new AbortController();
+    const job = { n: ++lastN, id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, ctrl: new AbortController(), state: 'queue', waitFor: null };
+    // Who it waits for, from the runs already asked for (all with a lower number).
+    const lane = jobs.filter((j) => j.id === id || (job.lane !== null && j.lane === job.lane) || (batch && job.lane && j.batch === batch && j.lane === ''));
+    const r = test ? null : readsOf(first);
+    const all = !test && (usesFull(first) || r.dynamic);
+    const reads = test ? [] : r.ids.filter((x) => byId(x)?.on);
+    const deps = jobs.filter((j) => !lane.includes(j) && !j.test && (all || reads.includes(j.id)));
+    let finished;
+    job.done = new Promise((res) => { finished = res; });
+    jobs.push(job);
+    const { signal } = job.ctrl;
+    const wait = (p) => abortable(p, signal);
+    (async () => {
+      let free = null;
+      let unturn = null;
+      let timer = 0;
       let timedOut = false;
-      const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, TIMEOUT_MS);
-      current = { id, ctrl };
-      renderActivity();
-      refreshBoxes();
-      const t0 = performance.now();
+      let t0 = performance.now();
       const o = { test, auto, at, date, chat: from, target: null };
       try {
-        const text = (await call(a, o, ctrl.signal)).trim();
-        if (ctrl.signal.aborted) throw new Error(timedOut ? 'Timed out' : 'Stopped');
+        await wait(Promise.all(lane.map((j) => j.done)));
+        for (const j of deps) {
+          if (!jobs.includes(j)) continue;
+          Object.assign(job, { state: 'wait', waitFor: j.id });
+          runsChanged();
+          await wait(j.done);
+        }
+        if (job.state === 'wait') { Object.assign(job, { state: 'queue', waitFor: null }); runsChanged(); }
+        const a = byId(id);
+        if (!a) return;
+        const k = turnKey(a);
+        if (k) unturn = await turnFor(k)(signal);
+        if (k === 'chat') await wait(chatIdle());
+        free = await places(signal);
+        const skip = !pageOn() ? (auto ? '' : 'Turn the Agents page on first.') : !test && !a.on ? (auto ? '' : 'Switch it on first.') : !test && !a.job.trim() && !usesFields(a) ? 'Write its instructions first.'
+          : !test && !usesFull(a) && a.readBy === 'num' && !readMsgs(a, at).length ? `Skipped: no messages ${rangeName(a)} in this chat yet.` : null;
+        if (skip !== null) { if (skip) log(a, { at: Date.now(), ms: 0, ok: false, test, text: skip }); return; }
+        job.state = 'run';
+        runsChanged();
+        timer = setTimeout(() => { timedOut = true; job.ctrl.abort(); }, TIMEOUT_MS);
+        t0 = performance.now();
+        const text = (await call(a, o, signal)).trim();
+        if (signal.aborted) throw new Error(timedOut ? 'Timed out' : 'Stopped');
         const note = test || !byId(id) ? '' : keep(a, o.target, text);
         if (!test && byId(id)) fails.delete(id);
         log(a, { at: Date.now(), ms: performance.now() - t0, ok: true, test, text: text || '(empty answer)', note });
-        return { ok: true, text };
       } catch (e) {
-        const msg = timedOut ? 'Timed out' : ctrl.signal.aborted ? 'Stopped' : (e?.message || String(e));
-        if (!test) fails.set(id, { chat: o.target?.chat ?? from, text: msg });
-        log(a, { at: Date.now(), ms: performance.now() - t0, ok: false, test, text: msg });
-        return { ok: false, text: msg };
+        const msg = timedOut ? 'Timed out' : signal.aborted ? 'Stopped' : (e?.message || String(e));
+        if (!test && byId(id)) fails.set(id, { chat: o.target?.chat ?? from, text: msg });
+        log(first, { at: Date.now(), ms: job.state === 'run' ? performance.now() - t0 : 0, ok: false, test, text: msg });
       } finally {
         clearTimeout(timer);
-        current = null;
-        renderActivity();
-        refreshBoxes();
+        free?.();
+        unturn?.();
+        jobs.splice(jobs.indexOf(job), 1);
+        finished();
+        runsChanged();
       }
-    });
-    return chain;
+    })();
+    runsChanged();
   }
 
   // ----- The Agents page -----
@@ -677,7 +775,9 @@
   // The roster: the agents in no department, then Departments, a card per department with its agents. A row per agent:
   // its switch, then its picture, name and title picking it. A department's header: its switch, its name
   // and how many of its agents are on opening and folding it, and More (Rename, Move Up, Move Down, Delete). Rows and
-  // headers drag from anywhere but their switch and More. The order is the run order (sortAgents).
+  // headers drag from anywhere but their switch and More. The order is the run order (sortAgents). While an agent has
+  // runs, what they're doing takes the place of its row's second line.
+  const rowSub = (a) => { const st = runState(a.id); return st ? `<i class="fa-solid fa-fw ${st[0]}"></i> ${esc(st[1])}` : esc(status(a)); };
   function rowHtml(a, s) {
     return `
       <div class="m_ag_row${a.id === s.agPick ? ' m_ag_sel' : ''}" data-id="${a.id}">
@@ -685,7 +785,8 @@
         <button type="button" class="m_ag_pick"${a.id === s.agPick ? ' aria-current="true"' : ''}>
           ${picHtml(a, 30)}
           <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
-            <span class="m_ag_rsub">${esc(status(a))}</span></span>
+            <span class="m_ag_rsub${busy(a.id) ? ' m_ag_rst' : ''}">${rowSub(a)}</span></span>
+          <span class="ntr_sr m_ag_rsr"></span>
         </button>
       </div>`;
   }
@@ -704,7 +805,7 @@
           ${onSwitch('m_ag_don', onIn(d) > 0, d.name, d.ids.length ? '' : ' disabled')}
           <button type="button" class="m_ag_dpick" aria-expanded="${open}">
             <span class="m_ag_dicon"><i class="fa-solid fa-fw ${open ? 'fa-door-open' : 'fa-door-closed'}"></i></span>
-            <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}</strong><span class="m_ag_rsub m_ag_dsum">${deptSum(d)}</span></span>
+            <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}<span class="m_ag_dlk"></span></strong><span class="m_ag_rsub m_ag_dsum">${deptSum(d)}</span></span>
           </button>
           <span class="ntr_menu"><button type="button" class="menu_button m_ag_hbtn m_ag_dmore" title="More" aria-label="More for ${esc(d.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
         </div>
@@ -723,21 +824,129 @@
         ${btn('m_ag_new', 'fa-user-plus', 'Hire Agent')}
         ${btn('m_ag_dnew', 'fa-building-shield', 'Create Department')}
         ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker')}
+        ${btn('m_ag_stopall', 'fa-stop', 'Stop All')}
       </div>
       <div class="m_ag_roster">
         <div class="ntr_glab"><i class="fa-solid fa-fw fa-id-badge ntr_glab_icon"></i>Agent Roster</div>
         <div class="ntr_card m_ag_loose"${dl.length ? ' role="group" aria-label="No department"' : ''}>${top}</div>
         ${dl.length ? `<div class="ntr_glab"><i class="fa-solid fa-fw fa-building ntr_glab_icon"></i>Departments</div>
         <div class="m_ag_depts" role="group" aria-label="Departments">${dl.map((d) => deptHtml(d, s)).join('')}</div>` : ''}
+        <svg class="m_ag_lines" aria-hidden="true"></svg>
       </div>
-      ${l.length + dl.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">${l.length >= 2 ? `Agents run one at a time, top to bottom${dl.length ? ': the roster first, then each department' : ''}. ` : ''}Drag a row to change the order. On a touch screen, press and hold it first.</div>` : ''}`;
+      ${l.length + dl.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">${l.length >= 2 ? `${dl.length ? 'Agents in no department run first, top to bottom. Then departments run side by side; agents in a department run top to bottom.' : 'Agents run one at a time, top to bottom.'} An agent that reads an agent below it uses that agent's last answer. ` : ''}Drag a row to change the order. On a touch screen, press and hold it first.</div>` : ''}`;
+  }
+
+  // ----- Lines between agents that read each other -----
+  // In a strip on the roster's right, while any agent reads another: the picked agent's lines, from a dot on the agent
+  // read to an arrowhead on the agent reading. Solid when the agent read is above, so its new answer is waited for;
+  // dashed when it's below or off. Thicker while a run waits on it. Longer lines bulge further out, so they nest
+  // instead of crossing. Other agents with lines show only their dot. A folded department's header stands in for its
+  // agents, with how many are linked to the picked agent. Hidden while a row is dragged; drawn again from the new
+  // order once it's dropped.
+  // typing: instructions being typed, before they're saved, so the lines follow them.
+  let typing = null;
+  const jobText = (a) => (typing?.id === a.id ? typing.job : a.job);
+  // An agent that's off reads no one.
+  const linkList = () => list().filter((r) => r.on).flatMap((r) => readsOf(r, jobText(r)).ids.map((x) => ({ r: r.id, s: x })));
+  const above = (x, y) => list().findIndex((a) => a.id === x) < list().findIndex((a) => a.id === y);
+  const waitsFor = (r, x) => !!byId(x)?.on && above(x, r);
+  const readNote = (r, x) => (!byId(x)?.on ? 'Off: reads nothing' : waitsFor(r, x) ? 'Waits for its new answer' : 'Uses its last answer');
+  const LINE_LEVELS = 3;
+  let watch = null;
+  function drawLines() {
+    const box = root?.querySelector('.m_ag_roster');
+    const svg = box?.querySelector('.m_ag_lines');
+    if (!svg) return;
+    const links = linkList();
+    const pick = settings().agPick;
+    box.classList.toggle('m_ag_haslinks', links.length > 0);
+    // What screen readers hear for each row, in place of the lines.
+    box.querySelectorAll('.m_ag_row').forEach((row) => {
+      const id = row.dataset.id;
+      const reads = links.filter((l) => l.r === id).map((l) => `${byId(l.s).name}, ${readNote(id, l.s).toLowerCase()}`);
+      const by = links.filter((l) => l.s === id).map((l) => byId(l.r).name);
+      row.querySelector('.m_ag_rsr').textContent = [reads.length ? `Reads ${reads.join('; ')}.` : '', by.length ? `Read by ${by.join(', ')}.` : ''].join(' ').trim();
+    });
+    const mine = links.filter((l) => l.r === pick || l.s === pick);
+    box.querySelectorAll('.m_ag_dept').forEach((el) => {
+      const d = depts().find((x) => x.id === el.dataset.dept);
+      const n = !d || deptOpen(d) ? 0 : new Set(mine.flatMap((l) => [l.r, l.s]).filter((id) => id !== pick && d.ids.includes(id))).size;
+      el.querySelector('.m_ag_dlk').innerHTML = n ? ` <i class="fa-solid fa-link"></i> ${n}<span class="ntr_sr">, ${n} linked to ${esc(byId(pick).name)}</span>` : '';
+    });
+    if (!links.length) { svg.innerHTML = ''; return; }
+    const b = box.getBoundingClientRect();
+    const gut = parseFloat(getComputedStyle(box).paddingRight) || 0;
+    const x0 = b.width - gut + 3;
+    const step = Math.max(2, (gut - 10) / LINE_LEVELS);
+    // Where a line meets an agent: the middle of its row, or of its folded department's header.
+    const y = (id) => {
+      const row = box.querySelector(`.m_ag_row[data-id="${id}"]`);
+      const el = row?.closest('.m_ag_dbody')?.hidden ? row.closest('.m_ag_dept').querySelector('.m_ag_dhead') : row;
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return Math.round(r.top - b.top + r.height / 2);
+    };
+    let out = '';
+    const dots = new Set();
+    const dot = (yy, hot) => { out += `<circle${hot ? ' class="m_ag_lhot"' : ''} cx="${x0}" cy="${yy}" r="3"/>`; dots.add(yy); };
+    const lines = mine.map((l) => ({ ...l, y1: y(l.s), y2: y(l.r) }))
+      .filter((l, i, all) => l.y1 != null && l.y2 != null && l.y1 !== l.y2 && all.findIndex((o) => o.y1 === l.y1 && o.y2 === l.y2) === i)
+      .sort((p, q) => Math.abs(p.y1 - p.y2) - Math.abs(q.y1 - q.y2));
+    for (const l of lines) {
+      const lo = Math.min(l.y1, l.y2);
+      const hi = Math.max(l.y1, l.y2);
+      const under = lines.filter((o) => o.lvl && Math.min(o.y1, o.y2) < hi && Math.max(o.y1, o.y2) > lo).map((o) => o.lvl);
+      l.lvl = Math.min(LINE_LEVELS, 1 + Math.max(0, ...under));
+      const X = x0 + 2 + l.lvl * step;
+      const cls = [waitsFor(l.r, l.s) ? '' : 'm_ag_ldash', jobs.some((j) => j.id === l.r && j.state === 'wait' && j.waitFor === l.s) ? 'm_ag_lwait' : ''].filter(Boolean).join(' ');
+      out += `<path${cls ? ` class="${cls}"` : ''} d="M${x0},${l.y1} C${X},${l.y1} ${X},${l.y2} ${x0 + 7},${l.y2}"/>`;
+      out += `<polygon points="${x0},${l.y2} ${x0 + 8},${l.y2 - 4.5} ${x0 + 8},${l.y2 + 4.5}"/>`;
+      if (!dots.has(l.y1)) dot(l.y1, true);
+    }
+    const ends = new Set(lines.flatMap((l) => [l.y1, l.y2]));
+    for (const id of new Set(links.flatMap((l) => [l.r, l.s]))) {
+      const yy = y(id);
+      if (yy != null && !ends.has(yy) && !dots.has(yy)) dot(yy, false);
+    }
+    svg.innerHTML = out;
+  }
+  // The lines follow the roster's size: a menu resized or turned, a font size, a department folded.
+  function watchLines() {
+    watch?.disconnect();
+    const box = root?.querySelector('.m_ag_roster');
+    if (!box || typeof ResizeObserver !== 'function') return;
+    watch = new ResizeObserver(() => drawLines());
+    watch.observe(box);
+  }
+
+  // Reads and Read By, at the top of the picked agent's settings, while it reads or is read by another agent: each one
+  // picks that agent. An agent read from below gets a button that moves it right above. Names that match no agent
+  // show too. Empty when it has none of these.
+  function linksHtml(a) {
+    const r = readsOf(a, jobText(a));
+    const by = list().filter((x) => x.on && readsOf(x, jobText(x)).ids.includes(a.id));
+    if (!r.ids.length && !r.missing.length && !by.length) return '';
+    const chip = (x) => `<button type="button" class="menu_button m_ag_chip${x.on ? '' : ' m_ag_off'}" data-go="${x.id}">${picHtml(x, 22)}<span>${esc(x.name)}</span></button>`;
+    const warn = (t) => `<span class="m_ag_lnote cb_warn"><i class="fa-solid fa-triangle-exclamation"></i>${esc(t)}</span>`;
+    const reads = r.ids.map(byId).map((x) => `<div class="m_ag_lrow">${chip(x)}${!x.on ? warn(readNote(a.id, x.id))
+      : `<span class="m_ag_lnote">${readNote(a.id, x.id)}</span>${waitsFor(a.id, x.id) ? '' : `<button type="button" class="menu_button m_ag_lmove" data-move="${x.id}"><i class="fa-solid fa-arrow-up"></i><span>Move ${esc(x.name)} Above ${esc(a.name)}</span></button>`}`}</div>`)
+      .concat(r.missing.map((n) => `<div class="m_ag_lrow">${warn(`No agent named ${n}`)}</div>`));
+    const none = '<div class="m_ag_lrow m_ag_lnone">None</div>';
+    return `<div class="cb_plab"><i class="fa-solid fa-fw fa-diagram-project ntr_glab_icon"></i>Reads</div>${reads.join('') || none}
+      <div class="cb_plab"><i class="fa-solid fa-fw fa-share-nodes ntr_glab_icon"></i>Read By</div>${by.length ? `<div class="m_ag_lrow">${by.map(chip).join('')}</div>` : none}`;
+  }
+  // After a change that doesn't draw the page again: the lines, and the picked agent's Reads and Read By.
+  function syncLinks(a) {
+    drawLines();
+    const el = root?.querySelector('#m_ag_links');
+    if (el && a) el.innerHTML = linksHtml(a);
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, when it
   // runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
   // Department, Delete). Its switch is in the roster. The title shows here, in the roster and on a Dashboard set to Tabs.
   function headHtml(a, allOpen) {
-    const busy = current?.id === a.id;
+    const going = busy(a.id);
     return `<div class="m_ag_head">
       <div class="m_ag_headrow">
         <button type="button" id="m_ag_pic" title="Change picture" aria-label="Change picture" aria-expanded="false" style="all:unset;cursor:pointer;border-radius:50%;flex:none;display:flex;">${picHtml(a, 44)}</button>
@@ -750,7 +959,7 @@
           </div>
           <div class="m_ag_line">
             <span class="m_ag_status">${esc(status(a))}</span>
-            ${headBtn('m_ag_hrun', busy ? 'fa-stop' : 'fa-play', busy ? 'Stop' : 'Run Now')}
+            ${headBtn('m_ag_hrun', going ? 'fa-stop' : 'fa-play', going ? 'Stop' : 'Run Now')}
             ${headBtn('m_ag_all', allOpen ? 'fa-angles-up' : 'fa-angles-down', allOpen ? 'Collapse All' : 'Expand All')}
             <span class="ntr_menu">${headBtn('m_ag_more', 'fa-ellipsis', 'More', ' aria-haspopup="menu" aria-expanded="false"')}</span>
           </div>
@@ -787,7 +996,7 @@
       reads: usesFull(a) ? { text: `Your Chat's Full Prompt${last}` }
         : a.readBy === 'num' && !readMsgs(a).length ? { warn: `${rangeName(a)} · Not in This Chat Yet` }
           : { text: `${a.readBy === 'num' ? rangeName(a) : `${a.context} ${a.context === 1 ? 'Message' : 'Messages'}`} · ${hasTag(a) ? 'In Instructions' : a.split ? 'As Separate Messages' : 'As One Block'}${last}` },
-      test: current?.id === a.id ? { text: 'Running...' }
+      test: busy(a.id) ? { text: runState(a.id)[1] }
         : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' },
     };
   }
@@ -960,7 +1169,7 @@
     const sum = sums(a);
     return `<div class="m_ag_frame">
         ${headHtml(a, parts.every(([k]) => isOpen(k)))}
-        <div class="m_ag_body">${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body) + (k === 'reads' ? prevRowHtml(a) : '')).join('')}</div>
+        <div class="m_ag_body"><div id="m_ag_links" class="m_ag_links" role="group" aria-label="Agents it reads and is read by">${linksHtml(a)}</div>${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body) + (k === 'reads' ? prevRowHtml(a) : '')).join('')}</div>
       </div>`;
   }
 
@@ -1021,13 +1230,14 @@
   }
 
   function activityHtml(a, l = runs.get(a.id) || []) {
-    const busy = current && current.id === a.id ? '<div class="cb_hint" style="margin:8px 0 0;"><i class="fa-solid fa-spinner fa-spin"></i> Running...</div>' : '';
+    const st = runState(a.id);
+    const now = st ? `<div class="cb_hint" style="margin:8px 0 0;"><i class="fa-solid fa-fw ${st[0] === 'fa-play' ? 'fa-spinner fa-spin' : st[0]}"></i> ${esc(st[1])}</div>` : '';
     const rows = l.map((r) => {
       const head = `<i class="fa-solid ${r.ok ? 'fa-circle-check cb_ok' : 'fa-circle-xmark cb_err'}"></i> ${clock(r.at)} ·${r.test ? 'Test · ' : ''}${(r.ms / 1000).toFixed(1)} s${r.note ? ` · ${esc(r.note)}` : ''}`;
       if (!r.ok) return `<div class="cb_hint" style="margin:6px 0 0;">${head} · ${esc(r.text)}</div>`;
       return `<details class="cb_hint" style="margin:6px 0 0;"><summary style="cursor:pointer;">${head} · ${esc(r.text.slice(0, 70))}${r.text.length > 70 ? '...' : ''}</summary><div style="white-space:pre-wrap;margin-top:4px;">${esc(r.text)}</div></details>`;
     }).join('');
-    return busy + (rows || (busy ? '' : '<div class="cb_hint" style="margin:8px 0 0;">No runs yet. The last 10 stay here until you reload.</div>'));
+    return now + (rows || (now ? '' : '<div class="cb_hint" style="margin:8px 0 0;">No runs yet. The last 10 stay here until you reload.</div>'));
   }
 
   function renderActivity() {
@@ -1035,21 +1245,31 @@
     const a = byId(settings().agPick);
     const box = root.querySelector('#m_ag_act');
     if (a && box) box.innerHTML = activityHtml(a);
+    // style.display, not hidden: SillyTavern's buttons are flex boxes, which would show a hidden one anyway. Stop is for
+    // this agent's runs, Stop All for every agent's.
     const stop = root.querySelector('#m_ag_stop');
-    // style.display, not hidden: SillyTavern's buttons are flex boxes, which would show a hidden one anyway.
-    if (stop) stop.style.display = current ? '' : 'none';
-    // The header's Run Now is Stop while this agent runs. Both Run Nows are grayed out while it's off.
+    if (a && stop) stop.style.display = busy(a.id) ? '' : 'none';
+    root.querySelector('#m_ag_stopall').style.display = jobs.length ? '' : 'none';
+    // The header's Run Now is Stop while this agent has runs. Both Run Nows are grayed out while it's off.
     const run = root.querySelector('#m_ag_hrun');
     if (a && run) {
-      const busy = current?.id === a.id;
-      run.title = busy ? 'Stop' : 'Run Now';
+      const going = busy(a.id);
+      run.title = going ? 'Stop' : 'Run Now';
       run.setAttribute('aria-label', run.title);
-      run.querySelector('i').className = `fa-solid fa-fw ${busy ? 'fa-stop' : 'fa-play'}`;
-      run.disabled = !busy && !a.on;
+      run.querySelector('i').className = `fa-solid fa-fw ${going ? 'fa-stop' : 'fa-play'}`;
+      run.disabled = !going && !a.on;
     }
     const run2 = root.querySelector('#m_ag_run');
     if (a && run2) run2.disabled = !a.on;
     if (a) setSum('test', sums(a).test);
+    root.querySelectorAll('.m_ag_row').forEach((row) => {
+      const x = byId(row.dataset.id);
+      const sub = row.querySelector('.m_ag_rsub');
+      if (!x || !sub) return;
+      sub.innerHTML = rowSub(x);
+      sub.classList.toggle('m_ag_rst', busy(x.id));
+    });
+    drawLines();
   }
 
   // Your saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
@@ -1078,9 +1298,11 @@
     if (s.agPick && !byId(s.agPick)) s.agPick = '';
     if (!s.agPick && list().length) s.agPick = list()[0].id;
     const a = byId(s.agPick);
+    typing = null;
     root.innerHTML = listHtml(s) + `<div id="m_ag_edit">${editorHtml(a)}</div>`;
     bindAll(s, a);
     renderActivity();
+    watchLines();
     if (a?.kind === 'cc') fillKeys(a);
     if (focusAfter) root.querySelector(focusAfter)?.focus();
     focusAfter = null;
@@ -1219,7 +1441,7 @@
   }
 
   function bindAll(s, a) {
-    const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); syncTag(a); if (prevOpen) syncPreview(a); } };
+    const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); syncTag(a); syncLinks(a); if (prevOpen) syncPreview(a); } };
     // A click anywhere but in a menu closes it.
     root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
@@ -1328,8 +1550,9 @@
         };
       };
     });
+    root.querySelector('#m_ag_stopall').onclick = () => stopRuns();
     if (!a) return;
-    root.querySelector('#m_ag_hrun').onclick = () => { if (current?.id === a.id) current.ctrl.abort(); else enqueue(a.id); };
+    root.querySelector('#m_ag_hrun').onclick = () => { if (busy(a.id)) stopRuns((j) => j.id === a.id); else enqueue(a.id); };
 
     // The folded parts, and Expand All or Collapse All for all of them. Collapse All closes the preview and Macros too.
     const folds = [...root.querySelectorAll('.m_ag_fold')];
@@ -1386,6 +1609,26 @@
       say(d ? `Moved to ${d.name}.` : 'Moved out of its department.');
     };
     const toNew = async () => { const d = await makeDept(ask()); if (d) moveTo(d); };
+    // Reads and Read By: a chip picks that agent. Move puts the agent read right above this one, in this one's group, so
+    // its new answer is waited for.
+    const moveAbove = (x) => {
+      for (const d of depts()) d.ids = d.ids.filter((id) => id !== x.id);
+      const d = deptOf(a.id);
+      if (d) d.ids.splice(d.ids.indexOf(a.id), 0, x.id);
+      else {
+        const ids = loose().map((y) => y.id).filter((id) => id !== x.id);
+        ids.splice(ids.indexOf(a.id), 0, x.id);
+        setLoose(ids);
+      }
+      focusAfter = '#m_ag_links .m_ag_chip';
+      changed(true);
+      say(`Moved ${x.name} above ${a.name}.`);
+    };
+    root.querySelector('#m_ag_links').onclick = (e) => {
+      const go = byId(e.target.closest('[data-go]')?.dataset.go);
+      const mv = byId(e.target.closest('[data-move]')?.dataset.move);
+      if (go) { s.agPick = go.id; changed(true); showHead(); } else if (mv) moveAbove(mv);
+    };
     more.onclick = () => {
       const cur = deptOf(a.id);
       const ids = group();
@@ -1460,7 +1703,7 @@
     });
     const del = async () => {
       if (!(await askYes(root.querySelector('.m_ag_headrow'), `Delete "${a.name}"? This can't be undone.`, 'Delete', { danger: true }))) return;
-      if (current?.id === a.id) current.ctrl.abort();
+      stopRuns((j) => j.id === a.id);
       s.agents = list().filter((x) => x !== a);
       checked.add(s.agents);
       runs.delete(a.id);
@@ -1531,12 +1774,18 @@
         const f = el.dataset.f;
         a[f] = el.value.slice(0, Number(el.getAttribute('maxlength')) || 500);
         if (f === 'ccSource') a.ccKey = '';
+        if (f === 'job') typing = null;
         changed(!!el.dataset.redraw);
       };
     });
     // Instructions' summary follows what's typed; the text itself saves when the box loses focus.
     const job = root.querySelector('.m_ag_txt[data-f="job"]');
-    job.oninput = () => setSum('ins', sums({ ...a, job: job.value }).ins);
+    let linkWait = 0;
+    job.oninput = () => {
+      setSum('ins', sums({ ...a, job: job.value }).ins);
+      clearTimeout(linkWait);
+      linkWait = setTimeout(() => { typing = { id: a.id, job: job.value }; syncLinks(a); }, 400);
+    };
     // Macros: a tap puts the macro where the cursor last was in the instructions, or at the end.
     let sel = null;
     job.onblur = () => { sel = [job.selectionStart, job.selectionEnd]; };
@@ -1550,6 +1799,7 @@
       job.focus();
       job.setSelectionRange(pos, pos);
       a.job = job.value;
+      typing = null;
       changed(false);
     };
     root.querySelectorAll('.m_ag_chk').forEach((el) => {
@@ -1605,7 +1855,7 @@
     root.querySelector('#m_ag_prev').onclick = () => syncPreview(a, !prevOpen);
     root.querySelector('#m_ag_run').onclick = () => enqueue(a.id);
     root.querySelector('#m_ag_test').onclick = () => enqueue(a.id, true);
-    root.querySelector('#m_ag_stop').onclick = () => current?.ctrl.abort();
+    root.querySelector('#m_ag_stop').onclick = () => stopRuns((j) => j.id === a.id);
   }
 
   // The Answer part's field list. Typing a name, hint or number only updates its row, like the name at the top: a
@@ -1693,8 +1943,8 @@
 
   function bind(overlay, s) {
     root = overlay.querySelector('#m_ag_root');
-    // Switching the page off also stops a run in progress; runs still waiting are skipped.
-    overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); if (!this.checked) current?.ctrl.abort(); refreshBoxes(); };
+    // Switching the page off stops every run, waiting or in progress.
+    overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); if (!this.checked) stopRuns(); refreshBoxes(); };
     dragger = dragSort(root, { pick: dragPick, place: dragPlace, done: dragDone });
     render();
   }
@@ -1814,7 +2064,7 @@
       const f = fails.get(a.id);
       const here = (e) => !!(r && e && e.id === a.id && e.mes === r.mes && e.chat === cid && e.date === chat[r.mes]?.send_date);
       return {
-        a, r, prev: r && usesFields(a) ? latest(a.id, r.mes - 1) : null, run: current?.id === a.id, fail: f && f.chat === cid ? f.text : '',
+        a, r, prev: r && usesFields(a) ? latest(a.id, r.mes - 1) : null, run: busy(a.id), fail: f && f.chat === cid ? f.text : '',
         edit: here(editing) ? editing.key : '', fedit: here(fieldEdit) ? fieldEdit.key : '',
       };
     });
@@ -1911,7 +2161,7 @@
     sectionHtml,
     bind,
     // A message came in (index.js, message id): an AI reply (type is SillyTavern's), or your message or a system message
-    // ('sent'). Agents set to After Messages run, one after another, if it's a kind they're ticked for, from a name in
+    // ('sent'). Agents set to After Messages run in roster order (see Runs side by side), if it's a kind they're ticked for, from a name in
     // Only From, each on that message even if more come in before its turn. A full-prompt run can only run on the newest
     // message, so one set off while the AI's reply is being written runs on that reply instead. A Continue only adds to
     // a reply they already ran on, so it doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
@@ -1924,11 +2174,12 @@
       if (!m || m.is_system) return;
       // 'narrator' is SillyTavern's mark for /sys and /narrator messages.
       const kind = m.extra?.type === 'narrator' ? 'sys' : m.is_user ? 'user' : 'ai';
+      const batch = ++batchN;
       for (const a of list()) {
         if (!a.on || a.runs !== 'reply' || !a.runOn.includes(kind) || !fromOk(a, m.name) || !(a.job.trim() || usesFields(a))) continue;
         if (kind !== 'ai' && chatBusy && usesFull(a)) {
-          if (!onReply.has(a.id)) { onReply.add(a.id); enqueue(a.id, false, true, null); }
-        } else if (kind !== 'ai' || !onReply.has(a.id)) enqueue(a.id, false, true, at);
+          if (!onReply.has(a.id)) { onReply.add(a.id); enqueue(a.id, false, true, null, batch); }
+        } else if (kind !== 'ai' || !onReply.has(a.id)) enqueue(a.id, false, true, at, batch);
       }
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
@@ -1936,8 +2187,7 @@
     genEnded: () => { chatBusy = false; sendAt = null; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
     // {{agent::Name}} (index.js): that agent's current saved result, chosen like Send to Main AI's. Blank while it's off.
     macro: (name) => {
-      const want = String(name ?? '').trim().toLowerCase();
-      const a = list().find((x) => x.name.toLowerCase() === want);
+      const a = named(name);
       return a?.on ? latest(a.id, macroAt ?? sendUpTo())?.text ?? '' : '';
     },
     // For Pinned Blocks set to Agent Results (layout.js).

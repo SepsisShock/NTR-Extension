@@ -78,3 +78,53 @@ test('an agent that is off sends nothing to the main AI', () => {
   delete context.chat;
   delete context.setExtensionPrompt;
 });
+
+// Agents in no department run first; then each department is a lane, up to 3 runs at once. An agent that reads an
+// agent above it in another department waits for that agent's run.
+test('departments run side by side, and an agent waits for the agents above it that it reads', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
+  s.agents = [agent('L'), agent('A'), agent('B'), agent('C'), agent('E', 'job E {{agent::a}}'), agent('F')];
+  s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_A', 'ag_B'] }, { id: 'dp_2', name: 'Two', ids: ['ag_C', 'ag_E'] }, { id: 'dp_3', name: 'Three', ids: ['ag_F'] }];
+  context.chat = [{ send_date: 'd', mes: 'Hi', name: 'X', extra: {} }];
+  context.saveChat = () => {};
+  const live = new Map();
+  const started = [];
+  context.ChatCompletionService = {
+    processRequest: (data, o, x, signal) => new Promise((res, rej) => {
+      const name = /^job (\w)/.exec(data.messages[0].content)[1];
+      started.push(name);
+      live.set(name, res);
+      signal.addEventListener('abort', () => rej(new Error('Stopped')));
+    }),
+  };
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const finish = async (x) => { live.get(x)({ content: 'ok' }); live.delete(x); await settle(); };
+
+  window.NTR.agents.replied('normal', null);
+  await settle();
+  assert.deepEqual(started, ['L'], 'the agents in no department run first');
+  await finish('L');
+  assert.deepEqual(started.slice(1).sort(), ['A', 'C', 'F'], 'then the first agent of each department, side by side');
+  await finish('C');
+  assert.equal(started.length, 4, 'E waits for A, which it reads, and B for A in its own department');
+  await finish('A');
+  assert.deepEqual(started.slice(4).sort(), ['B', 'E']);
+  for (const x of ['B', 'E', 'F']) await finish(x);
+
+  // Four departments' runs at once: only 3 start, and the fourth once one of them ends.
+  s.agents = [...s.agents.filter((a) => a.id !== 'ag_E'), agent('E'), agent('G')];
+  s.agDepts.push({ id: 'dp_4', name: 'Four', ids: ['ag_G'] });
+  started.length = 0;
+  window.NTR.agents.replied('normal', null);
+  await settle();
+  await finish('L');
+  assert.equal(started.length, 4, 'L, then 3 at a time');
+  await finish(started[1]);
+  assert.equal(started.length, 5, 'one ends, and one more starts');
+  while (live.size) await finish([...live.keys()][0]);
+  delete context.ChatCompletionService;
+  delete context.chat;
+  delete context.saveChat;
+});

@@ -3,7 +3,7 @@
 // Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
 // If this file breaks, the rest of the extension keeps working.
 (() => {
-  const CAST_VERSION = '2.81.0';
+  const CAST_VERSION = '2.82.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;

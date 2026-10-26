@@ -13,7 +13,7 @@
 #   st.sh bench table <name> [name...]   compare saved results
 #
 # SillyTavern lives in $ST_DIR (default ~/sillytavern) and answers on http://127.0.0.1:8000. Log: $ST_LOG.
-# The other commands wait while a setup is running.
+# The other commands, except browsers, wait while a setup is running.
 set -euo pipefail
 
 ST_DIR="${ST_DIR:-$HOME/sillytavern}"

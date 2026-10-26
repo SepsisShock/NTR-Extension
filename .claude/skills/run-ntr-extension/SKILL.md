@@ -21,7 +21,7 @@ bash .claude/skills/run-ntr-extension/st.sh setup
 
 This clones SillyTavern's release branch to `~/sillytavern` (set `ST_DIR` to change it), installs its dependencies, and starts it once so it creates its data, with one character: Seraphina. It then turns off the first-run "Welcome" dialog, keeps a copy of that clean data for `reset`, and installs the extension from the working tree.
 
-In cloud sessions, the session start hook in `.claude/settings.json` runs `st.sh hook`, which does this setup in the background when the session opens (log: `/tmp/sillytavern-setup.log`). The other `st.sh` commands wait for it to finish, and `setup` only says it's already done. To set up again from scratch, delete `~/sillytavern` first.
+In cloud sessions, the session start hook in `.claude/settings.json` runs `st.sh hook`, which does this setup in the background when the session opens (log: `/tmp/sillytavern-setup.log`). The other `st.sh` commands, except `browsers`, wait for it to finish, and `setup` only says it's already done. To set up again from scratch, delete `~/sillytavern` first.
 
 ## Build
 

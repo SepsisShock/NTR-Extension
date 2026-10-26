@@ -15,21 +15,21 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - Keep edits scoped to the task. Ask before deleting or renaming files.
 - For anything beyond a small fix, present a concrete implementation plan naming the target page and file for each new part, and wait for explicit approval before modifying files. A request to investigate, review, discuss, or plan does not authorize implementation.
 - A fix pushed to an open PR needs no new plan unless it changes behavior the approved plan didn't cover; then show the choices first.
-- Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes and the `coverage.json` that `scenarios.cjs --record` writes.
+- Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
 - If a `CLAUDE.md` rule is wrong, outdated, or requires a workaround, flag it in the plan or PR summary with proposed wording.
 
 ## Testing & Releases
 - Before opening a PR that changes `.js` or `.css`, run `/run-ntr-extension`, comparing `main` with the branch:
-  - **Refactors only** (code moved between files, nothing meant to change): run the scenarios `scenarios.cjs --for origin/main` prints. When it reports code new since `coverage.json`, run every scenario on the branch with `--record`.
+  - **Refactors and module loading** (code moved or restructured with nothing meant to change for users, or changes to how modules load): run every scenario on `main` and on the branch.
   - Test changed parts, and parts `main` lacks, with driver commands.
   - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
   - **`style.css`:** compare before and after screenshots of the pages it reaches.
   - **CSS in a `pointer: coarse` or width query, in any file:** compare before and after screenshots of the pages it reaches with `NTR_PHONE=1`.
-- After implementing, check the result against the request and approved plan, not just scenario runs. Report any differences.
-- **Fixes to an open refactor PR** (a reviewer's or your own): run what `scenarios.cjs --for <last run's commit> HEAD` prints, comparing that commit (`st.sh reset <sha>`) with the new head. Record each run's commit in the PR summary's testing part.
+- After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
+- **Fixes to an open PR** (a reviewer's or your own): re-test what the fix changed. On a refactor PR, run every scenario on the last tested commit (`st.sh reset <sha>`) and the new head, and record each run's commit in the PR summary's testing part.
 - **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features); bump `major` only with approval, and state the approval in the PR summary. Fixes pushed to an open PR don't bump again. The script maintains the list of versioned files and CI verifies consistency.
 - **Docs:** Remove shipped features from `ROADMAP.md`. Update `manifest.json` description in a few words only when a new top-level area ships.
-- **PR Summary:** State what changed, why, how to test in SillyTavern, which scenarios ran with `--for`'s output (or why skipped), and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
+- **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
 
 ## Architecture & Module Routing
 - **Existing conventions:** Match the project's established style and file structure.

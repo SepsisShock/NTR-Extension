@@ -7,67 +7,23 @@
 // /tmp/ntr-scenarios): out.txt, menu.html and the style tags, with the version replaced by V. Compare two runs with
 // diff -r. Each scenario starts from NTR's default settings, and one that holds back or blocks a file the installed
 // version doesn't have is skipped. Exits 1 if a scenario couldn't finish.
-//
-// Which scenarios a change needs (see pick.cjs), against a git ref, for the working tree or another ref:
-//   node .claude/skills/run-ntr-extension/scenarios.cjs --for origin/main [head]
-// --record after the name (Chromium only) also saves which NTR code each scenario ran to coverage.json.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { units, pick, COVERAGE, PAGES } = require('./pick.cjs');
 
 const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const EXT_URL = new URL('scripts/extensions/third-party/NTR-Extension/', ST_URL).href;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hash = (x) => crypto.createHash('sha1').update(x).digest('hex').slice(0, 12);
 const BASE = { agEnabled: false, bannerOn: false, fgEnabled: false, rxEnabled: true, layEnabled: true, nodeEnabled: false, rdEnabled: false, nodeMaps: false, uiPage: 'themes' };
-const FOR = process.argv[2] === '--for' ? process.argv.slice(3, 5) : null;
-const RECORD = !FOR && process.argv.includes('--record');
-const [NAME = '', ONLY = ''] = FOR ? [] : process.argv.slice(2).filter((a) => a !== '--record');
-if (FOR ? !FOR[0] : !/^[\w.-]+$/.test(NAME) || NAME === '.' || NAME === '..') {
-  console.error('usage: scenarios.cjs <name> [letters] [--record]   (name: letters, digits, ".", "-" or "_")\n       scenarios.cjs --for <ref> [head]');
+const [NAME = '', ONLY = ''] = process.argv.slice(2);
+if (!/^\w[\w.-]*$/.test(NAME)) {
+  console.error('usage: scenarios.cjs <name> [letters]   (name: letters, digits, ".", "-" or "_", starting with a letter or digit)');
   process.exit(1);
 }
 const OUT = path.join(process.env.NTR_SCENARIOS || '/tmp/ntr-scenarios', NAME);
 
-const { launch, contextOptions, MODE, BROWSER } = require('./browser.cjs');
-if (RECORD && BROWSER !== 'chromium') {
-  console.error('--record needs Chromium, which reports the code a page ran.');
-  process.exit(1);
-}
-
-// --record: from when it's called, the NTR units (see pick.cjs) a page runs between calls of the function returned.
-async function startCoverage(page) {
-  const cdp = await page.context().newCDPSession(page);
-  const scripts = {};
-  cdp.on('Debugger.scriptParsed', (e) => { const m = e.url.match(/\/third-party\/NTR-Extension\/(\w+)\.js/); if (m) scripts[e.scriptId] = { file: m[1] }; });
-  await cdp.send('Debugger.enable');
-  await cdp.send('Profiler.enable');
-  await cdp.send('Profiler.startPreciseCoverage', { callCount: true, detailed: false });
-  return async () => {
-    const { result } = await cdp.send('Profiler.takePreciseCoverage');
-    const ran = {};
-    for (const { scriptId, functions } of result) {
-      const s = scripts[scriptId];
-      if (!s) continue;
-      if (!s.u) {
-        const text = (await cdp.send('Debugger.getScriptSource', { scriptId })).scriptSource;
-        s.u = units(text);
-        s.starts = [0];
-        for (let i = 0; i < text.length; i++) if (text[i] === '\n') s.starts.push(i + 1);
-      }
-      const r = (ran[s.file] = ran[s.file] || { all: new Set(s.u.filter(Boolean)), ran: new Set() });
-      for (const fn of functions) {
-        if (!fn.ranges[0].count) continue;
-        let lo = 0, hi = s.starts.length - 1;
-        while (lo < hi) { const m = (lo + hi + 1) >> 1; if (s.starts[m] <= fn.ranges[0].startOffset) lo = m; else hi = m - 1; }
-        if (s.u[lo]) r.ran.add(s.u[lo]);
-      }
-    }
-    return ran;
-  };
-}
-
+const { launch, contextOptions, MODE } = require('./browser.cjs');
 // NTR's style tags in page order, except the two that load side by side and land in either order: those go last, by id.
 const styleText = () => {
   const RACE = ['ntr_overlays_css', 'ntr_rx_css'];
@@ -77,13 +33,10 @@ const styleText = () => {
 };
 
 (async () => {
-  // --for runs no scenario: each session only says what it uses.
-  if (!FOR) {
-    fs.rmSync(OUT, { recursive: true, force: true });
-    fs.mkdirSync(OUT, { recursive: true });
-  }
-  const browser = FOR ? null : await launch();
-  const out = (...a) => { if (FOR) return; console.log(...a); fs.appendFileSync(path.join(OUT, 'out.txt'), a.join(' ') + '\n'); };
+  fs.rmSync(OUT, { recursive: true, force: true });
+  fs.mkdirSync(OUT, { recursive: true });
+  const browser = await launch();
+  const out = (...a) => { console.log(...a); fs.appendFileSync(path.join(OUT, 'out.txt'), a.join(' ') + '\n'); };
   const save = (file, text) => fs.writeFileSync(path.join(OUT, file), text);
   // Phone runs compare only with phone runs.
   out('screen', MODE);
@@ -107,21 +60,7 @@ const styleText = () => {
     return files[n];
   };
 
-  // By letter: the menu pages its sessions open, click, type into or read, whether they read style tags, and the files
-  // they hold back or block. --for picks scenarios from these and coverage.json.
-  const uses = {};
-  // By file and unit, the letters running it in their own steps and those running it while loading, for --record.
-  const recorded = {};
-  let recordedVersion = '';
-
-  async function session(name, { settings = {}, hold = [], abort = [], seq = {}, pages = [], css = false }, body) {
-    if (FOR) {
-      const u = (uses[name[0]] = uses[name[0]] || { pages: [], css: false, files: [] });
-      u.pages = [...new Set([...u.pages, ...pages])];
-      u.css ||= css;
-      u.files = [...new Set([...u.files, ...hold, ...abort, ...Object.keys(seq)])];
-      return;
-    }
+  async function session(name, { settings = {}, hold = [], abort = [], seq = {} }, body) {
     if (ONLY && !ONLY.includes(name[0])) return;
     out(`\n== ${name}`);
     // The files a scenario holds back or blocks are the ones it's about.
@@ -133,7 +72,6 @@ const styleText = () => {
       return;
     }
     const page = await (await browser.newContext(contextOptions(browser))).newPage();
-    const coverage = RECORD ? await startCoverage(page) : null;
     const errors = [];
     // SillyTavern's offline Horde lookup: Chromium names it in the message, Firefox and WebKit only in the stack.
     page.on('pageerror', (e) => { if (!/Internal S/.test(e.message) && !/\/horde\.js:/.test(e.stack || '')) errors.push(e.message); });
@@ -234,21 +172,7 @@ const styleText = () => {
           return `${before || 'shown'} -> ${after || 'shown'}`;
         }, sec),
       };
-      const loading = coverage && await coverage();
       await body(t);
-      if (coverage) {
-        recordedVersion = version;
-        const steps = await coverage();
-        for (const [k, cov] of [[0, steps], [1, loading]]) {
-          for (const [f, { all, ran }] of Object.entries(cov)) {
-            const r = (recorded[f] = recorded[f] || {});
-            for (const u of all) {
-              r[u] = r[u] || [new Set(), new Set()];
-              if (ran.has(u)) r[u][k].add(name[0]);
-            }
-          }
-        }
-      }
     } catch (e) { failed.push(name); out('FAILED', e.message.split('\n')[0]); }
     ran.push(name);
     out('errors', JSON.stringify(errors));
@@ -287,8 +211,6 @@ const styleText = () => {
     save(file, Object.entries(css).map(([k, v]) => `===== ${k}\n${v}`).join('\n'));
   }
 
-  // The pages pageInfo reads.
-  const INFO_PAGES = ['regex', 'agents', 'fg', 'pfp', 'themes'];
   const pageInfo = () => {
     const pg = (p) => document.querySelector(`#cb_modal_overlay .ntr_page[data-page="${p}"]`);
     const navOff = (p) => document.querySelector(`#cb_modal_overlay .ntr_navi[data-page="${p}"]`)?.classList.contains('ntr_off');
@@ -302,7 +224,7 @@ const styleText = () => {
     };
   };
 
-  await session('A late arrivals, prompt open', { hold: ['agents', 'cast', 'overlays', 'regex'], pages: [...INFO_PAGES, 'text', 'elements'] }, async (t) => {
+  await session('A late arrivals, prompt open', { hold: ['agents', 'cast', 'overlays', 'regex'] }, async (t) => {
     await t.menu('text');
     await t.ev(() => { const f = document.querySelector('#cb_modal_overlay .m_o_txt'); f.value = 'Typed, not saved'; });
     await t.newTheme();
@@ -344,7 +266,7 @@ const styleText = () => {
     out('regex off', await t.ev(() => NTR.api.settings().rxEnabled));
   });
 
-  await session('B Edit Layout during arrival', { hold: ['agents'], pages: ['layout', 'agents'] }, async (t) => {
+  await session('B Edit Layout during arrival', { hold: ['agents'] }, async (t) => {
     await t.menu('layout');
     await t.ev(() => document.querySelector('#m_l_edit').click());
     await sleep(500);
@@ -358,7 +280,7 @@ const styleText = () => {
     await t.show('after Done', () => ({ placing: document.body.classList.contains('ntr_placing'), agDrawn: document.querySelector('#m_ag_root')?.childElementCount ?? null }));
   });
 
-  await session('C failed loads', { abort: ['cast', 'regex'], pages: INFO_PAGES }, async (t) => {
+  await session('C failed loads', { abort: ['cast', 'regex'] }, async (t) => {
     await t.menu();
     await t.newTheme();
     await t.mark();
@@ -369,7 +291,7 @@ const styleText = () => {
     out('failed regex page switch', await t.ev(() => NTR.api.settings().rxEnabled));
   });
 
-  await session('D closed or reopened while loading', { hold: ['agents', 'overlays'], pages: INFO_PAGES }, async (t) => {
+  await session('D closed or reopened while loading', { hold: ['agents', 'overlays'] }, async (t) => {
     await t.menu();
     await t.ev(() => NTR.api.closeMenu());
     t.release('agents');
@@ -388,7 +310,7 @@ const styleText = () => {
 
   // The Themes page (themes.js, loaded at start) arriving late, after the menu was drawn again, or not at all.
   // themes.js is held from the start, so the Themes page's own prompt can't be opened yet: Regexes' New Folder is.
-  await session('V themes late, prompt open', { hold: ['themes'], pages: INFO_PAGES }, async (t) => {
+  await session('V themes late, prompt open', { hold: ['themes'] }, async (t) => {
     await t.menu('regex');
     await t.page.waitForSelector('#cb_modal_overlay .ntr_page[data-page="regex"] [data-act="newf"]', { timeout: 10000 });
     await t.ev(() => document.querySelector('#cb_modal_overlay .ntr_page[data-page="regex"] [data-act="newf"]').click());
@@ -401,7 +323,7 @@ const styleText = () => {
     await t.show('after themes', pageInfo);
   });
 
-  await session('W themes failed', { abort: ['themes'], pages: INFO_PAGES }, async (t) => {
+  await session('W themes failed', { abort: ['themes'] }, async (t) => {
     await t.menu();
     await t.mark();
     await t.show('after failure', pageInfo);
@@ -413,7 +335,7 @@ const styleText = () => {
     out('regex switch', await t.ev(() => NTR.api.settings().rxEnabled));
   });
 
-  await session('X themes late, menu reopened', { hold: ['themes'], pages: INFO_PAGES }, async (t) => {
+  await session('X themes late, menu reopened', { hold: ['themes'] }, async (t) => {
     await t.menu();
     await t.ev(() => NTR.api.closeMenu());
     await t.menu();
@@ -442,7 +364,7 @@ const styleText = () => {
     el.dispatchEvent(new Event('change', { bubbles: true }));
     return NTR.api.settings().tfAiFont;
   }, v);
-  await session('O font list late, menu drawn again while it loads', { settings: FONT_ON, hold: ['fonts'], pages: ['text'] }, async (t) => {
+  await session('O font list late, menu drawn again while it loads', { settings: FONT_ON, hold: ['fonts'] }, async (t) => {
     await t.menu('text');
     out('before arrival', JSON.stringify(await t.ev(fontInfo)));
     await t.ev(() => NTR.api.closeMenu());
@@ -456,7 +378,7 @@ const styleText = () => {
       return document.querySelectorAll('#cb_modal_overlay .ntr_flist [role="option"]').length;
     }));
   });
-  await session('O font list failed', { settings: FONT_ON, abort: ['fonts'], pages: ['text'] }, async (t) => {
+  await session('O font list failed', { settings: FONT_ON, abort: ['fonts'] }, async (t) => {
     await t.menu('text');
     await sleep(500);
     out('plain boxes', JSON.stringify(await t.ev(fontInfo)));
@@ -464,7 +386,7 @@ const styleText = () => {
     out('chat font', await t.ev(() => !!document.querySelector('link[data-ntr-gf="Crimson Pro"]')));
   });
 
-  await session('E Visual Novel first pick, then maps', { hold: ['opening', 'map'], pages: ['reader'] }, async (t) => {
+  await session('E Visual Novel first pick, then maps', { hold: ['opening', 'map'] }, async (t) => {
     await t.menu('reader');
     await t.ev(() => document.querySelector('#cb_modal_overlay input[name="cbr_rdstyle"][value="vn"]').click());
     await sleep(2500);
@@ -488,7 +410,7 @@ const styleText = () => {
     for (const sec of ['rd_vn', 'vn_guide', 'vn_prompt']) out('fold', sec, await t.fold(sec));
   });
 
-  await session('F Visual Novel settings late', { settings: { rdEnabled: true, nodeEnabled: true }, hold: ['vn'], pages: ['reader', 'themes', 'pfp'] }, async (t) => {
+  await session('F Visual Novel settings late', { settings: { rdEnabled: true, nodeEnabled: true }, hold: ['vn'] }, async (t) => {
     await t.menu('reader');
     await t.newTheme();
     await t.nav('reader');
@@ -501,7 +423,7 @@ const styleText = () => {
     for (const sec of ['vn_guide', 'vn_prompt', 'av_emo']) out('fold', sec, await t.fold(sec));
   });
 
-  await session('G cast fails with Visual Novel on', { settings: { rdEnabled: true, nodeEnabled: true }, abort: ['cast'], pages: ['reader'] }, async (t) => {
+  await session('G cast fails with Visual Novel on', { settings: { rdEnabled: true, nodeEnabled: true }, abort: ['cast'] }, async (t) => {
     await t.menu('reader');
     await sleep(1500);
     const vnPart = () => ({ hint: document.querySelector('#cb_modal_overlay [data-sec="rd_vn"]')?.nextElementSibling?.textContent.replace(/\s+/g, ' ').trim().slice(0, 90), toasts: document.querySelectorAll('.toast-error').length });
@@ -511,7 +433,7 @@ const styleText = () => {
   });
 
   for (const how of ['ok', 'abort']) {
-    await session(`I cast retry ${how} while the menu draws`, { seq: { cast: ['abort', 'hold'] }, pages: ['pfp', 'reader'] }, async (t) => {
+    await session(`I cast retry ${how} while the menu draws`, { seq: { cast: ['abort', 'hold'] } }, async (t) => {
       const info = () => ({
         emotions: document.querySelector('#cb_modal_overlay .ntr_page[data-page="pfp"] .ntr_keepon')?.textContent.replace(/\s+/g, ' ').trim().slice(0, 40),
         emoList: document.querySelector('#m_emo_list')?.childElementCount ?? null,
@@ -541,7 +463,7 @@ const styleText = () => {
     loaded: !!window.NTR.elements,
   });
   for (const [label, opts, how] of [['late', { seq: { elements: ['hold'] } }, 'ok'], ['late then failed', { seq: { elements: ['hold'] } }, 'abort'], ['failed at once', { abort: ['elements'] }, null]]) {
-    await session(`J elements ${label}`, { settings: EL_ON, ...opts, pages: ['elements', 'themes'], css: true }, async (t) => {
+    await session(`J elements ${label}`, { settings: EL_ON, ...opts }, async (t) => {
       await t.menu('elements');
       await t.newTheme();
       await t.nav('elements');
@@ -566,7 +488,7 @@ const styleText = () => {
     ['failed at once', { abort: ['text'] }, []],
     ['and elements both late', { seq: { text: ['hold'], elements: ['hold'] } }, [['elements', 'ok'], ['text', 'ok']]],
   ]) {
-    await session(`L text ${label}`, { settings: TF_ON, ...opts, pages: ['text', 'elements', 'themes'], css: true }, async (t) => {
+    await session(`L text ${label}`, { settings: TF_ON, ...opts }, async (t) => {
       await t.menu('text');
       await t.newTheme();
       await t.nav('text');
@@ -591,13 +513,13 @@ const styleText = () => {
     textOff: { ...TF, tfEnabled: false },
     ntrOff: { ...TF, ...EL_ON, masterEnabled: false },
   };
-  await session('K style tags', { css: true }, async (t) => {
+  await session('K style tags', {}, async (t) => {
     const { css } = await sweep(t, COMBOS);
     await reloadMix(t, css, { ...TF, ...PLATE, ...EL_ON, masterEnabled: true }, 'style-K.css');
   });
 
   // The Text Formatting page's own controls: its switch, a pick, an effect, a shared row, and the nameplate picture by link.
-  await session('M text page controls', { pages: ['text'], css: true }, async (t) => {
+  await session('M text page controls', {}, async (t) => {
     await t.menu('text');
     const style = () => t.ev(() => document.getElementById('aw_dynamic_style').textContent);
     const click = (sel) => t.ev((sel) => document.querySelector(sel).click(), sel);
@@ -629,7 +551,7 @@ const styleText = () => {
   const FS = { tfEnabled: true, ovFontOn: true, ovFont: 1.6 };
   const fsInfo = () => ({ scale: (document.getElementById('aw_dynamic_style')?.textContent.match(/--fontScale: [\d.]+/) || ['none'])[0], text: !!window.NTR.text });
   for (const [label, opts, rel] of [['loaded', {}, []], ['text.js failed', { abort: ['text'] }, []], ['text.js late', { seq: { text: ['hold'] } }, [['text', 'ok']]]]) {
-    await session(`N font scale, ${label}`, { settings: FS, ...opts, css: true }, async (t) => {
+    await session(`N font scale, ${label}`, { settings: FS, ...opts }, async (t) => {
       await t.show('at start', fsInfo);
       for (const [n, how] of rel) { t.release(n, how); await sleep(1500); await t.show(`after ${n} ${how}`, fsInfo); }
     });
@@ -654,13 +576,13 @@ const styleText = () => {
     squareUi: { ...AV, ovEnabled: true, ovShapeOn: true, ovShape: 'square', aiStyle: 'popout' },
     ntrOff: { ...AV, aiStyle: 'backdrop', aiShape: 'heart', masterEnabled: false },
   };
-  await session('P avatar style tags', { css: true }, async (t) => {
+  await session('P avatar style tags', {}, async (t) => {
     const { css } = await sweep(t, AV_COMBOS);
     await reloadMix(t, css, { ...AV_COMBOS.shapes, ...AV_COMBOS.bubbles, aiStyle: 'backdrop', masterEnabled: true }, 'style-P.css');
   });
 
   // Avatars: the chat pictures, the pop-out, and the page's controls.
-  await session('Q avatar page and pictures', { settings: { ...AV, aiStyle: 'backdrop', aiShape: 'none' }, seq: { cast: ['hold'] }, pages: ['pfp'] }, async (t) => {
+  await session('Q avatar page and pictures', { settings: { ...AV, aiStyle: 'backdrop', aiShape: 'none' }, seq: { cast: ['hold'] } }, async (t) => {
     const imgs = () => t.ev(() => [...document.querySelectorAll('#chat .mes .avatar img')].map((i) => ({ ar: !!i.style.getPropertyValue('--cb-ar'), nw: !!i.parentElement.style.getPropertyValue('--cb-nw'), full: i.dataset.ntrFull || '', src: (i.getAttribute('src') || '').replace(/\?.*/, '') })));
     out('pictures', JSON.stringify(await imgs()));
     // Emotions arrives late into the page.
@@ -770,7 +692,7 @@ const styleText = () => {
     ['failed, Names Hide', { abort: ['avatars'] }, { ...AV, layEnabled: true, ovNamesOn: true, ovNames: 'hide' }, []],
     ['late', { seq: { avatars: ['hold'] } }, AVF, [['avatars', 'ok']]],
   ]) {
-    await session(`R avatars ${label}`, { settings, ...opts, pages: ['pfp', 'themes'], css: true }, async (t) => {
+    await session(`R avatars ${label}`, { settings, ...opts }, async (t) => {
       await t.menu('pfp');
       await sleep(1200);
       await t.newTheme();
@@ -781,7 +703,7 @@ const styleText = () => {
     });
   }
   // The same setup with avatars.js loaded, for comparison (and on main).
-  await session('R avatars loaded', { settings: AVF, pages: ['pfp'], css: true }, async (t) => {
+  await session('R avatars loaded', { settings: AVF }, async (t) => {
     await t.menu('pfp');
     await sleep(1200);
     await t.show('loaded', avfInfo);
@@ -812,7 +734,7 @@ const styleText = () => {
     bubPlateDetails: BUB('pointed', { ovBubAlign: 'sides', tfEnabled: true, tfPlatePosOn: true, tfPlatePos: 'edge', avatarEnabled: true, usEnabled: true, usStyle: 'inline', usSide: 'tc', mdOn: true, mdBelow: ['date'] }),
     ntrOffDecor: { ovEnabled: true, ovShapeOn: true, ovBubOn: true, masterEnabled: false },
   };
-  await session('S decor style tags', { css: true }, async (t) => {
+  await session('S decor style tags', {}, async (t) => {
     const { css, all } = await sweep(t, D_COMBOS);
     // Bubble runs: two more AI messages and one of yours, grouped.
     await t.ev(({ combo, all }) => { const s = NTR.api.settings(); for (const k of all) s[k] = structuredClone(window.__orig[k]); Object.assign(s, combo); NTR.api.look.restyle(); }, { combo: BUB('pointed', { ovBubGroup: 'group' }), all });
@@ -830,7 +752,7 @@ const styleText = () => {
     out('runs after refreshPins', await runs());
     await reloadMix(t, css, { ...D_COMBOS.freeSend, ...D_COMBOS.bubThoughtBorder, ...GAPS, masterEnabled: true }, 'style-S.css');
   });
-  await session('T decor page controls', { settings: { ovEnabled: true, ovBubOn: true }, pages: ['display'] }, async (t) => {
+  await session('T decor page controls', { settings: { ovEnabled: true, ovBubOn: true } }, async (t) => {
     await t.menu('display');
     const st = () => t.ev(() => { const s = NTR.api.settings(); return ['ovEnabled', 'ovBubTail', 'ovBubAlign', 'ovBubInk', 'ovAiRound', 'ovAiBgColor'].map((k) => `${k}=${s[k]}`).join(' ') + ' preset=' + (document.querySelector('#cb_modal_overlay input[name="cbr_obubpreset"]:checked')?.value || ''); });
     out('start', await st());
@@ -871,7 +793,7 @@ const styleText = () => {
     for (const [x, user] of [['Two', false], ['Three', false]]) { const m = { name: user ? c.name1 : c.name2, is_user: user, is_system: false, send_date: Date.now(), mes: x, extra: {} }; c.chat.push(m); c.addOneMessage(m); }
   });
   for (const [label, opts, rel] of [['failed at once', { abort: ['decor'] }, []], ['late', { seq: { decor: ['hold'] } }, [['decor', 'ok']]], ['loaded', {}, []]]) {
-    await session(`U decor ${label}`, { settings: DF, ...opts, pages: ['display', 'themes'], css: true }, async (t) => {
+    await session(`U decor ${label}`, { settings: DF, ...opts }, async (t) => {
       await addMsgs(t);
       await sleep(800);
       await t.menu('display');
@@ -884,7 +806,7 @@ const styleText = () => {
     });
   }
 
-  await session('H everything loaded: menu HTML', { pages: PAGES, css: true }, async (t) => {
+  await session('H everything loaded: menu HTML', {}, async (t) => {
     await t.menu();
     await sleep(2500);
     const menu = t.unversion(await t.ev(() => document.getElementById('cb_modal_overlay').innerHTML));
@@ -893,34 +815,7 @@ const styleText = () => {
     out('menu html', menu.length, hash(menu), 'styles', styles.length, hash(styles));
   });
 
-  if (FOR) {
-    const r = pick(FOR[0], FOR[1], uses);
-    const what = r.letters.length === r.all.length ? 'all' : r.letters.join('') || 'none';
-    console.log(`Scenarios for ${FOR[0]}..${FOR[1] || 'the working tree'}: ${what} (${r.letters.length} of ${r.all.length})`);
-    for (const l of r.lines) console.log('  ' + l);
-    for (const n of r.notes) console.log(n);
-    if (r.letters.length) console.log(`Run: node .claude/skills/run-ntr-extension/scenarios.cjs <name>${what === 'all' ? '' : ' ' + what}`);
-    console.log(`coverage.json was recorded on ${r.recorded}.`);
-    return;
-  }
   await browser.close();
-  // Merged into coverage.json: the letters run now replace their old entries, and the files seen now get their
-  // current units.
-  if (RECORD && failed.length) out('\ncoverage.json not saved: a scenario failed.');
-  else if (RECORD) {
-    const old = fs.existsSync(COVERAGE) ? JSON.parse(fs.readFileSync(COVERAGE, 'utf8')).files : {};
-    const now = new Set(ran.map((n) => n[0]));
-    const keep = (s) => [...s].filter((l) => !now.has(l));
-    const files = {};
-    for (const f of [...new Set([...Object.keys(old), ...Object.keys(recorded)])].sort()) {
-      const us = recorded[f] ? Object.keys(recorded[f]) : Object.keys(old[f]);
-      files[f] = Object.fromEntries(us.map((u) => [u, [0, 1].map((k) => [...new Set([...keep(old[f]?.[u]?.[k] || ''), ...(recorded[f]?.[u]?.[k] || [])])].sort().join(''))]));
-    }
-    // One unit a line, so a change to the record reads as a diff.
-    const body = Object.entries(files).map(([f, us]) => `    ${JSON.stringify(f)}: {\n${Object.entries(us).map(([u, v]) => `      ${JSON.stringify(u)}: ${JSON.stringify(v)}`).join(',\n')}\n    }`).join(',\n');
-    fs.writeFileSync(COVERAGE, `{\n  "recorded": ${JSON.stringify(recordedVersion)},\n  "files": {\n${body}\n  }\n}\n`);
-    out(`\ncoverage.json saved for ${[...now].sort().join('')}.`);
-  }
   const list = (a) => (a.length ? ` (${a.join(', ')})` : '');
   out(`\nran ${ran.length}, skipped ${skipped.length}${list(skipped)}, failed ${failed.length}${list(failed)}`);
   if (failed.length) process.exitCode = 1;

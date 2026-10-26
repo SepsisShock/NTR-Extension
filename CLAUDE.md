@@ -15,7 +15,7 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - Keep edits scoped to the task. Ask before deleting or renaming files.
 - For anything beyond a small fix, propose a plan and wait for approval before changing files. A request to investigate, review, discuss or plan isn't approval.
 - Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
-- If a `CLAUDE.md` rule is wrong, outdated, or requires a workaround, flag it in the plan or PR summary with proposed wording.
+- If a `CLAUDE.md` rule or repo skill is wrong or outdated, flag it in the plan or PR summary.
 
 ## Testing & Releases
 - Before opening a PR that changes `.js` or `.css`, run `/run-ntr-extension`, comparing `main` with the branch:

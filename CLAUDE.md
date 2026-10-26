@@ -31,7 +31,7 @@ SillyTavern extension. NTR is being developed for public release. Design feature
     - Run whichever of `K`, `P` or `S` sets the settings the changed CSS reads.
     - Test other changed parts, and parts `main` lacks, with driver commands.
     - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
-  - **Full suite:** Run every scenario if `index.js` module loading, a shared `window.NTR.api` helper used by multiple modules, or `style.css` changed. A `style.css` rule that only matches inside one menu page (like `#cb_modal_overlay .m_ag_row`) counts as that page's code.
+  - **Full suite:** Run every scenario if `index.js` module loading, a shared `window.NTR.api` helper used by multiple modules, or `style.css` changed. A `style.css` rule that only matches inside one menu page (like `#cb_modal_overlay .m_ag_row`) counts as that page's code. A `style.css` change that only affects color, opacity or shadows needs only before and after screenshots of the pages it reaches.
   - **Skip:** Skip the run only when changed code cannot run differently (like JS comments outside strings).
 - **Fixes to an open PR** (a reviewer's or your own): follow Targeted for the fix's changes, comparing the commit the last run used (`st.sh reset <sha>`) with the new head. Record each run's commit in the PR summary's testing part.
 - **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features); bump `major` only with approval, and state the approval in the PR summary. Fixes pushed to an open PR don't bump again. The script maintains the list of versioned files and CI verifies consistency. Skip for docs-only PRs.

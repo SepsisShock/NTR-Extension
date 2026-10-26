@@ -262,12 +262,12 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.6;
+  color: color-mix(in srgb, var(--SmartThemeBodyColor, #dcdcd2) 80%, transparent);
 }
 .ntr_glab_icon { margin-right: 6px; font-size: 1.2em; color: var(--SmartThemeQuoteColor, #6cf); }
 /* Avatar Management's column titles start with that side's switch, sized like the page's other switches. */
-.ntr_avlab { display: flex; align-items: center; opacity: 1; }
-.ntr_avlab > label { margin: 0; opacity: 0.6; cursor: pointer; }
+.ntr_avlab { display: flex; align-items: center; }
+.ntr_avlab > label { margin: 0; cursor: pointer; }
 .ntr_avlab > input { font-size: 1.39em; }
 .ntr_fold .ntr_glab_icon { font-size: 1em; }
 .ntr_page .ntr_card,

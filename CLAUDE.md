@@ -20,13 +20,13 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 
 ## Testing & Releases
 - Before opening a PR that changes `.js` or `.css`, run `/run-ntr-extension`, comparing `main` with the branch:
-  - **Scenarios:** run every scenario on `main` and on the branch only if this prints anything: `git diff --name-only --diff-filter=ADR origin/main...HEAD -- ':(glob)*.js'; git diff --name-only -G'loadModule\(|import\(|callModule\(|[pP]ageHtml\(|pagePart\(|fillIn\(|LOOK_MODULES|MOD_LABEL' origin/main...HEAD -- ':(glob)*.js'`. Otherwise run none. What a reviewer, subagent or commit message calls the PR doesn't change this.
+  - **Scenarios:** run every scenario on `main` and on the branch only if `bash .claude/skills/run-ntr-extension/needs-scenarios.sh` prints anything. Otherwise run none. What a reviewer, subagent or commit message calls the PR doesn't change this.
   - Test changed parts, and parts `main` lacks, with driver commands.
   - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
   - **`style.css`:** compare before and after screenshots of the pages it reaches.
   - **CSS in a `pointer: coarse` or width query, in any file:** compare before and after screenshots of the pages it reaches with `NTR_PHONE=1`.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
-- **Fixes to an open PR** (a reviewer's or your own): re-test what the fix changed. If the Scenarios check with `<sha>...HEAD` in place of `origin/main...HEAD` prints anything, `<sha>` being the last tested commit, run every scenario on `<sha>` (`st.sh reset <sha>`) and the new head, and record each run's commit in the PR summary's testing part.
+- **Fixes to an open PR** (a reviewer's or your own): re-test what the fix changed. If `needs-scenarios.sh <sha>` prints anything, `<sha>` being the last tested commit, run every scenario on `<sha>` (`st.sh reset <sha>`) and the new head, and record each run's commit in the PR summary's testing part.
 - **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features); bump `major` only with approval, and state the approval in the PR summary. Fixes pushed to an open PR don't bump again. The script maintains the list of versioned files and CI verifies consistency.
 - **Docs:** Remove shipped features from `ROADMAP.md`. Update `manifest.json` description in a few words only when a new top-level area ships.
 - **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.

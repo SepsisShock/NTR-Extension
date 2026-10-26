@@ -27,7 +27,7 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - **Fixes to an open PR** (a reviewer's or your own): re-test what the fix changed.
 - **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features); bump `major` only with approval, and state the approval in the PR summary. Fixes pushed to an open PR don't bump again. The script maintains the list of versioned files and CI verifies consistency.
 - **Docs:** Remove shipped features from `ROADMAP.md`. Update `manifest.json` description in a few words only when a new top-level area ships.
-- **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
+- **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, which test, script or skill caught a real bug (or "none"), and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
 
 ## Architecture & Module Routing
 - **Existing conventions:** Match the project's established style and file structure.

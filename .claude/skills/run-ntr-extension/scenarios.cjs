@@ -222,7 +222,7 @@ const styleText = () => {
       agents: { note: note('agents'), drawn: document.querySelector('#m_ag_root')?.childElementCount ?? null, navOff: navOff('agents') },
       fg: { note: note('fg'), banner: !!document.querySelector('#m_b_enable'), navOff: navOff('fg') },
       cast: { hint: document.querySelector('#cb_modal_overlay .ntr_page[data-page="pfp"] .ntr_keepon')?.textContent.trim().slice(0, 50), emoList: document.querySelector('#m_emo_list')?.childElementCount ?? null },
-      themes: { note: note('themes'), sel: !!document.querySelector('#m_t_sel') },
+      themes: { note: note('themes'), drawn: !!document.querySelector('#m_t_new') },
     };
   };
 

@@ -4,7 +4,6 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 
 ## Communication
 - Everything you write: plain language. No em dashes; use semicolons, colons, or a new sentence instead.
-- Apply settings-key and card-cleaning rules quietly in code, not as talking points.
 - After implementing, verify the result against the original request, not just automated tests. Report any differences.
 
 ## UI Copy

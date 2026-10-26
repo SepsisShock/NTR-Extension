@@ -1,6 +1,6 @@
 # NTR-Extension (Nitwit Tavern Redesign)
 
-SillyTavern extension. NTR is being developed for public release. Design features, defaults and labels for users with other cards, presets and screen sizes, not just my setup. Don't skip or shrink work because NTR is solo or unreleased.
+SillyTavern extension. NTR is being developed for public release. Design features, defaults and labels for users with other cards, presets and screen sizes, not just my setup.
 
 ## Communication
 - Everything you write: plain language. No em dashes; use semicolons, colons, or a new sentence instead.

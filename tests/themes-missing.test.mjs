@@ -1,4 +1,4 @@
-// Without themes.js, the menu still opens and the core knows the module failed (scenario W checks the page's note).
+// Without themes.js, the menu still opens and the core knows the module failed.
 // Saved themes stay in the settings, and the core still brings old ones up to date. In Node the core never finds themes.js, so it's missing here.
 import test from 'node:test';
 import assert from 'node:assert/strict';

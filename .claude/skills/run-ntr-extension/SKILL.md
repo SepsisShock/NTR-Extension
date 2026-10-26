@@ -9,9 +9,9 @@ NTR is a SillyTavern extension, so running it means running SillyTavern with thi
 
 Node (verified with 22), git, curl, lsof, and Playwright with Chromium that Node can `require` (preinstalled in Claude Code cloud containers; nothing was apt-installed). Setup needs GitHub and the npm registry. In a Claude Code cloud session, `add_repo` for SillyTavern/SillyTavern (read access) confirms the clone is allowed.
 
-**Other browsers:** the session start hook also downloads Firefox and WebKit (Safari's engine), which needs `cdn.playwright.dev` and `playwright.download.prss.microsoft.com` in the environment's Allowed domains. Set `NTR_BROWSER=firefox` or `NTR_BROWSER=webkit` to run the driver or scenarios in one of them; Chromium is the default. WebKit on Linux is close to Safari but not the same, and not iPhone Safari. The speed test runs in Chromium only.
+**Other browsers:** `st.sh browsers` downloads Firefox and WebKit (Safari's engine, close to Safari but not iPhone Safari); it needs `cdn.playwright.dev` and `playwright.download.prss.microsoft.com` allowed. Then set `NTR_BROWSER=firefox` or `NTR_BROWSER=webkit` for the driver. Chromium is the default, and the speed test uses only Chromium.
 
-**Phone:** set `NTR_PHONE=1` (or `NTR_PHONE=landscape`) to run the driver or scenarios as a phone: a 390×844 touch screen (844×390 sideways) that tells SillyTavern it's a phone (Android in Chromium and Firefox, iPhone in WebKit). With `NTR_BROWSER=webkit` it's the closest to an iPhone, but still not a real one: there's no address bar, notch or home bar, so `env(safe-area-inset-*)` is always 0. Scenario results say which mode they ran in; compare phone runs only with phone runs. The speed test keeps its own `phone` option.
+**Phone:** set `NTR_PHONE=1` (or `NTR_PHONE=landscape`) to run the driver as a phone: a 390×844 touch screen (844×390 sideways) that tells SillyTavern it's a phone. There's no address bar, notch or home bar, so `env(safe-area-inset-*)` is always 0. The speed test has its own `phone` option.
 
 ## Setup (once, about a minute)
 
@@ -48,7 +48,7 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | command | what it does |
 |---|---|
 | `select [avatar]` | opens that character's chat (default `default_Seraphina.png`) |
-| `menu [page] [part...]` | opens the NTR menu, goes to a page by its icon (`themes`, `reader`, `layout`, `display` (Decor), `text`, `pfp`, `elements`, `fg`, `regex`, `agents`; `vn` for Visual Novel Mode's own page on 2.46 and older, `reasoning` instead of `elements` on 2.30 and older, `banner` on 2.24 and older) and opens folded parts by `data-sec` (`fg_banner`, `fg_fore`, `el_reasoning`, `el_scroll`, `el_cursor`, `el_qr`, `rb_css`, `rd_book`, `rd_vn`, `vn_guide`, `vn_prompt`, and on the Avatars page `av_spk`, `av_tags`): `menu reader rd_vn vn_guide`, `menu pfp av_tags`. `rd_vn` is there only while Visual Novel is on, so run `vn on` first; if Visual Novel was on, `vn off` turns Reader Mode off too. `rd_book` is there only while Reader Mode is on with Book picked: after `menu reader`, `click #m_rd_enable` if Reader Mode is off (check with `eval NTR.api.settings().rdEnabled`), then `click #cb_modal_overlay input[name="cbr_rdstyle"][value="book"]`. `menu` waits up to 5 seconds for each page or part it names. From 2.47, Visual Novel Mode's settings are in the Reader page's `rd_vn` part, which loads them a moment after the menu opens. Other parts (`vn_look`, `vn_loc`, `vn_map`, ...) are always open, and naming one only checks it's there. On 2.7 and older, where every section folds, it expands them instead |
+| `menu [page] [part...]` | opens the NTR menu, goes to a page by its icon (`themes`, `reader`, `layout`, `display` (Decor), `text`, `pfp`, `elements`, `fg`, `regex`, `agents`) and opens folded parts by `data-sec` (`fg_banner`, `fg_fore`, `el_reasoning`, `el_scroll`, `el_cursor`, `el_qr`, `rb_css`, `rd_book`, `rd_vn`, `vn_guide`, `vn_prompt`, and on the Avatars page `av_spk`, `av_tags`): `menu reader rd_vn vn_guide`, `menu pfp av_tags`. `rd_vn` is there only while Visual Novel is on, so run `vn on` first; if Visual Novel was on, `vn off` turns Reader Mode off too. `rd_book` is there only while Reader Mode is on with Book picked: after `menu reader`, `click #m_rd_enable` if Reader Mode is off (check with `eval NTR.api.settings().rdEnabled`), then `click #cb_modal_overlay input[name="cbr_rdstyle"][value="book"]`. `menu` waits up to 5 seconds for each page or part it names. Visual Novel Mode's settings load into `rd_vn` a moment after the menu opens. Other parts (`vn_look`, `vn_loc`, `vn_map`, ...) are always open, and naming one only checks it's there |
 | `close` | closes the menu |
 | `vn on` / `vn off` | Visual Novel Mode, through its toolbar button |
 | `power on` / `power off` | the extension's own power button |
@@ -111,27 +111,6 @@ diff /tmp/main.txt /tmp/branch.txt
 
 To try new code on the running server without resetting the data, `st.sh install` is enough; no restart.
 
-### Scenario checks
-
-`scenarios.cjs` checks how the NTR menu copes when its files load late or fail, the controls on the Text Formatting, Avatars and UI Decor pages, and NTR's style tags across many settings. It prints one line per check. `CLAUDE.md` says when to run it:
-
-```bash
-git fetch origin main
-bash .claude/skills/run-ntr-extension/st.sh reset origin/main
-bash .claude/skills/run-ntr-extension/st.sh start
-node .claude/skills/run-ntr-extension/scenarios.cjs main
-bash .claude/skills/run-ntr-extension/st.sh reset
-bash .claude/skills/run-ntr-extension/st.sh start
-node .claude/skills/run-ntr-extension/scenarios.cjs branch
-diff -r /tmp/ntr-scenarios/main /tmp/ntr-scenarios/branch
-```
-
-- Each scenario starts in a fresh page from NTR's default settings, so one scenario's settings don't reach the next. Card data and chats aren't reset, so start each run from `st.sh reset`.
-- Letters after the name run only those scenarios: `scenarios.cjs branch KPS`. Compare runs of the same letters.
-- Results go to `/tmp/ntr-scenarios/<name>/` (`NTR_SCENARIOS`): `out.txt`, the menu's HTML and the full style tags, with NTR's version number replaced by `V` so different versions compare.
-- A scenario that holds back or blocks a file the installed version doesn't have is skipped and prints `skipped: no <file>.js`.
-- If a scenario can't finish, it prints `FAILED` and the script exits 1.
-
 ### Speed test
 
 `st.sh bench` measures how much work SillyTavern does with NTR, so a change can be checked for slowdowns before a release. Each run starts from the clean data, opens Seraphina's chat in a fresh page and measures:
@@ -150,16 +129,13 @@ bash .claude/skills/run-ntr-extension/st.sh bench branch full        # the worki
 bash .claude/skills/run-ntr-extension/st.sh bench table plain main branch
 ```
 
-Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (turns on the banner with 3 rotating images, foreground images, Reasoning Block, Text Formatting and UI Decor styling, a custom cursor, and Layout with two Pinned Blocks, one following the message you're reading and one matching nothing, through `bench-full.txt`, which reloads the page and fails if any of those settings didn't stick), `vn` (Visual Novel Mode on), `phone` (390×844 touch screen), `cpu=N` (Chromium slows the page's processor N times, to stand in for a slower machine; 4 to 6 is a good range, and runs take longer) and `runs=N` (default 3). A run with NTR fails if the page doesn't load the version that was installed. Each run takes about a minute (a minute and a quarter with `cpu=4`), and the server is stopped at the end. Results and a screenshot from the first run go to `/tmp/ntr-bench/<name>.json` and `.png` (`NTR_BENCH`). The table shows the middle of the runs.
+Options after the name, in any order: a git ref (or `none` for no extension; the working tree without one), `full` (most features on, through `bench-full.txt`), `vn` (Visual Novel Mode on), `phone`, `cpu=N` (slows the page's processor N times to stand in for a slower machine; 4 to 6 is a good range) and `runs=N` (default 3). Each run takes about a minute and stops the server at the end. Results go to `/tmp/ntr-bench/<name>.json` (`NTR_BENCH`); the table shows the middle of the runs.
 
 Reading the numbers:
 
-- **busy** is how long the page's main thread was working, so less is better. **restyling** is the part spent working out styles; heavy `:has()` rules on `body` make it jump on every streamed word.
-- **95% of frames under** is about 16.7 ms when smooth (60 frames a second). 33 or 50 ms means visible stutter.
-- Compare runs from the same session only. Without a graphics card everything is drawn in software, so the numbers show how setups differ, not what a real phone would get. Differences under about 10% are noise.
-- With `vn`, most of the chat sits behind the dialogue box, so its streaming numbers can come out lower than plain SillyTavern.
-- **layouts per move** in the drag rows is how often the page works out its layout for each pointer move; more than 1 means the page works out its layout more than once for a move. **delay until the next frame** is the time from a move until the page starts drawing the next frame, including the time spent handling the move; the screen shows it slightly later.
-- Compare only columns with the same `cpu`: busy times grow with it.
+- **busy** is how long the page's main thread was working; less is better. **restyling** is the part spent working out styles.
+- **95% of frames under** is about 16.7 ms when smooth; 33 or 50 ms means visible stutter.
+- Compare runs from the same session and the same `cpu` only. Differences under about 10% are noise.
 
 ## Run (human path)
 
@@ -167,13 +143,7 @@ Reading the numbers:
 
 ## Test
 
-`node --test tests/*.test.mjs` runs the tests: every file loads in Node and registers with the core's version, and card data gets cleaned on the way in. They stub out the browser, so anything on screen still needs a run here. `node scripts/version.cjs check` checks the version matches everywhere, and `bump patch` (or `minor`) bumps it.
-
-Check that every file parses (as modules, since `index.js` uses `import.meta`); no output means all good, and it exits 1 if any file fails:
-
-```bash
-bad=0; for f in *.js; do cp "$f" /tmp/ntr-check.mjs && node --check /tmp/ntr-check.mjs || { echo "syntax error in $f"; bad=1; }; done; [ "$bad" = 0 ]
-```
+`node --test tests/*.test.mjs` runs the unit tests (no browser). `node scripts/version.cjs check` checks the version matches everywhere, and `bump patch` (or `minor`) bumps it.
 
 ## Gotchas
 

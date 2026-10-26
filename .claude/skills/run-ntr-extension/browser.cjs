@@ -1,4 +1,4 @@
-// Loading and starting Playwright's browser, shared by driver.cjs and scenarios.cjs (bench.cjs stays on Chromium).
+// Loading and starting Playwright's browser, used by driver.cjs (bench.cjs stays on Chromium).
 // NTR_BROWSER picks the browser: chromium (default), firefox or webkit (Safari's engine).
 // NTR_PHONE=1 (or landscape) makes the page a phone; bench.cjs uses the same phone through its own option.
 const path = require('path');
@@ -25,7 +25,7 @@ async function launch() {
   try {
     return await pw[BROWSER].launch(BROWSER === 'chromium' ? { args: ['--no-sandbox'] } : {});
   } catch (e) {
-    console.error(`${BROWSER} didn't start. The session start hook downloads Firefox and WebKit (log: /tmp/ntr-browsers.log).\n${e.message}`);
+    console.error(`${BROWSER} didn't start. Firefox and WebKit come from 'st.sh browsers'.\n${e.message}`);
     process.exit(2);
   }
 }
@@ -44,4 +44,4 @@ function contextOptions(browser, mode = MODE) {
   return { viewport, userAgent, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 }
 
-module.exports = { loadPlaywright, launch, contextOptions, MODE, BROWSER };
+module.exports = { loadPlaywright, launch, contextOptions, MODE };

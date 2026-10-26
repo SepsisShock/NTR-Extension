@@ -132,6 +132,20 @@ diff -r /tmp/ntr-scenarios/main /tmp/ntr-scenarios/branch
 - A scenario that holds back or blocks a file the installed version doesn't have is skipped and prints `skipped: no <file>.js`.
 - If a scenario can't finish, it prints `FAILED` and the script exits 1.
 
+### Which scenarios a change needs
+
+```bash
+git fetch origin main
+node .claude/skills/run-ntr-extension/scenarios.cjs --for origin/main
+```
+
+This prints the letters to run for the working tree's changes against `main`, one line per changed function or value saying why, and the `scenarios.cjs` command to run them. Give a second ref to pick for a commit instead of the working tree (`--for <last run's commit> HEAD` for fixes to an open PR). It runs nothing and needs no SillyTavern.
+
+- It reads `coverage.json`, which records which scenarios run each top-level function and value in `index.js` and the modules, in their own steps or only while loading. Code every scenario runs while loading picks all; CSS code picks the scenarios that read style tags; menu code picks the scenarios that use its page. A changed value or a function added since the recording picks what the code using it needs.
+- Comments, blank lines and the version number don't count. `style.css` isn't covered: the script says so, and CLAUDE.md's style.css rule applies.
+- **Recording:** run every scenario with `--record` after the name, in Chromium: `scenarios.cjs branch --record`. It updates `coverage.json` for the scenarios that ran; commit it with the change. Record again when `--for` reports functions new since `coverage.json`, or after changing which code a scenario reaches.
+- **New scenarios:** give the session `pages` (the menu pages its steps open, click, type into or read) and `css: true` if it reads style tags, then record it. A new module also needs its pages in `FILE_PAGES` in `pick.cjs`.
+
 ### Speed test
 
 `st.sh bench` measures how much work SillyTavern does with NTR, so a change can be checked for slowdowns before a release. Each run starts from the clean data, opens Seraphina's chat in a fresh page and measures:

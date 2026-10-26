@@ -4,7 +4,6 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 
 ## Communication
 - Everything you write: plain language. No em dashes; use semicolons, colons, or a new sentence instead.
-- After implementing, verify the result against the original request, not just automated tests. Report any differences.
 
 ## UI Copy
 - Write for any NTR user: concise, general terms. Never use examples from my personal presets or cards.
@@ -17,24 +16,20 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - For anything beyond a small fix, present a concrete implementation plan and wait for explicit approval before modifying files. A request to investigate, review, discuss, or plan does not authorize implementation.
 - A fix pushed to an open PR needs no new plan unless it changes behavior the approved plan didn't cover; then show the choices first.
 - Plans must identify the target page and file for each new part.
-- Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
+- Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes and the `coverage.json` that `scenarios.cjs --record` writes.
 - If a `CLAUDE.md` rule is wrong, outdated, or requires a workaround, flag it in the plan or PR summary with proposed wording.
 
 ## Testing & Releases
-- Before opening a PR that changes `.js` or `.css`, run `/run-ntr-extension`, comparing `main` with the branch. Ignore version-bump edits when choosing what to run:
-  - **Targeted:**
-    - Run `H` unless the changed code runs only after the menu and style tags are built (like message, chat or generation handlers); if unsure, run it.
-    - Run the scenarios whose steps in `scenarios.cjs` run the changed code; holding back or blocking a file reaches only the code those steps call.
-      - A menu page's own code that every menu draw runs (like its module's `sectionHtml` and `bind`) counts as reached only by `H`, scenarios that hold back its file, and scenarios whose steps click, type into or read that page. Of those, run one per path through the changed code, plus any whose settings, late or failed files, page switches, redraws or open prompts change what the changed code does in a way the scenario prints or saves. Say in the PR which scenario stands for which.
-    - Run whichever of `K`, `P` or `S` sets the settings the changed CSS reads.
-    - Test other changed parts, and parts `main` lacks, with driver commands.
-    - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
-  - **Full suite:** Run every scenario if `index.js` module loading, a shared `window.NTR.api` helper used by multiple modules, or `style.css` changed. A `style.css` rule whose selectors only match one menu page's elements (like `#cb_modal_overlay .m_ag_row`, or a class only that page draws) counts as that page's code; a `style.css` change that only affects color, opacity or shadows needs no scenarios. Scenarios don't save `style.css` or check how pages look, so for any `style.css` change compare before and after screenshots of the pages it reaches, and for CSS in a `pointer: coarse` or width query, in any file, take them with `NTR_PHONE=1` too.
-  - **Skip:** Skip the run only when changed code cannot run differently (like JS comments outside strings).
-- **Fixes to an open PR** (a reviewer's or your own): follow Targeted for the fix's changes, comparing the commit the last run used (`st.sh reset <sha>`) with the new head. Record each run's commit in the PR summary's testing part.
+- Before opening a PR that changes `.js` or `.css`, run `/run-ntr-extension`, comparing `main` with the branch:
+  - Run the scenarios `scenarios.cjs --for origin/main` prints. When it reports code new since `coverage.json`, run the branch with `--record`.
+  - Test changed parts no scenario runs, and parts `main` lacks, with driver commands.
+  - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
+  - **`style.css`:** run every scenario. A rule whose selectors only match one menu page's elements (like `#cb_modal_overlay .m_ag_row`, or a class only that page draws) runs the scenarios whose `pages` include that page; a change that only affects color, opacity or shadows runs none. For any `style.css` change, compare before and after screenshots of the pages it reaches, and for CSS in a `pointer: coarse` or width query, in any file, take them with `NTR_PHONE=1` too.
+- After implementing, check the result against the request and approved plan, not just scenario runs. Report any differences.
+- **Fixes to an open PR** (a reviewer's or your own): run what `scenarios.cjs --for <last run's commit> HEAD` prints, comparing that commit (`st.sh reset <sha>`) with the new head. Record each run's commit in the PR summary's testing part.
 - **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features); bump `major` only with approval, and state the approval in the PR summary. Fixes pushed to an open PR don't bump again. The script maintains the list of versioned files and CI verifies consistency. Skip for docs-only PRs.
 - **Docs:** Remove shipped features from `ROADMAP.md`. Update `manifest.json` description in a few words only when a new top-level area ships.
-- **PR Summary:** State what changed, why, how to test in SillyTavern, which scenarios ran (or why skipped), and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
+- **PR Summary:** State what changed, why, how to test in SillyTavern, which scenarios ran with `--for`'s output (or why skipped), and explain any out-of-scope file touches. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
 
 ## Architecture & Module Routing
 - **Existing conventions:** Match the project's established style and file structure.

@@ -18,7 +18,7 @@ const hash = (x) => crypto.createHash('sha1').update(x).digest('hex').slice(0, 1
 const BASE = { agEnabled: false, bannerOn: false, fgEnabled: false, rxEnabled: true, layEnabled: true, nodeEnabled: false, rdEnabled: false, nodeMaps: false, uiPage: 'themes' };
 const [NAME = '', ONLY = ''] = process.argv.slice(2);
 if (!/^\w[\w.-]*$/.test(NAME)) {
-  console.error('usage: scenarios.cjs <name> [letters]   (name: letters, digits, ".", "-" or "_", starting with a letter or digit)');
+  console.error('usage: scenarios.cjs <name> [letters]   (name: letters, digits, ".", "-" or "_", not starting with "." or "-")');
   process.exit(1);
 }
 const OUT = path.join(process.env.NTR_SCENARIOS || '/tmp/ntr-scenarios', NAME);

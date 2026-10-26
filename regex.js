@@ -13,7 +13,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.80.2';
+  const REGEX_VERSION = '2.81.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -117,14 +117,8 @@ try {
     });
   }
 
-  // The regexes a folder switch changes. Off remembers which were on. Back on turns those on again: all of them for a
-  // folder never switched off here, none if the remembered ones have left the folder.
-  function folderFlip(f, items, on) {
-    if (!on) { f.was = items.filter((x) => !x.disabled).map((x) => x.id); return f.was; }
-    const ids = Array.isArray(f.was) ? f.was.filter((id) => f.ids.includes(id)) : f.ids;
-    f.was = null;
-    return ids;
-  }
+  // The regexes a folder switch changes (groupFlip in index.js).
+  const folderFlip = (f, items, on) => A.groupFlip(f, items, on, (x) => !x.disabled);
 
   // Puts SillyTavern's rows in this order and saves through its own drag-to-reorder, which also reloads the chat.
   async function reorder(sec, ids) {
@@ -259,7 +253,6 @@ try {
     }
     #cb_modal_overlay input.rx_sw[type=checkbox]:checked { background: var(--SmartThemeQuoteColor, #6cf); border-color: var(--SmartThemeQuoteColor, #6cf); }
     #cb_modal_overlay input.rx_sw[type=checkbox]:checked::before { left: calc(100% - .94em); background: var(--ntr-on-accent); opacity: 1; }
-    #cb_modal_overlay input.rx_sw[type=checkbox]:disabled { opacity: .35; cursor: default; }
     #cb_modal_overlay input.rx_sw[type=checkbox]:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
     #cb_modal_overlay .rx_guide { display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; border: 0; background: none;
       color: var(--SmartThemeQuoteColor, #6cf); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }

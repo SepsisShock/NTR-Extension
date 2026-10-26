@@ -46,8 +46,8 @@ test('departments are cleaned, and the agents list follows the roster', () => {
   s.agEnabled = true;
   s.agents = ['a', 'b', 'c', 'd'].map((x) => ({ id: `ag_${x}`, name: x.toUpperCase() }));
   s.agDepts = [
-    { id: 'dp_1', name: '  ', ids: ['ag_c', 'ag_gone', 'ag_c', 7] },
-    { id: 'dp_1', name: 'Second', ids: ['ag_c', 'ag_a'] },
+    { id: 'dp_1', name: '  ', ids: ['ag_c', 'ag_gone', 'ag_c', 7], was: ['ag_c', 'ag_a', 'ag_gone'] },
+    { id: 'dp_1', name: 'Second', ids: ['ag_c', 'ag_a'], was: 'junk' },
     'junk',
   ];
   window.NTR.agents.replied('normal', null); // every agent is off, so nothing runs, but the list is put in order first
@@ -56,6 +56,7 @@ test('departments are cleaned, and the agents list follows the roster', () => {
   assert.deepEqual([one.name, two.name], ['Department', 'Second']);
   assert.notEqual(one.id, two.id, 'a repeated id gets a new one');
   assert.deepEqual([one.ids, two.ids], [['ag_c'], ['ag_a']], 'unknown and repeated agents are dropped, and an agent stays where it is listed first');
+  assert.deepEqual([one.was, two.was], [['ag_c'], null], 'only its own agents are remembered as on');
   assert.deepEqual(s.agents.map((a) => a.id), ['ag_b', 'ag_d', 'ag_c', 'ag_a'], 'no department first, then each department');
 });
 

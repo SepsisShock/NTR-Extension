@@ -8,10 +8,10 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.80.2';
+  const AGENTS_VERSION = '2.81.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, groupFlip, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -137,7 +137,8 @@
   const pageOn = () => A.isOn() && settings().agEnabled;
 
   // ----- Departments -----
-  // Departments group agents in the roster: { id, name, ids: its agents, in order }, in agDepts. An agent is in one at
+  // Departments group agents in the roster: { id, name, ids: its agents, in order, was: the ids that were on when it was
+  // switched off, or null }, in agDepts. An agent is in one at
   // most; the rest come first, in no department. The roster is the order agents run in, so the agents list itself is
   // kept in the order shown (sortAgents). Saved apart from the agents, so an agent's own data stays the same.
   const DEPT_MAX = 30;
@@ -155,7 +156,7 @@
         used.add(id);
         // An agent listed twice stays where it's listed first.
         const ids = (Array.isArray(d.ids) ? d.ids : []).filter((x) => have.has(x) && !seen.has(x) && seen.add(x));
-        return { id, name: str(d.name, 60).trim() || 'Department', ids };
+        return { id, name: str(d.name, 60).trim() || 'Department', ids, was: Array.isArray(d.was) ? d.was.filter((x) => ids.includes(x)) : null };
       });
       deptChecked.add(s.agDepts);
     }
@@ -169,11 +170,14 @@
     return list().filter((a) => !inDept.has(a.id));
   }
   // Puts the agents list in the roster's order: no department first, then each department. Agents that are gone
-  // leave their departments.
+  // leave their departments, and an agent that left one is no longer remembered as on there.
   function sortAgents() {
     const l = list();
     const have = new Map(l.map((a) => [a.id, a]));
-    for (const d of depts()) d.ids = d.ids.filter((id) => have.has(id));
+    for (const d of depts()) {
+      d.ids = d.ids.filter((id) => have.has(id));
+      if (d.was) d.was = d.was.filter((id) => d.ids.includes(id));
+    }
     const next = [...loose(), ...depts().flatMap((d) => d.ids.map((id) => have.get(id)))];
     if (next.some((a, i) => a !== l[i])) l.splice(0, l.length, ...next);
   }
@@ -659,8 +663,8 @@
     : `After ${KINDS.filter(([k]) => a.runOn.includes(k)).map(([, l]) => l).join(', ') || 'Messages'}`);
   const status = (a) => `${runsText(a)} · ${conn(a)}`;
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  // An agent's own switch, in a box that's easier to tap on a touch screen.
-  const onSwitch = (cls, a) => `<label class="m_ag_sw ntr_swcol"><input type="checkbox" class="ntr_pswitch ${cls}" ${a.on ? 'checked' : ''} title="Turn ${esc(a.name)} on or off" aria-label="Turn ${esc(a.name)} on or off"></label>`;
+  // An agent's or a department's switch, in a box that's easier to tap on a touch screen.
+  const onSwitch = (cls, on, name, extra = '') => `<label class="m_ag_sw ntr_swcol"><input type="checkbox" class="ntr_pswitch ${cls}" ${on ? 'checked' : ''} title="Turn ${esc(name)} on or off" aria-label="Turn ${esc(name)} on or off"${extra}></label>`;
   const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
 
@@ -671,13 +675,13 @@
   }
 
   // The roster: the agents in no department, then Departments, a card per department with its agents. A row per agent:
-  // its switch, then its picture, name and title picking it. A department's header: a gap in the switch column, its name
+  // its switch, then its picture, name and title picking it. A department's header: its switch, its name
   // and how many of its agents are on opening and folding it, and More (Rename, Move Up, Move Down, Delete). Rows and
   // headers drag from anywhere but their switch and More. The order is the run order (sortAgents).
   function rowHtml(a, s) {
     return `
       <div class="m_ag_row${a.id === s.agPick ? ' m_ag_sel' : ''}" data-id="${a.id}">
-        ${onSwitch('m_ag_on', a)}
+        ${onSwitch('m_ag_on', a.on, a.name)}
         <button type="button" class="m_ag_pick"${a.id === s.agPick ? ' aria-current="true"' : ''}>
           ${picHtml(a, 30)}
           <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
@@ -685,9 +689,10 @@
         </button>
       </div>`;
   }
+  const onIn = (d) => d.ids.filter((id) => byId(id)?.on).length;
   function deptSum(d) {
     const n = d.ids.length;
-    return `${n} ${n === 1 ? 'Agent' : 'Agents'} · ${d.ids.filter((id) => byId(id)?.on).length} On`;
+    return `${n} ${n === 1 ? 'Agent' : 'Agents'} · ${onIn(d)} On`;
   }
   function deptHtml(d, s) {
     const open = deptOpen(d);
@@ -696,7 +701,7 @@
     return `
       <div class="ntr_card m_ag_dept" data-dept="${d.id}">
         <div class="m_ag_dhead${holds ? ' m_ag_sel' : ''}">
-          <span class="ntr_swcol" aria-hidden="true"></span>
+          ${onSwitch('m_ag_don', onIn(d) > 0, d.name, d.ids.length ? '' : ' disabled')}
           <button type="button" class="m_ag_dpick" aria-expanded="${open}">
             <span class="m_ag_dicon"><i class="fa-solid fa-fw ${open ? 'fa-door-open' : 'fa-door-closed'}"></i></span>
             <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}</strong><span class="m_ag_rsub m_ag_dsum">${deptSum(d)}</span></span>
@@ -1089,6 +1094,11 @@
     setTimeout(() => { el.textContent = text; }, 60);
   }
   const deptSel = (d, part) => `.m_ag_dept[data-dept="${d.id}"] ${part}`;
+  // A department's header after its agents were switched without drawing the page again.
+  function syncDept(d) {
+    root.querySelector(deptSel(d, '.m_ag_dsum')).textContent = deptSum(d);
+    root.querySelector(deptSel(d, '.m_ag_don')).checked = onIn(d) > 0;
+  }
   // A department's name: required, and not one another department already has (whatever the capitals). It's cut to
   // its length first, so the name checked is the one saved.
   const askDeptName = (anchor, value, ok, self = null) => askText(anchor, {
@@ -1112,7 +1122,7 @@
     if (depts().length >= DEPT_MAX) { toastr.info(`Up to ${DEPT_MAX} departments.`, 'Agents'); return null; }
     const name = await askDeptName(anchor, `Department ${depts().length + 1}`, '<i class="fa-solid fa-building-shield"></i> Create');
     if (!name) return null;
-    const d = { id: newId('dp'), name, ids: [] };
+    const d = { id: newId('dp'), name, ids: [], was: null };
     depts().push(d);
     return d;
   }
@@ -1219,7 +1229,7 @@
         if (!x) return;
         x.on = this.checked;
         const d = deptOf(x.id);
-        if (d) root.querySelector(deptSel(d, '.m_ag_dsum')).textContent = deptSum(d);
+        if (d) syncDept(d);
         changed(false);
         renderActivity();
         refreshBoxes();
@@ -1252,12 +1262,24 @@
       changed(true);
     };
 
-    // Departments: the name opens and folds it, More has Rename, Move Up, Move Down and Delete. Rename and Delete ask
-    // under its row.
+    // Departments: the switch turns its agents off, and back on the ones that were on (groupFlip in index.js). The name
+    // opens and folds it, More has Rename, Move Up, Move Down and Delete. Rename and Delete ask under its row.
     root.querySelectorAll('.m_ag_dept').forEach((el) => {
       const d = depts().find((x) => x.id === el.dataset.dept);
       if (!d) return;
       const head = el.querySelector('.m_ag_dhead');
+      el.querySelector('.m_ag_don').onchange = function() {
+        const ids = groupFlip(d, d.ids.map(byId), this.checked, (x) => x.on);
+        for (const id of ids) {
+          byId(id).on = this.checked;
+          el.querySelector(`.m_ag_row[data-id="${id}"] .m_ag_on`).checked = this.checked;
+        }
+        if (this.checked && !ids.length) toastr.info('The agents that were on when this department was switched off are no longer in it, so none were turned on. Switch it on again to turn on all of its agents.', 'Agents');
+        syncDept(d);
+        changed(false);
+        renderActivity();
+        refreshBoxes();
+      };
       el.querySelector('.m_ag_dpick').onclick = () => {
         s.uiOpen[`agd_${d.id}`] = !deptOpen(d);
         focusAfter = deptSel(d, '.m_ag_dpick');

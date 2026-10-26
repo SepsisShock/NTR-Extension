@@ -5,7 +5,7 @@
 // a theme holds, how old ones are upgraded and cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.
 (() => {
-  const THEMES_VERSION = '2.80.2';
+  const THEMES_VERSION = '2.81.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,

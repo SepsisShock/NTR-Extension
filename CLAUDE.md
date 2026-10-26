@@ -13,7 +13,7 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - Use one branch per logical change and open a PR when complete: group changes that serve the same purpose and can be reviewed and tested together; give anything unrelated or substantially larger its own branch.
 - Keep edits scoped to the task. Ask before deleting or renaming files.
-- For anything beyond a small fix, present a concrete implementation plan naming the target page and file for each new part, and wait for explicit approval before modifying files. A request to investigate, review, discuss, or plan does not authorize implementation.
+- For anything beyond a small fix, propose a plan and wait for approval before changing files. A request to investigate, review, discuss or plan isn't approval.
 - A fix pushed to an open PR needs no new plan unless it changes behavior the approved plan didn't cover; then show the choices first.
 - Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
 - If a `CLAUDE.md` rule is wrong, outdated, or requires a workaround, flag it in the plan or PR summary with proposed wording.

@@ -113,7 +113,7 @@ To try new code on the running server without resetting the data, `st.sh install
 
 ### Scenario checks
 
-`scenarios.cjs` checks how the NTR menu copes when its files load late or fail, the controls on the Text Formatting, Avatars and UI Decor pages, and NTR's style tags across many settings. It prints one line per check. Use it to show a branch behaves the same as `main`, for example after moving code between files:
+`scenarios.cjs` checks how the NTR menu copes when its files load late or fail, the controls on the Text Formatting, Avatars and UI Decor pages, and NTR's style tags across many settings. It prints one line per check. `CLAUDE.md` says when to run it:
 
 ```bash
 git fetch origin main

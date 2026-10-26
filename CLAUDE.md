@@ -5,8 +5,6 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 ## Communication
 - Everything you write: plain language. No em dashes; use semicolons, colons, or a new sentence instead.
 - Apply settings-key and card-cleaning rules quietly in code, not as talking points.
-- Before implementing UI changes, identify the requested behavior and affected elements. Use provided screenshots and existing code as references.
-- Follow approved UI requirements. Suggest improvements when appropriate, but obtain approval before implementing changes that differ from the agreed design.
 - After implementing, verify the result against the original request, not just automated tests. Report any differences.
 
 ## UI Copy
@@ -14,7 +12,7 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - Omit helper text and tooltips unless a setting's behavior is not obvious from its label.
 
 ## Workflow & Git
-- Ignore `README.md` and `LICENSE*` unless explicitly requested or necessary for the task.
+- Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - Use a separate branch for each logical change and open a PR when complete. Group changes when they serve the same purpose and can be reviewed and tested together. Keep unrelated or substantially larger changes separate.
 - Keep edits scoped to the task. Ask before deleting or renaming files.
 - For anything beyond a small fix, present a concrete implementation plan and wait for explicit approval before modifying files. A request to investigate, review, discuss, or plan does not authorize implementation.

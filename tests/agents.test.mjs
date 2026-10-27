@@ -9,7 +9,7 @@ const R = new Proxy({}, { get: (_, k) => api.numRange(k) });
 
 test('agent fields are cleaned', () => {
   api.settings().agents = [{
-    id: 'ag_t', name: 'T', answer: 'fields',
+    id: 'ag_t', name: 'T', answer: 'fields', every: 500, readBy: 'since',
     fields: [
       { id: 'f1', name: 'Na:me\nX', type: 'num', min: 5, max: 2, start: 99, step: -3, cap: 999 },
       { id: 'f1', kind: 'heading', name: '' },
@@ -17,9 +17,12 @@ test('agent fields are cleaned', () => {
       { type: 'bogus', hint: 'x'.repeat(500), listShow: 'chips', numShow: 'pie' },
       { name: 'HP_Max_' }, { name: '- **Goal**' }, { name: '1. Step `one`' }, { name: '1.5 Speed' },
     ],
-  }];
+  }, { id: 'ag_u', readBy: 'bogus' }];
   window.NTR.agents.answer('ag_t'); // reading an agent cleans the saved list
-  const [a] = api.settings().agents;
+  const [a, u] = api.settings().agents;
+  assert.equal(a.every, R.agEvery[1], 'Run Every stops at its limit');
+  assert.equal(a.readBy, 'since');
+  assert.deepEqual([u.every, u.readBy], [1, 'recent'], 'an agent saved before Run Every runs after each message, as it did');
   assert.equal(a.fields.length, 7, 'entries that are not objects are dropped');
   assert.deepEqual(a.runOn, ['ai'], 'an agent saved before Which Messages runs after AI replies, as it did');
   const [num, head, text, ...names] = a.fields;
@@ -208,4 +211,44 @@ test('your reply sends agents\' newest results while a full-prompt agent runs', 
   answer('done');
   await settle();
   for (const k of ['chat', 'saveChat', 'setExtensionPrompt', 'generateQuietPrompt']) delete context[k];
+});
+
+// Run Every counts the ticked messages since the agent's newest result, never the greeting, and adds no run while one
+// is on the way. Since Its Last Result reads the messages after that result.
+test('run every counts ticked messages since the last result, and since its last result reads only those', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  s.agents = [{ id: 'ag_S', name: 'S', on: true, runs: 'reply', job: 'job S', kind: 'cc', ccModel: 'm', every: 2, readBy: 'since', context: 10 }];
+  s.agDepts = [];
+  const msg = (i) => ({ send_date: `d${i}`, mes: `m${i}`, name: i % 2 ? 'You' : 'Char', is_user: i % 2 === 1, extra: {} });
+  context.chat = [0, 1, 2].map(msg);
+  context.saveChat = () => {};
+  const live = [];
+  const sent = [];
+  context.ChatCompletionService = {
+    processRequest: (data) => new Promise((res) => { sent.push(data.messages[1].content); live.push(res); }),
+  };
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const add = (...l) => context.chat.push(...l.map(msg));
+  window.NTR.agents.replied('normal', 2);
+  await settle();
+  assert.equal(sent.length, 0, 'one AI reply after the greeting is not 2');
+  add(3, 4);
+  window.NTR.agents.replied('normal', 4);
+  await settle();
+  assert.equal(sent.length, 1, 'the second AI reply sets it off');
+  add(5, 6);
+  window.NTR.agents.replied('normal', 6);
+  await settle();
+  assert.equal(sent.length, 1, 'no second run while the first is on the way');
+  live.shift()({ content: 'ok' });
+  await settle();
+  add(7, 8);
+  window.NTR.agents.replied('normal', 8);
+  await settle();
+  assert.equal(sent.length, 2, 'two AI replies since its result on message 4');
+  assert.equal(sent[1], 'The chat messages since your last result, oldest first:\n\nYou: m5\n\nChar: m6\n\nYou: m7\n\nChar: m8');
+  live.shift()({ content: 'ok' });
+  await settle();
+  for (const k of ['ChatCompletionService', 'chat', 'saveChat']) delete context[k];
 });

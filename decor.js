@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Floating send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.83.0';
+  const DECOR_VERSION = '2.84.0';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;

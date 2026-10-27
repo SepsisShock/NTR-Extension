@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.83.0';
+  const VERSION = '2.84.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2437,7 +2437,7 @@ await (async () => {
   // A fifth and sixth number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
     agTemp: [0, 2, 0.05, ''], agTopP: [0, 1, 0.01, ''], agTopK: [0, 200, 1, ''], agMinP: [0, 1, 0.01, ''], agFreq: [-2, 2, 0.05, ''], agPres: [-2, 2, 0.05, ''], agRep: [1, 2, 0.01, ''],
-    agMaxTokens: [50, 100000, 1, ' tokens'], agContext: [1, 999999, 1, ' messages'], agMsgNum: [0, 999999, 1, ''], agSendDepth: [0, 50, 1, ''],
+    agMaxTokens: [50, 100000, 1, ' tokens'], agContext: [1, 999999, 1, ' messages'], agEvery: [1, 100, 1, ' messages'], agMsgNum: [0, 999999, 1, ''], agSendDepth: [0, 50, 1, ''],
     agFieldNum: [-1000000, 1000000, 1, ''], agFieldStep: [0, 1000000, 1, ''], agFieldCap: [1, 50, 1, ''],
     rdBookW: [40, 100, 1, '%'], rdBookTop: [0, 30, 0.5, '%'], rdBookBottom: [0, 30, 0.5, '%'], rdBookOuter: [0, 30, 0.5, '%'], rdBookSpine: [0, 40, 0.5, '%'],
     bannerHeight: [60, 350, 5, 'px'], bannerGap: [0, 40, 1, 'px'], bannerRotateSec: [3, 60, 1, 's'], fgOpacity: [0, 100, 1, '%'], placeGrid: [4, 100, 1, 'px'],

@@ -9,7 +9,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ### Agents: follow-ups
 The Agents page is still taking shape: its layout and how agents work may change as we find the best way to do them.
 
-- [ ] Run every N messages, counting only the ticked kinds, so an agent like a summarizer or tracker doesn't have to run after every one.
 - To explore: request batching, and taking turns on the same hosted API to soften rate limits.
 - Open question: whether your reply should wait for agents that run on your message, so their answer reaches that reply. It matters for a director, or Story Memory picking memories that fit what you just wrote. If it can, lanes and waiting on Reports have to work for those runs too.
 

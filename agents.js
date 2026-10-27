@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.83.0';
+  const AGENTS_VERSION = '2.84.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -40,7 +40,7 @@
 
   // A new agent: off, run on the button, Same as Chat. Temperature starts low: agents keep records, they don't write prose.
   const fresh = (name) => ({
-    id: newId('ag'), name, title: '', example: false, on: false, pic: '', job: '', runs: 'button', runOn: ['ai'], runFrom: '', kind: 'chat',
+    id: newId('ag'), name, title: '', example: false, on: false, pic: '', job: '', runs: 'button', runOn: ['ai'], every: 1, runFrom: '', kind: 'chat',
     ccSource: 'openrouter', ccModel: '', ccUrl: '', ccKey: '', ccPost: '',
     tcType: 'koboldcpp', tcUrl: 'http://127.0.0.1:5001', tcModel: '', tcInstruct: '',
     tempOn: true, temp: 0.3, topPOn: false, topP: 1, topKOn: false, topK: 0, minPOn: false, minP: 0,
@@ -112,13 +112,14 @@
     const o = { ...d, id: typeof a?.id === 'string' && /^[\w-]{1,40}$/.test(a.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
       title: str(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
       pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
-      runOn: Array.isArray(a?.runOn) ? KINDS.map(([k]) => k).filter((k) => a.runOn.includes(k)) : d.runOn, runFrom: str(a?.runFrom, 500),
+      runOn: Array.isArray(a?.runOn) ? KINDS.map(([k]) => k).filter((k) => a.runOn.includes(k)) : d.runOn, every: num('agEvery', a?.every, d.every),
+      runFrom: str(a?.runFrom, 500),
       kind: ['chat', 'cc', 'tc'].includes(a?.kind) ? a.kind : 'chat',
       ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: str(a?.ccModel, 200), ccUrl: str(a?.ccUrl, 500), ccKey: str(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
       tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
       effOn: a?.effOn === true, eff: pick(a?.eff, EFFORT, 'auto'),
       maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context),
-      readBy: a?.readBy === 'num' ? 'num' : 'recent', readFrom: Math.round(num('agMsgNum', a?.readFrom, 0)), readTo: a?.readTo == null ? null : Math.round(num('agMsgNum', a.readTo, 0)),
+      readBy: ['since', 'num'].includes(a?.readBy) ? a.readBy : 'recent', readFrom: Math.round(num('agMsgNum', a?.readFrom, 0)), readTo: a?.readTo == null ? null : Math.round(num('agMsgNum', a.readTo, 0)),
       split: a?.split === true, full: a?.full === true, last: a?.last === true,
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
@@ -442,24 +443,44 @@
   // "#40 to #55", or "#40 to Most Recent" with To left empty.
   const span = (a) => (a.readTo != null && a.readFrom > a.readTo ? [a.readTo, a.readFrom] : [a.readFrom, a.readTo]);
   const rangeName = (a) => { const [lo, hi] = span(a); return `#${lo} to ${hi == null ? 'Most Recent' : `#${hi}`}`; };
+  // Since Its Last Result: the first message after its newest result before message `end`; null with none.
+  const sinceFrom = (a, end) => { const r = latest(a.id, end - 1); return r ? r.mes + 1 : null; };
   // The messages it reads, up to message `at` (the last one when null). By Number never reads past it either.
+  // Since Its Last Result reads like Most Recent, from its last result on.
   function readMsgs(a, at = null) {
     const all = ctx().chat || [];
     const end = at ?? all.length - 1;
     const ok = (m) => m && !m.is_system && typeof m.mes === 'string';
-    if (a.readBy !== 'num') return all.slice(0, end + 1).filter(ok).slice(-a.context);
+    if (a.readBy !== 'num') return all.slice(a.readBy === 'since' ? sinceFrom(a, end) ?? 0 : 0, end + 1).filter(ok).slice(-a.context);
     const [lo, hi] = span(a);
     return all.slice(lo, Math.min(hi ?? end, end) + 1).filter(ok);
   }
   const splits = (a) => a.split && !hasTag(a);
   // Only From: the names in it, with macros filled in for the open chat, each matched whole and ignoring capitals.
-  // Empty is anyone.
-  function fromOk(a, name) {
-    if (!a.runFrom.trim()) return true;
+  // Empty is anyone. Gives the test for a message's name, so the names are worked out once.
+  function fromTest(a) {
+    if (!a.runFrom.trim()) return () => true;
     let names = a.runFrom;
     try { names = ctx().substituteParams(names); } catch (e) { /* as typed */ }
-    const want = String(name ?? '').trim().toLowerCase();
-    return names.split(',').some((x) => x.trim().toLowerCase() === want && want !== '');
+    const want = new Set(names.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
+    return (name) => want.has(String(name ?? '').trim().toLowerCase());
+  }
+  // A message's kind in Which Messages. 'narrator' is SillyTavern's mark for /sys and /narrator messages.
+  const kindOf = (m) => (m.extra?.type === 'narrator' ? 'sys' : m.is_user ? 'user' : 'ai');
+  // Run Every: whether message `at` makes enough ticked messages from a name in Only From since its newest result. The
+  // greeting doesn't count, as nothing runs on it. While it has a run on the way, that run's result starts the count
+  // again, so no other is added.
+  function due(a, at, from) {
+    if (a.every <= 1) return true;
+    if (busy(a.id)) return false;
+    const chat = ctx().chat || [];
+    const r = latest(a.id, at);
+    let n = 0;
+    for (let i = r ? r.mes + 1 : chat[0]?.is_user ? 0 : 1; i <= at; i++) {
+      const m = chat[i];
+      if (m && !m.is_system && a.runOn.includes(kindOf(m)) && from(m.name)) n++;
+    }
+    return n >= a.every;
   }
   function prompt(a, test, at = null) {
     if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];
@@ -473,7 +494,8 @@
       return [{ role: 'system', content: job }, ...chat.map((m) => ({ role: m.is_user ? 'user' : 'assistant', content: said(m) })),
         { role: 'user', content: 'Follow your instructions for the chat messages above.' }];
     }
-    const head = a.readBy === 'num' ? `Chat messages ${rangeName(a)}, oldest first:` : 'The latest chat messages, oldest first:';
+    const head = a.readBy === 'num' ? `Chat messages ${rangeName(a)}, oldest first:`
+      : a.readBy === 'since' && sinceFrom(a, end) != null ? 'The chat messages since your last result, oldest first:' : 'The latest chat messages, oldest first:';
     return [{ role: 'system', content: job }, { role: 'user', content: `${head}\n\n${text}` }];
   }
   // Your chat's full prompt: Same as Chat only, and never for Test Connection.
@@ -787,7 +809,7 @@
   const nameOf = (pairs, v) => (pairs.find(([x]) => x === v) || [, ''])[1];
   // When it runs and on what, under its name in the roster and in its header.
   const runsText = (a) => (a.runs !== 'reply' ? nameOf(RUNS, a.runs)
-    : `After ${KINDS.filter(([k]) => a.runOn.includes(k)).map(([, l]) => l).join(', ') || 'Messages'}`);
+    : `After ${KINDS.filter(([k]) => a.runOn.includes(k)).map(([, l]) => l).join(', ') || 'Messages'}${a.every > 1 ? ` · Every ${a.every}` : ''}`);
   const status = (a) => `${runsText(a)} · ${conn(a)}`;
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   // An agent's switch, in a box that's easier to tap on a touch screen.
@@ -946,7 +968,7 @@
       samp: { text: `${a.kind === 'chat' && (!OWN_SAMP_API[api] || !ticked.length) ? 'Your Chat\'s Samplers' : ticked.join(', ') || 'API Defaults'} · ${a.maxTokens} Tokens` },
       reads: usesFull(a) ? { text: `Your Chat's Full Prompt${last}` }
         : a.readBy === 'num' && !readMsgs(a).length ? { warn: `${rangeName(a)} · Not in This Chat Yet` }
-          : { text: `${a.readBy === 'num' ? rangeName(a) : `${a.context} ${a.context === 1 ? 'Message' : 'Messages'}`} · ${hasTag(a) ? 'In Instructions' : a.split ? 'As Separate Messages' : 'As One Block'}${last}` },
+          : { text: `${a.readBy === 'num' ? rangeName(a) : `${a.readBy === 'since' ? 'Since Its Last Result · At Most ' : ''}${a.context} ${a.context === 1 ? 'Message' : 'Messages'}`} · ${hasTag(a) ? 'In Instructions' : a.split ? 'As Separate Messages' : 'As One Block'}${last}` },
       rep: { text: `From ${sendersOf(a).map((x) => x.name).join(', ') || 'No One'} · To ${readersOf(a).map((x) => x.name).join(', ') || 'No One'}` },
       test: busy(a.id) ? { text: runState(a.id)[1] }
         : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' },
@@ -966,12 +988,13 @@
     if (hint) hint.innerHTML = tagHint(a);
     root?.querySelector('#m_ag_splitwrap')?.classList.toggle('cb_dim', hasTag(a));
   }
-  // The summaries and the header's status line, after a change that doesn't redraw the page.
+  // The summaries, the header's status line and its roster row, after a change that doesn't redraw the page.
   function syncSums(a) {
     if (!root?.isConnected || !a) return;
     for (const [k, o] of Object.entries(sums(a))) setSum(k, o);
     const st = root.querySelector('.m_ag_status');
     if (st) st.textContent = status(a);
+    root.querySelectorAll(`.m_ag_row[data-id="${a.id}"]`).forEach(syncRow);
   }
 
   // A folded part of the agent's settings. Which parts are open is the same for every agent; the first time, only
@@ -1079,6 +1102,8 @@
       ['runs', 'When It Runs', `
         ${lab('Runs', pills('agruns', RUNS, a.runs))}
         ${a.runs === 'reply' ? `${lab('Which Messages', `<div class="m_ag_kinds">${KINDS.map(([k, l]) => `<label class="checkbox_label"><input type="checkbox" class="m_ag_kind" value="${k}" ${a.runOn.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`)}
+        ${lab('Run Every', `<div class="cb_row">${numBox(a, 'every', 'agEvery', 'Run Every')}</div>`)}
+        <div class="cb_hint">Counts only the ticked messages.</div>
         ${lab('Only From', `<input type="text" class="text_pole m_ag_txt" data-f="runFrom" data-redraw="1" value="${esc(a.runFrom)}" maxlength="500" placeholder="Anyone" style="width:100%;">`)}
         <div class="cb_hint">Names, separated by commas. Macros like {{char}} work.</div>
         ${a.kind === 'chat' && (a.runOn.includes('user') || a.runOn.includes('sys')) ? `<div class="cb_hint">${a.full ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.'}</div>` : ''}` : ''}
@@ -1108,8 +1133,10 @@
         ${usesFull(a) ? '' : `<div id="m_ag_splitwrap" class="${hasTag(a) ? 'cb_dim' : ''}">${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
         <div class="cb_hint">Separate Messages sends yours as user and the rest as AI. Names are kept either way.${a.kind === 'cc' ? ' If your API rejects the message order, set Prompt Post-Processing to Semi-strict.' : ''}</div></div>`}
         ${full ? `<div class="cb_hint"${fields ? ' style="margin-bottom:0;"' : ''}>With your chat's full prompt, it reads as much of the chat as your chat does.</div>`
-          : `${lab('Messages Read', pills('agreadby', [['recent', 'Most Recent'], ['num', 'By Number']], a.readBy))}
-        ${a.readBy === 'num' ? `<div class="cb_row m_ag_range">${rangeBox(a, 'readFrom', 'From', '')}${rangeBox(a, 'readTo', 'To', 'Most Recent')}</div>` : `<div class="cb_row">${numBox(a, 'context', 'agContext', 'Messages Read')}</div>`}
+          : `${lab('Messages Read', pills('agreadby', [['recent', 'Most Recent'], ['since', 'Since Its Last Result'], ['num', 'By Number']], a.readBy))}
+        ${a.readBy === 'num' ? `<div class="cb_row m_ag_range">${rangeBox(a, 'readFrom', 'From', '')}${rangeBox(a, 'readTo', 'To', 'Most Recent')}</div>`
+          : a.readBy === 'since' ? lab('At Most', `<div class="cb_row">${numBox(a, 'context', 'agContext', 'At Most')}</div>`)
+            : `<div class="cb_row">${numBox(a, 'context', 'agContext', 'Messages Read')}</div>`}
         <div class="cb_hint" id="m_ag_taghint">${tagHint(a)}</div>`}
         ${fields ? '' : `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">It updates its last answer instead of starting over.</div>`}`],
@@ -1212,13 +1239,15 @@
     const run2 = root.querySelector('#m_ag_run');
     if (a && run2) run2.disabled = !a.on;
     if (a) setSum('test', sums(a).test);
-    root.querySelectorAll('.m_ag_row').forEach((row) => {
-      const x = byId(row.dataset.id);
-      const sub = row.querySelector('.m_ag_rsub');
-      if (!x || !sub) return;
-      sub.innerHTML = rowSub(x);
-      sub.classList.toggle('m_ag_rst', busy(x.id));
-    });
+    root.querySelectorAll('.m_ag_row').forEach(syncRow);
+  }
+  // A roster row's line under the name.
+  function syncRow(row) {
+    const x = byId(row.dataset.id);
+    const sub = row.querySelector('.m_ag_rsub');
+    if (!x || !sub) return;
+    sub.innerHTML = rowSub(x);
+    sub.classList.toggle('m_ag_rst', busy(x.id));
   }
 
   // Your saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
@@ -2087,9 +2116,10 @@
     bind,
     // A message came in (index.js, message id): an AI reply (type is SillyTavern's), or your message or a system message
     // ('sent'). Agents set to After Messages run in roster order (see Runs side by side), if it's a kind they're ticked for, from a name in
-    // Only From, each on that message even if more come in before its turn. A full-prompt run can only run on the newest
-    // message, so one set off while the AI's reply is being written runs on that reply instead. A Continue only adds to
-    // a reply they already ran on, so it doesn't run them again (without streaming, SillyTavern marks it 'appendFinal').
+    // Only From, once every Run Every of those messages, each on that message even if more come in before its turn. A
+    // full-prompt run can only run on the newest message, so one set off while the AI's reply is being written runs on
+    // that reply instead. A Continue only adds to a reply they already ran on, so it doesn't run them again (without
+    // streaming, SillyTavern marks it 'appendFinal').
     replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
@@ -2097,11 +2127,12 @@
       const chat = ctx().chat || [];
       const m = chat[at ?? chat.length - 1];
       if (!m || m.is_system) return;
-      // 'narrator' is SillyTavern's mark for /sys and /narrator messages.
-      const kind = m.extra?.type === 'narrator' ? 'sys' : m.is_user ? 'user' : 'ai';
+      const kind = kindOf(m);
       const batch = ++batchN;
       for (const a of list()) {
-        if (!a.on || a.runs !== 'reply' || !a.runOn.includes(kind) || !fromOk(a, m.name) || !(a.job.trim() || usesFields(a))) continue;
+        if (!a.on || a.runs !== 'reply' || !a.runOn.includes(kind) || !(a.job.trim() || usesFields(a))) continue;
+        const from = fromTest(a);
+        if (!from(m.name) || !due(a, at ?? chat.length - 1, from)) continue;
         if (kind !== 'ai' && chatBusy && usesFull(a)) {
           if (!onReply.has(a.id)) { onReply.add(a.id); enqueue(a.id, false, true, null, batch); }
         } else if (kind !== 'ai' || !onReply.has(a.id)) enqueue(a.id, false, true, at, batch);

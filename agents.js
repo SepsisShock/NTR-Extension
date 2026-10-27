@@ -882,11 +882,15 @@
         </div>`;
     }).join('');
   }
-  // After a change that doesn't draw the page again: the roster's notes, and the picked agent's Reports.
+  // The roster's notes, and the picked agent's Reports: when the page is drawn, and after a change that doesn't draw it
+  // again. Reports is only drawn again when it shows something new: a box saves when it loses focus, often to a click
+  // on Reports, and drawing it then would take away the button being clicked.
   function syncLinks(a) {
     rowNotes();
     const el = root?.querySelector('#m_ag_rep');
-    if (el && a) el.innerHTML = reportsHtml(a);
+    if (!el || !a) return;
+    const html = reportsHtml(a);
+    if (el.ntrHtml !== html) { el.innerHTML = html; el.ntrHtml = html; }
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, when it
@@ -1109,7 +1113,7 @@
         <div class="cb_hint" id="m_ag_taghint">${tagHint(a)}</div>`}
         ${fields ? '' : `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">It updates its last answer instead of starting over.</div>`}`],
-      ['rep', 'Reports', `<div id="m_ag_rep">${reportsHtml(a)}</div>`],
+      ['rep', 'Reports', '<div id="m_ag_rep"></div>'],
       ['test', 'Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
         <div id="m_ag_act">${activityHtml(a, past)}</div>`],
@@ -1246,7 +1250,7 @@
     root.innerHTML = listHtml(s) + `<div id="m_ag_edit">${editorHtml(a)}</div>`;
     bindAll(s, a);
     renderActivity();
-    rowNotes();
+    syncLinks(a);
     if (a?.kind === 'cc') fillKeys(a);
     if (focusAfter) root.querySelector(focusAfter)?.focus();
     focusAfter = null;

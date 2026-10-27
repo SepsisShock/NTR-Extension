@@ -57,7 +57,7 @@ Pay particular attention to:
 - Modules reuse helpers from `index.js` through `window.NTR` instead of copying them.
 - Number ranges live in `NUM_RANGE`, not typed directly into the menu or other code. Respect documented exceptions for modules that have not migrated yet.
 - Flag repeated helpers or logic when the copies could drift apart and give different results, and old code the change no longer updates but that still runs. Don't flag code `CLAUDE.md` always keeps (`loadSettings` upgrades, `cleanStore` checks, `NUM_RANGE` checks, missing-module handling, checks for optional SillyTavern features), or other exceptions explained in the PR description or a code comment.
-- For `.js` or `.css` changes, check the bump level: last number for fixes, middle for new features, first only when the PR description states approval. Judge the bump for the whole PR against `main`. A PR bumps once, so fix commits pushed later don't bump again. CI checks that the bump happened everywhere. Docs-only changes need no bump.
+- For `.js` or `.css` changes, check the bump level: last number for fixes, middle for new features, first only when the PR description states approval. Judge the bump for the whole PR against `main`. A PR bumps once, so fix commits pushed later don't bump again, unless `main` got a new version first. CI checks that the bump happened everywhere. Docs-only changes need no bump.
 
 After the checklist, look for any other bugs the change could cause, including ones outside the listed areas. The same evidence standards apply.
 

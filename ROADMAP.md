@@ -9,17 +9,17 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ### Agents: follow-ups
 The Agents page is still taking shape: its layout and how agents work may change as we find the best way to do them.
 
-- [ ] Show each agent's picture on the pages it tracks.
-- [ ] Every N Replies as a Runs choice, so an agent like a summarizer or tracker doesn't have to run after every reply.
+- [ ] Run every N messages, counting only the ticked kinds, so an agent like a summarizer or tracker doesn't have to run after every one.
 - To explore: request batching, and taking turns on the same hosted API to soften rate limits.
-- Open question: whether agents should also be able to run before a reply, not only after it. It matters once an agent's answer is needed for the reply to your own message, like a director, or Story Memory picking memories that fit what you just wrote. If they can, the roster's top-to-bottom run order has to work for agents that run before a reply too.
+- Open question: whether your reply should wait for agents that run on your message, so their answer reaches that reply. It matters for a director, or Story Memory picking memories that fit what you just wrote. If it can, lanes and waiting on Reports have to work for those runs too.
 
 ### Agents: import and export
 Share agents as files. A shared agent brings its job, never its connection.
 
-- [ ] Export, next to Duplicate and Delete: a JSON file with the agent's name, title, picture (embedded in the file), instructions, Answer type and fields, samplers, effort, how it reads the chat, Max Reply Length, and its Send to Main AI settings. Never its connection: no connection type, source, model, links, key or instruct template. An optional Made With note names the model as a hint; off by default, never applied.
-- [ ] Import, next to Hire Agent: one file holds one agent or several. Each starts as a new agent with only those settings filled in, so it runs on Same as Chat, gets a new id, and arrives switched off with Send to Main AI off. A name already in use becomes "Name (2)", "(3)" and so on. Pictures only from inside the file, about 1 MB at most, checked as real images (GIFs too) and uploaded only after you confirm. Keeps to the 30-agent limit and says how many were skipped.
+- [ ] Export, next to Duplicate and Delete: a JSON file with the agent's name, title, picture (embedded in the file), instructions, Answer and fields, samplers, Reasoning Effort, how it reads the chat (Messages Read, What It Sends, Include Its Last Result), Max Reply Length, When It Runs, Gets Reports From, and its Send to Main AI settings. Never its connection: no connection type, source, model, links, key or instruct template. An optional Made With note names the model as a hint; off by default, never applied.
+- [ ] Import, next to Hire Agent: one file holds one agent or several. Reports between agents in the same file point to their new ids; reports from agents not in the file are dropped. Your Chat's Full Prompt only comes in if the sharer used Same as Chat. Each starts as a new agent with only those settings filled in, so it runs on Same as Chat, gets a new id, and arrives switched off with Send to Main AI off. A name already in use becomes "Name (2)", "(3)" and so on. Pictures only from inside the file, about 1 MB at most, checked as real images (GIFs too) and uploaded only after you confirm. Keeps to the 30-agent limit and says how many were skipped.
 - [ ] A confirm window before adding: each agent's full instructions and field hints, with a warning on macros that change variables, and a note when it triggers lorebooks, inserts as a chosen role, or uses Your Chat's Full Prompt. Two unticked boxes, shown only when the sharer had them on: "Run After Messages (On When Shared)" and "Send to Main AI (On When Shared)".
+- Open question: whether a file with several agents keeps their department, and whether Only From and By Number message ranges are exported, since they belong to the sharer's chats.
 
 ### Dashboard: follow-ups
 - [ ] Group field type: a small card per character with its own fields, for when List lines aren't enough.

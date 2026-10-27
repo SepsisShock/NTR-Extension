@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.85.0';
+  const AGENTS_VERSION = '2.86.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -516,13 +516,17 @@
   }
 
   // ----- Running -----
-  // Your chat's reply being written. Same as Chat, and a local server your chat also uses, wait for it to finish.
+  // Your chat's reply being written. Same as Chat, and a local server your chat also uses, wait for it to finish, except
+  // runs that go first (see replied).
   let chatBusy = false;
+  // From the start of your reply until it's done waiting for the runs that go first (beforeReply), its request isn't
+  // built yet.
+  let holding = false;
   let waiters = [];
   // Full-prompt agents set off by your message or a system message while the reply is being written: they run on the
   // reply once it's in, so the reply doesn't run them again.
   const onReply = new Set();
-  const chatIdle = () => (chatBusy ? new Promise((r) => { waiters.push(r); setTimeout(r, 300000); }) : Promise.resolve());
+  const chatIdle = () => (chatBusy ? new Promise((r) => { const t = setTimeout(r, 300000); waiters.push(() => { clearTimeout(t); r(); }); }) : Promise.resolve());
   const sameUrl = (u) => String(u || '').trim().replace(/\/+$/, '').toLowerCase();
   function sharesChatServer(a) {
     const c = ctx();
@@ -624,7 +628,7 @@
     let used = false;
     const hook = (data) => {
       restore();
-      if (used || chatBusy || !data || typeof data !== 'object') return;
+      if (used || (chatBusy && !holding) || !data || typeof data !== 'object') return;
       used = true;
       for (const [k, v] of Object.entries(own)) if (k in data) data[k] = v;
     };
@@ -647,7 +651,8 @@
     if (!test && !a.on) throw new Error('Skipped: this agent is off');
   };
 
-  // The chat is read only after any wait for your reply, so the agent sees that reply finished. That's also when the
+  // The chat is read only after any wait for your reply, so the agent sees that reply finished; a run that goes first
+  // doesn't wait, and reads the chat up to the message that set it off, before the reply. That's also when the
   // message it runs on is noted (o.target), so its answer can be saved there. A run only reads the chat it was started
   // in (o.chat), so one still waiting its turn when you switch chats is skipped. A run for a given message (o.at) checks
   // it's still that message (o.date), in case a swipe or a deleted message moved things while it waited.
@@ -665,7 +670,7 @@
     const c = ctx();
     const max = test ? 20 : a.maxTokens;
     if (a.kind === 'chat') {
-      await abortable(chatIdle(), signal);
+      if (!o.early) await abortable(chatIdle(), signal);
       stillAllowed(a, test);
       const full = usesFull(a, test);
       // SillyTavern's own request can't take our Stop, but its "generation stopped" event cancels it, and Stop Generation
@@ -712,7 +717,7 @@
       return String(r?.content ?? '');
     }
     if (!a.tcUrl.trim()) throw new Error('Type the server link first.');
-    if (sharesChatServer(a)) { await abortable(chatIdle(), signal); stillAllowed(a, test); }
+    if (sharesChatServer(a) && !o.early) { await abortable(chatIdle(), signal); stillAllowed(a, test); }
     const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
     const r = await c.TextCompletionService.processRequest({
       stream: false, prompt: messages, max_tokens: max, api_type: a.tcType, api_server: a.tcUrl.trim(),
@@ -742,13 +747,15 @@
   //   prompt, for every earlier run.
   // - for its connection: Same as Chat and your chat's own server take turns, and so do agents on the same local server.
   // - for your reply, if it uses your chat's connection.
+  // A run that goes first (see replied) never waits for a run that waits for your reply (late), as your reply waits for
+  // it; it reads that one's answer as saved now. Same as Chat runs that go first take turns among themselves.
   // - last, for one of RUN_MAX places, so nothing waits on anything else while it holds one. Its time limit starts there.
   const RUN_MAX = 3;
   // Each agent keeps its last 10 runs until you reload.
   // fails: each agent's last failed run in a chat, shown in the Pinned Block until it runs fine again.
   const runs = new Map();
   const fails = new Map();
-  // The runs not finished yet, oldest first: { id, lane, batch, test, ctrl, state, waitFor, done }. lane: the
+  // The runs not finished yet, oldest first: { id, lane, batch, test, early, late, ctrl, state, waitFor, done }. lane: the
   // department's id, '' for no department, null for Test Connection. state: 'queue', 'wait' (for waitFor, an agent in
   // another lane) or 'run'.
   const jobs = [];
@@ -812,18 +819,20 @@
   }
   // auto: a run a message set off. Every run but Test Connection needs the agent's own switch on. at: the message to run
   // on (the one that set off the run, or Run Again's in a Pinned Block); the last one when it runs, when null. batch:
-  // the message that set it off, so its runs in a department wait for its runs in no department.
-  function enqueue(id, test = false, auto = false, at = null, batch = 0) {
+  // the message that set it off, so its runs in a department wait for its runs in no department. early: it goes first.
+  function enqueue(id, test = false, auto = false, at = null, batch = 0, early = false) {
     const first = byId(id);
     if (!first) return;
     const from = chatId();
     const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
-    const job = { id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, ctrl: new AbortController(), state: 'queue', waitFor: null };
+    const job = { id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, early, ctrl: new AbortController(), state: 'queue', waitFor: null };
     // Who it waits for, from the runs already asked for.
-    const lane = jobs.filter((j) => j.id === id || (job.lane !== null && j.lane === job.lane) || (batch && job.lane && j.batch === batch && j.lane === ''));
+    const skip = (j) => early && j.late && j.state !== 'run';
+    const lane = jobs.filter((j) => !skip(j) && (j.id === id || (job.lane !== null && j.lane === job.lane) || (batch && job.lane && j.batch === batch && j.lane === '')));
     const all = !test && usesFull(first);
     const reads = test ? [] : first.reportsFrom.filter((x) => byId(x)?.on);
-    const deps = jobs.filter((j) => !lane.includes(j) && !j.test && (all || reads.includes(j.id)));
+    const deps = jobs.filter((j) => !skip(j) && !lane.includes(j) && !j.test && (all || reads.includes(j.id)));
+    job.late = !early && !test && (all || turnKey(first) === 'chat' || [...lane, ...deps].some((j) => j.late));
     // What it reads of the agents it doesn't wait for, as saved now.
     const seen = test ? null : snapshot(new Set([id, ...lane.map((j) => j.id), ...deps.map((j) => j.id)]), at);
     let finished;
@@ -837,7 +846,7 @@
       let timer = 0;
       let timedOut = false;
       let t0 = performance.now();
-      const o = { test, auto, at, date, chat: from, target: null, snap: seen };
+      const o = { test, auto, at, date, chat: from, target: null, snap: seen, early };
       try {
         await wait(Promise.all(lane.map((j) => j.done)));
         for (const j of deps) {
@@ -849,7 +858,7 @@
         if (job.state === 'wait') { Object.assign(job, { state: 'queue', waitFor: null }); runsChanged(); }
         const a = byId(id);
         if (!a) return;
-        const k = turnKey(a);
+        const k = early && turnKey(a) === 'chat' ? 'first' : turnKey(a);
         if (k) unturn = await turnFor(k)(signal);
         if (k === 'chat') await wait(chatIdle());
         free = await places(signal);
@@ -1204,7 +1213,7 @@
         <div class="cb_hint">Counts only the ticked messages.</div>
         ${lab('Only From', `<input type="text" class="text_pole m_ag_txt" data-f="runFrom" data-redraw="1" value="${esc(a.runFrom)}" maxlength="500" placeholder="Anyone" style="width:100%;">`)}
         <div class="cb_hint">Names, separated by commas. Macros like {{char}} work.</div>
-        ${a.kind === 'chat' && (a.runOn.includes('user') || a.runOn.includes('sys')) ? `<div class="cb_hint">${a.full ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.'}</div>` : ''}` : ''}
+        ${(a.kind === 'chat' || a.send) && (a.runOn.includes('user') || a.runOn.includes('sys')) ? `<div class="cb_hint">${usesFull(a) ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : a.send ? 'Your reply waits for its answer, so the answer reaches that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.'}</div>` : ''}` : ''}
         <div class="cb_hint" style="margin-bottom:0;">To show its answers, add a Dashboard on the Layout page.</div>`],
       ['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
@@ -2243,7 +2252,8 @@
     // Only From, once every Run Every of those messages, each on that message even if more come in before its turn. A
     // full-prompt run can only run on the newest message, so one set off while the AI's reply is being written runs on
     // that reply instead. A Continue only adds to a reply they already ran on, so it doesn't run them again (without
-    // streaming, SillyTavern marks it 'appendFinal').
+    // streaming, SillyTavern marks it 'appendFinal'). Runs on your message or a system message with Send to Main AI go
+    // first: your reply waits for them (beforeReply).
     replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
@@ -2259,12 +2269,24 @@
         if (!from(m.name) || !due(a, at ?? chat.length - 1, from)) continue;
         if (kind !== 'ai' && chatBusy && usesFull(a)) {
           if (!onReply.has(a.id)) { onReply.add(a.id); enqueue(a.id, false, true, null, batch); }
-        } else if (kind !== 'ai' || !onReply.has(a.id)) enqueue(a.id, false, true, at, batch);
+        } else if (kind !== 'ai' || !onReply.has(a.id)) enqueue(a.id, false, true, at, batch, kind !== 'ai' && a.send && !usesFull(a));
       }
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
-    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type); },
-    genEnded: () => { chatBusy = false; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
+    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') { chatBusy = true; holding = true; } inject(type); },
+    // Just before SillyTavern builds a reply's prompt (index.js): the reply waits for the runs that go first, at most a
+    // run's time limit, then their answers go into it.
+    beforeReply: async (type) => {
+      if (type === 'quiet') return;
+      // Ones that finished before this was called are already saved, so their answers are sent too.
+      const first = jobs.filter((j) => j.early);
+      let timer = 0;
+      try {
+        if (first.length) await Promise.race([Promise.all(first.map((j) => j.done)), new Promise((r) => { timer = setTimeout(r, TIMEOUT_MS); })]);
+      } finally { clearTimeout(timer); holding = false; }
+      inject(type);
+    },
+    genEnded: () => { chatBusy = false; holding = false; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
     // For Pinned Blocks set to Agent Results (layout.js).
     pinView,
     // An agent's current answer: its newest saved one in this chat.

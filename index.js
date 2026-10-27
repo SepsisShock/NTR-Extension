@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.85.0';
+  const VERSION = '2.86.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -3565,3 +3565,7 @@ await (async () => {
 export async function onClean() {
   await window.NTR?.api?.removeData({ look: true });
 }
+
+// SillyTavern waits for this before it builds a reply's prompt (the manifest's generate_interceptor), so agents set off
+// by your message can get their answers into that reply.
+globalThis.ntrBeforeReply = (_chat, _size, _abort, type) => window.NTR?.agents?.beforeReply(type);

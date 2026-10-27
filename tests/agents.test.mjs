@@ -213,6 +213,48 @@ test('your reply sends agents\' newest results while a full-prompt agent runs', 
   for (const k of ['chat', 'saveChat', 'setExtensionPrompt', 'generateQuietPrompt']) delete context[k];
 });
 
+// An agent that runs on your message with Send to Main AI goes first: your reply waits for it, so its answer reaches
+// that reply. It doesn't wait for a Same as Chat run above it that waits for your reply.
+test('your reply waits for agents that run on your message, and they skip runs that wait for your reply', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  s.agents = [{ id: 'ag_S', name: 'S', on: true, runs: 'reply', runOn: ['ai'], job: 'job S', kind: 'chat' },
+    { id: 'ag_Q', name: 'Q', on: true, runs: 'reply', runOn: ['user'], send: true, job: 'job Q', kind: 'chat' }];
+  s.agDepts = [];
+  context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: {} }];
+  context.saveChat = () => {};
+  const sent = {};
+  context.setExtensionPrompt = (k, v) => { sent[k] = v; };
+  const live = new Map();
+  context.generateRaw = ({ systemPrompt }) => new Promise((res) => { live.set(/^job (\w)/.exec(systemPrompt)[1], res); });
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const ag = window.NTR.agents;
+  ag.genStarted('normal', false); // your reply is on its way
+  ag.replied('normal', 0); // S waits for it
+  context.chat.push({ send_date: 'd1', mes: 'Go', name: 'Me', is_user: true, extra: {} });
+  ag.replied('sent', 1);
+  await settle();
+  assert.deepEqual([...live.keys()], ['Q'], 'Q runs before your reply, and S still waits for it');
+  let done = false;
+  const wait = ag.beforeReply('normal').then(() => { done = true; });
+  await settle();
+  assert.equal(done, false, 'your reply waits for Q');
+  live.get('Q')('ANSWER');
+  live.delete('Q');
+  await wait;
+  assert.equal(sent.ntr_agent_ag_Q, '[Q]\nANSWER', 'Q\'s answer goes into your reply');
+  done = false;
+  ag.beforeReply('swipe').then(() => { done = true; });
+  await settle();
+  assert.equal(done, true, 'with nothing going first, your reply doesn\'t wait');
+  ag.genEnded();
+  await settle();
+  assert.deepEqual([...live.keys()], ['S'], 'S runs once your reply is done');
+  live.get('S')('x');
+  await settle();
+  for (const k of ['chat', 'saveChat', 'setExtensionPrompt', 'generateRaw']) delete context[k];
+});
+
 // Run Every counts the ticked messages since the agent's newest result, never the greeting, and adds no run while one
 // is on the way. Since Its Last Result reads the messages after that result.
 test('run every counts ticked messages since the last result, and since its last result reads only those', async () => {

@@ -968,9 +968,9 @@ await (async () => {
     scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
   }
 
-  // A switch for a group of rows, like a regex folder or an agent department: g is { ids, was }, items its rows (with
-  // an id), isOn(x) whether a row is on. Gives back the ids to switch. Off remembers which were on, in was. Back on
-  // turns those on again: all of them for a group never switched off here, none if the remembered ones have left it.
+  // A switch for a group of rows, like a regex folder: g is { ids, was }, items its rows (with an id), isOn(x) whether
+  // a row is on. Gives back the ids to switch. Off remembers which were on, in was. Back on turns those on again: all
+  // of them for a group never switched off here, none if the remembered ones have left it.
   function groupFlip(g, items, on, isOn) {
     if (!on) { g.was = items.filter(isOn).map((x) => x.id); return g.was; }
     const ids = Array.isArray(g.was) ? g.was.filter((id) => g.ids.includes(id)) : g.ids;

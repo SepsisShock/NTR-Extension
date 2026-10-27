@@ -1,4 +1,4 @@
-# NTR-Extension (Nitwit Tavern Redesign)
+w# NTR-Extension (Nitwit Tavern Redesign)
 
 SillyTavern extension. NTR is being developed for public release.
 
@@ -8,14 +8,6 @@ SillyTavern extension. NTR is being developed for public release.
 ## UI Copy
 - Use concise, general terms. Never use examples from my personal setup.
 - Omit helper text and tooltips unless a setting's behavior is not obvious from its label.
-
-## Workflow & Git
-- Ignore `README.md` and `LICENSE*` unless explicitly requested.
-- Use one branch per logical change and open a PR when complete: group changes that serve the same purpose and can be reviewed and tested together; give anything unrelated or substantially larger its own branch.
-- Keep edits scoped to the task. Ask before deleting or renaming files.
-- For anything beyond a small fix, propose a plan and wait for approval before changing files. A request to investigate, review, discuss or plan isn't approval.
-- Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
-- If a `CLAUDE.md` rule or repo skill is wrong or outdated, flag it in the plan or PR summary.
 
 ## Workflow & Git
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.

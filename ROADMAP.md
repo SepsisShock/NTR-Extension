@@ -23,7 +23,6 @@ Share agents as files. A shared agent brings its job, never its connection.
 
 ### Dashboard: follow-ups
 - [ ] Group field type: a small card per character with its own fields, for when List lines aren't enough.
-- [ ] `{{agent::Name::Field}}` for one field's value.
 - Open question: whether field values should feed other parts of NTR, like Emotions or Visual Novel flags, and whether a card can come with its own fields.
 
 ### Speech Bubbles: comic dialogue

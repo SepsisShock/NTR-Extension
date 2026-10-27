@@ -9,7 +9,6 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ### Agents: follow-ups
 The Agents page is still taking shape: its layout and how agents work may change as we find the best way to do them.
 
-- [ ] Show each agent's picture on the pages it tracks.
 - [ ] Every N Replies as a Runs choice, so an agent like a summarizer or tracker doesn't have to run after every reply.
 - To explore: request batching, and taking turns on the same hosted API to soften rate limits.
 - Open question: whether agents should also be able to run before a reply, not only after it. It matters once an agent's answer is needed for the reply to your own message, like a director, or Story Memory picking memories that fit what you just wrote. If they can, the roster's top-to-bottom run order has to work for agents that run before a reply too.

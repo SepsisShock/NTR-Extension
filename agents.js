@@ -519,7 +519,8 @@
   // Your chat's reply being written. Same as Chat, and a local server your chat also uses, wait for it to finish, except
   // runs that go first (see replied).
   let chatBusy = false;
-  // While your reply waits for the runs that go first, its request isn't built yet.
+  // From the start of your reply until it's done waiting for the runs that go first (beforeReply), its request isn't
+  // built yet.
   let holding = false;
   let waiters = [];
   // Full-prompt agents set off by your message or a system message while the reply is being written: they run on the
@@ -650,7 +651,8 @@
     if (!test && !a.on) throw new Error('Skipped: this agent is off');
   };
 
-  // The chat is read only after any wait for your reply, so the agent sees that reply finished. That's also when the
+  // The chat is read only after any wait for your reply, so the agent sees that reply finished; a run that goes first
+  // doesn't wait, and reads the chat up to the message that set it off, before the reply. That's also when the
   // message it runs on is noted (o.target), so its answer can be saved there. A run only reads the chat it was started
   // in (o.chat), so one still waiting its turn when you switch chats is skipped. A run for a given message (o.at) checks
   // it's still that message (o.date), in case a swipe or a deleted message moved things while it waited.
@@ -2271,18 +2273,20 @@
       }
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
-    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type); },
+    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') { chatBusy = true; holding = true; } inject(type); },
     // Just before SillyTavern builds a reply's prompt (index.js): the reply waits for the runs that go first, at most a
     // run's time limit, then their answers go into it.
     beforeReply: async (type) => {
+      if (type === 'quiet') return;
+      // Ones that finished before this was called are already saved, so their answers are sent too.
       const first = jobs.filter((j) => j.early);
-      if (type === 'quiet' || !first.length) return;
-      holding = true;
       let timer = 0;
-      try { await Promise.race([Promise.all(first.map((j) => j.done)), new Promise((r) => { timer = setTimeout(r, TIMEOUT_MS); })]); } finally { clearTimeout(timer); holding = false; }
+      try {
+        if (first.length) await Promise.race([Promise.all(first.map((j) => j.done)), new Promise((r) => { timer = setTimeout(r, TIMEOUT_MS); })]);
+      } finally { clearTimeout(timer); holding = false; }
       inject(type);
     },
-    genEnded: () => { chatBusy = false; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
+    genEnded: () => { chatBusy = false; holding = false; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
     // For Pinned Blocks set to Agent Results (layout.js).
     pinView,
     // An agent's current answer: its newest saved one in this chat.

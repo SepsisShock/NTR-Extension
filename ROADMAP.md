@@ -136,6 +136,7 @@ Start this work only when the repository owner, SepsisShock, says release is app
 
 ### Group chats
 - [ ] Revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
+- [ ] Agents: check that your reply waits for agents set off by your message in group chats too, and that several characters replying to one message doesn't stall.
 - Open questions: whether a group can have its own banner like This Character; where Lock to Top and Overlap Messages are saved for a group.
 
 ### Mobile compatibility testing

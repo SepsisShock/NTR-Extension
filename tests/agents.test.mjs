@@ -56,7 +56,7 @@ test('departments are cleaned, and the agents list follows the roster', () => {
   assert.deepEqual([one.name, two.name], ['Department', 'Second']);
   assert.notEqual(one.id, two.id, 'a repeated id gets a new one');
   assert.deepEqual([one.ids, two.ids], [['ag_c'], ['ag_a']], 'unknown and repeated agents are dropped, and an agent stays where it is listed first');
-  assert.deepEqual([one.was, two.was], [['ag_c'], null], 'only its own agents are remembered as on');
+  assert.ok(!('was' in one) && !('was' in two), 'which agents were on is no longer kept');
   assert.deepEqual(s.agents.map((a) => a.id), ['ag_b', 'ag_d', 'ag_c', 'ag_a'], 'no department first, then each department');
 });
 

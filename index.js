@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.84.0';
+  const VERSION = '2.85.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2394,6 +2394,23 @@ await (async () => {
   };
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const readText = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f); });
+  // Saves `obj` as a JSON file for exported themes and agents: <name>.ntr-<kind>.json, named <kind> if `name` has no
+  // letters or numbers.
+  function downloadJson(obj, name, kind) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+    a.download = `${name.replace(/[^\w\- ]+/g, '').trim() || kind}.ntr-${kind}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  // `base`, or "base (2)", "(3)" and so on, the first one `taken` says is free, cut to `max` characters with its number kept.
+  function freeName(base, taken, max = Infinity) {
+    let name = base;
+    for (let n = 2; taken(name); n++) name = `${base.slice(0, max - String(n).length - 3)} (${n})`;
+    return name;
+  }
 
   function lookSnapshot(secs = Object.keys(LOOK)) {
     const s = settings();
@@ -3397,6 +3414,8 @@ await (async () => {
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
     LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, upgradeTheme, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
     unpackFiles, isObj, stColor,
+    // For themes.js and agents.js: their exported files, and names for what they import
+    downloadJson, freeName,
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For cast.js: Pop Out catches up after a face changes

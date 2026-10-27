@@ -8,10 +8,10 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.84.0';
+  const AGENTS_VERSION = '2.85.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -207,6 +207,96 @@
     const pos = new Map(ids.map((id, i) => [id, i]));
     const free = l.filter((a) => pos.has(a.id)).sort((x, y) => pos.get(x.id) - pos.get(y.id));
     l.splice(0, l.length, ...free, ...l.filter((a) => !pos.has(a.id)));
+  }
+
+  // ----- Export and import -----
+  // An agents file holds agents to share, and the department they came from when a department is exported:
+  // { ntrAgents: 1, version, agents, depts: [{ name, ids }] }. A shared agent brings its job, never the sharer's own
+  // setup: these fields, and its connection (every field starting with cc or tc), go back to a new agent's values, so it
+  // runs on Same as Chat. Its id stays in the file only to link reports and its department.
+  const LOCAL = ['on', 'example', 'kind', 'runFrom', 'readFrom', 'readTo'];
+  const local = (k) => LOCAL.includes(k) || /^(cc|tc)[A-Z]/.test(k);
+  // The picture is handled apart (see picData and picIn).
+  function shared(a) {
+    const d = fresh('Agent');
+    const o = clean(a);
+    for (const k of Object.keys(d)) if (local(k)) o[k] = d[k];
+    if (o.readBy === 'num') o.readBy = 'recent';
+    // Your Chat's Full Prompt only works on Same as Chat, which a shared agent always is.
+    o.full = a?.kind === 'chat' && a.full === true;
+    o.pic = '';
+    return o;
+  }
+  const PIC_MAX = 1024 * 1024;
+  // An agent's picture for its file: an uploaded one or Margi's, read in; a link to a website stays a link. Null if it
+  // can't be read or is over PIC_MAX.
+  async function picData(pic) {
+    if (!pic.startsWith('/')) return pic;
+    try {
+      const r = await fetch(pic);
+      if (!r.ok) throw new Error(String(r.status));
+      const b = await r.blob();
+      return b.size > PIC_MAX ? null : String(await readDataURL(b));
+    } catch (e) { console.error('[NTR agent export]', e); return null; }
+  }
+  // An imported picture: one in the file is uploaded the way a picked one is, which checks it's an image; a link to a
+  // website stays. Null if it doesn't upload.
+  async function picIn(pic) {
+    if (typeof pic !== 'string') return '';
+    if (/^https?:\/\//i.test(pic)) return pic.slice(0, 2048);
+    if (!/^data:image\//.test(pic)) return '';
+    if (pic.length * 0.75 > PIC_MAX) return null;
+    try { return await uploadImage(await (await fetch(pic)).blob(), 'agent', { max: 128 }); } catch (e) { console.error('[NTR agent import]', e); return null; }
+  }
+  // The file for these agents (and their department), and how many pictures were left out.
+  async function fileFor(as, dept = null) {
+    let fails = 0;
+    const agents = [];
+    for (const a of as) {
+      const pic = await picData(a.pic);
+      if (pic === null) fails++;
+      agents.push({ ...shared(a), id: a.id, pic: pic || '' });
+    }
+    return { file: { ntrAgents: 1, version: AGENTS_VERSION, agents, depts: dept ? [{ name: dept.name, ids: dept.ids }] : [] }, fails };
+  }
+  // Adds a file's agents at the end, switched off, with new ids. A name already used gets a number. Reports from
+  // agents in the file follow their new ids; others are dropped. Its department comes in as a new one. Null if it
+  // isn't an agents file. Up to 30 agents and DEPT_MAX departments: what doesn't fit is skipped.
+  async function addFile(j) {
+    const items = j?.ntrAgents === 1 && Array.isArray(j.agents) ? j.agents.filter((x) => x && typeof x === 'object') : [];
+    if (!items.length) return null;
+    const l = list();
+    const take = items.slice(0, Math.max(0, 30 - l.length));
+    const ids = new Map();
+    const adds = take.map((x) => {
+      const o = { ...shared(x), id: newId('ag') };
+      if (typeof x.id === 'string' && !ids.has(x.id)) ids.set(x.id, o.id);
+      return o;
+    });
+    let picFails = 0;
+    for (const [i, o] of adds.entries()) {
+      o.reportsFrom = o.reportsFrom.map((id) => ids.get(id)).filter((id) => id && id !== o.id);
+      const pic = await picIn(take[i].pic);
+      if (pic === null) picFails++;
+      o.pic = pic || '';
+      o.name = freeName(o.name, (n) => l.some((y) => y.name.toLowerCase() === n.toLowerCase()), 60);
+      l.push(o);
+    }
+    let deptsOut = 0;
+    for (const d of Array.isArray(j.depts) ? j.depts.filter((x) => x && typeof x === 'object') : []) {
+      const dl = depts();
+      const mine = [...new Set((Array.isArray(d.ids) ? d.ids : []).map((id) => ids.get(id)).filter(Boolean))].filter((id) => !dl.some((x) => x.ids.includes(id)));
+      if (!mine.length) continue;
+      if (dl.length >= DEPT_MAX) { deptsOut++; continue; }
+      dl.push({ id: newId('dp'), name: freeName(str(d.name, 60).trim() || 'Department', (n) => dl.some((x) => x.name.toLowerCase() === n.toLowerCase()), 60), ids: mine });
+    }
+    sortAgents();
+    return { added: adds, skipped: items.length - take.length, picFails, deptsOut };
+  }
+  async function exportAgents(as, dept, name) {
+    const r = await fileFor(as, dept);
+    if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be read or are over 1 MB, so they were left out.`, 'Agents');
+    downloadJson(r.file, name, 'agents');
   }
 
   // ----- Saved results -----
@@ -866,6 +956,8 @@
       || (!l.length ? '<div class="cb_hint" style="margin:0;">No agents yet.</div>' : dl.length ? '<div class="m_ag_empty">Drag an agent here to take it out of its department.</div>' : '');
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
         ${btn('m_ag_new', 'fa-user-plus', 'Hire Agent')}
+        ${btn('m_ag_imp', 'fa-file-import', 'Import Agents')}
+        <input type="file" id="m_ag_impfile" accept=".json,application/json" hidden>
         ${btn('m_ag_dnew', 'fa-building-shield', 'Create Department')}
         ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker')}
         ${btn('m_ag_stopall', 'fa-stop', 'Stop All')}
@@ -1437,6 +1529,26 @@
       changed(true);
       showHead();
     };
+    // Import: the file's agents come in at the end, switched off, and the first one is picked.
+    const impFile = root.querySelector('#m_ag_impfile');
+    root.querySelector('#m_ag_imp').onclick = () => impFile.click();
+    impFile.onchange = async () => {
+      const f = impFile.files[0];
+      impFile.value = '';
+      if (!f) return;
+      let j;
+      try { j = JSON.parse(await readText(f)); } catch (e) { j = null; }
+      if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
+      const r = await addFile(j);
+      if (!r) { toastr.error('That isn\'t a Nitwit Tavern Redesign agents file.', 'Agents'); return; }
+      s.agPick = r.added[0].id;
+      changed(true);
+      showHead();
+      const n = r.added.length;
+      const notes = [r.skipped && `${r.skipped} skipped (up to 30 agents)`, r.picFails && `${r.picFails} picture(s) couldn't be added`,
+        r.deptsOut && `up to ${DEPT_MAX} departments, so ${r.deptsOut > 1 ? 'some agents are' : 'its agents are'} in no department`].filter(Boolean);
+      toastr.success(`Added ${n} agent${n === 1 ? '' : 's'}, switched off.${notes.length ? ` ${notes.join('; ')}.` : ''}`, 'Agents');
+    };
     const ex = root.querySelector('#m_ag_ex');
     if (ex) ex.onclick = () => {
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
@@ -1470,6 +1582,7 @@
         const i = depts().indexOf(d);
         const pop = popMenu(dmore, `
           <button type="button" data-act="ren"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
+          <button type="button" data-act="exp"${d.ids.length ? '' : ' disabled'}><i class="fa-solid fa-file-export fa-fw"></i>Export</button>
           <button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
           <button type="button" data-act="down"${i >= depts().length - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>
           <button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete</button>`);
@@ -1485,7 +1598,8 @@
             d.name = name;
             focusAfter = deptSel(d, '.m_ag_dmore');
             changed(true);
-          } else if (act === 'del') {
+          } else if (act === 'exp') exportAgents(d.ids.map(byId).filter(Boolean), d, d.name);
+          else if (act === 'del') {
             const n = d.ids.length;
             const q = !n ? `Delete the department "${d.name}"?`
               : `Delete the department "${d.name}"? ${n === 1 ? 'Its agent stays' : `Its ${n} agents stay`}, outside any department.`;
@@ -1595,6 +1709,7 @@
       const i = ids.indexOf(a.id);
       const pop = popMenu(more, `
         <button type="button" data-act="dup"><i class="fa-solid fa-copy fa-fw"></i>Duplicate</button>
+        <button type="button" data-act="exp"><i class="fa-solid fa-file-export fa-fw"></i>Export</button>
         <button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
         <button type="button" data-act="down"${i >= ids.length - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>
         <button type="button" data-act="to"><i class="fa-solid fa-share fa-fw"></i>${depts().length ? 'Move to Department…' : 'Move to New Department…'}</button>
@@ -1617,6 +1732,7 @@
         }
         closePops(root);
         if (act === 'dup') dup();
+        else if (act === 'exp') exportAgents([a], null, a.name);
         else if (act === 'del') del();
         else if (act === 'up' || act === 'down') moveBy(act === 'up' ? -1 : 1);
         else if (act === 'dept') moveTo(depts().find((d) => d.id === b.dataset.dept) || null);
@@ -2145,5 +2261,7 @@
     pinView,
     // An agent's current answer: its newest saved one in this chat.
     answer: (id) => (byId(id) ? latest(id)?.text ?? '' : ''),
+    // Export and import's files, without the menu (for the tests).
+    fileFor, addFile,
   };
 })();

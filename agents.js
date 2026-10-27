@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.82.1';
+  const AGENTS_VERSION = '2.82.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -815,11 +815,6 @@
         </button>
       </div>`;
   }
-  const onIn = (d) => d.ids.filter((id) => byId(id)?.on).length;
-  function deptSum(d) {
-    const n = d.ids.length;
-    return `${n} ${n === 1 ? 'Agent' : 'Agents'} · ${onIn(d)} On`;
-  }
   function deptHtml(d, s) {
     const open = deptOpen(d);
     // Folded, it shows the picked agent is inside it.
@@ -829,7 +824,7 @@
         <div class="m_ag_dhead${holds ? ' m_ag_sel' : ''}">
           <button type="button" class="m_ag_dpick" aria-expanded="${open}">
             <span class="m_ag_dicon"><i class="fa-solid fa-fw ${open ? 'fa-door-open' : 'fa-door-closed'}"></i></span>
-            <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}<span class="m_ag_dlk"></span></strong><span class="m_ag_rsub m_ag_dsum">${deptSum(d)}</span></span>
+            <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}<span class="m_ag_dlk"></span></strong></span>
           </button>
           <span class="ntr_menu"><button type="button" class="menu_button m_ag_hbtn m_ag_dmore" title="More" aria-label="More for ${esc(d.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
         </div>
@@ -1343,10 +1338,6 @@
     setTimeout(() => { el.textContent = text; }, 60);
   }
   const deptSel = (d, part) => `.m_ag_dept[data-dept="${d.id}"] ${part}`;
-  // A department's header after its agents were switched without drawing the page again.
-  function syncDept(d) {
-    root.querySelector(deptSel(d, '.m_ag_dsum')).textContent = deptSum(d);
-  }
   // A department's name: required, and not one another department already has (whatever the capitals). It's cut to
   // its length first, so the name checked is the one saved.
   const askDeptName = (anchor, value, ok, self = null) => askText(anchor, {
@@ -1476,8 +1467,6 @@
         const x = byId(row.dataset.id);
         if (!x) return;
         x.on = this.checked;
-        const d = deptOf(x.id);
-        if (d) syncDept(d);
         changed(false);
         renderActivity();
         refreshBoxes();

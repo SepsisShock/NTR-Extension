@@ -4,7 +4,7 @@
 // The boxes, their settings and the chat's fonts (ovFont, fontName, syncGoogleFonts) stay in index.js; this file builds
 // from what it shares in window.NTR.api.
 (() => {
-  const FONTS_VERSION = '2.82.1';
+  const FONTS_VERSION = '2.82.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] fonts.js loaded without the core (index.js).'); return; }
   const { cleanFont, closePops, fontName, popMenu } = A;

@@ -5,12 +5,12 @@
 // a theme holds, how old ones are upgraded and cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.
 (() => {
-  const THEMES_VERSION = '2.84.0';
+  const THEMES_VERSION = '2.85.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
     lookSnapshot, applyLook, resetLook, upgradeTheme, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
-    unpackFiles, isObj, stColor } = A;
+    unpackFiles, isObj, stColor, downloadJson, freeName } = A;
   const { COLOR_FROM, rbCssText, RB_CSS } = A.look;
   const openCombinedModal = () => A.openMenu();
 
@@ -215,14 +215,7 @@
           if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be read and were left as links.`, 'Themes');
         }
         const out = { ntrTheme: 1, version: VERSION, name, sections };
-        const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${name.replace(/[^\w\- ]+/g, '').trim() || 'theme'}.ntr-theme.json`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        downloadJson(out, name, 'theme');
         panel.innerHTML = '';
       };
     }
@@ -268,9 +261,7 @@
       panel.querySelector('#m_t_add').onclick = async () => {
         const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
         if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
-        let name = panel.querySelector('#m_t_iname').value.trim() || 'Imported Theme';
-        const base = name;
-        for (let n = 2; nameTaken(name); n++) name = `${base} (${n})`;
+        const name = freeName(panel.querySelector('#m_t_iname').value.trim() || 'Imported Theme', nameTaken);
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [sec, keys] of CSS_PARTS) for (const k of keys) if (data[sec] && String(data[sec][k] || '').trim()) data[sec][k + 'On'] = false;
         if (hasEmbedded(data)) {

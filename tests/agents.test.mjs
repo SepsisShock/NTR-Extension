@@ -252,3 +252,54 @@ test('run every counts ticked messages since the last result, and since its last
   await settle();
   for (const k of ['ChatCompletionService', 'chat', 'saveChat']) delete context[k];
 });
+
+// A shared agent brings its job, never the sharer's own setup, and comes in as a new agent, switched off.
+test('export leaves out the connection, and import links reports and the department to the new agents', async () => {
+  const s = api.settings();
+  s.agEnabled = true;
+  s.agents = [
+    { id: 'ag_a', name: 'A', on: true, example: true, kind: 'cc', ccSource: 'openai', ccModel: 'gpt-x', ccUrl: 'http://10.0.0.2', ccKey: 'key_1', tcUrl: 'http://10.0.0.3',
+      tcInstruct: 'ChatML-x', full: true, runFrom: 'Bob', readBy: 'num', readFrom: 3, readTo: 9, job: 'Track {{char}}.', runs: 'reply', send: true, pic: 'https://example.com/a.png' },
+    { id: 'ag_b', name: 'B', full: true, reportsFrom: ['ag_a', 'ag_x'] },
+    { id: 'ag_x', name: 'X' },
+  ];
+  s.agDepts = [{ id: 'dp_1', name: 'Team', ids: ['ag_a', 'ag_b'] }];
+  const ag = window.NTR.agents;
+  ag.replied('normal', null); // cleans the saved agents and departments, and puts them in the roster's order
+  const [a, b] = s.agents.filter((x) => x.id !== 'ag_x');
+  const { file, fails } = await ag.fileFor([a, b], s.agDepts[0]);
+  assert.equal(fails, 0);
+  assert.equal(file.ntrAgents, 1);
+  assert.deepEqual(file.depts, [{ name: 'Team', ids: ['ag_a', 'ag_b'] }]);
+  const [ea, eb] = file.agents;
+  assert.deepEqual([ea.kind, ea.ccSource, ea.ccModel, ea.ccUrl, ea.ccKey, ea.tcUrl, ea.tcInstruct], ['chat', 'openrouter', '', '', '', 'http://127.0.0.1:5001', ''], 'the connection is a new agent\'s');
+  assert.ok(!/gpt-x|10\.0\.0|key_1|ChatML-x|Bob/.test(JSON.stringify(file)), 'nothing of the sharer\'s connection or chats is in the file');
+  assert.deepEqual([ea.on, ea.example, ea.runFrom, ea.readBy, ea.readFrom, ea.readTo], [false, false, '', 'recent', 0, null]);
+  assert.deepEqual([ea.full, eb.full], [false, true], 'Your Chat\'s Full Prompt only comes from Same as Chat');
+  assert.deepEqual([ea.job, ea.runs, ea.send, ea.pic], ['Track {{char}}.', 'reply', true, 'https://example.com/a.png'], 'the job and how it runs are shared');
+
+  assert.equal(await ag.addFile({}), null, 'a file without the mark isn\'t an agents file');
+  assert.equal(await ag.addFile({ ntrAgents: 1, agents: [] }), null);
+  const r = await ag.addFile(JSON.parse(JSON.stringify(file)));
+  const [na, nb] = r.added;
+  assert.deepEqual([r.skipped, r.picFails, r.deptsOut], [0, 0, 0]);
+  assert.deepEqual([na.name, nb.name], ['A (2)', 'B (2)'], 'a name already used gets a number');
+  assert.ok(![na.id, nb.id].some((id) => ['ag_a', 'ag_b'].includes(id)), 'imported agents get new ids');
+  assert.deepEqual([na.on, nb.on], [false, false]);
+  assert.deepEqual(nb.reportsFrom, [na.id], 'a report from an agent in the file follows its new id; others are dropped');
+  assert.deepEqual(s.agDepts.map((d) => [d.name, d.ids]), [['Team', ['ag_a', 'ag_b']], ['Team (2)', [na.id, nb.id]]]);
+  assert.deepEqual(s.agents.map((x) => x.name), ['X', 'A', 'B', 'A (2)', 'B (2)'], 'the agents list follows the roster');
+
+  s.agents.push(...Array.from({ length: 24 }, (_, i) => ({ ...s.agents[0], id: `ag_f${i}`, name: `F${i}` })));
+  const full = await ag.addFile(JSON.parse(JSON.stringify(file)));
+  assert.deepEqual([full.added.length, full.skipped, s.agents.length], [1, 1, 30], 'up to 30 agents');
+  assert.equal(full.added[0].name, 'A (3)');
+
+  // An agent hired while an imported picture uploads takes the last place, so the import doesn't go over the limit.
+  s.agents = Array.from({ length: 29 }, (_, i) => ({ id: `ag_h${i}`, name: `H${i}` }));
+  ag.answer('ag_h0');
+  const late = ag.addFile({ ntrAgents: 1, agents: [{ name: 'P', pic: 'data:image/png;base64,AAAA' }] });
+  s.agents.push({ ...s.agents[0], id: 'ag_hired', name: 'Hired' });
+  const lr = await late;
+  assert.deepEqual([lr.added.length, lr.skipped, s.agents.length], [0, 1, 30]);
+});

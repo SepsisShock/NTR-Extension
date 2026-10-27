@@ -798,9 +798,8 @@
   }
 
   // The roster: the agents in no department, then Departments, a card per department with its agents. A row per agent:
-  // its switch, then its picture, name and title picking it. A department's header: its name
-  // and how many of its agents are on opening and folding it, and More (Rename, Move Up, Move Down, Delete). Rows and
-  // headers drag from anywhere but their switch and More. The order is the run order (sortAgents). While an agent has
+  // its switch, then its picture, name and title picking it. A department's header: its name opening and folding it,
+  // and More (Rename, Move Up, Move Down, Delete). Rows and headers drag from anywhere but their switch and More. The order is the run order (sortAgents). While an agent has
   // runs, what they're doing takes the place of its row's second line.
   const rowSub = (a) => { const st = runState(a.id); return st ? `<i class="fa-solid fa-fw ${st[0]}"></i> ${esc(st[1])}` : esc(status(a)); };
   function rowHtml(a, s) {

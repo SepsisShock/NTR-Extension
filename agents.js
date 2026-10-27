@@ -239,8 +239,8 @@
       return b.size > PIC_MAX ? null : String(await readDataURL(b));
     } catch (e) { console.error('[NTR agent export]', e); return null; }
   }
-  // An imported picture: one in the file is uploaded the way a picked one is, which checks it's an image; a link to a
-  // website stays. Null if it doesn't upload.
+  // An imported picture: one in the file is uploaded the way a picked one is, which checks it's an image (a GIF only by
+  // its type, as a picked one); a link to a website stays. Null if it doesn't upload.
   async function picIn(pic) {
     if (typeof pic !== 'string') return '';
     if (/^https?:\/\//i.test(pic)) return pic.slice(0, 2048);
@@ -265,8 +265,15 @@
   async function addFile(j) {
     const items = j?.ntrAgents === 1 && Array.isArray(j.agents) ? j.agents.filter((x) => x && typeof x === 'object') : [];
     if (!items.length) return null;
+    const room = () => Math.max(0, 30 - list().length);
+    const want = items.slice(0, room());
+    const pics = [];
+    for (const x of want) pics.push(await picIn(x.pic));
+    // Agents can be hired or imported while the pictures upload, so the room is counted again, and the rest is done
+    // without waiting. A picture uploaded for an agent that no longer fits is deleted.
+    const take = want.slice(0, room());
+    for (const p of pics.slice(take.length)) if (p) deleteFileIfUnused(p);
     const l = list();
-    const take = items.slice(0, Math.max(0, 30 - l.length));
     const ids = new Map();
     const adds = take.map((x) => {
       const o = { ...shared(x), id: newId('ag') };
@@ -276,9 +283,8 @@
     let picFails = 0;
     for (const [i, o] of adds.entries()) {
       o.reportsFrom = o.reportsFrom.map((id) => ids.get(id)).filter((id) => id && id !== o.id);
-      const pic = await picIn(take[i].pic);
-      if (pic === null) picFails++;
-      o.pic = pic || '';
+      if (pics[i] === null) picFails++;
+      o.pic = pics[i] || '';
       o.name = freeName(o.name, (n) => l.some((y) => y.name.toLowerCase() === n.toLowerCase()), 60);
       l.push(o);
     }
@@ -1541,6 +1547,8 @@
       if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
       const r = await addFile(j);
       if (!r) { toastr.error('That isn\'t a Nitwit Tavern Redesign agents file.', 'Agents'); return; }
+      // Agents hired meanwhile can take the room.
+      if (!r.added.length) { toastr.info('Up to 30 agents.', 'Agents'); return; }
       s.agPick = r.added[0].id;
       changed(true);
       showHead();

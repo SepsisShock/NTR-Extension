@@ -294,4 +294,12 @@ test('export leaves out the connection, and import links reports and the departm
   const full = await ag.addFile(JSON.parse(JSON.stringify(file)));
   assert.deepEqual([full.added.length, full.skipped, s.agents.length], [1, 1, 30], 'up to 30 agents');
   assert.equal(full.added[0].name, 'A (3)');
+
+  // An agent hired while an imported picture uploads takes the last place, so the import doesn't go over the limit.
+  s.agents = Array.from({ length: 29 }, (_, i) => ({ id: `ag_h${i}`, name: `H${i}` }));
+  ag.answer('ag_h0');
+  const late = ag.addFile({ ntrAgents: 1, agents: [{ name: 'P', pic: 'data:image/png;base64,AAAA' }] });
+  s.agents.push({ ...s.agents[0], id: 'ag_hired', name: 'Hired' });
+  const lr = await late;
+  assert.deepEqual([lr.added.length, lr.skipped, s.agents.length], [0, 1, 30]);
 });

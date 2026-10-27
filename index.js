@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.82.2';
+  const VERSION = '2.83.0';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -3371,21 +3371,6 @@ await (async () => {
     }));
   }
 
-  // {{agent::Name}}: an agent's current saved result (agents.js), anywhere SillyTavern reads macros. Registered here so
-  // it gives nothing, instead of staying as typed, while the Agents page is off. Needs SillyTavern's new macro engine.
-  function registerMacro() {
-    const m = ctx().macros;
-    if (typeof m?.register !== 'function') return;
-    try {
-      m.register('agent', {
-        unnamedArgs: [{ name: 'name', description: 'The agent\'s name' }],
-        description: 'An NTR agent\'s current result saved in this chat (Agents page). Empty if it has none.',
-        exampleUsage: '{{agent::Margi}}',
-        handler: ({ unnamedArgs: [name] }) => (isOn() && settings().agEnabled ? window.NTR.agents?.macro(name) ?? '' : ''),
-      });
-    } catch (e) { console.error('[NTR] Could not add the {{agent}} macro', e); }
-  }
-
   function injectExtensionMenuButton() {
     const tick = () => {
       injectExtBar();
@@ -3449,7 +3434,6 @@ await (async () => {
     const { eventSource, event_types } = ctx();
     injectExtensionMenuButton();
     registerSlashCommand();
-    registerMacro();
     document.addEventListener('click', typeSlider);
     document.addEventListener('pointerover', (e) => {
       const el = e.target.closest?.('.ntr_slval');

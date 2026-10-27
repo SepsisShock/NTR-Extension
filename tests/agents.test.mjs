@@ -60,7 +60,24 @@ test('departments are cleaned, and the agents list follows the roster', () => {
   assert.deepEqual(s.agents.map((a) => a.id), ['ag_b', 'ag_d', 'ag_c', 'ag_a'], 'no department first, then each department');
 });
 
-// An agent that's off reaches the main AI neither through Send to Main AI nor through {{agent::Name}}.
+// Reports only come from other agents that are still there, and {{agent::Name}} from before Reports becomes one.
+test('reports are cleaned, and old agent macros become reports', () => {
+  const s = api.settings();
+  s.agents = [
+    { id: 'ag_a', name: 'A', job: 'Use {{agent::b}} and {{agent::Nobody}}.', reportsFrom: ['ag_a', 'ag_gone', 'ag_c', 'ag_c', 7] },
+    { id: 'ag_b', name: 'B', answer: 'fields', fields: [{ name: 'X', hint: 'from {{ agent::A }}' }] },
+    { id: 'ag_c', name: 'C', reportsFrom: 'junk' },
+  ];
+  window.NTR.agents.answer('ag_a');
+  const [a, b, c] = s.agents;
+  assert.deepEqual(a.reportsFrom, ['ag_c', 'ag_b'], 'itself, unknown and repeated agents are dropped');
+  assert.equal(a.job, 'Use  and {{agent::Nobody}}.', 'a macro naming no agent stays as typed');
+  assert.deepEqual(b.reportsFrom, ['ag_a']);
+  assert.equal(b.fields[0].hint, 'from ');
+  assert.deepEqual(c.reportsFrom, []);
+});
+
+// An agent that's off sends nothing to the main AI.
 test('an agent that is off sends nothing to the main AI', () => {
   const s = api.settings();
   s.agEnabled = true;
@@ -73,19 +90,17 @@ test('an agent that is off sends nothing to the main AI', () => {
   window.NTR.agents.genStarted('normal', true);
   assert.equal(sent.ntr_agent_ag_on, '[On]\nOn answer');
   assert.equal(sent.ntr_agent_ag_off, undefined);
-  assert.equal(window.NTR.agents.macro('On'), 'On answer');
-  assert.equal(window.NTR.agents.macro('Off'), '');
   delete context.chat;
   delete context.setExtensionPrompt;
 });
 
-// Agents in no department run first; then each department is a lane, up to 3 runs at once. An agent that reads an
-// agent above it in another department waits for that agent's run.
-test('departments run side by side, and an agent waits for the agents above it that it reads', async () => {
+// Agents in no department run first; then each department is a lane, up to 3 runs at once. An agent that gets reports
+// from an agent above it in another department waits for that agent's run.
+test('departments run side by side, and an agent waits for the agents above it that report to it', async () => {
   const s = api.settings();
   s.agEnabled = true;
   const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
-  s.agents = [agent('L'), agent('A'), agent('B'), agent('C'), agent('E', 'job E {{agent::a}}'), agent('F')];
+  s.agents = [agent('L'), agent('A'), agent('B'), agent('C'), { ...agent('E'), reportsFrom: ['ag_A'] }, agent('F')];
   s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_A', 'ag_B'] }, { id: 'dp_2', name: 'Two', ids: ['ag_C', 'ag_E'] }, { id: 'dp_3', name: 'Three', ids: ['ag_F'] }];
   context.chat = [{ send_date: 'd', mes: 'Hi', name: 'X', extra: {} }];
   context.saveChat = () => {};
@@ -108,7 +123,7 @@ test('departments run side by side, and an agent waits for the agents above it t
   await finish('L');
   assert.deepEqual(started.slice(1).sort(), ['A', 'C', 'F'], 'then the first agent of each department, side by side');
   await finish('C');
-  assert.equal(started.length, 4, 'E waits for A, which it reads, and B for A in its own department');
+  assert.equal(started.length, 4, 'E waits for A, which reports to it, and B for A in its own department');
   await finish('A');
   assert.deepEqual(started.slice(4).sort(), ['B', 'E']);
   for (const x of ['B', 'E', 'F']) await finish(x);
@@ -129,18 +144,17 @@ test('departments run side by side, and an agent waits for the agents above it t
   delete context.saveChat;
 });
 
-// An agent that reads an agent below it gets that agent's answer from when the run was asked for, even when the agent
-// below, in another department, finishes first, and even twice.
-test('an agent reading an agent below it gets its last answer, whichever finishes first', async () => {
+// An agent that gets reports from an agent below it gets that agent's answer from when the run was asked for, even when
+// the agent below, in another department, finishes first, and even twice.
+test('a report from an agent below is its last answer, whichever finishes first', async () => {
   const s = api.settings();
   s.agEnabled = true;
   const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
-  s.agents = [agent('B'), agent('R', 'job R reads {{agent::P}}'), agent('P')];
+  s.agents = [agent('B'), { ...agent('R'), reportsFrom: ['ag_P'] }, agent('P')];
   s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_B', 'ag_R'] }, { id: 'dp_2', name: 'Two', ids: ['ag_P'] }];
   context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd0', at: 1 } } } },
     { send_date: 'd1', mes: 'Hello', name: 'Y', extra: {} }];
   context.saveChat = () => {};
-  context.substituteParams = (t) => t.replace(/\{\{agent::(\w+)\}\}/g, (m, n) => window.NTR.agents.macro(n));
   const live = new Map();
   const sent = [];
   context.ChatCompletionService = {
@@ -161,12 +175,12 @@ test('an agent reading an agent below it gets its last answer, whichever finishe
   await finish('P', 'SECOND');
   assert.equal(window.NTR.agents.answer('ag_P'), 'SECOND', 'P saved twice');
   await finish('B', 'x');
-  assert.equal(sent.at(-1), 'job R reads OLD', 'the first R reads P as it was before its own message set it off');
+  assert.equal(sent.at(-1), 'job R\n\nReports from other agents:\n[P]\nOLD', 'the first R reads P as it was before its own message set it off');
   await finish('R', 'x');
   await finish('B', 'x');
-  assert.equal(sent.at(-1), 'job R reads NEW', 'the second R was asked for after P saved NEW, and before P ran again');
+  assert.equal(sent.at(-1), 'job R\n\nReports from other agents:\n[P]\nNEW', 'the second R was asked for after P saved NEW, and before P ran again');
   await finish('R', 'x');
-  for (const k of ['ChatCompletionService', 'chat', 'saveChat', 'substituteParams']) delete context[k];
+  for (const k of ['ChatCompletionService', 'chat', 'saveChat']) delete context[k];
 });
 
 // A full-prompt agent's snapshot is for its own quiet request, never for your reply while it waits for an answer.

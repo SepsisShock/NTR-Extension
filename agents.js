@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.82.2';
+  const AGENTS_VERSION = '2.83.0';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media } = A;
@@ -47,7 +47,7 @@
     freqOn: false, freq: 0, presOn: false, pres: 0, repOn: false, rep: 1, effOn: false, eff: 'auto',
     maxTokens: 600, context: 6, readBy: 'recent', readFrom: 0, readTo: null, split: false, full: false, last: false,
     send: false, sendWhere: 'chat', sendDepth: 1, sendRole: 'system', sendScan: false,
-    answer: 'text', fields: [],
+    answer: 'text', fields: [], reportsFrom: [],
   });
   // Send to Main AI: where in your chat's prompt (SillyTavern's extension prompt places and roles).
   const WHERE = [['chat', 'In Chat', 1], ['before', 'Before Main Prompt', 2], ['after', 'After Main Prompt', 0]];
@@ -122,15 +122,38 @@
       split: a?.split === true, full: a?.full === true, last: a?.last === true,
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
-      answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields) };
+      answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields),
+      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter((x) => typeof x === 'string' && /^[\w-]{1,40}$/.test(x)))].slice(0, 30) : [] };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
+  }
+  // Agents used to get each other's answers through {{agent::Name}} in their instructions or fields' hints. Each one
+  // that names an agent becomes a report from that agent, and leaves the text.
+  const OLD_READ = /\{\{\s*agent\s*::([^{}]*?)\}\}/gi;
+  function oldReads(l) {
+    for (const a of l) {
+      const take = (t) => t.replace(OLD_READ, (m, name) => {
+        const x = l.find((y) => y.name.toLowerCase() === name.trim().toLowerCase());
+        if (!x) return m;
+        if (!a.reportsFrom.includes(x.id)) a.reportsFrom.push(x.id);
+        return '';
+      });
+      a.job = take(a.job);
+      for (const f of a.fields) if (f.kind === 'field') f.hint = take(f.hint);
+    }
   }
   const checked = new WeakSet();
   function list() {
     const s = settings();
     if (!Array.isArray(s.agents)) s.agents = [];
-    if (!checked.has(s.agents)) { s.agents = s.agents.slice(0, 30).map(clean); checked.add(s.agents); }
+    if (!checked.has(s.agents)) {
+      s.agents = s.agents.slice(0, 30).map(clean);
+      oldReads(s.agents);
+      // Reports only come from other agents that are still there.
+      const have = new Set(s.agents.map((a) => a.id));
+      for (const a of s.agents) a.reportsFrom = a.reportsFrom.filter((id) => id !== a.id && have.has(id));
+      checked.add(s.agents);
+    }
     return s.agents;
   }
   const byId = (id) => list().find((a) => a.id === id) || null;
@@ -236,7 +259,7 @@
   // With Answer set to Fields, NTR writes the format part of the agent's prompt from its fields and reads its answer:
   // Name: value lines, and a list as its name on a line of its own with "- item" lines under it. Only names it knows
   // count, the answer is laid over the last values so it only needs the ones that changed, and numbers keep to their
-  // field's rules. What's saved is the full set written out the same way, so Send to Main AI, {{agent::Name}}, Edit
+  // field's rules. What's saved is the full set written out the same way, so Send to Main AI, Reports, Edit
   // and Undo work as for any other result. Saved text can come from someone else's chat file, so whatever is read
   // from it is kept to each field's limits too.
   // Its fields, one per name (the first, if two share one).
@@ -315,21 +338,20 @@
     return ['Answer only with the fields that changed, one per line, as Name: value. Write a list as its name on a line of its own, then one "- item" line for each of its items, all of them. Leave out anything that stayed the same.', '', 'Fields:', ...lines].join('\n');
   }
 
-  // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}, {{agent::Name}}...), and with Include Its
+  // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}...), then its reports, and with Include Its
   // Last Result, the newest result saved before message `at`. With Fields, the format part and the current values
-  // instead. A saved result is left as it is. {{agent::Name}} looks only up to message `at` meanwhile (macroAt), so Run
-  // Again on an older message doesn't see later results. {{messagesRead}} becomes `read`, the chat messages it reads,
-  // after SillyTavern's macros. Same as Chat's request fills in macros again, chat messages included, as it always has.
-  let macroAt = null;
+  // instead. A saved result is left as it is. {{messagesRead}} becomes `read`, the chat messages it reads, after
+  // SillyTavern's macros. Same as Chat's request fills in macros again, chat messages included, as it always has.
   const TAG = /\{\{\s*messagesRead\s*\}\}/gi;
   const TAG_MARK = '\u0000ntr_messagesRead\u0000';
   const hasTag = (a) => /\{\{\s*messagesRead\s*\}\}/i.test(a.job);
   function withLast(a, at, read = '') {
     const fields = usesFields(a);
     let job = (fields ? [a.job.trim(), fieldRules(a)].filter(Boolean).join('\n\n') : a.job).replace(TAG, TAG_MARK);
-    macroAt = at;
-    try { job = ctx().substituteParams(job); } catch (e) { /* as typed */ } finally { macroAt = null; }
+    try { job = ctx().substituteParams(job); } catch (e) { /* as typed */ }
     job = job.split(TAG_MARK).join(read);
+    const reports = reportsText(a, at);
+    if (reports) job = `${job.trimEnd()}\n\nReports from other agents:\n${reports}`;
     if (fields) return `${job}\n\nCurrent values:\n${writeFields(a, valuesBefore(a, at))}`;
     const prev = a.last ? latest(a.id, at - 1) : null;
     return prev ? `${job}\n\nYour last result:\n${prev.text}` : job;
@@ -338,11 +360,9 @@
   // ----- Sent to your chat's prompt -----
   // Just before SillyTavern builds the prompt for a reply, each agent with Send to Main AI puts its current saved result
   // there, under its name. A swipe or Regenerate replaces the last reply, so the result sent is the one from before that
-  // reply. At this point the reply is still in the chat (Regenerate removes it afterwards), so the message that counts
-  // is noted now (sendAt), for {{agent::Name}} during the same reply too.
+  // reply. At this point the reply is still in the chat (Regenerate removes it afterwards).
   const injKey = (id) => `ntr_agent_${id}`;
   const injected = new Set();
-  let sendAt = null;
   // An agent's own run with your chat's full prompt leaves its own result out, so it doesn't get it twice.
   let fullRun = null;
   // A run reads the agents it doesn't wait for as they were when it was asked for (o.snap: by agent id, the text, which
@@ -378,11 +398,8 @@
     const last = chat.length - 1;
     return (type === 'swipe' || type === 'regenerate') && chat[last] && !chat[last].is_user ? last - 1 : last;
   }
-  const sendUpTo = () => sendAt ?? (ctx().chat || []).length - 1;
-  function inject(type, dryRun) {
+  function inject(type) {
     const at = upToFor(type);
-    // A dry run (SillyTavern counting tokens) never sends "generation ended", so it doesn't set sendAt.
-    if (!dryRun) sendAt = at;
     const c = ctx();
     if (typeof c.setExtensionPrompt !== 'function') return;
     const sent = new Set();
@@ -586,28 +603,16 @@
     return String(r?.content ?? '');
   }
 
-  // ----- Agents that read each other -----
-  // {{agent::Name}} in an agent's instructions, or in its fields' hints, reads that agent's saved answer. Names match
-  // the way the macro matches them (named). A name made by other macros, like {{agent::{{char}} Notes}}, isn't known
-  // until the run: dynamic.
-  const READ = /\{\{\s*agent\s*::([\s\S]*?)(?:::|\}\})/gi;
-  const named = (name) => {
-    const want = String(name ?? '').trim().toLowerCase();
-    return list().find((x) => x.name.toLowerCase() === want) || null;
-  };
-  function readsOf(a, job = a.job) {
-    const text = [job, ...(usesFields(a) ? fieldsOf(a).map((f) => f.hint) : [])].join('\n');
-    const ids = [];
-    const missing = [];
-    let dynamic = false;
-    for (const [, raw] of text.matchAll(READ)) {
-      const name = raw.trim();
-      const x = named(name);
-      if (raw.includes('{{')) dynamic = true;
-      else if (x) { if (x.id !== a.id && !ids.includes(x.id)) ids.push(x.id); }
-      else if (name && !missing.some((m) => m.toLowerCase() === name.toLowerCase())) missing.push(name);
-    }
-    return { ids, missing, dynamic };
+  // ----- Reports -----
+  // An agent gets reports from the agents in its reportsFrom: their latest saved answers, after its instructions, each
+  // under its name, in roster order. An agent that's off sends none. Reports To is the same link seen from the other end.
+  const sendersOf = (a) => list().filter((x) => a.reportsFrom.includes(x.id));
+  const readersOf = (a) => list().filter((x) => x.reportsFrom.includes(a.id));
+  function reportsText(a, at) {
+    return sendersOf(a).filter((x) => x.on).map((x) => {
+      const t = seenText(x.id, at);
+      return t == null ? '' : `[${x.name}]\n${t}`;
+    }).filter(Boolean).join('\n\n');
   }
 
   // ----- Runs side by side -----
@@ -615,8 +620,8 @@
   // for each other. A run waits, in this order:
   // - for the runs before it in its lane: the agents in no department are one lane, each department another. A run set
   //   off by a message in a department also waits for that message's runs in no department. Test Connection has no lane.
-  // - for the same agent's earlier runs, and the earlier runs of the agents it reads. With your chat's full prompt, or a
-  //   name made by other macros, for every earlier run.
+  // - for the same agent's earlier runs, and the earlier runs of the agents it gets reports from. With your chat's full
+  //   prompt, for every earlier run.
   // - for its connection: Same as Chat and your chat's own server take turns, and so do agents on the same local server.
   // - for your reply, if it uses your chat's connection.
   // - last, for one of RUN_MAX places, so nothing waits on anything else while it holds one. Its time limit starts there.
@@ -698,9 +703,8 @@
     const job = { id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, ctrl: new AbortController(), state: 'queue', waitFor: null };
     // Who it waits for, from the runs already asked for.
     const lane = jobs.filter((j) => j.id === id || (job.lane !== null && j.lane === job.lane) || (batch && job.lane && j.batch === batch && j.lane === ''));
-    const r = test ? null : readsOf(first);
-    const all = !test && (usesFull(first) || r.dynamic);
-    const reads = test ? [] : r.ids.filter((x) => byId(x)?.on);
+    const all = !test && usesFull(first);
+    const reads = test ? [] : first.reportsFrom.filter((x) => byId(x)?.on);
     const deps = jobs.filter((j) => !lane.includes(j) && !j.test && (all || reads.includes(j.id)));
     // What it reads of the agents it doesn't wait for, as saved now.
     const seen = test ? null : snapshot(new Set([id, ...lane.map((j) => j.id), ...deps.map((j) => j.id)]), at);
@@ -850,52 +854,43 @@
         ${dl.length ? `<div class="ntr_glab"><i class="fa-solid fa-fw fa-building ntr_glab_icon"></i>Departments</div>
         <div class="m_ag_depts" role="group" aria-label="Departments">${dl.map((d) => deptHtml(d, s)).join('')}</div>` : ''}
       </div>
-      ${l.length + dl.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">${l.length >= 2 ? `${dl.length ? 'Agents in no department run first, top to bottom. Then departments run side by side; agents in a department run top to bottom.' : 'Agents run one at a time, top to bottom.'} An agent that reads an agent below it uses that agent's last answer. ` : ''}Drag a row to change the order. On a touch screen, press and hold it first.</div>` : ''}`;
+      ${l.length + dl.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">${l.length >= 2 ? `${dl.length ? 'Agents in no department run first, top to bottom. Then departments run side by side; agents in a department run top to bottom.' : 'Agents run one at a time, top to bottom.'} An agent that gets reports from an agent below it gets that agent's last answer. ` : ''}Drag a row to change the order. On a touch screen, press and hold it first.</div>` : ''}`;
   }
 
-  // ----- Agents that read each other, on the page -----
-  // typing: instructions being typed, before they're saved, so Reads and Read By follow them a moment later (linkWait).
-  // Drawing the page again drops both.
-  let typing = null;
-  let linkWait = 0;
-  const jobText = (a) => (typing?.id === a.id ? typing.job : a.job);
-  // An agent that's off reads no one.
-  const linkList = () => list().filter((r) => r.on).flatMap((r) => readsOf(r, jobText(r)).ids.map((x) => ({ r: r.id, s: x })));
-  const above = (x, y) => list().findIndex((a) => a.id === x) < list().findIndex((a) => a.id === y);
-  const waitsFor = (r, x) => !!byId(x)?.on && above(x, r);
-  const readNote = (r, x) => (!byId(x)?.on ? 'Off: reads nothing' : waitsFor(r, x) ? 'Waits for its new answer' : 'Uses its last answer');
-  // What screen readers hear for each roster row: who it reads and who reads it.
+  // ----- Reports, on the page -----
+  // What screen readers hear for each roster row: who it gets reports from and who it reports to.
   function rowNotes() {
-    const links = linkList();
+    const names = (l) => l.map((x) => x.name).join(', ');
     root?.querySelectorAll('.m_ag_roster .m_ag_row').forEach((row) => {
-      const id = row.dataset.id;
-      const reads = links.filter((l) => l.r === id).map((l) => `${byId(l.s).name}, ${readNote(id, l.s).toLowerCase()}`);
-      const by = links.filter((l) => l.s === id).map((l) => byId(l.r).name);
-      row.querySelector('.m_ag_rsr').textContent = [reads.length ? `Reads ${reads.join('; ')}.` : '', by.length ? `Read by ${by.join(', ')}.` : ''].join(' ').trim();
+      const a = byId(row.dataset.id);
+      const from = sendersOf(a);
+      const to = readersOf(a);
+      row.querySelector('.m_ag_rsr').textContent = [from.length ? `Gets reports from ${names(from)}.` : '', to.length ? `Reports to ${names(to)}.` : ''].join(' ').trim();
     });
   }
-
-  // Reads and Read By, at the top of the picked agent's settings, while it reads or is read by another agent: each one
-  // picks that agent. An agent read from below gets a button that moves it right above. Names that match no agent
-  // show too. Empty when it has none of these.
-  function linksHtml(a) {
-    const r = readsOf(a, jobText(a));
-    const by = list().filter((x) => x.on && readsOf(x, jobText(x)).ids.includes(a.id));
-    if (!r.ids.length && !r.missing.length && !by.length) return '';
-    const chip = (x) => `<button type="button" class="menu_button m_ag_chip${x.on ? '' : ' m_ag_off'}" data-go="${x.id}">${picHtml(x, 22)}<span>${esc(x.name)}</span></button>`;
-    const warn = (t) => `<span class="m_ag_lnote cb_warn"><i class="fa-solid fa-triangle-exclamation"></i>${esc(t)}</span>`;
-    const reads = r.ids.map(byId).map((x) => `<div class="m_ag_lrow">${chip(x)}${!x.on ? warn(readNote(a.id, x.id))
-      : `<span class="m_ag_lnote">${readNote(a.id, x.id)}</span>${waitsFor(a.id, x.id) ? '' : `<button type="button" class="menu_button m_ag_lmove" data-move="${x.id}"><i class="fa-solid fa-arrow-up"></i><span>Move ${esc(x.name)} Above ${esc(a.name)}</span></button>`}`}</div>`)
-      .concat(r.missing.map((n) => `<div class="m_ag_lrow">${warn(`No agent named ${n}`)}</div>`));
-    const none = '<div class="m_ag_lrow m_ag_lnone">None</div>';
-    return `<div class="cb_plab"><i class="fa-solid fa-fw fa-diagram-project ntr_glab_icon"></i>Reads</div>${reads.join('') || none}
-      <div class="cb_plab"><i class="fa-solid fa-fw fa-share-nodes ntr_glab_icon"></i>Read By</div>${by.length ? `<div class="m_ag_lrow">${by.map(chip).join('')}</div>` : none}`;
+  // The Reports drawer: Gets Reports From and Reports To, each with a chip per linked agent (picking it, with a button
+  // that removes the link) and Add, which lists the agents not linked on that side yet. Both sides set the same links.
+  const SIDES = [['from', 'Gets Reports From', 'fa-inbox', sendersOf], ['to', 'Reports To', 'fa-paper-plane', readersOf]];
+  const addable = (a, side) => { const have = (side === 'from' ? sendersOf : readersOf)(a); return list().filter((x) => x !== a && !have.includes(x)); };
+  function reportsHtml(a) {
+    return SIDES.map(([side, label, icon, of]) => {
+      const chips = of(a).map((x) => `<span class="m_ag_chip${x.on ? '' : ' m_ag_off'}"><button type="button" class="m_ag_cgo" data-go="${x.id}">${picHtml(x, 22)}<span>${esc(x.name)}</span></button><button type="button" class="m_ag_cx" data-rm="${x.id}" data-side="${side}" title="Remove" aria-label="Remove ${esc(x.name)}"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
+      return `<div class="ntr_menu m_ag_rside" role="group" aria-labelledby="m_ag_rl_${side}">
+          <span class="cb_plab m_ag_rlab" id="m_ag_rl_${side}"><i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>${label}</span>
+          <button type="button" class="menu_button m_ag_radd" data-side="${side}" aria-haspopup="menu" aria-expanded="false"${addable(a, side).length ? '' : ' disabled'}><i class="fa-solid fa-plus"></i>Add</button>
+          <div class="m_ag_rchips">${chips || '<span class="m_ag_rnone">No One</span>'}</div>
+        </div>`;
+    }).join('');
   }
-  // After a change that doesn't draw the page again: the roster's notes, and the picked agent's Reads and Read By.
+  // The roster's notes, and the picked agent's Reports: when the page is drawn, and after a change that doesn't draw it
+  // again. Reports is only drawn again when it shows something new: a box saves when it loses focus, often to a click
+  // on Reports, and drawing it then would take away the button being clicked.
   function syncLinks(a) {
     rowNotes();
-    const el = root?.querySelector('#m_ag_links');
-    if (el && a) el.innerHTML = linksHtml(a);
+    const el = root?.querySelector('#m_ag_rep');
+    if (!el || !a) return;
+    const html = reportsHtml(a);
+    if (el.ntrHtml !== html) { el.innerHTML = html; el.ntrHtml = html; }
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, when it
@@ -952,6 +947,7 @@
       reads: usesFull(a) ? { text: `Your Chat's Full Prompt${last}` }
         : a.readBy === 'num' && !readMsgs(a).length ? { warn: `${rangeName(a)} · Not in This Chat Yet` }
           : { text: `${a.readBy === 'num' ? rangeName(a) : `${a.context} ${a.context === 1 ? 'Message' : 'Messages'}`} · ${hasTag(a) ? 'In Instructions' : a.split ? 'As Separate Messages' : 'As One Block'}${last}` },
+      rep: { text: `From ${sendersOf(a).map((x) => x.name).join(', ') || 'No One'} · To ${readersOf(a).map((x) => x.name).join(', ') || 'No One'}` },
       test: busy(a.id) ? { text: runState(a.id)[1] }
         : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' },
     };
@@ -982,7 +978,7 @@
   // Instructions is.
   const isOpen = (k) => { const o = settings().uiOpen || {}; return `ag_${k}` in o ? !!o[`ag_${k}`] : k === 'ins'; };
   const FOLD_ICON = { ins: 'fa-scroll', ans: 'fa-clipboard-list', runs: 'fa-stopwatch', main: 'fa-share-from-square', conn: 'fa-plug',
-    samp: 'fa-temperature-half', reads: 'fa-book-open-reader', test: 'fa-vial' };
+    samp: 'fa-temperature-half', reads: 'fa-book-open-reader', rep: 'fa-briefcase', test: 'fa-vial' };
   function foldHtml(k, title, sum, body) {
     const open = isOpen(k);
     return `
@@ -1078,7 +1074,7 @@
     const parts = [
       ['ins', 'Instructions', `<textarea class="text_pole m_ag_txt" data-f="job" rows="5" maxlength="8000" aria-label="Instructions" placeholder="${fields ? 'What to track and any rules, like: only count injuries that happen on screen.' : 'What this agent does, like: keep track of where everyone is and what they carry. Answer only with the updated list.'}" style="width:100%;margin:0;">${esc(a.job)}</textarea>
         ${fields ? '<div class="cb_hint" style="margin-bottom:0;">NTR adds the answer format from your fields.</div>' : ''}
-        ${macRowHtml(a)}`],
+        ${macRowHtml()}`],
       ['ans', 'Answer', answerHtml(a)],
       ['runs', 'When It Runs', `
         ${lab('Runs', pills('agruns', RUNS, a.runs))}
@@ -1093,8 +1089,7 @@
         ${a.send ? `${lab('Where', pills('agwhere', WHERE.map(([v, l]) => [v, l]), a.sendWhere))}
         ${a.sendWhere === 'chat' ? `${lab('Depth', `<div class="cb_row">${numBox(a, 'sendDepth', 'agSendDepth', 'Depth')}</div>`)}${lab('As', pills('agrole', ROLES.map(([v, l]) => [v, l]), a.sendRole))}
         <div class="cb_hint">Depth 0 is after the last message, 1 is before it, and so on.</div>` : ''}
-        <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Can Trigger Lorebooks</span></label>` : ''}
-        <div class="cb_hint" style="margin-bottom:0;">To place it yourself, type <code class="m_ag_macro">{{agent::${esc(a.name)}}}</code> anywhere ST reads macros, like the Author's Note.</div>`],
+        <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="sendScan" ${a.sendScan ? 'checked' : ''}><span>Can Trigger Lorebooks</span></label>` : ''}`],
       ['conn', 'Connection', `
         ${pills('agkind', [['chat', 'Same as Chat'], ['cc', 'Chat Completion'], ['tc', 'Text Completion (local)']], a.kind)}
         <div class="cb_hint">Neither changes your chat's connection or ST's Connection Profiles.</div>
@@ -1118,6 +1113,7 @@
         <div class="cb_hint" id="m_ag_taghint">${tagHint(a)}</div>`}
         ${fields ? '' : `<label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="last" ${a.last ? 'checked' : ''}><span>Include Its Last Result</span></label>
         <div class="cb_hint" style="margin-bottom:0;">It updates its last answer instead of starting over.</div>`}`],
+      ['rep', 'Reports', '<div id="m_ag_rep"></div>'],
       ['test', 'Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
         <div id="m_ag_act">${activityHtml(a, past)}</div>`],
@@ -1125,7 +1121,7 @@
     const sum = sums(a);
     return `<div class="m_ag_frame">
         ${headHtml(a, parts.every(([k]) => isOpen(k)))}
-        <div class="m_ag_body"><div id="m_ag_links" class="m_ag_links" role="group" aria-label="Agents it reads and is read by">${linksHtml(a)}</div>${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body) + (k === 'reads' ? prevRowHtml(a) : '')).join('')}</div>
+        <div class="m_ag_body">${parts.map(([k, title, body]) => foldHtml(k, title, sum[k], body) + (k === 'rep' ? prevRowHtml(a) : '')).join('')}</div>
       </div>`;
   }
 
@@ -1146,17 +1142,15 @@
     ['{{charDescription}}', 'The character\'s description.'], ['{{charPersonality}}', 'The character\'s personality.'],
     ['{{charScenario}}', 'The character\'s scenario.'], ['{{persona}}', 'Your current Persona description.'],
     ['{{lastUserMessage}}', 'Last user message in the chat.'], ['{{lastCharMessage}}', 'Last character message in the chat.']];
-  function macListHtml(a) {
+  function macListHtml() {
     const row = ([m, d]) => `<button type="button" class="m_ag_mac" data-mac="${esc(m)}"><code>${esc(m)}</code><span>${esc(d)}</span></button>`;
-    const ntr = [['{{messagesRead}}', 'The messages chosen in Messages Read.'],
-      ...list().filter((x) => x.id !== a.id).map((x) => [`{{agent::${x.name}}}`, `${x.name}'s latest saved answer.`])];
-    return `<div class="cb_sub" style="margin-top:0;border-top:0;padding-top:0;">NTR</div>${ntr.map(row).join('')}<div class="cb_sub">SillyTavern</div>${ST_MACROS.map(row).join('')}`;
+    return `<div class="cb_sub" style="margin-top:0;border-top:0;padding-top:0;">NTR</div>${row(['{{messagesRead}}', 'The messages chosen in Messages Read.'])}<div class="cb_sub">SillyTavern</div>${ST_MACROS.map(row).join('')}`;
   }
   const macBtn = () => `<i class="fa-solid fa-code"></i>${macOpen ? 'Hide Macros' : 'Macros'}`;
-  const macRowHtml = (a) => `
+  const macRowHtml = () => `
         <div class="cb_actions" style="margin:8px 0 0;"><button type="button" class="menu_button" id="m_ag_macbtn" aria-expanded="${macOpen}" aria-controls="m_ag_macbox" style="margin:0;">${macBtn()}</button></div>
-        <div id="m_ag_macbox" class="ntr_tpanel" role="region" aria-label="Macros" style="margin-top:6px;gap:0;${macOpen ? '' : 'display:none;'}">${macOpen ? macListHtml(a) : ''}</div>`;
-  function syncMacros(a, open) {
+        <div id="m_ag_macbox" class="ntr_tpanel" role="region" aria-label="Macros" style="margin-top:6px;gap:0;${macOpen ? '' : 'display:none;'}">${macOpen ? macListHtml() : ''}</div>`;
+  function syncMacros(open) {
     macOpen = open;
     const b = root?.querySelector('#m_ag_macbtn');
     const box = root?.querySelector('#m_ag_macbox');
@@ -1164,9 +1158,9 @@
     b.innerHTML = macBtn();
     b.setAttribute('aria-expanded', String(open));
     box.style.display = open ? '' : 'none';
-    box.innerHTML = open ? macListHtml(a) : '';
+    box.innerHTML = open ? macListHtml() : '';
   }
-  // Preview Prompt, under What It Reads: it shows what the agent sends, for every part of its settings. It stays open
+  // Preview Prompt, under Reports: it shows what the agent sends, for every part of its settings. It stays open
   // while you change them, until Collapse All or a reload.
   let prevOpen = false;
   const prevBtn = () => `<i class="fa-solid ${prevOpen ? 'fa-eye-slash' : 'fa-eye'}"></i>${prevOpen ? 'Hide Preview' : 'Preview Prompt'}`;
@@ -1253,12 +1247,10 @@
     if (s.agPick && !byId(s.agPick)) s.agPick = '';
     if (!s.agPick && list().length) s.agPick = list()[0].id;
     const a = byId(s.agPick);
-    typing = null;
-    clearTimeout(linkWait);
     root.innerHTML = listHtml(s) + `<div id="m_ag_edit">${editorHtml(a)}</div>`;
     bindAll(s, a);
     renderActivity();
-    rowNotes();
+    syncLinks(a);
     if (a?.kind === 'cc') fillKeys(a);
     if (focusAfter) root.querySelector(focusAfter)?.focus();
     focusAfter = null;
@@ -1514,7 +1506,7 @@
     allBtn.onclick = () => {
       const open = !folds.every((h) => h.classList.contains('ntr_open'));
       folds.forEach((h) => setFold(h, open));
-      if (!open) { syncPreview(a, false); syncMacros(a, false); }
+      if (!open) { syncPreview(a, false); syncMacros(false); }
       save();
       syncAll();
     };
@@ -1546,25 +1538,27 @@
       say(d ? `Moved to ${d.name}.` : 'Moved out of its department.');
     };
     const toNew = async () => { const d = await makeDept(ask()); if (d) moveTo(d); };
-    // Reads and Read By: a chip picks that agent. Move puts the agent read right above this one, in this one's group, so
-    // its new answer is waited for.
-    const moveAbove = (x) => {
-      for (const d of depts()) d.ids = d.ids.filter((id) => id !== x.id);
-      const d = deptOf(a.id);
-      if (d) d.ids.splice(d.ids.indexOf(a.id), 0, x.id);
-      else {
-        const ids = loose().map((y) => y.id).filter((id) => id !== x.id);
-        ids.splice(ids.indexOf(a.id), 0, x.id);
-        setLoose(ids);
-      }
-      focusAfter = '#m_ag_links .m_ag_chip';
+    // Reports: a chip picks that agent, its button removes the link, and Add lists the agents that can be linked on that
+    // side, under the side's chips. Picking one links it and closes the list.
+    const link = (side, x, on) => {
+      const [r, from] = side === 'from' ? [a, x] : [x, a];
+      r.reportsFrom = on ? [...r.reportsFrom, from.id] : r.reportsFrom.filter((id) => id !== from.id);
+      // Back to Add, or to the drawer's header once there's no one left to add.
+      focusAfter = addable(a, side).length ? `.m_ag_radd[data-side="${side}"]` : '.m_ag_fold[data-ag="rep"]';
       changed(true);
-      say(`Moved ${x.name} above ${a.name}.`);
     };
-    root.querySelector('#m_ag_links').onclick = (e) => {
-      const go = byId(e.target.closest('[data-go]')?.dataset.go);
-      const mv = byId(e.target.closest('[data-move]')?.dataset.move);
-      if (go) { s.agPick = go.id; changed(true); showHead(); } else if (mv) moveAbove(mv);
+    root.querySelector('#m_ag_rep').onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b || b.disabled) return;
+      const x = byId(b.dataset.go || b.dataset.rm || b.dataset.add);
+      if (b.dataset.go && x) { s.agPick = x.id; changed(true); showHead(); } else if (b.dataset.rm && x) link(b.dataset.side, x, false);
+      else if (b.dataset.add && x) link(b.dataset.side, x, true);
+      else if (b.classList.contains('m_ag_radd')) {
+        const side = b.dataset.side;
+        const pop = popMenu(b, addable(a, side).map((y) => `<button type="button" data-add="${y.id}" data-side="${side}">${picHtml(y, 22)}<span>${esc(y.name)}</span></button>`).join(''));
+        pop?.classList.add('m_ag_rpop');
+        pop?.querySelector('button')?.focus();
+      }
     };
     more.onclick = () => {
       const cur = deptOf(a.id);
@@ -1633,8 +1627,6 @@
           sw.title = `Turn ${a.name} on or off`;
           sw.setAttribute('aria-label', sw.title);
         });
-        const macro = root.querySelector('.m_ag_macro');
-        if (macro) macro.textContent = `{{agent::${a.name}}}`;
         refreshBoxes();
       };
     });
@@ -1643,6 +1635,7 @@
       stopRuns((j) => j.id === a.id);
       s.agents = list().filter((x) => x !== a);
       checked.add(s.agents);
+      for (const x of s.agents) x.reportsFrom = x.reportsFrom.filter((id) => id !== a.id);
       runs.delete(a.id);
       fails.delete(a.id);
       s.agPick = '';
@@ -1711,7 +1704,6 @@
         const f = el.dataset.f;
         a[f] = el.value.slice(0, Number(el.getAttribute('maxlength')) || 500);
         if (f === 'ccSource') a.ccKey = '';
-        if (f === 'job') typing = null;
         changed(!!el.dataset.redraw);
       };
     });
@@ -1719,13 +1711,11 @@
     const job = root.querySelector('.m_ag_txt[data-f="job"]');
     job.oninput = () => {
       setSum('ins', sums({ ...a, job: job.value }).ins);
-      clearTimeout(linkWait);
-      linkWait = setTimeout(() => { typing = { id: a.id, job: job.value }; syncLinks(a); }, 400);
     };
     // Macros: a tap puts the macro where the cursor last was in the instructions, or at the end.
     let sel = null;
     job.onblur = () => { sel = [job.selectionStart, job.selectionEnd]; };
-    root.querySelector('#m_ag_macbtn').onclick = () => syncMacros(a, !macOpen);
+    root.querySelector('#m_ag_macbtn').onclick = () => syncMacros(!macOpen);
     root.querySelector('#m_ag_macbox').onclick = (e) => {
       const m = e.target.closest('.m_ag_mac')?.dataset.mac;
       if (!m) return;
@@ -1735,7 +1725,6 @@
       job.focus();
       job.setSelectionRange(pos, pos);
       a.job = job.value;
-      typing = null;
       changed(false);
     };
     root.querySelectorAll('.m_ag_chk').forEach((el) => {
@@ -2119,13 +2108,8 @@
       }
     },
     // A reply is about to be built (after its slash commands): agents' results go into its prompt.
-    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type, dryRun); },
-    genEnded: () => { chatBusy = false; sendAt = null; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
-    // {{agent::Name}} (index.js): that agent's current saved result, chosen like Send to Main AI's. Blank while it's off.
-    macro: (name) => {
-      const a = named(name);
-      return a?.on ? seenText(a.id, macroAt ?? sendUpTo()) ?? '' : '';
-    },
+    genStarted: (type, dryRun) => { if (!dryRun && type !== 'quiet') chatBusy = true; inject(type); },
+    genEnded: () => { chatBusy = false; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
     // For Pinned Blocks set to Agent Results (layout.js).
     pinView,
     // An agent's current answer: its newest saved one in this chat.

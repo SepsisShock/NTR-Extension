@@ -468,8 +468,8 @@
   // A message's kind in Which Messages. 'narrator' is SillyTavern's mark for /sys and /narrator messages.
   const kindOf = (m) => (m.extra?.type === 'narrator' ? 'sys' : m.is_user ? 'user' : 'ai');
   // Run Every: whether message `at` makes enough ticked messages from a name in Only From since its newest result. The
-  // greeting doesn't count, as nothing runs on it. While it has a run on the way, that run's result starts the count
-  // again, so no other is added.
+  // greeting doesn't count, as nothing runs on it. Above 1, while it has a run on the way, that run's result starts the
+  // count again, so no other is added.
   function due(a, at, from) {
     if (a.every <= 1) return true;
     if (busy(a.id)) return false;
@@ -478,9 +478,9 @@
     let n = 0;
     for (let i = r ? r.mes + 1 : chat[0]?.is_user ? 0 : 1; i <= at; i++) {
       const m = chat[i];
-      if (m && !m.is_system && a.runOn.includes(kindOf(m)) && from(m.name)) n++;
+      if (m && !m.is_system && a.runOn.includes(kindOf(m)) && from(m.name) && ++n >= a.every) return true;
     }
-    return n >= a.every;
+    return false;
   }
   function prompt(a, test, at = null) {
     if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];

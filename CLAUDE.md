@@ -1,4 +1,4 @@
-w# NTR-Extension (Nitwit Tavern Redesign)
+# NTR-Extension (Nitwit Tavern Redesign)
 
 SillyTavern extension. NTR is being developed for public release.
 

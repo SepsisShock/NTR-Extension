@@ -474,20 +474,6 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #cb_modal_overlay :is(.m_ag_loose, .m_ag_dbody):has(> .m_ag_row) > .m_ag_empty { display: none; }
 /* A run's state in place of its row's second line. */
 #cb_modal_overlay .m_ag_rsub.m_ag_rst { opacity: 1; color: var(--SmartThemeQuoteColor, #6cf); }
-/* Lines between agents that read each other (drawLines), in a strip on the roster's right while any agent reads another.
-   Hidden while a row is dragged. */
-#cb_modal_overlay .m_ag_roster { position: relative; }
-#cb_modal_overlay .m_ag_roster.m_ag_haslinks { padding-right: 34px; }
-#cb_modal_overlay .ntr_compact .m_ag_roster.m_ag_haslinks { padding-right: 28px; }
-#cb_modal_overlay .m_ag_lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-#cb_modal_overlay .ntr_sorting .m_ag_lines { display: none; }
-#cb_modal_overlay .m_ag_lines path { fill: none; stroke: var(--SmartThemeQuoteColor, #6cf); stroke-width: 2; }
-#cb_modal_overlay .m_ag_lines path.m_ag_ldash { stroke-dasharray: 5 4; }
-#cb_modal_overlay .m_ag_lines path.m_ag_lwait { stroke-width: 3; }
-#cb_modal_overlay .m_ag_lines polygon { fill: var(--SmartThemeQuoteColor, #6cf); }
-#cb_modal_overlay .m_ag_lines circle { fill: var(--SmartThemeBodyColor, #ccc); opacity: 0.4; }
-#cb_modal_overlay .m_ag_lines circle.m_ag_lhot { fill: var(--SmartThemeQuoteColor, #6cf); opacity: 1; }
-#cb_modal_overlay .m_ag_dlk { font-size: 0.85em; font-weight: normal; color: var(--SmartThemeQuoteColor, #6cf); }
 /* Reads and Read By, at the top of the picked agent's settings. */
 #cb_modal_overlay .m_ag_links { padding-top: 8px; }
 #cb_modal_overlay .m_ag_links:empty { display: none; }

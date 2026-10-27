@@ -824,7 +824,7 @@
         <div class="m_ag_dhead${holds ? ' m_ag_sel' : ''}">
           <button type="button" class="m_ag_dpick" aria-expanded="${open}">
             <span class="m_ag_dicon"><i class="fa-solid fa-fw ${open ? 'fa-door-open' : 'fa-door-closed'}"></i></span>
-            <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}<span class="m_ag_dlk"></span></strong></span>
+            <span class="m_ag_rtext"><strong class="m_ag_rline">${esc(d.name)}</strong></span>
           </button>
           <span class="ntr_menu"><button type="button" class="menu_button m_ag_hbtn m_ag_dmore" title="More" aria-label="More for ${esc(d.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
         </div>
@@ -850,20 +850,13 @@
         <div class="ntr_card m_ag_loose"${dl.length ? ' role="group" aria-label="No department"' : ''}>${top}</div>
         ${dl.length ? `<div class="ntr_glab"><i class="fa-solid fa-fw fa-building ntr_glab_icon"></i>Departments</div>
         <div class="m_ag_depts" role="group" aria-label="Departments">${dl.map((d) => deptHtml(d, s)).join('')}</div>` : ''}
-        <svg class="m_ag_lines" aria-hidden="true"></svg>
       </div>
       ${l.length + dl.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">${l.length >= 2 ? `${dl.length ? 'Agents in no department run first, top to bottom. Then departments run side by side; agents in a department run top to bottom.' : 'Agents run one at a time, top to bottom.'} An agent that reads an agent below it uses that agent's last answer. ` : ''}Drag a row to change the order. On a touch screen, press and hold it first.</div>` : ''}`;
   }
 
-  // ----- Lines between agents that read each other -----
-  // In a strip on the roster's right, while any agent reads another: the picked agent's lines, from a dot on the agent
-  // read to an arrowhead on the agent reading. Solid when the agent read is above, so its new answer is waited for;
-  // dashed when it's below or off. Thicker while a run waits on it. Longer lines bulge further out, so they nest
-  // instead of crossing. Other agents with lines show only their dot. A folded department's header stands in for its
-  // agents, with how many are linked to the picked agent. Hidden while a row is dragged; drawn again from the new
-  // order once it's dropped.
-  // typing: instructions being typed, before they're saved, so the lines follow them a moment later (linkWait). Drawing
-  // the page again drops both.
+  // ----- Agents that read each other, on the page -----
+  // typing: instructions being typed, before they're saved, so Reads and Read By follow them a moment later (linkWait).
+  // Drawing the page again drops both.
   let typing = null;
   let linkWait = 0;
   const jobText = (a) => (typing?.id === a.id ? typing.job : a.job);
@@ -872,72 +865,15 @@
   const above = (x, y) => list().findIndex((a) => a.id === x) < list().findIndex((a) => a.id === y);
   const waitsFor = (r, x) => !!byId(x)?.on && above(x, r);
   const readNote = (r, x) => (!byId(x)?.on ? 'Off: reads nothing' : waitsFor(r, x) ? 'Waits for its new answer' : 'Uses its last answer');
-  const LINE_LEVELS = 3;
-  let watch = null;
-  function drawLines() {
-    const box = root?.querySelector('.m_ag_roster');
-    const svg = box?.querySelector('.m_ag_lines');
-    if (!svg) return;
+  // What screen readers hear for each roster row: who it reads and who reads it.
+  function rowNotes() {
     const links = linkList();
-    const pick = settings().agPick;
-    box.classList.toggle('m_ag_haslinks', links.length > 0);
-    // What screen readers hear for each row, in place of the lines.
-    box.querySelectorAll('.m_ag_row').forEach((row) => {
+    root?.querySelectorAll('.m_ag_roster .m_ag_row').forEach((row) => {
       const id = row.dataset.id;
       const reads = links.filter((l) => l.r === id).map((l) => `${byId(l.s).name}, ${readNote(id, l.s).toLowerCase()}`);
       const by = links.filter((l) => l.s === id).map((l) => byId(l.r).name);
       row.querySelector('.m_ag_rsr').textContent = [reads.length ? `Reads ${reads.join('; ')}.` : '', by.length ? `Read by ${by.join(', ')}.` : ''].join(' ').trim();
     });
-    const mine = links.filter((l) => l.r === pick || l.s === pick);
-    box.querySelectorAll('.m_ag_dept').forEach((el) => {
-      const d = depts().find((x) => x.id === el.dataset.dept);
-      const n = !d || deptOpen(d) ? 0 : new Set(mine.flatMap((l) => [l.r, l.s]).filter((id) => id !== pick && d.ids.includes(id))).size;
-      el.querySelector('.m_ag_dlk').innerHTML = n ? ` <i class="fa-solid fa-link"></i> ${n}<span class="ntr_sr">, ${n} linked to ${esc(byId(pick).name)}</span>` : '';
-    });
-    if (!links.length) { svg.innerHTML = ''; return; }
-    const b = box.getBoundingClientRect();
-    const gut = parseFloat(getComputedStyle(box).paddingRight) || 0;
-    const x0 = b.width - gut + 3;
-    const step = Math.max(2, (gut - 10) / LINE_LEVELS);
-    // Where a line meets an agent: the middle of its row, or of its folded department's header.
-    const y = (id) => {
-      const row = box.querySelector(`.m_ag_row[data-id="${id}"]`);
-      const el = row?.closest('.m_ag_dbody')?.hidden ? row.closest('.m_ag_dept').querySelector('.m_ag_dhead') : row;
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return Math.round(r.top - b.top + r.height / 2);
-    };
-    let out = '';
-    const dots = new Set();
-    const dot = (yy, hot) => { out += `<circle${hot ? ' class="m_ag_lhot"' : ''} cx="${x0}" cy="${yy}" r="3"/>`; dots.add(yy); };
-    const lines = mine.map((l) => ({ ...l, y1: y(l.s), y2: y(l.r) }))
-      .filter((l, i, all) => l.y1 != null && l.y2 != null && l.y1 !== l.y2 && all.findIndex((o) => o.y1 === l.y1 && o.y2 === l.y2) === i)
-      .sort((p, q) => Math.abs(p.y1 - p.y2) - Math.abs(q.y1 - q.y2));
-    for (const l of lines) {
-      const lo = Math.min(l.y1, l.y2);
-      const hi = Math.max(l.y1, l.y2);
-      const under = lines.filter((o) => o.lvl && Math.min(o.y1, o.y2) < hi && Math.max(o.y1, o.y2) > lo).map((o) => o.lvl);
-      l.lvl = Math.min(LINE_LEVELS, 1 + Math.max(0, ...under));
-      const X = x0 + 2 + l.lvl * step;
-      const cls = [waitsFor(l.r, l.s) ? '' : 'm_ag_ldash', jobs.some((j) => j.id === l.r && j.state === 'wait' && j.waitFor === l.s) ? 'm_ag_lwait' : ''].filter(Boolean).join(' ');
-      out += `<path${cls ? ` class="${cls}"` : ''} d="M${x0},${l.y1} C${X},${l.y1} ${X},${l.y2} ${x0 + 7},${l.y2}"/>`;
-      out += `<polygon points="${x0},${l.y2} ${x0 + 8},${l.y2 - 4.5} ${x0 + 8},${l.y2 + 4.5}"/>`;
-      if (!dots.has(l.y1)) dot(l.y1, true);
-    }
-    const ends = new Set(lines.flatMap((l) => [l.y1, l.y2]));
-    for (const id of new Set(links.flatMap((l) => [l.r, l.s]))) {
-      const yy = y(id);
-      if (yy != null && !ends.has(yy) && !dots.has(yy)) dot(yy, false);
-    }
-    svg.innerHTML = out;
-  }
-  // The lines follow the roster's size: a menu resized or turned, a font size, a department folded.
-  function watchLines() {
-    watch?.disconnect();
-    const box = root?.querySelector('.m_ag_roster');
-    if (!box || typeof ResizeObserver !== 'function') return;
-    watch = new ResizeObserver(() => drawLines());
-    watch.observe(box);
   }
 
   // Reads and Read By, at the top of the picked agent's settings, while it reads or is read by another agent: each one
@@ -956,9 +892,9 @@
     return `<div class="cb_plab"><i class="fa-solid fa-fw fa-diagram-project ntr_glab_icon"></i>Reads</div>${reads.join('') || none}
       <div class="cb_plab"><i class="fa-solid fa-fw fa-share-nodes ntr_glab_icon"></i>Read By</div>${by.length ? `<div class="m_ag_lrow">${by.map(chip).join('')}</div>` : none}`;
   }
-  // After a change that doesn't draw the page again: the lines, and the picked agent's Reads and Read By.
+  // After a change that doesn't draw the page again: the roster's notes, and the picked agent's Reads and Read By.
   function syncLinks(a) {
-    drawLines();
+    rowNotes();
     const el = root?.querySelector('#m_ag_links');
     if (el && a) el.innerHTML = linksHtml(a);
   }
@@ -1290,7 +1226,6 @@
       sub.innerHTML = rowSub(x);
       sub.classList.toggle('m_ag_rst', busy(x.id));
     });
-    drawLines();
   }
 
   // Your saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
@@ -1324,7 +1259,7 @@
     root.innerHTML = listHtml(s) + `<div id="m_ag_edit">${editorHtml(a)}</div>`;
     bindAll(s, a);
     renderActivity();
-    watchLines();
+    rowNotes();
     if (a?.kind === 'cc') fillKeys(a);
     if (focusAfter) root.querySelector(focusAfter)?.focus();
     focusAfter = null;

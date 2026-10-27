@@ -449,7 +449,8 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 /* Agents page (agents.js): the roster, then the picked agent in a frame. Its header stays at the top of the menu while its
    folded settings scroll under it, with the panel's own tint and blur so nothing shows through. overflow: clip rounds
    the header with the frame without making the frame a scroll box, which would stop the header from staying put. */
-#cb_modal_overlay .m_ag_row { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 0; border-radius: 8px; }
+/* Rows and headers reach 6px past the card's padding on both sides, so a picked one's outline has room around its switch. */
+#cb_modal_overlay .m_ag_row { display: flex; align-items: center; gap: 8px; margin-inline: -6px; padding: 2px 14px 2px 6px; border-radius: 8px; }
 /* Rows drag, so a press doesn't select their text or open a phone's long-press menu. */
 #cb_modal_overlay :is(.m_ag_row, .m_ag_dhead) { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #cb_modal_overlay :is(.m_ag_row, .m_ag_dhead).m_ag_sel { background: var(--ntr-hover); outline: 1px solid var(--SmartThemeQuoteColor, #6cf); }
@@ -464,7 +465,9 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 /* Departments: a card each, its header above its agents. */
 #cb_modal_overlay .m_ag_dept { margin-top: 0; }
 #cb_modal_overlay .m_ag_dept + .m_ag_dept { margin-top: 6px; }
-#cb_modal_overlay .m_ag_dhead { display: flex; align-items: center; gap: 8px; padding: 2px 8px 2px 0; border-radius: 8px; }
+#cb_modal_overlay .m_ag_dhead { display: flex; align-items: center; gap: 8px; margin-inline: -6px; padding: 2px 14px 2px 6px; border-radius: 8px; }
+/* A department's agents sit indented under its header. */
+#cb_modal_overlay .m_ag_dbody { padding-left: 16px; }
 #cb_modal_overlay .m_ag_dpick { all: unset; box-sizing: border-box; flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 4px 0; border-radius: 6px; cursor: pointer; }
 #cb_modal_overlay .m_ag_dicon { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--SmartThemeQuoteColor, #6cf); }
 #cb_modal_overlay .m_ag_empty { padding: 8px 10px 6px; font-size: 0.85em; opacity: 0.5; }

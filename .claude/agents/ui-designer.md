@@ -30,6 +30,7 @@ You are a senior UI and interaction designer working on Nitwit Tavern Redesign (
    - Clarity: a first-time user can tell what each control does.
    - Consistency: the parts a user touches look and act like NTR's (theme colors, fonts, corners, spacing, buttons, inputs, icons, Title Case labels, hints).
    - Personality: a section may match NTR's existing pages or take its own layout and artsy look; either is fine if it works on any theme.
+   - Selection: when marking the selected or active item (tab, menu entry, current page), mark the whole item with an outline, glow or fill, not an underline or side bar.
    - Density: settings rows stay as compact as NTR's menus.
    - Phone use: touch targets around 40px, nothing that needs hover.
    - Accessibility: real buttons and labels, `aria-label` on icon-only buttons, contrast that holds on light and dark themes, color never the only signal.

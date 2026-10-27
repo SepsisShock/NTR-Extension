@@ -15,19 +15,19 @@ SillyTavern extension. NTR is being developed for public release.
 - Use one branch per logical change; open a PR when done. Group changes that serve the same purpose; give anything unrelated or substantially larger its own branch.
 - Keep edits scoped to the task. Ask before deleting or renaming files.
 - Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
+- If a `CLAUDE.md` rule or repo skill is wrong or outdated, flag it in the plan or PR summary.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 
 ## Testing & Releases
 - Before opening a PR that changes `.js` or `.css`, run `node --test tests/*.test.mjs`, then `/run-ntr-extension`, comparing `main` with the branch:
   - Test the changed and new parts with driver commands.
   - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
-  - **`style.css`:** compare before and after screenshots of the pages it reaches.
-  - **CSS in a `pointer: coarse` or width query, in any file:** compare before and after screenshots of the pages it reaches with `NTR_PHONE=1`.
+  - **CSS changes, in any file:** compare before and after screenshots of the pages they reach; add `NTR_PHONE=1` screenshots for CSS in a `pointer: coarse` or width query.
   - If SillyTavern can't be run, say so in the PR.
 - **Fixes to an open PR** (a reviewer's or your own): re-test what the fix changed.
-- **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features); bump `major` only with approval, and state the approval in the PR summary. Fixes pushed to an open PR don't bump again.
+- **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features). A `major` bump needs approval and is done by hand; state the approval in the PR summary. Fixes pushed to an open PR don't bump again, unless `main` gets a new version first: then merge it in, keep `main`'s version where they conflict, and bump again.
 - **Docs:** Propose removing shipped features from `ROADMAP.md`. Propose a few-word `manifest.json` description update only when a new top-level area ships.
-- **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, which test, script or skill caught a real bug (or "none"), and explain any out-of-scope file touches. Flag any `CLAUDE.md` rule or repo skill that is wrong or outdated. If `index.js` grew by more than 100 net lines (`git diff --numstat origin/main -- index.js`), justify why that code belongs in core. Move it only if an architecture rule requires it.
+- **PR Summary:** State what changed, why, how to test in SillyTavern, how it was tested, which test, script or skill caught a real bug (or "none"), and explain any out-of-scope file touches. If CI's Core growth check warns, justify why that code belongs in core. Move it only if an architecture rule requires it.
 
 ## Architecture & Module Routing
 - **Existing conventions:** Match the project's established style and file structure.

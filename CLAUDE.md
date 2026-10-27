@@ -1,9 +1,9 @@
 # NTR-Extension (Nitwit Tavern Redesign)
 
-SillyTavern extension. NTR is being developed for public release. Design features, defaults and labels for users with other cards, presets and screen sizes, not just my setup.
+SillyTavern extension. NTR is being developed for public release.
 
 ## Communication
-- Everything you write: plain language. No em dashes; use semicolons, colons, or a new sentence instead.
+- Plain language. No em dashes; use semicolons, colons, or a new sentence instead.
 
 ## UI Copy
 - Use concise, general terms. Never use examples from my personal setup.
@@ -14,6 +14,14 @@ SillyTavern extension. NTR is being developed for public release. Design feature
 - Use one branch per logical change and open a PR when complete: group changes that serve the same purpose and can be reviewed and tested together; give anything unrelated or substantially larger its own branch.
 - Keep edits scoped to the task. Ask before deleting or renaming files.
 - For anything beyond a small fix, propose a plan and wait for approval before changing files. A request to investigate, review, discuss or plan isn't approval.
+- Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
+- If a `CLAUDE.md` rule or repo skill is wrong or outdated, flag it in the plan or PR summary.
+
+## Workflow & Git
+- Ignore `README.md` and `LICENSE*` unless explicitly requested.
+- For anything beyond a small fix, propose a plan and wait for approval before changing files. A request to investigate, review, discuss or plan isn't approval.
+- Use one branch per logical change; open a PR when done. Group changes that serve the same purpose; give anything unrelated or substantially larger its own branch.
+- Keep edits scoped to the task. Ask before deleting or renaming files.
 - Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
 - If a `CLAUDE.md` rule or repo skill is wrong or outdated, flag it in the plan or PR summary.
 

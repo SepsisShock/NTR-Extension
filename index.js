@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.1';
+  const VERSION = '2.86.2';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1275,6 +1275,9 @@ await (async () => {
       <div id="ntr_preview"></div>`;
 
     document.body.appendChild(overlay);
+    // SillyTavern checks every input event that reaches the page against its own handlers, which cost more than NTR's
+    // own work while a slider is dragged. None of them are for the menu, so its input events stop here.
+    overlay.addEventListener('input', (e) => e.stopPropagation());
 
     bindCollapses(overlay, s);
     // The banner's rotation waits while the Overlays page is open (see overlays.js).

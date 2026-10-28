@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.86.1';
+  const VN_VERSION = '2.86.2';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -183,16 +183,20 @@
       #ntr_wx { position: fixed; inset: 0; z-index: 2415; pointer-events: none; display: none; overflow: hidden; }
       #ntr_wx.ntr_rain, #ntr_wx.ntr_snow { display: block; }
       #ntr_wx.ntr_rain { background: rgba(15, 25, 45, .18); }
-      #ntr_wx::before, #ntr_wx::after { content: ''; position: absolute; inset: -25%; background-repeat: repeat; }
+      #ntr_wx::before, #ntr_wx::after { content: ''; position: absolute; inset: calc(-25% - 380px) -25% -25%; background-repeat: repeat; }
+      #ntr_wx.ntr_rain::before, #ntr_wx.ntr_rain::after { transform-origin: 50% calc(50% + 190px); }
       #ntr_wx.ntr_rain::before { background-image: url("${WX.r1}"); background-size: 220px 220px; transform: rotate(12deg); animation: ntr_fall1 .45s linear infinite; }
       #ntr_wx.ntr_rain::after { background-image: url("${WX.r2}"); background-size: 300px 300px; transform: rotate(12deg); opacity: .6; animation: ntr_fall2 .7s linear infinite; }
       #ntr_wx.ntr_snow::before { background-image: url("${WX.s1}"); background-size: 260px 260px; animation: ntr_fall3 9s linear infinite, ntr_sway 4s ease-in-out infinite alternate; }
       #ntr_wx.ntr_snow::after { background-image: url("${WX.s2}"); background-size: 380px 380px; opacity: .7; animation: ntr_fall4 14s linear infinite, ntr_sway 6s ease-in-out infinite alternate-reverse; }
-      @keyframes ntr_fall1 { to { background-position: 0 220px; } }
-      @keyframes ntr_fall2 { to { background-position: 0 300px; } }
-      @keyframes ntr_fall3 { to { background-position: 0 260px; } }
-      @keyframes ntr_fall4 { to { background-position: 0 380px; } }
-      @keyframes ntr_sway { from { transform: translateX(-24px); } to { transform: translateX(24px); } }
+      /* The layers move down one tile and start over, so phones slide them instead of painting them again each frame.
+         They reach a tile above the screen for that; rain still turns around the screen's middle. Snow sways with
+         translate, which adds to the fall's transform. */
+      @keyframes ntr_fall1 { from { transform: rotate(12deg) translateY(0); } to { transform: rotate(12deg) translateY(220px); } }
+      @keyframes ntr_fall2 { from { transform: rotate(12deg) translateY(0); } to { transform: rotate(12deg) translateY(300px); } }
+      @keyframes ntr_fall3 { to { transform: translateY(260px); } }
+      @keyframes ntr_fall4 { to { transform: translateY(380px); } }
+      @keyframes ntr_sway { from { translate: -24px 0; } to { translate: 24px 0; } }
       #ntr_fx { position: fixed; inset: 0; z-index: 2460; pointer-events: none; opacity: 0; }
       #ntr_fx.ntr_fx_flash { background: #fff; animation: ntr_flash .5s ease-out; }
       #ntr_fx.ntr_fx_fade { background: #000; animation: ntr_fadeblack 1.6s ease-in-out; }

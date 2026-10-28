@@ -1275,6 +1275,9 @@ await (async () => {
       <div id="ntr_preview"></div>`;
 
     document.body.appendChild(overlay);
+    // SillyTavern checks every input event that reaches the page against its own handlers, which cost more than NTR's
+    // own work while a slider is dragged. None of them are for the menu, so its input events stop here.
+    overlay.addEventListener('input', (e) => e.stopPropagation());
 
     bindCollapses(overlay, s);
     // The banner's rotation waits while the Overlays page is open (see overlays.js).

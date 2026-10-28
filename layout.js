@@ -592,9 +592,9 @@
     css += cssRule('body #sheld', { left: 'var(--ntr-cx)', top: 'var(--ntr-cy)', width: 'var(--ntr-cw)', height: 'var(--ntr-ch)', 'max-height': 'var(--ntr-ch)', right: 'auto', bottom: 'auto', margin: '0', resize: 'none' });
     css += cssRule('body #sheld > #sheldheader', { display: 'none' });
     css += cssRule('body #chat', { 'max-height': 'none' });
-    // Fixed parts are placed in the page's root, which SillyTavern's phone look leaves with no height. Anything held
-    // by the bottom of the screen (a bar or Floating send bar there, settings panels above it) would end up above
-    // the screen.
+    // Fixed parts are placed in the page's root, which SillyTavern's phone look leaves with no height; anything held by
+    // the bottom of the screen would end up above it. style.css now gives the root its height on screens up to 1000px
+    // wide, and this workaround stays.
     if (phone) css += cssRule('html', { 'min-height': '100dvh' });
 
     // Menu bar: the icons and the strip behind them. It stays SillyTavern's own while it sits unmoved on the top edge

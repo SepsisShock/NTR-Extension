@@ -34,8 +34,7 @@
 }
 
 /* Menu: a floating panel. No dark backdrop, and SillyTavern stays clickable behind it. */
-/* SillyTavern's page root has a transform, and on screens up to 1000px wide its body is fixed, which leaves the root
-   0px tall. Fixed boxes measure against that root, so their heights come from the screen instead. */
+/* Its height comes from the screen, a workaround kept from before the page root got its height back (the html rule above). */
 .cb_popup_overlay {
   position: fixed;
   inset: 0;

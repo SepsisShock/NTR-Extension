@@ -619,8 +619,8 @@ await (async () => {
     const s = settings();
     
     let cssString = `
-      /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) can leave a
-         fixed box with no height, which hid pop-outs and foreground images. */
+      /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) left fixed
+         boxes with no height. style.css now gives the page root its height back, and this workaround stays. */
       #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
       #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
       #cb_pop_layer .cb_popf { position: absolute; display: none; pointer-events: none; overflow: hidden; container-type: size; }

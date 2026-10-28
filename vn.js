@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.86.3';
+  const VN_VERSION = '2.86.4';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -915,12 +915,13 @@
   }
 
   function nodeStopTyping() {
-    clearInterval(node.typer); node.typer = null;
+    cancelAnimationFrame(node.typer); node.typer = null;
     clearTimeout(node.auto); node.auto = null;
     node.typing = false; node.finish = null;
   }
 
   // `shown` characters appear at once and typing goes on from there (a Continue, see nodeContinued).
+  // Typing shows every character due by each frame together, so it reads the box's scroll height once a frame at most.
   function typeInto(el, html, speed, done, shown = 0) {
     el.innerHTML = html;
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -928,26 +929,36 @@
     let n;
     while ((n = walker.nextNode())) { items.push({ n, t: n.nodeValue }); n.nodeValue = ''; }
     let ii = 0, ci = 0;
-    for (let left = shown; left > 0 && ii < items.length;) {
-      const take = Math.min(left, items[ii].t.length - ci);
-      ci += take; left -= take;
-      items[ii].n.nodeValue = items[ii].t.slice(0, ci);
-      if (ci >= items[ii].t.length) { ii++; ci = 0; }
-    }
+    // Shows `left` more characters, passing over empty text.
+    const reveal = (left) => {
+      while (ii < items.length && (left > 0 || ci >= items[ii].t.length)) {
+        const take = Math.min(left, items[ii].t.length - ci);
+        ci += take; left -= take;
+        items[ii].n.nodeValue = items[ii].t.slice(0, ci);
+        if (ci >= items[ii].t.length) { ii++; ci = 0; }
+      }
+    };
+    reveal(shown);
     node.typing = true;
     const finish = () => {
-      clearInterval(node.typer); node.typer = null;
-      items.forEach((o) => { o.n.nodeValue = o.t; });
+      cancelAnimationFrame(node.typer); node.typer = null;
+      reveal(Infinity);
       done();
     };
     node.finish = finish;
-    node.typer = setInterval(() => {
-      while (ii < items.length && ci >= items[ii].t.length) { ii++; ci = 0; }
-      if (ii >= items.length) { finish(); return; }
-      ci++;
-      items[ii].n.nodeValue = items[ii].t.slice(0, ci);
-      el.scrollTop = el.scrollHeight;
-    }, speed);
+    const start = performance.now();
+    let typed = 0;
+    const step = (now) => {
+      const due = Math.floor((now - start) / speed);
+      if (due > typed) {
+        reveal(due - typed);
+        typed = due;
+        el.scrollTop = el.scrollHeight;
+      }
+      if (ii >= items.length) finish();
+      else node.typer = requestAnimationFrame(step);
+    };
+    node.typer = requestAnimationFrame(step);
   }
 
   // Marks a part as just shown, for looks that play once when it appears (Text Formatting's Shimmer). Taking the mark

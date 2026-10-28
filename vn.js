@@ -921,7 +921,7 @@
   }
 
   // `shown` characters appear at once and typing goes on from there (a Continue, see nodeContinued).
-  // Typing draws once a frame, with every character due by then, so the box is measured once a frame at most.
+  // Typing shows every character due by each frame together, so it reads the box's scroll height once a frame at most.
   function typeInto(el, html, speed, done, shown = 0) {
     el.innerHTML = html;
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -942,7 +942,7 @@
     node.typing = true;
     const finish = () => {
       cancelAnimationFrame(node.typer); node.typer = null;
-      items.forEach((o) => { o.n.nodeValue = o.t; });
+      reveal(Infinity);
       done();
     };
     node.finish = finish;

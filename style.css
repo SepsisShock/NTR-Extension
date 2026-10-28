@@ -14,6 +14,15 @@
   --ntr-on-accent: rgb(from var(--SmartThemeBlurTintColor, #171717) r g b / 1);
 }
 
+/* SillyTavern's page root has a transform, and on screens up to 1000px wide its body is fixed, which leaves the root
+   0px tall. Fixed boxes measure against that root, so it gets the screen's height back; without it, Visual Novel Mode,
+   the Map, the Opening and bottom-docked parts end up 0px tall or above the screen. */
+@media (width <= 1000px) {
+  html {
+    height: 100%;
+  }
+}
+
 #cb_banner {
   flex: none;
   line-height: 0;

@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.86.0';
+  const AGENTS_VERSION = '2.86.1';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -306,7 +306,7 @@
   }
 
   // ----- Saved results -----
-  // An answer is saved on the message that was newest when the run started, on its current swipe, under
+  // An answer is saved on the message it ran on (see aim), on its current swipe, under
   // extra.ntr_agents (by agent id) in the chat file. SillyTavern carries a message's extra along with its swipe, so
   // swipes, deleted messages and branches keep the right result. A new swipe starts as a copy of the
   // one it replaces, extra included, so each result also notes its swipe's date and only counts on that swipe. prev is
@@ -546,7 +546,7 @@
   // Since Its Last Result: the first message after its newest result before message `end`; null with none.
   const sinceFrom = (a, end) => { const r = latest(a.id, end - 1); return r ? r.mes + 1 : null; };
   // The messages it reads, up to message `at` (the last one when null). By Number never reads past it either.
-  // Since Its Last Result reads like Most Recent, from its last result on.
+  // Since Its Last Result reads like Most Recent, from the message after its last result.
   function readMsgs(a, at = null) {
     const all = ctx().chat || [];
     const end = at ?? all.length - 1;
@@ -1811,7 +1811,11 @@
     const picBtn = root.querySelector('#m_ag_pic');
     const picMenu = root.querySelector('#m_ag_picmenu');
     picBtn.onclick = () => { picMenu.hidden = !picMenu.hidden; picBtn.setAttribute('aria-expanded', String(!picMenu.hidden)); };
-    const setPic = (url) => { const old = a.pic; a.pic = url; changed(true); refreshBoxes(); if (old && old !== url) deleteFileIfUnused(old); };
+    // An upload can finish after the agent was deleted: its file then goes too.
+    const setPic = (url) => {
+      if (!list().includes(a)) { if (url) deleteFileIfUnused(url); return; }
+      const old = a.pic; a.pic = url; changed(true); refreshBoxes(); if (old && old !== url) deleteFileIfUnused(old);
+    };
     const fail = (e) => { console.error('[NTR agent picture]', e); toastr.error(e.message || 'Upload failed', 'Agent picture'); };
     root.querySelector('#m_ag_up').onclick = () => file.click();
     root.querySelector('#m_ag_url').onclick = async function() { const url = await askImageUrl('Agent picture', this, false); if (url) setPic(url); };

@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.86.2';
+  const VN_VERSION = '2.86.3';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -183,8 +183,8 @@
       #ntr_wx { position: fixed; inset: 0; z-index: 2415; pointer-events: none; display: none; overflow: hidden; }
       #ntr_wx.ntr_rain, #ntr_wx.ntr_snow { display: block; }
       #ntr_wx.ntr_rain { background: rgba(15, 25, 45, .18); }
-      #ntr_wx::before, #ntr_wx::after { content: ''; position: absolute; inset: calc(-25% - 380px) -25% -25%; background-repeat: repeat; }
-      #ntr_wx.ntr_rain::before, #ntr_wx.ntr_rain::after { transform-origin: 50% calc(50% + 190px); }
+      #ntr_wx::before, #ntr_wx::after { content: ''; position: absolute; --ntr-wx-reach: 380px; inset: calc(-25% - var(--ntr-wx-reach)) -25% -25%; background-repeat: repeat; }
+      #ntr_wx.ntr_rain::before, #ntr_wx.ntr_rain::after { transform-origin: 50% calc(50% + var(--ntr-wx-reach) / 2); }
       #ntr_wx.ntr_rain::before { background-image: url("${WX.r1}"); background-size: 220px 220px; transform: rotate(12deg); animation: ntr_fall1 .45s linear infinite; }
       #ntr_wx.ntr_rain::after { background-image: url("${WX.r2}"); background-size: 300px 300px; transform: rotate(12deg); opacity: .6; animation: ntr_fall2 .7s linear infinite; }
       #ntr_wx.ntr_snow::before { background-image: url("${WX.s1}"); background-size: 260px 260px; animation: ntr_fall3 9s linear infinite, ntr_sway 4s ease-in-out infinite alternate; }

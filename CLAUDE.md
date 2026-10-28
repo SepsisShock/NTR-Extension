@@ -12,7 +12,7 @@ SillyTavern extension. NTR is being developed for public release.
 ## Workflow & Git
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - For anything beyond a small fix, propose a plan and wait for explicit approval from me before changing files.
-- One PR per logical change; open it when done. Give anything unrelated or larger than the task its own PR. Ask before deleting or renaming files.
+- One PR per logical change; open it when done. Ask before deleting or renaming files.
 - Show proposed wording or diffs and get approval before committing changes to `.md` or `.json` files, except the version number `scripts/version.cjs` writes.
 - If a `CLAUDE.md` rule, repo skill, test or script is wrong or outdated, flag it in chat when you notice, and in the PR summary.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.18';
+  const VERSION = '2.86.19';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -42,12 +42,6 @@ await (async () => {
     // Foreground Settings
     fgEnabled: false,
     fgOpacity: 100,
-    fgLeft: '',
-    fgCenter: '',
-    fgRight: '',
-    fgLeftScale: 100,
-    fgCenterScale: 100,
-    fgRightScale: 100,
 
     // Edit Placement (dragging pop-outs and foreground images): editor choices, not part of themes
     placeSnap: false, placeGrid: 20,
@@ -82,9 +76,7 @@ await (async () => {
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
     nodeAuto: false, nodeAutoDelay: 2500, nodeOpacity: 88, nodePortrait: 120,
-    nodeAvatars: {},
     nodeUserMsgs: true, nodePicker: true, nodeHideEmo: true, nodeShape: 'rounded',
-    nodeEmoImgs: {}, nodeCustomSpk: [],
     emotions: [
       { id: 'emo_neutral', name: 'Neutral' }, { id: 'emo_happy', name: 'Happy' },
       { id: 'emo_sad', name: 'Sad' }, { id: 'emo_angry', name: 'Angry' },
@@ -257,6 +249,8 @@ await (async () => {
       if (s[k] === undefined) s[k] = structuredClone(DEFAULTS[k]);
     }
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
+    // An old copy of foreground images and VN portraits. Cleanup would count its files as in use forever.
+    delete s.legacyBackup;
     // Visual Novel Mode is Reader Mode's Visual Novel style, so it's only on while Reader Mode is.
     if (s.nodeEnabled && !s.rdEnabled) s.rdEnabled = true;
     if (s.uiOpen && !('rd_vn' in s.uiOpen)) openStyleGroup(s);
@@ -684,14 +678,6 @@ await (async () => {
     }
     const def = defaultBanner();
     for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
-    // Before 2.3 Global had no images of its own, so a Global character with its own images, link or video
-    // becomes Char and keeps showing them. Checked once per banner, so switching to Global later sticks.
-    if (!r.sharedChecked) {
-      const own = r.scope !== 'char' && (r.images.length || r.youtubeUrl || r.video);
-      if (own) startChar(r);
-      r.sharedChecked = true;
-      if (own && d) scheduleCardFlush(key);
-    }
     return r;
   };
 
@@ -1732,7 +1718,7 @@ await (async () => {
   const legacyMoved = new Set();
   // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see flushCard.
   const cardFix = new Set();
-  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null, sharedChecked: true });
+  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null });
 
   function charIndexByAvatar(av) {
     const cs = ctx().characters || [];
@@ -1839,7 +1825,6 @@ await (async () => {
       overlapOffset: cardNum(b.overlapOffset, 'bannerOffset', 0),
       scope: cPick(b.scope, ['global', 'char']),
       mode: cPick(b.mode, ['', 'image', 'youtube', 'video']),
-      sharedChecked: cBool(b.sharedChecked, false),
       rotate: cBool(b.rotate, false),
       rotateSec: Math.round(cardNum(b.rotateSec, 'bannerRotateSec', DEFAULTS.bannerRotateSec)),
       rotateFx: cPick(b.rotateFx, ['fade', 'swap']),
@@ -1952,40 +1937,6 @@ await (async () => {
   const FG_DEF = () => ({ Left: '', Center: '', Right: '', LeftScale: 100, CenterScale: 100, RightScale: 100, LeftLayer: 'behind', CenterLayer: 'behind', RightLayer: 'behind',
     LeftX: 0, LeftY: 0, CenterX: 0, CenterY: 0, RightX: 0, RightY: 0 });
 
-  // Before 2.1 foreground images and VN portraits were shared by every chat. They move into the
-  // first single-character chat opened after updating (a copy is kept in legacyBackup, just in case).
-  function legacyMigrate(st) {
-    const s = settings();
-    if (s.legacyMigrated) return;
-    const fgHas = FG_POS.some((p) => s['fg' + p]);
-    const vnHas = Object.keys(s.nodeAvatars || {}).length || Object.keys(s.nodeEmoImgs || {}).length || (s.nodeCustomSpk || []).length;
-    if (fgHas || vnHas) {
-      s.legacyBackup = {
-        fg: Object.fromEntries(FG_POS.flatMap((p) => [[p, s['fg' + p]], [p + 'Scale', s['fg' + p + 'Scale']]])),
-        vn: { avatars: s.nodeAvatars, emoImgs: s.nodeEmoImgs, customSpk: s.nodeCustomSpk },
-      };
-    }
-    if (fgHas) {
-      st.fg = Object.assign(FG_DEF(), st.fg || {});
-      for (const p of FG_POS) {
-        if (s['fg' + p] && !st.fg[p]) st.fg[p] = s['fg' + p];
-        st.fg[p + 'Scale'] = s['fg' + p + 'Scale'] ?? 100;
-      }
-    }
-    if (vnHas) {
-      st.vn = st.vn || {};
-      st.vn.avatars = { ...(s.nodeAvatars || {}), ...(st.vn.avatars || {}) };
-      st.vn.emoImgs = { ...(s.nodeEmoImgs || {}), ...(st.vn.emoImgs || {}) };
-      st.vn.customSpk = [...new Set([...(st.vn.customSpk || []), ...(s.nodeCustomSpk || [])])];
-    }
-    for (const p of FG_POS) s['fg' + p] = '';
-    s.nodeAvatars = {};
-    s.nodeEmoImgs = {};
-    s.nodeCustomSpk = [];
-    s.legacyMigrated = true;
-    save();
-  }
-
   // Per-chat storage: the character card for single chats, the extension settings for groups.
   function store() {
     const c = ctx();
@@ -1996,13 +1947,10 @@ await (async () => {
     }
     const key = currentKey();
     if (!key) return null;
-    let st = cardData(key);
-    if (!st) {
-      if (!s.charData[key]) s.charData[key] = {};
-      st = cleanStore(s.charData[key]);
-    }
-    legacyMigrate(st);
-    return st;
+    const st = cardData(key);
+    if (st) return st;
+    if (!s.charData[key]) s.charData[key] = {};
+    return cleanStore(s.charData[key]);
   }
 
   // The open chat's emotions: its own list (in the card, or the group's), or the template (the global list) when it has
@@ -2121,10 +2069,8 @@ await (async () => {
   }
 
   // Every character's card counts, so a file shared by two cards is never deleted out from under one.
-  // The pre-2.1 migration backup doesn't count, or files from back then could never be deleted.
   function filesInUse() {
-    const s = settings();
-    const set = collectFileRefs(s, new Set(), new Set(s.legacyBackup ? [s.legacyBackup] : []));
+    const set = collectFileRefs(settings());
     for (const ch of ctx().characters || []) collectFileRefs(ch?.data?.extensions?.ntr, set);
     return set;
   }
@@ -2137,10 +2083,10 @@ await (async () => {
 
   // ===== Removing NTR data =====
   // `look`: settings and themes (the whole extension settings). `chars`: the NTR data in every character card, plus the
-  // character, group chat and pre-2.1 copies kept in the settings. Files either one used go too, unless something
+  // character and group chat copies kept in the settings. Files either one used go too, unless something
   // that stays still uses them. Cards that aren't loaded yet (lazy loading) are loaded first when `chars` is set;
   // without it, their files can't be checked, so no file is deleted.
-  const CHAR_SETTINGS = ['chars', 'charData', 'groupData', 'legacyBackup'];
+  const CHAR_SETTINGS = ['chars', 'charData', 'groupData'];
   // Files a removal couldn't delete. Kept in SillyTavern's account storage, which outlives NTR's settings, so the
   // next removal tries them again.
   const LEFTOVER = 'ntr_leftover_files';

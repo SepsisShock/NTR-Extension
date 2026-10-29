@@ -55,11 +55,11 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | `click <css>` | clicks through the DOM, so it reaches other pages and folded parts. A disabled button ignores it, like for a user |
 | `tap <css>` | taps the element's middle by touch, scrolling to it first. Fails within 5 s if it's hidden, covered (and says by what) or has no size. On a phone the NTR menu's page icons sit in a drawer: `tap #cb_modal_overlay .ntr_navbtn` first. Needs `NTR_PHONE` |
 | `resize <W>x<H>` | changes the screen size, for example to stand in for a phone's address bar showing or hiding |
-| `set <css> \| <text>` | types into a field and fires `input` and `change` |
+| `set <css> \| <text>` | puts text in a field (it sets `value`, so `maxlength` doesn't apply) and fires `input` and `change` |
 | `upload <css> \| <file> [file...]` | puts files in a file input. Most Upload buttons pick a slot first, so `click` the button, then `upload` |
 | `ok` / `cancel` | presses the main button or Cancel of the question NTR shows under the last button clicked (Delete, Remove, Reset...) |
-| `answer <text>` | types into the open text question and presses its main button. Link buttons ask for a URL: `click` the Link button, then `answer <url>`. Prints `still open:` and the red hint if it wasn't accepted |
-| `eval <expression>` | runs in the page (may use `await`) and prints the result as JSON |
+| `answer <text>` | puts text in the open text question and presses its main button. Link buttons ask for a URL: `click` the Link button, then `answer <url>`. Prints `still open:` and the red hint if it wasn't accepted |
+| `eval <expression>` | runs one expression in the page (may use `await`) and prints the result as JSON. No `;`: wrap statements in `(() => { ...; return value; })()`, made `async` if they use `await` |
 | `card` | the open chat's NTR data as saved in the card file, read back from the server. If the page's copy is different, it's shown below it: a save still waiting, or NTR's empty defaults, which it doesn't save |
 | `ss [name]` / `shot <name> <css>` | screenshot of the page / of one element |
 | `wait <ms>`, `reload`, `errors` | pause; load the page again; page errors so far, minus SillyTavern's network noise. `errors` fails the run if there are any, so end with it. A failed load shows its address |
@@ -148,6 +148,7 @@ Reading the numbers:
 ## Gotchas
 
 - **The menu shows one page at a time and some parts are folded**, and Playwright's own `fill` and `waitForSelector` time out on elements that are hidden. Use the driver's `click` and `set`. In raw Playwright, set values through `page.evaluate` and wait with `{ state: 'attached' }`.
+- **`set` skips `maxlength`.** To test a limit, show the field (open its page and part with `menu`, and click any fold it's still in), then type the way a user does: `eval (() => { const el = document.querySelector('<css>'); el.focus(); document.execCommand('insertText', false, 'x'.repeat(2100)); return el.value.length; })()`. A hidden field can't take focus, so nothing goes in.
 - **Upload buttons open their file input from code**, and a headless page shows no file picker for that; even a forced Playwright click produced no file chooser. `click` the Upload button (it records the slot), then `upload` to the hidden input.
 - **SillyTavern clears every extension prompt when a chat opens, starts or reloads.** That's how NTR's Visual Novel instructions once went missing. Check `extensionPrompts.ntr_vn_tags` after `select` or `reloadCurrentChat()`, never only before.
 - **Card data is written 0.7 s after the last change**, and the driver closes the browser when its commands run out. A change made right before the end never reaches the card. End with `wait 1500` when the next run (or a `reload` or `card`) has to see it.

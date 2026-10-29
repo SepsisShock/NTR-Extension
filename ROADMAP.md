@@ -140,6 +140,9 @@ Keep the open-world feel, and let a card optionally have endings.
 
 Start this work only when the repository owner, SepsisShock, says release is approaching.
 
+### Settings upgrades for other users
+- [ ] Update CLAUDE.md's Storage & Migration rule: once others use NTR, keep `loadSettings` and theme upgrades instead of removing them after my setup has loaded them, and add one for every renamed or removed settings key. Put "`loadSettings` upgrades" back on the Dead Code & Guards "Always keep" list. First check that this is still how settings and themes are upgraded, since files, functions or CLAUDE.md sections may have been renamed or moved.
+
 ### Group chats
 - [ ] Revisit if group chats become useful to me or are requested. The shared Global banner could show in group chats too, which have no banner now. Check how other features may break or work in group chat, etc.
 - [ ] Agents: check that your reply waits for agents set off by your message in group chats too, and that several characters replying to one message doesn't stall.

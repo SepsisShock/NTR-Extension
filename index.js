@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.8';
+  const VERSION = '2.86.9';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2820,7 +2820,10 @@ await (async () => {
   // On a phone or in a narrow panel, the icon column hides behind the menu button in the title bar.
   function syncCompact(content) {
     const compact = isNarrow() || content.getBoundingClientRect().width < 400;
+    const wasCompact = content.classList.contains('ntr_compact');
     content.classList.toggle('ntr_compact', compact);
+    // The icon column hides at once on switching to compact; opening and closing it later still slide.
+    if (compact && !wasCompact) content.querySelector('.ntr_nav').getAnimations().forEach((a) => a.finish());
     if (!compact) content.classList.remove('ntr_navopen');
   }
 

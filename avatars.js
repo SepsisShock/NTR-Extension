@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.86.5';
+  const AVATARS_VERSION = '2.86.6';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -176,6 +176,9 @@
       origin: `transform-origin: calc(${fw} * ${n(f.k / 2 - f.x)}) calc(${fh} * ${n(f.k / 2)} - ${fw} * ${n(f.y)});`,
       // How far it reaches past each side of the picture, turned, for the room In Line keeps around it.
       spill: reach.map(([w, h]) => `max(0px, ${fw} * ${n(w)} + ${fh} * ${n(h)})`),
+      // The picture's width and what reaches past its left and right, in picture widths, for a picture whose height
+      // is tall times its width.
+      across: (tall) => `(1 + ${[reach[1], reach[3]].map(([w, h]) => `max(0, ${n(w)} + ${tall} * ${n(h)})`).join(' + ')})`,
       bg: `background: url("${f.img}") center / contain no-repeat;`,
     };
   }
@@ -336,12 +339,15 @@
       // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
       // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
       // The avatar's width, at most 40vw like the avatar's own.
-      const avW = `min(${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`}, 40vw)`;
+      const ownW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
+      const avW = `min(${ownW}, 40vw)`;
       const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
       const gap = (side) => (where === side ? ' + 6px' : '');
+      // On phones, a picture beside the text shrinks so it and its Frame together fit in the 40vw, leaving the text room.
+      const phoneW = b && !stacked && `min(${ownW}, 40vw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
       const frameCss = b ? `
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
-        position: relative !important; --ntr-fw: ${avW}; --ntr-fh: ${framed ? `calc(${avW} * ${aspect})` : `calc(${avW} / ${ar})`};
+        position: relative !important; --ntr-fw: ${avW}; --ntr-fh: ${framed ? `calc(var(--ntr-fw) * ${aspect})` : `calc(var(--ntr-fw) / ${ar})`};
         margin: calc(${b.spill[0]}${gap('below')}) ${stacked ? '0' : b.spill[1]} calc(${b.spill[2]}${gap('above')}) ${stacked ? '0' : b.spill[3]} !important;
       }
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper::before {
@@ -366,12 +372,16 @@
       ${frameCss}
       #chat .mes[is_user="${isUserStr}"] .avatar {
         position: relative !important; flex: none !important;
-        width: ${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
+        width: ${ownW} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
         ${turn ? `transform: rotate(${turn}deg) !important;` : ''}
         ${maskCss}
       }
+      ${phoneW ? `@media (width <= 1000px) {
+        #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper { --ntr-fw: ${phoneW}; }
+        #chat .mes[is_user="${isUserStr}"] .avatar { width: var(--ntr-fw) !important; }
+      }` : ''}
       ${layerCss(`#chat .mes[is_user="${isUserStr}"] .avatar`)}
       ${imgCss}
     `;

@@ -5,7 +5,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.86.7';
+  const ELEMENTS_VERSION = '2.86.8';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,

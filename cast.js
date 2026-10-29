@@ -194,8 +194,9 @@
     return baseFace(name);
   }
 
-  // Stage picture: the full body wins. Otherwise the faces, never card or persona avatars. With Stage Keeps Main Face
-  // on, the stage keeps the base face whatever the emotion. Nothing found is null (Visual Novel Mode puts its silhouette there).
+  // Stage picture: the full body wins. Otherwise the face for the emotion or the main face, never card or persona
+  // avatars. With Stage Keeps Main Face on, the stage keeps the base face whatever the emotion, which falls back to the
+  // card or persona picture. Nothing found is null (Visual Novel Mode puts its silhouette there).
   function bodySrc(name, emoName) {
     const s = settings();
     const v = D();

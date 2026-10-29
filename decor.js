@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Floating send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.86.6';
+  const DECOR_VERSION = '2.86.7';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
@@ -202,6 +202,8 @@
         css += `\n      @media (max-width: 1000px) {${cssRule(`${rest} .mesAvatarWrapper`, { display: 'none' })} }`;
       }
       css += cssRule(`${sel}.ntr_bub_next`, { 'padding-bottom': '2px' }) + cssRule(`${sel}.ntr_bub_prev`, { 'padding-top': '2px' });
+      // Only the first message of a run shows the name and time. The message buttons keep their place.
+      css += cssRule(`${sel}.ntr_bub_prev .ch_name > .flex1`, { visibility: 'hidden' });
     }
     return css;
   }

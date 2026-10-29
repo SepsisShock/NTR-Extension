@@ -5,7 +5,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.86.20';
+  const ELEMENTS_VERSION = '2.86.21';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -342,9 +342,9 @@
     const s = settings();
     const live = isOn() && s.rbEnabled;
     cssTag('ntr_rb_css', rbCssText((k) => live && s[k + 'On'] && s[k]));
-    cssTag('ntr_scroll_css', isOn() && s.ovScrollOn && s.ovScrollCssOn ? String(s.ovScrollCss || '').slice(0, 2000).trim() : '');
-    cssTag('ntr_cursor_css', isOn() && s.ovCursorOn && s.ovCursorCssOn ? String(s.ovCursorCss || '').slice(0, 2000).trim() : '');
-    cssTag('ntr_qr_css', isOn() && s.ovQrOn && s.ovQrCssOn ? String(s.ovQrCss || '').slice(0, 2000).trim() : '');
+    for (const [id, k] of [['scroll', 'ovScroll'], ['cursor', 'ovCursor'], ['qr', 'ovQr']]) {
+      cssTag(`ntr_${id}_css`, isOn() && s[k + 'On'] && s[k + 'CssOn'] ? s[k + 'Css'].trim() : '');
+    }
   }
 
   // Reasoning status text. ST rewrites the label while it thinks and when it finishes; the label is swapped on screen
@@ -574,13 +574,6 @@
     }
   }
 
-  function bindCssBoxes(overlay, prefix) {
-    overlay.querySelectorAll(`.m_css[data-key^="${prefix}"]`).forEach((box) => {
-      box.oninput = () => { settings()[box.dataset.key] = box.value.slice(0, 2000); syncCustomCss(); };
-      box.onchange = save;
-    });
-  }
-
   // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
     return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
@@ -601,7 +594,6 @@
     bindMessageDetails(overlay, s);
     bindCursor(overlay, s);
     bindMenuBarIcons(overlay, s);
-    bindCssBoxes(overlay, 'ov');
   }
 
   function bindReasoning(overlay, s) {
@@ -645,7 +637,6 @@
     for (const ev of ['input', 'change', 'click']) part.addEventListener(ev, () => setTimeout(syncFade), true);
     syncFade();
     onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
-    bindCssBoxes(overlay, 'rb');
     bindReasoningArrow(overlay, s);
     bindReasoningBg(overlay, s, syncFade);
   }
@@ -738,7 +729,7 @@
           </div>`)}
           ${card('Reasoning Arrow', `
           ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'ST\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']], s.rbArrow))}
-          ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼', 16) + '<div class="cb_hint">Empty shows ST\'s arrow.</div>', ' data-rbarrow="symbol"')}
+          ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼') + '<div class="cb_hint">Empty shows ST\'s arrow.</div>', ' data-rbarrow="symbol"')}
           ${picSlotHtml(RB_ARROW_PIC)}
           <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Color emoji keep their own colors.</div>')}</div>
           <div data-rbarrow="shown">

@@ -5,7 +5,7 @@
 // a theme holds, how it's cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.
 (() => {
-  const THEMES_VERSION = '2.86.20';
+  const THEMES_VERSION = '2.86.21';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
@@ -240,7 +240,7 @@
         return;
       }
       // Someone else's Custom CSS can restyle all of SillyTavern, so it's shown here and comes in switched off.
-      const cssIn = CSS_PARTS.map(([sec, keys, name, where, text = (get) => String(get(keys[0]) || '').trim()]) => [name, where, text((k) => cleaned[sec][k])])
+      const cssIn = CSS_PARTS.map(([sec, keys, name, where, text = (get) => (get(keys[0]) || '').trim()]) => [name, where, text((k) => cleaned[sec][k])])
         .filter(([, , css]) => css);
       showPanel(tbar, `
         <div class="ntr_tpanel">
@@ -262,7 +262,7 @@
         if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
         const name = freeName(panel.querySelector('#m_t_iname').value.trim() || 'Imported Theme', nameTaken);
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
-        for (const [sec, keys] of CSS_PARTS) for (const k of keys) if (data[sec] && String(data[sec][k] || '').trim()) data[sec][k + 'On'] = false;
+        for (const [sec, keys] of CSS_PARTS) for (const k of keys) if (data[sec] && (data[sec][k] || '').trim()) data[sec][k + 'On'] = false;
         if (hasEmbedded(data)) {
           toastr.info('Uploading the theme\'s pictures...', 'Themes');
           const r = await unpackFiles(data);

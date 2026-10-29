@@ -115,19 +115,6 @@ test('the Frame library keeps safe links and short names, and drops the rest', (
   c.frameHidden = [];
 });
 
-test('a frame uploaded before the library keeps each side\'s fit, even when both sides use it', () => {
-  const img = '/user/files/avframe_old.png';
-  const c = reloadSettings({ frameLibMoved: false, aiFrame: '', aiFrameImg: img, aiFrameSize: 235, aiFrameX: 11, aiFrameY: -6,
-    usFrame: '', usFrameImg: img, usFrameSize: 210, usFrameX: -9, usFrameY: 4 });
-  assert.equal(c.frameLib.folders[0].frames.filter((f) => f.img === img).length, 1);
-  assert.deepEqual(c.frameFits.ai[img], [235, 11, -6]);
-  assert.deepEqual(c.frameFits.us[img], [210, -9, 4]);
-  c.frameLib.folders[0].frames = c.frameLib.folders[0].frames.filter((f) => f.img !== img);
-  delete c.frameFits.ai[img];
-  delete c.frameFits.us[img];
-  Object.assign(c, { aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0, usFrameImg: '', usFrameSize: 140, usFrameX: 0, usFrameY: 0 });
-});
-
 test('Oval is an ellipse as tall as Rectangle', () => {
   const s = api.settings();
   Object.assign(s, { masterEnabled: true, avatarEnabled: true, aiEnabled: true, aiStyle: 'inline', aiShape: 'oval', aiScale: 100, usEnabled: false });

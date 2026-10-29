@@ -5,11 +5,11 @@
 // a theme holds, how old ones are upgraded and cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.
 (() => {
-  const THEMES_VERSION = '2.86.16';
+  const THEMES_VERSION = '2.86.17';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
-    lookSnapshot, applyLook, resetLook, upgradeTheme, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
+    lookSnapshot, applyLook, resetLook, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
     unpackFiles, isObj, stColor, downloadJson, freeName } = A;
   const { COLOR_FROM, rbCssText, RB_CSS } = A.look;
   const openCombinedModal = () => A.openMenu();
@@ -229,7 +229,6 @@
       let j;
       try { j = JSON.parse(await readText(f)); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
-      upgradeTheme(j.sections);
       // Cleaned once for the preview. Adding cleans again, since the clash checks follow the settings, which can change meanwhile.
       const cleaned = Object.fromEntries(Object.keys(LOOK).map((k) => [k, cleanLookSection(k, j.sections[k])]));
       const secs = Object.keys(LOOK).filter((k) => Object.keys(cleaned[k]).length);

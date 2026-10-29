@@ -42,8 +42,3 @@ test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s,
   s.ovNamesOn = false;
 });
 
-test('Names and Pictures on with Show, which hid nothing, loads as Hide Names and Avatars off', () => {
-  const s = reloadSettings({ ovNamesOn: true, ovNames: 'show' });
-  assert.equal(s.ovNamesOn, false);
-  assert.equal(s.ovNames, 'hide');
-});

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.21';
+  const VERSION = '2.86.22';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -86,7 +86,7 @@ await (async () => {
     delimSpkOpen: '((', delimSpkClose: '))', delimNarOpen: '[[', delimNarClose: ']]',
     delimEmo: '%%', narratorWord: 'Narrator',
     // Emotions outside Visual Novel Mode (cast.js): faces on chat avatars, the stage behind the chat, the [[Emotion:X]] tag
-    emoWord: 'Emotion', emoSource: 'tags', emoFaces: false, emoStage: false, emoStageScale: 100, emoStageOpacity: 100, emoInject: true,
+    emoWord: 'Emotion', emoFaces: false, emoStage: false, emoStageScale: 100, emoStageOpacity: 100, emoInject: true,
 
     // Reasoning Block (colors start empty and are filled from SillyTavern's own when the menu opens; empty status text means ST's own)
     rbEnabled: true, rbThink: '', rbDone: '', rbSome: '', rbTyping: 'off',
@@ -251,6 +251,8 @@ await (async () => {
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     // An old copy of foreground images and VN portraits. Cleanup would count its files as in use forever.
     delete s.legacyBackup;
+    // The Emotion Source choice, which only ever had Tags.
+    delete s.emoSource;
     // Visual Novel Mode is Reader Mode's Visual Novel style, so it's only on while Reader Mode is.
     if (s.nodeEnabled && !s.rdEnabled) s.rdEnabled = true;
     if (s.uiOpen && !('rd_vn' in s.uiOpen)) openStyleGroup(s);
@@ -1608,7 +1610,7 @@ await (async () => {
     layPage: ['attached', 'free'], layPhPage: ['attached', 'free'], layBan: ['attached', 'free'], layPhBan: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
     opPos: ['upper', 'center', 'lower'], opExit: ['stay', 'fade', 'rise'], opTrans: ['color', 'cross'],
-    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), emoSource: ['tags', 'agent'], aiFrame: ['', ...FRAME_IDS], usFrame: ['', ...FRAME_IDS],
+    rdStyle: ['plain', 'book'], rdBook: BOOKS.map(([v]) => v), aiFrame: ['', ...FRAME_IDS], usFrame: ['', ...FRAME_IDS],
     ovBubTail: BUB_TAIL_OPTS.map(([v]) => v), ovBubTailPos: ['top', 'bottom'], ovBubAlign: ['left', 'sides', 'swap'], ovBubFit: ['fill', 'shrink'], ovBubGroup: ['group', 'each'], ovBubInk: BUB_INK_OPTS.map(([v]) => v),
     ovQrWrap: ['wrap', 'scroll'], ovQrAlign: Object.keys(QR_ALIGN),
     mdDate: ['long', 'short'], mdSep: Object.keys(MD_SEP),

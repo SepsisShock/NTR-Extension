@@ -636,7 +636,7 @@
     return () => { c.eventSource.removeListener(name, hook); restore(); };
   }
 
-  // Stop and the time limit end a run right away, even while it waits for your reply or for an answer.
+  // Stop ends a run right away, even while it waits for your reply or for an answer. The time limit starts once it runs.
   const abortable = (p, signal) => new Promise((res, rej) => {
     if (signal.aborted) { rej(new Error('Stopped')); return; }
     const stop = () => rej(new Error('Stopped'));
@@ -1259,7 +1259,8 @@
       </div>`;
   }
 
-  // What the agent sends on its next run, from the chat as it is now. Keys and links are never part of it.
+  // What the agent sends on its next run, from the chat as it is now. With your chat's full prompt, only its instructions
+  // show: SillyTavern adds the rest. Keys and links are never part of it.
   function previewHtml(a) {
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
     if (usesFull(a)) return `<div class="cb_hint" style="margin:0;"><strong>Instructions</strong>${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
@@ -2043,9 +2044,9 @@
   // ----- In a Pinned Block (Agent Results) -----
   // Each picked agent's newest saved result up to message upTo (Reader Mode's page, or the last message). Free Text is
   // formatted like a message: Markdown and your regexes, sanitized by SillyTavern. Fields is drawn as rows under its
-  // headings, with what changed since the agent's result on an earlier message marked, and a click on a value edits
-  // it. Run Again (on that message), Edit Saved Text and Undo sit next to its name. Stacked shows every agent, each
-  // folding open and closed; Tabs shows one. Folds and tabs are kept for each box until you reload.
+  // headings, with what changed since the agent's result on an earlier message marked, and a click on a number or text
+  // value edits it (lists use Edit Saved Text). Run Again (on that message), Edit Saved Text and Undo sit next to its
+  // name. Stacked shows every agent, each folding open and closed; Tabs shows one. Folds and tabs are kept for each box until you reload.
   // editing: the saved text being edited; fieldEdit: the one value being edited. Both by agent, chat, message and swipe
   // date, so a redraw keeps them only on the result they were started on.
   let editing = null;

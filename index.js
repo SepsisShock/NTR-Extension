@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.16';
+  const VERSION = '2.86.17';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -147,12 +147,12 @@ await (async () => {
     // Menu Bar Icons (Elements): your own pictures for the icons on SillyTavern's menu bar, keyed by the id of each icon's
     // drawer (see menuBarIconCss in elements.js). Each is { img, mode: 'tint' or 'full', name }.
     mbOn: false, mbIcons: {},
-    // Quick Replies restyle SillyTavern's Quick Reply bar. Shape, Background and Border come from BOX_PARTS. ST's hover
-    // color is a plain gray, not one of its theme colors, so it starts filled in like the scrollbar's Track Color.
     // Message Details (Elements): which details show in each spot, and their look (see messageDetailsCss in elements.js).
     // The spots start where SillyTavern puts them.
     mdOn: false, mdAv: ['num', 'gen', 'tok'], mdRow: ['date', 'time'], mdCorner: [], mdBelow: [], mdDate: 'long', mdSep: 'dot',
     mdSizeOn: false, mdSize: 1, mdColorOn: false, mdColor: '', mdOpacityOn: false, mdOpacity: 70, mdPillOn: false, mdPill: '',
+    // Quick Replies restyle SillyTavern's Quick Reply bar. Shape, Background and Border come from BOX_PARTS. ST's hover
+    // color is a plain gray, not one of its theme colors, so it starts filled in like the scrollbar's Track Color.
     ovQrOn: false, ovQrTextOn: false, ovQrText: '', ovQrHoverOn: false, ovQrHover: 'rgba(77, 77, 77, 1)', ovQrSizeOn: false, ovQrSize: 1,
     ovQrWrapOn: false, ovQrWrap: 'scroll', ovQrGapOn: false, ovQrGap: 5, ovQrAlignOn: false, ovQrAlign: 'center', ovQrOpacityOn: false, ovQrOpacity: 70,
     ovQrCssOn: false, ovQrCss: '',
@@ -204,7 +204,8 @@ await (async () => {
   }
   // Overall Font Scale keeps its old UI Display key names so saved configs keep working; it now lives in Text Formatting.
   const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
-  // Avatar Shape keeps its UI Display key names too; it now lives in Avatar Management.
+  // Avatar Shape has no setting now; its keys stay only so old settings and themes still load (upgradeLook switches it
+  // off). Themes file them under Avatar Management.
   const AVATAR_SHAPE_KEYS = ['ovAvatarOn', 'ovAvatar'];
 
   const ctx = () => SillyTavern.getContext();
@@ -3416,10 +3417,8 @@ await (async () => {
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,
-    // For reader.js and vn.js. Visual Novel Mode is Reader Mode's Visual Novel style, so setReader(true, true) turns
-    // both on.
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
-    refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, setReader: (on, vn) => setReader(on, vn), syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v), fontName: (v) => fontName(v),
+    refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v), fontName: (v) => fontName(v),
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
     LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, upgradeTheme, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
     unpackFiles, isObj, stColor,
@@ -3430,12 +3429,12 @@ await (async () => {
     // For cast.js: Pop Out catches up after a face changes
     syncPopouts: () => syncPopouts(),
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
-    peek, bannerSrc, startChar, ROT_KEYS, BANNER_LOOK_KEYS, fgData, FG_POS, fgTransform, cardNum, cNum, card, pagePart,
+    peek, bannerSrc, startChar, ROT_KEYS, BANNER_LOOK_KEYS, fgData, FG_POS, fgTransform, cardNum, card, pagePart,
     // Edit Placement (layout.js), for avatars.js and overlays.js. Without layout.js, the pictures keep their place and
     // sliders, and the buttons say why they do nothing.
     startPlacement: (first) => (window.NTR.layout ? callModule('layout', 'startPlacement', first) : toastr.info('Layout didn\'t load, so Edit Placement isn\'t available.', 'Edit Placement')),
     drawPlace: () => callModule('layout', 'drawPlace'),
-    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, groupFlip, uploadDataUrl, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
+    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, groupFlip, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

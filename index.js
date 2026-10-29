@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.10';
+  const VERSION = '2.86.11';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1326,10 +1326,8 @@ await (async () => {
   ];
   // Lines in the column: Themes and Reader Mode, then your look (Layout to Overlays), then the pages that work on the chat itself.
   const NAV_SEP = new Set(['layout', 'regex']);
-  // Pages that show what's planned and do nothing yet. Their icon stays greyed.
-  const SOON = new Set();
   const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
-    `<button class="ntr_navi${id === cur ? ' on' : ''}${SOON.has(id) ? ' ntr_off' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
+    `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
     + '<div class="ntr_navfill"></div>';
   // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
   // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
@@ -1337,7 +1335,7 @@ await (async () => {
   function pageHtml(sec, body, { sw = null, legend = false, note = '', wait = '' } = {}) {
     const [, icon, , title] = PAGES.find(([id]) => id === sec);
     return `
-      <section class="ntr_page${(sw && !sw[1]) || SOON.has(sec) ? ' ntr_off' : ''}" data-page="${sec}"${wait ? ` data-ntr-wait="${wait}"` : ''}${settings().uiPage === sec ? '' : ' hidden'}>
+      <section class="ntr_page${sw && !sw[1] ? ' ntr_off' : ''}" data-page="${sec}"${wait ? ` data-ntr-wait="${wait}"` : ''}${settings().uiPage === sec ? '' : ' hidden'}>
         <div class="ntr_phead">
           <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
           <h3 class="ntr_ptitle">${title}</h3>
@@ -1506,9 +1504,8 @@ await (async () => {
     overlay.querySelectorAll('.ntr_page').forEach((p) => {
       const sw = p.querySelector('.ntr_phead .ntr_pswitch');
       const parts = [...p.querySelectorAll('.ntr_part .ntr_pswitch')];
-      const soon = SOON.has(p.dataset.page);
-      p.classList.toggle('ntr_off', soon || (!!sw && !sw.checked));
-      const off = soon || (sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked));
+      p.classList.toggle('ntr_off', !!sw && !sw.checked);
+      const off = sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked);
       overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
     });
   }

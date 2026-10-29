@@ -425,15 +425,19 @@
     }
   }
 
+  // The side of a chat avatar picture.
+  const sideOf = (img) => (img.closest('#chat .mes').getAttribute('is_user') === 'true' ? 'us' : 'ai');
+  // The open menu's refresh of each side's rows (see bindCol), for a picture that loads while it's open.
+  const colSyncs = {};
+
   // NTR's Backdrop shows the full-size picture, not SillyTavern's small thumbnail. It's loaded first and only swapped
   // in once it's there: SillyTavern replaces a chat avatar that fails to load with a "missing" icon. SillyTavern puts its
   // thumbnail back when it redraws a message in place (a swipe, a finished reply), so it's swapped in again then.
   function fullAvatar(img) {
-    const mes = img.closest('#chat .mes');
     const src = img.getAttribute('src');
     // Already the full-size picture.
-    if (!mes || !src || img.dataset.ntrFull === src) return;
-    const p = mes.getAttribute('is_user') === 'true' ? 'us' : 'ai';
+    if (!src || img.dataset.ntrFull === src) return;
+    const p = sideOf(img);
     const s = settings();
     if (!ntrAvatars(s, p) || s[p + 'Style'] === 'popout') return;
     // A face from Emotions (cast.js) is already full size.
@@ -457,11 +461,17 @@
     syncAvatarCss();
     document.querySelectorAll('#chat .mes .avatar img').forEach((img) => { if (img.complete) setAvatarRatio(img); fullAvatar(img); });
   }
-  // A chat avatar picture that just loaded.
+  // A chat avatar picture that just loaded. The open menu's rows follow it (see picAspect).
   function avatarImgLoaded(img) {
     setAvatarRatio(img);
     fullAvatar(img);
+    colSyncs[sideOf(img)]?.();
   }
+  // And a pop-out picture that just loaded: it starts loading only after a switch to Pop Out has redrawn them.
+  document.addEventListener('load', (e) => {
+    const m = /^cb_pop_(ai|us)$/.exec(e.target.id);
+    if (m) colSyncs[m[1]]?.();
+  }, true);
 
   // NTR Avatars on each side. A side that's switched off keeps SillyTavern's own avatar.
   function avatarsCss(s) {
@@ -760,6 +770,7 @@
         col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', scaleOff);
         drawFrame();
       };
+      colSyncs[prefix] = () => { if (col.isConnected) syncScale(); };
       // The Frame: its preview, name, Delete and the rows, which wait for a frame.
       const drawFrame = () => {
         const on = !!frameOf(s, prefix);

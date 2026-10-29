@@ -1571,8 +1571,9 @@ await (async () => {
   // Attached Style: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
   const sendSeparate = (s) => layoutOn(s) && s.ovSendPosOn && s.ovSendPos === 'separate';
 
-  // How much of a box's bottom (r, a rect) a Floating send bar covers, or 0 when it isn't over that bottom half. For
-  // layout.js, reader.js and vn.js, which each keep the box above it.
+  // The room in px a box (r, a rect) keeps clear for a Floating send bar: from r's bottom up to the send bar's top, when
+  // that top is in r's lower half and their widths overlap; otherwise 0. For layout.js, reader.js and vn.js, which
+  // check Floating first.
   function sendCover(r, form) {
     const f = form?.getBoundingClientRect();
     return f && f.height && f.left < r.right && f.right > r.left && f.top < r.bottom && f.top > r.top + r.height / 2 ? r.bottom - f.top : 0;

@@ -13,6 +13,9 @@ Ideas and planned work for Nitwit Tavern Redesign. When something ships, it come
 ### Speech Bubbles: comic dialogue
 - [ ] Only the quoted speech in a bubble, with the narration as plain text, so long replies read like a comic or a visual novel in the normal chat. Means picking apart the message text, so it's a bigger job.
 
+### Speech Bubbles: Discord preset
+- [ ] Recent chats list, like Discord's Messages list: the characters you chatted with most recently, each with avatar, name, last message preview and time since.
+
 ### Interface Shape: Square Screen Edges
 Interface Shape rounds or squares every corner of SillyTavern's and NTR's windows, even against the screen edge.
 

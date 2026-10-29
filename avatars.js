@@ -343,11 +343,13 @@
       const avW = `min(${ownW}, 40vw)`;
       const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
       const gap = (side) => (where === side ? ' + 6px' : '');
-      // On phones, a picture beside the text shrinks so it and its Frame together fit in the 40vw, leaving the text room.
-      const phoneW = b && !stacked && `min(${ownW}, 40vw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
+      // Beside the text, the picture shrinks so it and its Frame together take at most 40% of the message's width
+      // (40cqw, with the message as the container), leaving the text room.
+      const sideW = b && !stacked && `min(${ownW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
       const frameCss = b ? `
+      ${sideW ? `#chat .mes[is_user="${isUserStr}"] { container-type: inline-size !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
-        position: relative !important; --ntr-fw: ${avW}; --ntr-fh: ${framed ? `calc(var(--ntr-fw) * ${aspect})` : `calc(var(--ntr-fw) / ${ar})`};
+        position: relative !important; --ntr-fw: ${sideW || avW}; --ntr-fh: ${framed ? `calc(var(--ntr-fw) * ${aspect})` : `calc(var(--ntr-fw) / ${ar})`};
         margin: calc(${b.spill[0]}${gap('below')}) ${stacked ? '0' : b.spill[1]} calc(${b.spill[2]}${gap('above')}) ${stacked ? '0' : b.spill[3]} !important;
       }
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper::before {
@@ -372,16 +374,12 @@
       ${frameCss}
       #chat .mes[is_user="${isUserStr}"] .avatar {
         position: relative !important; flex: none !important;
-        width: ${ownW} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
+        width: ${sideW ? 'var(--ntr-fw)' : ownW} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
         ${turn ? `transform: rotate(${turn}deg) !important;` : ''}
         ${maskCss}
       }
-      ${phoneW ? `@media (width <= 1000px) {
-        #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper { --ntr-fw: ${phoneW}; }
-        #chat .mes[is_user="${isUserStr}"] .avatar { width: var(--ntr-fw) !important; }
-      }` : ''}
       ${layerCss(`#chat .mes[is_user="${isUserStr}"] .avatar`)}
       ${imgCss}
     `;

@@ -2822,7 +2822,7 @@ await (async () => {
     const compact = isNarrow() || content.getBoundingClientRect().width < 400;
     const wasCompact = content.classList.contains('ntr_compact');
     content.classList.toggle('ntr_compact', compact);
-    // The icon column hides at once here; it slides only from the menu button.
+    // The icon column hides at once on switching to compact; opening and closing it later still slide.
     if (compact && !wasCompact) content.querySelector('.ntr_nav').getAnimations().forEach((a) => a.finish());
     if (!compact) content.classList.remove('ntr_navopen');
   }

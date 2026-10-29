@@ -1660,8 +1660,8 @@ await (async () => {
   }
 
   // Custom CSS for the reasoning button, box and arrow, each inside its part's selector. The three share one style tag,
-  // and each other Custom CSS box has its own (see syncCustomCss in elements.js), so a typo can't break the extension's
-  // other styles.
+  // and each other Custom CSS box has its own (see syncCustomCss in elements.js and syncAvatarCss in avatars.js), so a
+  // typo can't break the extension's other styles.
   const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning'], ['rbArrowCss', '.mes_reasoning_details .mes_reasoning_arrow']];
   // The reasoning Custom CSS boxes that `get` gives text for, each inside its part's selector.
   const rbCssText = (get) => RB_CSS.map(([k, sel]) => {

@@ -204,8 +204,7 @@ await (async () => {
   }
   // Overall Font Scale keeps its old UI Display key names so saved configs keep working; it now lives in Text Formatting.
   const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
-  // Avatar Shape has no setting now; its keys stay only so old settings and themes still load (upgradeLook switches it
-  // off). Themes file them under Avatar Management.
+  // No setting uses these now; they stay only so old settings and themes still load (upgradeLook switches it off).
   const AVATAR_SHAPE_KEYS = ['ovAvatarOn', 'ovAvatar'];
 
   const ctx = () => SillyTavern.getContext();

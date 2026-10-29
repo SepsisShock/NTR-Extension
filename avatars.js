@@ -5,12 +5,12 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.86.19';
+  const AVATARS_VERSION = '2.86.20';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
     rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
-  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, cUrl, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
+  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
     restyle: updateAvatarStyle, svgMask } = A.look;
   const openCombinedModal = () => A.openMenu();
 
@@ -24,6 +24,10 @@
   // as Rectangle; Rectangle and Square take Corners.
   const SHAPES = { round: 1, oval: 1.5, rectangle: 1.5, square: 1, heart: 1, star: 1 };
   const ellipse = (shape) => shape === 'round' || shape === 'oval';
+  // A side's Shape, or null for None.
+  const shapeOf = (s, prefix) => (SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null);
+  // The Frame's settings, remembered together for each frame.
+  const FRAME_KEYS = ['FrameSize', 'FrameX', 'FrameY'];
 
   // Heart and Star are outlines that cut the picture (a mask), drawn in a 100 x 100 box stretched over the frame. The
   // star's points are thick, so it keeps more of the picture.
@@ -66,13 +70,15 @@
     grainy: `background: ${GRAIN} 0 0 / 120px 120px repeat;`,
     pixel: 'background: repeating-linear-gradient(to right, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px), repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px);',
   };
+  // A side's Filter and Texture (undefined for None), each with its Strength from 0 to 1.
+  const sideLook = (s, prefix) => ({
+    f: FILTERS[s[`${prefix}Filter`]], fStr: rangeNum(s, prefix + 'FilterStr') / 100,
+    t: TEXTURES[s[`${prefix}Texture`]], tStr: rangeNum(s, prefix + 'TextureStr') / 100,
+  });
   // A side's Filter as the picture's filter rule, and its Texture as the rule for the layer over it (the box's ::after).
-  // Shape Only turns the layer back with the picture, a little bigger so it still fills the turned shape.
+  // Keep Picture Upright turns the layer back with the picture, a little bigger so it still fills the turned shape.
   function lookCss(s, prefix) {
-    const f = FILTERS[s[`${prefix}Filter`]];
-    const fStr = rangeNum(s, prefix + 'FilterStr') / 100;
-    const t = TEXTURES[s[`${prefix}Texture`]];
-    const tStr = rangeNum(s, prefix + 'TextureStr') / 100;
+    const { f, fStr, t, tStr } = sideLook(s, prefix);
     const turn = rangeNum(s, prefix + 'Rotate');
     return {
       filter: f && fStr ? `filter: ${f.fx(fStr)} !important;` : '',
@@ -80,11 +86,16 @@
         + (shapeOnly(s, prefix) ? ` transform: rotate(${-turn}deg) scale(${r3(turnCover(s[`${prefix}Shape`], turn))}) !important;` : '') : '',
     };
   }
-  // The newest picture of a side in the chat, for the menu's previews.
-  const sidePic = (prefix) => {
-    const imgs = document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
-    return imgs[imgs.length - 1]?.getAttribute('src');
-  };
+  // The newest picture of a side in the chat.
+  const chatPic = (prefix) => [...document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`)].pop();
+  // Its link, for the menu's previews.
+  const sidePic = (prefix) => chatPic(prefix)?.getAttribute('src');
+  // A side's picture as its height for a width of 1: the pop-out's, or the newest in the chat (a portrait while there's
+  // none). On Pop Out the chat keeps SillyTavern's thumbnails, which are cropped to one shape.
+  function picAspect(s, prefix) {
+    const img = s[`${prefix}Style`] === 'popout' ? document.getElementById(`cb_pop_${prefix}`) : chatPic(prefix);
+    return img?.naturalWidth && img.naturalHeight ? img.naturalHeight / img.naturalWidth : 1.5;
+  }
   // A preview tile's picture: that side's newest picture, or a sample without one, with a filter on and a texture over it.
   function previewFace(src, fx, layer) {
     const pic = src ? `<img src="${escapeHTML(src)}" alt="" style="display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; ${fx}">`
@@ -111,22 +122,20 @@
     }
   }
 
-  // Shape Only turns the shape and turns the picture back inside it, so the picture is made bigger by this much to still
-  // fill the turned shape's corners. A circle needs none, and an oval only enough to reach its turned width and height.
+  // Keep Picture Upright turns the shape and turns the picture back inside it, so the picture is made bigger by this much
+  // to still fill the turned shape's corners. A circle needs none, and an oval only enough to reach its turned width and
+  // height.
   function turnCover(shape, turn) {
     if (!shape || shape === 'round' || !turn) return 1;
     const a = turn * Math.PI / 180, c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a)), h = SHAPES[shape];
     if (shape === 'oval') return Math.max(Math.hypot(c, h * sn), Math.hypot(sn / h, c));
     return Math.max(c + h * sn, sn / h + c);
   }
-  // Whether a side's Rotation turns the shape alone (Shape Only), and not the picture with it.
-  const shapeOnly = (s, prefix) => !!SHAPES[s[`${prefix}Shape`]] && s[`${prefix}RotateMode`] !== 'both' && rangeNum(s, prefix + 'Rotate') !== 0;
+  // Whether a side's Rotation turns the shape alone (Keep Picture Upright), and not the picture with it.
+  const shapeOnly = (s, prefix) => !!shapeOf(s, prefix) && s[`${prefix}RotateMode`] !== 'both' && rangeNum(s, prefix + 'Rotate') !== 0;
 
   // A side's Frame picture: a built-in frame, or one of yours (a link).
-  function frameSrc(s, prefix) {
-    const img = frameUrl(s[prefix + 'Frame']) || cUrl(s[prefix + 'FrameImg']);
-    return img && !img.startsWith('data:video/') ? img : '';
-  }
+  const frameSrc = (s, prefix) => frameUrl(s[prefix + 'Frame']) || s[prefix + 'FrameImg'];
   // The Frame library's folders as shown: the built-in ones you haven't hidden, then yours. Each frame has its tile
   // value (id), name and picture (src); yours also have their link (img).
   function frameFolders(s) {
@@ -145,7 +154,7 @@
       const [, name] = f.frames.find(([v]) => `${f.id}/${v}` === b);
       return { folder: { id: f.id, name: f.name, builtin: true }, frame: { id: b, name } };
     }
-    const img = cUrl(s[prefix + 'FrameImg']);
+    const img = s[prefix + 'FrameImg'];
     if (!img) return null;
     for (const f of s.frameLib.folders) {
       const fr = f.frames.find((x) => x.img === img);
@@ -154,7 +163,7 @@
     return { other: true };
   }
   // The key a side's fit is remembered under: the built-in frame, or the picture's link.
-  const fitKey = (s, prefix) => FRAME_IDS.includes(s[prefix + 'Frame']) ? s[prefix + 'Frame'] : cUrl(s[prefix + 'FrameImg']);
+  const fitKey = (s, prefix) => FRAME_IDS.includes(s[prefix + 'Frame']) ? s[prefix + 'Frame'] : s[prefix + 'FrameImg'];
 
   // A side's Frame on In Line and Pop Out: its picture, its size in picture widths (k), and how far it's moved from the
   // picture's middle (x, y), also in picture widths. Null without a picture.
@@ -190,9 +199,9 @@
 
   // Where the picture sits in its box, w wide (and ar its shape, if given). Shift Left/Right and Up/Down pick which part
   // of a picture bigger than its box shows: the picture's point at those %s goes on the box's point at the same %s, so
-  // 0% shows its left or top edge and 100% its right or bottom. Zoom makes it bigger around that point. Shape Only turns
-  // it back around the box's middle, a little bigger so the turned shape's corners stay filled. cqw and cqh are 1% of
-  // the box's width and height.
+  // 0% shows its left or top edge and 100% its right or bottom. Zoom makes it bigger around that point. Keep Picture
+  // Upright turns it back around the box's middle, a little bigger so the turned shape's corners stay filled. cqw and
+  // cqh are 1% of the box's width and height.
   function imgPlaceCss(s, prefix, w, ar) {
     const x = rangeNum(s, prefix + 'ShiftX'), y = rangeNum(s, prefix + 'Focus'), zoom = rangeNum(s, prefix + 'Zoom') / 100;
     const turn = rangeNum(s, prefix + 'Rotate');
@@ -205,18 +214,19 @@
   }
 
   function getAvatarCss(prefix, isUserStr, s) {
-    const v = s[`${prefix}Side`][0]; 
-    const h = s[`${prefix}Side`][1]; 
-    const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
-    const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
-    // A shape crops the picture: it fills the shape like SillyTavern's own avatars, so Image Fit is for None only.
+    const v = s[`${prefix}Side`][0];
+    const h = s[`${prefix}Side`][1];
+    const style = s[`${prefix}Style`];
+    const shape = shapeOf(s, prefix);
+    // A shape crops the picture: it fills the shape like SillyTavern's own avatars, so Short Messages and Use Picture's
+    // Own Size are for None only.
     const fit = shape ? 'cover' : s[`${prefix}Fit`];
     const n = (key) => rangeNum(s, prefix + key);
     const scale = n('Scale');
     const pad = n('Pad');
     const popX = n('PopX');
     const popY = n('PopY');
-    
+
     const topFade = n('FadeTop');
     const botFade = n('FadeBot');
     const leftFade = n('FadeLeft');
@@ -226,17 +236,15 @@
     const turn = n('Rotate');
     const turnCss = turn ? ` rotate(${turn}deg)` : '';
     const frame = style !== 'backdrop' ? frameOf(s, prefix) : null;
-    
-    const width = Math.floor(scale * 3); 
-    // A shape is a frame Image Scale sizes: its width, and its height from the shape. Corners are a % of the width.
+
+    const width = Math.floor(scale * 3);
+    // A shape is a frame Picture Size sizes: its width, and its height from the shape. Corners are a % of the width.
     const aspect = shape ? SHAPES[shape] : 1;
     const frameH = Math.round(width * aspect);
     const frameR = ellipse(shape) ? '50%' : OUTLINES[shape] ? '0' : `${Math.round(width * n('Corner') / 100)}px`;
 
-    let padCss = '';
-    if (h === 'l') padCss = `padding-left: ${pad}px !important;`;
-    else if (h === 'r') padCss = `padding-right: ${pad}px !important;`;
-    else padCss = `padding-left: ${Math.floor(pad / 2)}px !important; padding-right: ${Math.floor(pad / 2)}px !important;`;
+    const padCss = h === 'l' ? `padding-left: ${pad}px !important;` : h === 'r' ? `padding-right: ${pad}px !important;`
+      : `padding-left: ${Math.floor(pad / 2)}px !important; padding-right: ${Math.floor(pad / 2)}px !important;`;
 
     const justify = h === 'l' ? 'flex-start' : (h === 'r' ? 'flex-end' : 'center');
     const align = h === 'l' ? 'left' : (h === 'r' ? 'right' : 'center');
@@ -283,10 +291,9 @@
     const ar = 'var(--cb-ar, 0.6667)';
     const framed = !!shape;
     // Backdrop's box is a frame placed by Position, no taller than the message, which clips it to its own corners. A
-    // shape's frame is the shape. None's is the picture's own shape, Image Scale wide (Original: the picture's own
-    // width). In a short message Fit shrinks it to show the whole picture; Fill and Original keep their width and get
-    // cut off.
-    // The picture's width: Image Scale, or its own width for Original.
+    // shape's frame is the shape. None's is the picture's own shape, Picture Size wide, or the picture's own width with
+    // Use Picture's Own Size. In a short message Shrink Picture shrinks it to show the whole picture; Crop Picture and
+    // Use Picture's Own Size keep their width and get cut off.
     const pictureW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
     const boxH = framed ? `${frameH}px` : `calc(${pictureW} / ${ar})`;
     const boxAR = framed ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
@@ -323,8 +330,8 @@
       + ` mask-image: ${masks} !important; mask-composite: intersect !important;`
       + ' -webkit-mask-size: 100% 100% !important; mask-size: 100% 100% !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important;';
 
-    // The image is sized to the picture itself: Fill covers the box and gets cropped by it, Fit fits inside it, Original
-    // keeps the picture's own size. 100cqw and 100cqh are the box's width and height.
+    // The image is sized to the picture itself: Crop Picture covers the box and gets cropped by it, Shrink Picture fits
+    // inside it, Use Picture's Own Size keeps the picture's own size. 100cqw and 100cqh are the box's width and height.
     const imgW = fit === 'contain' ? `min(100cqw, 100cqh * ${ar})` : fit === 'original' ? 'auto' : `max(100cqw, 100cqh * ${ar})`;
     const imgCss = `
       #chat .mes[is_user="${isUserStr}"] .avatar img {
@@ -393,10 +400,10 @@
     }
 
     return `
-      .mes[is_user="${isUserStr}"] .avatar { 
+      .mes[is_user="${isUserStr}"] .avatar {
         position: absolute !important; ${boxPos}
-        width: ${boxW} !important; max-width: 80% !important; 
-        margin: 0 !important; padding: 0 !important; z-index: 0 !important; pointer-events: none !important; 
+        width: ${boxW} !important; max-width: 80% !important;
+        margin: 0 !important; padding: 0 !important; z-index: 0 !important; pointer-events: none !important;
         overflow: hidden !important; container-type: size !important; border-radius: ${framed ? frameR : '0'} !important;
         display: block !important; background: transparent !important; border: none !important;
         ${maskCss}
@@ -413,8 +420,8 @@
     if (!img.naturalWidth || !img.naturalHeight) return;
     img.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
     for (const box of [img.parentElement, img.closest('.mesAvatarWrapper')]) {
-      box?.style.setProperty('--cb-nw', img.naturalWidth + 'px');
-      box?.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
+      box.style.setProperty('--cb-nw', img.naturalWidth + 'px');
+      box.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
     }
   }
 
@@ -476,49 +483,40 @@
   }
 
   // Which ways a side's picture is bigger than its box, so Shift Left/Right and Up/Down have something to do. A Shape
-  // cuts a picture that's taller or wider than it (the newest one in the chat, or a portrait while there's none). None
-  // only gets cut on Backdrop with Fill or Original: a short message cuts the bottom off, and a narrow one the sides
-  // (the box is at most 80% of the message wide). Zoom, and Shape Only
-  // turned, make it bigger both ways.
+  // cuts a picture that's taller or wider than it (see picAspect). None only gets cut on Backdrop with Crop Picture or
+  // Use Picture's Own Size: a short message cuts the bottom off, and a narrow one the sides (the box is at most 80% of
+  // the message wide). Zoom, and a turn with Keep Picture Upright, make it bigger both ways.
   function shiftRoom(s, prefix) {
-    const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
+    const shape = shapeOf(s, prefix);
     if (rangeNum(s, prefix + 'Zoom') > 100 || turnCover(shapeOnly(s, prefix) && shape, rangeNum(s, prefix + 'Rotate')) > 1) return { x: true, y: true };
     if (shape) {
-      const imgs = document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
-      const img = imgs[imgs.length - 1];
-      const ar = img?.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 2 / 3;
+      const ar = 1 / picAspect(s, prefix);
       const box = 1 / SHAPES[shape];
       return { x: ar > box + 0.01, y: ar < box - 0.01 };
     }
-    const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
-    const cut = ntrAvatars(s, prefix) && style === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
+    const cut = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
     return { x: cut, y: cut };
   }
   const anyFade = (s, prefix) => Object.values(FADE_PARTS).some(([key]) => rangeNum(s, prefix + key) > 0);
 
-  // A side's picture box, as its height for a width of 1: the Shape's, or with None the picture's own (the pop-out's, or
-  // the newest in the chat; a portrait while there's none).
+  // A side's picture box, as its height for a width of 1: the Shape's, or with None the picture's own.
   function boxAspect(s, prefix) {
-    if (SHAPES[s[`${prefix}Shape`]]) return SHAPES[s[`${prefix}Shape`]];
-    const imgs = s[`${prefix}Style`] === 'popout' ? [document.getElementById(`cb_pop_${prefix}`)]
-      : document.querySelectorAll(`#chat .mes[is_user="${prefix === 'us'}"] .avatar img`);
-    const img = imgs[imgs.length - 1];
-    return img?.naturalWidth && img.naturalHeight ? img.naturalHeight / img.naturalWidth : 1.5;
+    const shape = shapeOf(s, prefix);
+    return shape ? SHAPES[shape] : picAspect(s, prefix);
   }
 
   // The Frame's preview tile: the side's picture in its Shape, with its Filter and Texture, the Frame over it and the turn.
   const FRAME_TILE = 96;
   function framePrevHtml(s, prefix) {
     const f = frameOf(s, prefix);
-    const shape = SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null;
+    const shape = shapeOf(s, prefix);
     const a = boxAspect(s, prefix);
     // The whole frame fits in the tile, or the picture alone without one.
     const w = Math.round((FRAME_TILE - 12) / ((f ? f.k : 1) * Math.max(1, a)));
     const h = Math.round(w * a);
     const cut = ellipse(shape) ? 'border-radius: 50%;' : OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;`
       : shape ? `border-radius: ${Math.round(w * rangeNum(s, prefix + 'Corner') / 100)}px;` : '';
-    const fl = FILTERS[s[`${prefix}Filter`]], tx = TEXTURES[s[`${prefix}Texture`]];
-    const fStr = rangeNum(s, prefix + 'FilterStr') / 100, tStr = rangeNum(s, prefix + 'TextureStr') / 100;
+    const { f: fl, fStr, t: tx, tStr } = sideLook(s, prefix);
     const left = (FRAME_TILE - w) / 2, top = (FRAME_TILE - h) / 2;
     const b = f && frameBox(f, `${w}px`, `${h}px`);
     const turn = rangeNum(s, prefix + 'Rotate');
@@ -601,7 +599,6 @@
   function frameLibHtml(s, prefix, open) {
     const shown = frameFolders(s);
     const f = shown.find((x) => x.id === open) || shown[0];
-    if (!f) return '';
     const now = frameNow(s, prefix);
     const cur = !now ? '' : now.frame?.id || null;
     const opts = [['', 'None'], ...f.frames.map((fr) => [fr.id, fr.name, `<img src="${escapeHTML(fr.src)}" alt="" decoding="async">`])];
@@ -618,13 +615,13 @@
   // Shape, Use Picture's Own Size for None, and Short Messages for None at a set size (only Backdrop cuts a picture to
   // a short message). Picture Size waits while the picture keeps its own size; Pop Out always uses Picture Size.
   function colState(s, prefix) {
-    const shaped = !!SHAPES[s[`${prefix}Shape`]];
+    const shaped = !!shapeOf(s, prefix);
     const own = !shaped && s[`${prefix}Fit`] === 'original';
     return { shaped, own, cornersOn: ['rectangle', 'square'].includes(s[`${prefix}Shape`]), scaleOff: s[`${prefix}Style`] !== 'popout' && own };
   }
 
   function getColHtml(prefix, title, s) {
-    const style = ['inline', 'popout'].includes(s[`${prefix}Style`]) ? s[`${prefix}Style`] : 'backdrop';
+    const style = s[`${prefix}Style`];
     const { shaped, own, cornersOn, scaleOff } = colState(s, prefix);
     const show = (on) => (on ? '' : ' style="display: none;"');
 
@@ -679,11 +676,11 @@
           + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set its length. Lit cells have a fade on.</div>')}
 
         <div class="cb_sub">Filter</div>
-        ${filterTiles(prefix, FILTERS[s[`${prefix}Filter`]] ? s[`${prefix}Filter`] : 'none')}
+        ${filterTiles(prefix, s[`${prefix}Filter`])}
         <div id="m_${prefix}_fxwrap" class="${FILTERS[s[`${prefix}Filter`]] ? '' : 'cb_dim'}">${slider('fx', 'FilterStr', 'Filter Strength:')}</div>
 
         <div class="cb_sub">Texture</div>
-        ${textureTiles(prefix, TEXTURES[s[`${prefix}Texture`]] ? s[`${prefix}Texture`] : 'none')}
+        ${textureTiles(prefix, s[`${prefix}Texture`])}
         <div id="m_${prefix}_txwrap" class="${TEXTURES[s[`${prefix}Texture`]] ? '' : 'cb_dim'}">${slider('tx', 'TextureStr', 'Texture Strength:')}</div>
 
         ${grp('inline popout', `<div class="cb_sub">Frame</div>
@@ -736,7 +733,7 @@
     };
     // SillyTavern's own Hide Chat Avatars hides In Line and Backdrop. It may change while the menu is open.
     const syncStNote = () => { overlay.querySelector('#m_av_sthidden').hidden = !document.body.classList.contains('hideChatAvatars'); };
-    overlay.querySelector('.ntr_navi[data-page="pfp"]')?.addEventListener('click', syncStNote);
+    overlay.querySelector('.ntr_navi[data-page="pfp"]').addEventListener('click', syncStNote);
     syncStNote();
 
     const bindCol = (prefix) => {
@@ -780,7 +777,7 @@
       // The fit is remembered for this side and frame, so picking the frame again puts it back.
       const keepFit = () => {
         const k = fitKey(s, prefix);
-        if (k) s.frameFits[prefix][k] = ['FrameSize', 'FrameX', 'FrameY'].map((n) => rangeNum(s, prefix + n));
+        if (k) s.frameFits[prefix][k] = FRAME_KEYS.map((n) => rangeNum(s, prefix + n));
       };
       // The fit lands only if this side still has the frame it was worked out for.
       const fit = async () => {
@@ -791,7 +788,7 @@
           toastr.warning('Couldn\'t find the frame\'s middle. Set it with the sliders.', 'Frame');
           return;
         }
-        Object.assign(s, { [prefix + 'FrameSize']: got.FrameSize, [prefix + 'FrameX']: got.FrameX, [prefix + 'FrameY']: got.FrameY });
+        for (const n of FRAME_KEYS) s[prefix + n] = got[n];
         keepFit();
         save();
         frameSliders();
@@ -805,7 +802,7 @@
         s[prefix + 'Frame'] = FRAME_IDS.includes(v) ? v : '';
         s[prefix + 'FrameImg'] = own ? own.img : '';
         const k = fitKey(s, prefix), was = k && s.frameFits[prefix][k];
-        if (was) ['FrameSize', 'FrameX', 'FrameY'].forEach((n, i) => { s[prefix + n] = was[i]; });
+        if (was) FRAME_KEYS.forEach((n, i) => { s[prefix + n] = was[i]; });
         save();
         frameSliders();
         drawFrame();
@@ -836,15 +833,17 @@
         if ([...FRAME_SERIES, ...s.frameLib.folders].some((x) => x !== self && x.name.toLowerCase() === v.toLowerCase())) return { error: 'A folder with that name already exists.' };
         return { value: v.slice(0, 60) };
       };
-      // Your frames' pictures leave the library, and any side using one goes back to no frame. Each file is deleted
-      // unless something else, like a saved theme, still uses it.
+      // After frames are taken out of the library: any side using one goes back to no frame, their remembered fits
+      // go, the change is saved, and each picture's file is deleted unless something else, like a saved theme, still
+      // uses it.
       const dropFrames = (frames) => {
         const imgs = frames.map((fr) => fr.img);
         for (const p of ['ai', 'us']) {
           if (imgs.includes(s[p + 'FrameImg'])) s[p + 'FrameImg'] = '';
           for (const img of imgs) delete s.frameFits[p][img];
         }
-        return imgs;
+        libChanged();
+        imgs.forEach(deleteFileIfUnused);
       };
       // The library never ends up with no folder to show.
       const keepAFolder = () => {
@@ -852,7 +851,6 @@
       };
       const frameMenu = (more) => {
         const f = frameFolders(s).find((x) => x.id === open);
-        if (!f) return;
         const pop = popMenu(more, `
           <button type="button" data-act="new"><i class="fa-solid fa-plus fa-fw"></i>New Folder…</button>
           ${f.own ? '<button type="button" data-act="ren"><i class="fa-solid fa-pen fa-fw"></i>Rename Folder…</button>'
@@ -886,11 +884,9 @@
             const q = !n ? `Delete the folder "${f.name}"?`
               : `Delete the folder "${f.name}" and its ${n === 1 ? '1 frame' : `${n} frames`}? Any avatar using one goes back to no frame.`;
             if (!(await askYes(head, q, 'Delete', { danger: true }))) return;
-            const imgs = dropFrames(f.own.frames);
             s.frameLib.folders.splice(s.frameLib.folders.indexOf(f.own), 1);
             keepAFolder();
-            libChanged();
-            imgs.forEach(deleteFileIfUnused);
+            dropFrames(f.own.frames);
             return;
           }
           libChanged();
@@ -902,10 +898,9 @@
         if (!now?.folder?.own) return;
         if (!(await askYes(this, `Delete the frame "${now.frame.name}"? It's removed from your library, and any avatar using it goes back to no frame.`, 'Delete', { danger: true }))) return;
         const own = now.folder.own;
-        const imgs = dropFrames(own.frames.filter((fr) => fr.id === now.frame.id));
+        const gone = own.frames.filter((fr) => fr.id === now.frame.id);
         own.frames = own.frames.filter((fr) => fr.id !== now.frame.id);
-        libChanged();
-        imgs.forEach(deleteFileIfUnused);
+        dropFrames(gone);
       };
       const frFile = col.querySelector(`#m_${prefix}_frfile`);
       bindLib();
@@ -945,7 +940,7 @@
       overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
       onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); syncScale(); updateAvatarStyle(); });
-      // Own Size is Fit's Original; unticked, Short Messages starts at Shrink Picture.
+      // Use Picture's Own Size saves Fit as 'original'; unticked, Short Messages starts at Shrink Picture.
       col.querySelector(`#m_${prefix}_own`).onchange = function() {
         s[`${prefix}Fit`] = this.checked ? 'original' : 'contain';
         if (!this.checked) col.querySelector(`input[name="cbr_${prefix}fit"][value="contain"]`).checked = true;
@@ -966,7 +961,7 @@
       });
       // One slider for the fade picked on the fade grid.
       const fadeSl = col.querySelector(`#m_${prefix}_fade`);
-      let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`)?.value || 'bc';
+      let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`).value;
       onPills(col, `${prefix}fade`, (v) => {
         fadeAt = v;
         const val = rangeNum(s, prefix + FADE_PARTS[v][0]);
@@ -1003,14 +998,14 @@
         updateAvatarStyle();
         openCombinedModal();
       };
-      
+
       const sliders = [
         { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'sx', key: 'ShiftX' }, { id: 'zm', key: 'Zoom' },
         { id: 'rt', key: 'Rotate' }, { id: 'pad', key: 'Pad' }, { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
         { id: 'fs', key: 'FadeStr' }, { id: 'fx', key: 'FilterStr' }, { id: 'tx', key: 'TextureStr' },
         { id: 'frs', key: 'FrameSize' }, { id: 'frx', key: 'FrameX' }, { id: 'fry', key: 'FrameY' }
       ];
-      
+
       sliders.forEach(({ id, key }) => {
         const el = overlay.querySelector(`#m_${prefix}_${id}`);
         // Dragging Rotation sticks at 0, so it's easy to set straight again. Arrow keys and typed values go in as they are.
@@ -1033,7 +1028,7 @@
         el.onchange = key.startsWith('Frame') ? () => { keepFit(); save(); } : save;
       });
     };
-    
+
     // Each column's Frame library redraw, so a change in one shows in both.
     const redraws = [];
     bindCol('ai');

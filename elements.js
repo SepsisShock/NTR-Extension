@@ -5,7 +5,7 @@
 // The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
 // shares in window.NTR.api.look.
 (() => {
-  const ELEMENTS_VERSION = '2.86.14';
+  const ELEMENTS_VERSION = '2.86.15';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -651,41 +651,14 @@
   }
 
   // Cursor pictures: Upload / Link / Remove for each kind.
+  const CURSOR_PICS = [
+    ['ovCursorImg', 'Normal', '', 'fa-arrow-pointer'],
+    ['ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system\'s.', 'fa-hand-pointer'],
+    ['ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system\'s.', 'fa-i-cursor'],
+    ['ovCursorDownImg', 'Click', 'While the button is held. Empty keeps the current cursor.', 'fa-computer-mouse'],
+  ].map(([key, label, hint, icon]) => ({ id: `cur_${label.toLowerCase()}`, key, label, title: `${label} Cursor`, hint, icon, upload: ['cursor', { max: 128 }] }));
   function bindCursor(overlay, s) {
-    const curFile = overlay.querySelector('#m_cur_file');
-    let curPending = null;
-    const renderCursor = () => {
-      for (const k of ['ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg']) {
-        const box = overlay.querySelector(`#m_cur_prev_${k}`);
-        box.innerHTML = s[k] ? `<img src="${escapeHTML(s[k])}" alt="">` : `<i class="fa-solid ${box.dataset.icon}"></i>`;
-        overlay.querySelector(`.m_cur_clr[data-k="${k}"]`).disabled = !s[k];
-      }
-    };
-    const setCursor = (k, url) => {
-      const old = s[k];
-      s[k] = url;
-      save(); updateAvatarStyle(); renderCursor();
-      deleteFileIfUnused(old);
-    };
-    overlay.querySelectorAll('.m_cur_up').forEach((b) => { b.onclick = () => { curPending = b.dataset.k; curFile.click(); }; });
-    overlay.querySelectorAll('.m_cur_url').forEach((b) => {
-      b.onclick = async () => {
-        const url = await askImageUrl(b.dataset.label, b, false);
-        if (url) setCursor(b.dataset.k, url);
-      };
-    });
-    overlay.querySelectorAll('.m_cur_clr').forEach((b) => { b.onclick = () => setCursor(b.dataset.k, ''); });
-    curFile.onchange = async () => {
-      if (!curFile.files.length || !curPending) return;
-      try {
-        setCursor(curPending, await uploadImage(curFile.files[0], 'cursor', { max: 128 }));
-      } catch (e) {
-        console.error('[NTR cursor upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Cursor');
-      }
-      curFile.value = '';
-    };
-    renderCursor();
+    for (const o of CURSOR_PICS) bindPicSlot(overlay, s, o);
   }
 
   // The Reasoning Block's pictures.
@@ -840,20 +813,6 @@
     syncRows();
   }
 
-  // One cursor picture: preview, Upload / Link / Remove.
-  function cursorSlot(k, label, hint, icon) {
-    return `
-      <div class="cb_cur_slot">
-        <div class="cb_cur_row">
-          <div class="cb_cur_prev" id="m_cur_prev_${k}" data-icon="${icon}"></div>
-          <span class="cb_cur_name">${label}${hint ? `<small>${hint}</small>` : ''}</span>
-          <button class="menu_button m_cur_up" data-k="${k}" title="Upload" aria-label="Upload a ${label} cursor"><i class="fa-solid fa-upload"></i></button>
-          <button class="menu_button m_cur_url" data-k="${k}" data-label="${label} cursor" title="Use a link" aria-label="Use a link for the ${label} cursor"><i class="fa-solid fa-link"></i></button>
-          <button class="menu_button m_cur_clr" data-k="${k}" title="Remove picture" aria-label="Remove the ${label} cursor"><i class="fa-solid fa-rotate-left"></i></button>
-        </div>
-      </div>`;
-  }
-
   function scrollbarPartHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     return pagePart('Scrollbar', ['m_scroll_enable', s.ovScrollOn], 'el_scroll', `
@@ -871,14 +830,10 @@
   function cursorPartHtml(s) {
     return pagePart('Cursor', ['m_cur_enable', s.ovCursorOn], 'el_cursor', `
           <div class="cb_hint">Phones and tablets have no cursor.</div>
-          ${cursorSlot('ovCursorImg', 'Normal', '', 'fa-arrow-pointer')}
-          ${cursorSlot('ovCursorPtrImg', 'Pointer', 'Links and buttons. Empty keeps the system\'s.', 'fa-hand-pointer')}
-          ${cursorSlot('ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system\'s.', 'fa-i-cursor')}
-          ${cursorSlot('ovCursorDownImg', 'Click', 'While the button is held. Empty keeps the current cursor.', 'fa-computer-mouse')}
+          ${CURSOR_PICS.map(picSlotHtml).join('')}
           <div class="cb_hint">The top-left corner clicks; for Text, the middle.</div>
           ${ovLabel('Size', rangeSlider(s, 'ovCursorSize'))}
           <div class="cb_hint">Browsers may cut off cursors over 32 px near screen edges. GIFs show their first frame only. If Size does nothing for a link, upload the picture.</div>
-          <input type="file" id="m_cur_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${subHead('ov_cursor_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'ovCursorCssOn', 'Cursor CSS', customCssBox(s, 'ovCursorCss', '.mes_buttons .mes_button { cursor: help; }&#10;.swipe_left, .swipe_right { cursor: grab; }')

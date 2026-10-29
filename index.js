@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.14';
+  const VERSION = '2.86.15';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1365,17 +1365,17 @@ await (async () => {
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
   // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
   // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
-  // optionally icon (the empty preview's), wide (a wide preview), hint (under the name), attrs (on the slot) and onSet
-  // (after a change).
+  // optionally label (the name; Picture by default), icon (the empty preview's), wide (a wide preview), hint (under the
+  // name), attrs (on the slot) and onSet (after a change).
   function picSlotHtml(o) {
     return `
           <div class="cb_cur_slot"${o.attrs ? ' ' + o.attrs : ''}>
             <div class="cb_cur_row">
               <div class="cb_cur_prev${o.wide ? ' ntr_rd_pic' : ''}" id="m_${o.id}_prev"></div>
-              <span class="cb_cur_name">Picture${o.hint ? `<small>${o.hint}</small>` : ''}</span>
-              <button class="menu_button" id="m_${o.id}_up" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button" id="m_${o.id}_url" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button" id="m_${o.id}_clr" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button>
+              <span class="cb_cur_name">${o.label || 'Picture'}${o.hint ? `<small>${o.hint}</small>` : ''}</span>
+              <button class="menu_button" id="m_${o.id}_up" title="Upload" aria-label="Upload ${o.title}"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button" id="m_${o.id}_url" title="Use a link" aria-label="Use a link for ${o.title}"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button" id="m_${o.id}_clr" title="Remove picture" aria-label="Remove ${o.title}"><i class="fa-solid fa-rotate-left"></i></button>
             </div>
             <input type="file" id="m_${o.id}_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           </div>`;

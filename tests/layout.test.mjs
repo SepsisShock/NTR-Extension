@@ -32,7 +32,7 @@ test('the Layout page draws, with its switch and Pinned Blocks', () => {
 
 test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s, and takes NTR Avatars with it', () => {
   const s = api.settings();
-  Object.assign(s, { masterEnabled: true, layEnabled: true, avatarEnabled: false, aiEnabled: true, ovNamesOn: true, ovNames: 'hide' });
+  Object.assign(s, { masterEnabled: true, layEnabled: true, avatarEnabled: false, aiEnabled: true, ovNamesOn: true });
   assert.equal(api.look.namesHidden(s), true);
   s.avatarEnabled = true;
   assert.equal(api.look.ntrAvatars(s, 'ai'), false);

@@ -13,7 +13,7 @@ test('the core loads UI Decor before it starts', () => {
 test('UI Decor builds only its own CSS, and none while it is off', () => {
   const s = api.settings();
   Object.assign(s, { masterEnabled: true, ovEnabled: true, ovBubOn: true, ovBubTail: 'pointed', ovBubAlign: 'sides', ovShapeOn: true, ovShape: 'square',
-    layEnabled: true, ovMesGapOn: true, avatarEnabled: true, ovNamesOn: true, ovNames: 'hide' });
+    layEnabled: true, ovMesGapOn: true, avatarEnabled: true, ovNamesOn: true });
   assert.equal(api.look.bubblesOn(s), true);
   const css = window.NTR.decor.css(s);
   // Interface Shape on SillyTavern's Menu Bar, and the User side's bubble on the right.

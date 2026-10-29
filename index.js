@@ -133,7 +133,7 @@ await (async () => {
     ovShapeOn: false, ovShape: 'rounded', ovRound: 10,
     ovPanelBgOn: true, ovPanelBg: 'clear', ovPanelBgColor: '', ovPanelBgOpacity: 100,
     ovPanelBorderOn: false, ovPanelBorder: 'line', ovPanelBorderColor: '', ovPanelBorderWidth: 1, ovPanelBorderOpacity: 100,
-    ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false, ovNames: 'hide',
+    ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false,
     ovSendPosOn: false, ovSendPos: 'separate', ovSendGap: 8,
     // Speech Bubbles: AI and User messages as chat bubbles around the message text (see bubbleCss in decor.js). Their color, roundness
     // and border come from AI Message and User Message.
@@ -1370,7 +1370,7 @@ await (async () => {
 
   // Hide Names and Avatars takes away avatars, names and timestamps, NTR Avatars and pop-outs included. It sits in
   // Layout, so Layout's switch is the one that counts, and without layout.js it stays off, whatever is saved.
-  const namesHidden = (s) => isOn() && layoutOn(s) && s.ovNamesOn && s.ovNames === 'hide';
+  const namesHidden = (s) => isOn() && layoutOn(s) && s.ovNamesOn;
   // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar. Without avatars.js they
   // stay off, whatever is saved, and other pages stop making room for NTR's avatars.
   const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
@@ -1610,7 +1610,7 @@ await (async () => {
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
-    bannerBackdrop: ['wallpaper', 'panel'], ovShape: OV_SHAPES, ovNames: ['hide'], ovSendPos: ['joined', 'separate'],
+    bannerBackdrop: ['wallpaper', 'panel'], ovShape: OV_SHAPES, ovSendPos: ['joined', 'separate'],
     layBarEdge: LAY_EDGES, laySend: ['attached', 'free'], layPhBarEdge: LAY_EDGES, layPhSend: ['attached', 'free'],
     layPage: ['attached', 'free'], layPhPage: ['attached', 'free'], layBan: ['attached', 'free'], layPhBan: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
@@ -2215,13 +2215,12 @@ await (async () => {
   // ===== Theme data =====
   const PFP_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ai') || k.startsWith('us'));
   // UI Display keys that sit on other pages now, and go in those pages' theme sections.
-  const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap'];
-  const NAMES_KEYS = ['ovNamesOn', 'ovNames'];
+  const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap', 'ovNamesOn'];
   const ELEMENT_OV_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ovScroll') || k.startsWith('ovCursor') || k.startsWith('ovQr'));
-  const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
+  const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...LAYOUT_OV_KEYS, ...ELEMENT_OV_KEYS];
   // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
-    layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS, ...NAMES_KEYS] },
+    layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
     pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, 'emoStageScale', 'emoStageOpacity'] },

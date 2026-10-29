@@ -3,7 +3,7 @@ name: cleancom
 description: Use when the user explicitly asks for cleancom.
 ---
 
-Check for...
+Investigate and check for...
 
 1. Outdated or duplicated comments, and comments that restate obvious code
 2. Misspelled identifiers, misleading names, inconsistent terminology

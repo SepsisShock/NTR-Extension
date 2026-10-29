@@ -136,7 +136,8 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       await sleep(500);
       return 'resized';
     },
-    // set <css> | <text>   types into a field (also hidden ones) and fires input and change.
+    // set <css> | <text>   puts text in a field (also hidden ones; it sets value, so maxlength doesn't apply) and fires
+    // input and change.
     async set(rest) {
       const [sel, text] = splitPipe(rest);
       await need(sel);
@@ -160,7 +161,7 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
     // The question the menu shows under the last button clicked: `ok` presses its main button, `cancel` its Cancel.
     async ok() { return askPress('.ntr_ask_ok'); },
     async cancel() { return askPress('.ntr_ask_cancel'); },
-    // answer <text>   types into the open text question (a link, a theme name) and presses its main button.
+    // answer <text>   puts text in the open text question (a link, a theme name) and presses its main button.
     async answer(rest) {
       await need('.ntr_ask .ntr_ask_input');
       await page.evaluate((text) => {

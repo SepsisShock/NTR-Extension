@@ -9,3 +9,5 @@ Investigate and check for...
 2. Misspelled identifiers, misleading names, inconsistent terminology
 3. Imports, functions, paths, and event handlers that still point to old locations
 4. Incorrect loading order, duplicate initialization, forgotten cleanup
+
+Propose concise edits or deletions.

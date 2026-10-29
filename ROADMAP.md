@@ -99,6 +99,9 @@ Build on saved agent results, Agent Results in Pinned Blocks and Send to Main AI
 ### Test against SillyTavern's staging branch
 - [ ] Let `st.sh setup` pick SillyTavern's branch (release now), to try NTR on `staging` before updating SillyTavern.
 
+### Old face migration
+- [ ] Remove the old face migration once all cards have loaded it.
+
 ## Visual Novel Mode (Low Priority, Needs Overhaul)
 
 Visual Novel Mode needs a complete overhaul before it gets any new features. The rest of NTR has changed a lot since it was built, and the plans below were written before those changes. Treat them as ideas to revisit during the overhaul, not as a to-do list. Until then, it only gets bug fixes.

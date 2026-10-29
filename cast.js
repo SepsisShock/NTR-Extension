@@ -1,14 +1,14 @@
 // Nitwit Tavern Redesign: Cast module. The emotion list, speakers, and each speaker's faces and full body; with Visual
 // Novel Mode off, faces on chat avatars and a stage behind the chat. It also owns the tag symbols and hides tags in the chat.
-// Loaded by index.js whenever NTR is on, and before vn.js, which draws the same pictures in Visual Novel Mode.
-// If this file breaks, the rest of the extension keeps working.
+// Loaded by index.js whenever NTR is on or the menu opens, and before vn.js, which draws the same pictures in Visual
+// Novel Mode. If this file breaks, the rest of the extension keeps working.
+// Staying in index.js: the template emotion list and the tag settings (DEFAULTS), the open chat's list (emoSet), card
+// checks (cleanVn) and tag checks (validateDelims).
 (() => {
-  const CAST_VERSION = '2.86.21';
+  const CAST_VERSION = '2.86.22';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, validateDelims } = A;
-  const TAG = A.TAG || '';
-  const TAG_KEY = A.TAG_KEY || '';
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY } = A;
   const lc = (x) => String(x || '').trim().toLowerCase();
 
   // A speaker's pictures live in the card's Visual Novel data (or per group): emoImgs holds the faces (speaker, then
@@ -17,21 +17,20 @@
   function D() {
     const st = A.store();
     if (!st) return CDEF();
-    if (!st.vn || typeof st.vn !== 'object') st.vn = {};
+    if (!st.vn) st.vn = {};
     const d = CDEF();
     for (const k of Object.keys(d)) if (st.vn[k] === undefined) st.vn[k] = d[k];
     if (Object.keys(st.vn.avatars).length) mergeOldFaces(st.vn);
     // A character with faces keeps its own emotion list, so a later change to the template can't strand its faces.
-    if (!Array.isArray(st.vn.emotions) && Object.values(st.vn.emoImgs).some((m) => m && Object.keys(m).length)) { ownList(st.vn); save(); }
+    if (!Array.isArray(st.vn.emotions) && Object.values(st.vn.emoImgs).some((m) => Object.keys(m).length)) { copyList(settings(), st.vn); save(); }
     return st.vn;
   }
   // The open chat's emotions (A.emoSet): its own list, or the template.
   const E = () => A.emoSet();
-  // Gives a chat its own emotion list, a copy of the template.
-  function ownList(v) {
-    const s = settings();
-    v.emotions = s.emotions.map((e) => ({ id: e.id, name: e.name }));
-    v.emoDefault = s.emoDefault;
+  // Copies an emotion list and its default: the template into a chat's own list, or back with Save as Template.
+  function copyList(from, to) {
+    to.emotions = from.emotions.map((e) => ({ id: e.id, name: e.name }));
+    to.emoDefault = from.emoDefault;
   }
 
   // Speakers used to have a separate face picture next to their emotion images. The face is the emotion images now:
@@ -63,9 +62,10 @@
 
   // ----- Tags, with the symbols from Tags & Delimiters: ((Name%%Emotion)) for speakers, [[...]] for the rest -----
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const delimRes = (s) => [s.delimSpkOpen, s.delimSpkClose, s.delimNarOpen, s.delimNarClose].map(reEsc);
   // A speaker tag is group 1, anything inside the narrator delimiters (narration, scene tags) group 2.
   function tagRe(s) {
-    const so = reEsc(s.delimSpkOpen), sc = reEsc(s.delimSpkClose), no = reEsc(s.delimNarOpen), nc = reEsc(s.delimNarClose);
+    const [so, sc, no, nc] = delimRes(s);
     return new RegExp(`${so}[ \\t]*((?:(?!${sc})[^\\n]){1,80}?)[ \\t]*${sc}[ \\t]*:?|${no}[ \\t]*((?:(?!${nc})[^\\n]){1,400}?)[ \\t]*${nc}[ \\t]*:?`, 'g');
   }
   function splitTag(inner, s) {
@@ -82,7 +82,7 @@
   // The text without its Emotion tags, and the last one's emotion (the last tag wins).
   function stripEmo(raw) {
     let emo = '';
-    const text = String(raw || '').replace(emoTagRe(settings()), (_, e) => { emo = e.trim(); return ''; });
+    const text = raw.replace(emoTagRe(settings()), (_, e) => { emo = e.trim(); return ''; });
     return { text, emo };
   }
 
@@ -146,26 +146,28 @@
     return id ? `/User%20Avatars/${encodeURIComponent(id)}` : null;
   }
 
-  // The speaker's default emotion face, or their first face in list order.
-  function defaultFace(key) {
+  // The speaker's main emotion: the default if it has a face, or else their first one with a face in list order.
+  function mainEmo(key) {
     const s = E();
     const imgs = D().emoImgs[key] || {};
-    if (imgs[s.emoDefault]) return imgs[s.emoDefault];
-    const e = s.emotions.find((x) => imgs[x.id]);
-    return e ? imgs[e.id] : '';
+    return s.emotions.find((e) => e.id === s.emoDefault && imgs[e.id]) || s.emotions.find((e) => imgs[e.id]);
+  }
+  function defaultFace(key) {
+    const e = mainEmo(key);
+    return e ? D().emoImgs[key][e.id] : '';
   }
 
   // Picture from SillyTavern itself: {{user}} gets the active persona, anyone else a card in this chat with that name.
   // Only cards in the open chat count, so an unrelated card in the library that shares the name never leaks in.
   function stAvatar(key) {
     const c = ctx();
-    if (c.name1 && c.name1.toLowerCase() === key) { const u = userAvatarSrc(); return u ? { src: u, from: 'persona' } : null; }
+    if (lc(c.name1) === key) { const u = userAvatarSrc(); return u ? { src: u, from: 'persona' } : null; }
     let cards = [];
     if (c.groupId) {
       const g = (c.groups || []).find((x) => x.id === c.groupId);
       cards = (g?.members || []).map((av) => (c.characters || []).find((x) => x.avatar === av));
     } else if (c.characterId !== undefined && c.characterId !== null) cards = [c.characters?.[c.characterId]];
-    const ch = cards.find((x) => x && x.name && x.name.toLowerCase() === key);
+    const ch = cards.find((x) => x && lc(x.name) === key);
     if (ch && ch.avatar) return { src: `/characters/${encodeURIComponent(ch.avatar)}`, from: 'card' };
     return null;
   }
@@ -181,21 +183,19 @@
 
   function findEmo(name) {
     const k = lc(name);
-    return k ? E().emotions.find((e) => e.name.toLowerCase() === k) : null;
+    return k ? E().emotions.find((e) => lc(e.name) === k) : null;
   }
 
   // Face for an emotion > default face > base face > nothing (null)
   function faceSrc(name, emoName) {
-    const s = E();
     const imgs = D().emoImgs[lc(name)] || {};
     const e = findEmo(emoName);
     if (e && imgs[e.id]) return media(imgs[e.id]) || null;
-    if (imgs[s.emoDefault]) return media(imgs[s.emoDefault]) || null;
     return baseFace(name);
   }
 
-  // Stage picture: the full body wins. Otherwise the faces, never card or persona avatars. With Keep the face on, the
-  // stage keeps the base face whatever the emotion. Nothing found is null (Visual Novel Mode puts its silhouette there).
+  // Stage picture: the full body wins. Otherwise the faces, never card or persona avatars. With Stage Keeps Main Face
+  // on, the stage keeps the base face whatever the emotion. Nothing found is null (Visual Novel Mode puts its silhouette there).
   function bodySrc(name, emoName) {
     const s = settings();
     const v = D();
@@ -218,7 +218,7 @@
   async function pruneMissing() {
     const v = D();
     const refs = [];
-    const scan = (obj) => { for (const [k, u] of Object.entries(obj || {})) if (typeof u === 'string') refs.push([obj, k, u]); };
+    const scan = (obj) => { for (const [k, u] of Object.entries(obj)) refs.push([obj, k, u]); };
     scan(v.sprites);
     Object.values(v.emoImgs).forEach(scan);
     const ok = await Promise.all(refs.map((r) => fileExists(r[2])));
@@ -234,10 +234,10 @@
     const c = ctx();
     const map = new Map();
     const nar = lc(s.narratorWord);
-    const hidden = new Set((D().hiddenSpk || []).map(lc));
+    const hidden = new Set(D().hiddenSpk.map(lc));
     const add = (n, custom) => {
       const t = String(n || '').trim();
-      const k = t.toLowerCase();
+      const k = lc(t);
       if (!t || k === nar) return;
       if (!custom && (!s.nodeAutoSpk || hidden.has(k))) return;
       if (!map.has(k)) map.set(k, { key: k, name: t, custom: !!custom });
@@ -248,7 +248,7 @@
       const g = (c.groups || []).find((x) => x.id === c.groupId);
       (g?.members || []).forEach((av) => { const ch = (c.characters || []).find((x) => x.avatar === av); if (ch) add(ch.name); });
     } else if (c.characterId !== undefined && c.characterId !== null) add(c.name2);
-    (D().customSpk || []).forEach((n) => add(n, true));
+    D().customSpk.forEach((n) => add(n, true));
     if (s.nodeAutoSpk) {
       const re = tagRe(s);
       for (const m of c.chat || []) {
@@ -298,7 +298,7 @@
     return info;
   }
 
-  const hasFaces = (key) => { const imgs = D().emoImgs[key] || {}; return E().emotions.some((e) => imgs[e.id]); };
+  const hasFaces = (key) => !!mainEmo(key);
 
   // Faces: each message's avatar shows its writer's face for that message's emotion, or their main face without a tag.
   // Speakers without faces keep SillyTavern's picture. SillyTavern puts its own picture back when it redraws a message,
@@ -336,7 +336,7 @@
       }
     });
     // Pop Out copies the newest avatar, which only happens when messages are added; a changed face is caught up here.
-    if (swapped) A.syncPopouts?.();
+    if (swapped) A.syncPopouts();
   }
 
   // The stage behind the chat: full bodies (or faces) of the last speakers, left, center and right, between the
@@ -357,7 +357,7 @@
     const st = castNew();
     const recent = [];
     // In Reader Mode the stage follows the page being read: nothing after its last message counts.
-    const upTo = window.NTR.reader?.upTo?.();
+    const upTo = window.NTR.reader?.upTo();
     (ctx().chat || []).forEach((m, i) => {
       if (!m || m.is_system || !m.mes || (upTo != null && i > upTo)) return;
       for (const b of msgInfo(m, i).beats) { castStep(st, b); if (b.kind === 'char' && b.name) recent.push(b); }
@@ -424,12 +424,12 @@
       return has(t, s.delimEmo) || has(t, s.delimNarOpen) || (el === live && has(t, s.delimSpkOpen));
     });
     if (!todo.length) return;
-    const so = reEsc(s.delimSpkOpen), sc = reEsc(s.delimSpkClose), no = reEsc(s.delimNarOpen), nc = reEsc(s.delimNarClose);
+    const [so, sc, no, nc] = delimRes(s);
     const emo = s.delimEmo ? reEsc(s.delimEmo) : '';
     const emoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${emo}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
     const dirWords = [s.emoWord, s.locWord, s.effectWord, s.weatherWord, s.cgWord, s.enterWord, s.exitWord].filter(Boolean).map(reEsc).join('|');
     const locRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}?[ \\t]*${nc}[ \\t]*`, 'gi');
-    // ((Rafe%%Sa, ((Rafe% or [[Location:Fo at the end of a reply being written.
+    // ((Name%%Sa, ((Name% or [[Location:Fo at the end of a reply being written.
     const emoStart = emo ? [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|') : '';
     const openEmoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`) : null;
     const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}[ \\t]*$`, 'i');
@@ -487,7 +487,7 @@
     const c = ctx();
     if (typeof c.setExtensionPrompt !== 'function') return;
     const s = settings();
-    const on = A.isOn() && s.avatarEnabled && !s.nodeEnabled && s.emoSource === 'tags' && s.emoInject && (s.emoFaces || s.emoStage);
+    const on = A.isOn() && s.avatarEnabled && !s.nodeEnabled && s.emoInject && (s.emoFaces || s.emoStage);
     try { c.setExtensionPrompt(INJECT_KEY, on ? promptText(s) : '', 1, 1, false, 0); } catch (e) { console.error('[NTR] Could not set the emotion instructions', e); }
   }
 
@@ -519,14 +519,14 @@
   function spkRowsHtml(s) {
     if (!A.store()) return '<div class="cb_hint">Open a character chat first. Speakers and their pictures are saved per character.</div>';
     const list = speakers();
-    const nHidden = (D().hiddenSpk || []).length;
+    const nHidden = D().hiddenSpk.length;
     const restore = nHidden ? `<div class="cb_hint"><a href="#" class="m_spk_unhide">Restore ${nHidden} hidden speaker${nHidden === 1 ? '' : 's'}</a></div>` : '';
     if (!list.length) return `<div class="cb_hint">No one here yet. ${s.nodeAutoSpk ? 'Add a speaker, or they join once tagged in the chat.' : 'Add a speaker or let them join automatically.'}</div>${restore}`;
     const L = E();
     return list.map(({ key, name, custom }) => {
       const base = baseFace(name);
       const stPic = stAvatar(key);
-      const faceEmo = (() => { const im = D().emoImgs[key] || {}; return L.emotions.find((e) => e.id === L.emoDefault && im[e.id]) || L.emotions.find((e) => im[e.id]); })();
+      const faceEmo = mainEmo(key);
       const n = L.emotions.length;
       const full = D().sprites[key];
       const imgs = D().emoImgs[key] || {};
@@ -599,7 +599,6 @@
       <div class="cb_collapse_content">
         <div class="cb_hint">${TAG_KEY}</div>
         <div class="cb_hint">Faces per emotion and a full body for each speaker. Visual Novel Mode uses them; with it off, In the Chat can show them.</div>
-        <div><strong>Emotion Source:</strong>${pills('emosrc', [['tags', 'Tags'], ['agent', 'Agent (Soon)', 'An agent will read each reply and pick the emotion. Not ready yet.']], s.emoSource === 'agent' ? 'agent' : 'tags')}</div>
         ${subHead('av_chat', 'In the Chat', 'fa-message')}
         <div class="cb_collapse_content">
           <div class="ntr_pagefx">
@@ -635,7 +634,7 @@
         ${subHead('av_spk', 'Speakers ' + TAG, 'fa-users')}
         <div class="cb_collapse_content">
           <div class="cb_hint">On chat avatars, speakers without faces use their card or persona picture. The narrator never gets one.</div>
-          <label class="checkbox_label"><input type="checkbox" id="m_spk_auto" ${s.nodeAutoSpk ? 'checked' : ''}><span>Add Speakers Automatically</span></label>
+          ${ck('m_spk_auto', s.nodeAutoSpk, 'Add Speakers Automatically')}
           <div class="cb_hint">From the card, your persona and speaker tags in the chat.</div>
           <div id="m_spk_list"></div>
           <div class="cb_row" style="margin-top:8px;">
@@ -685,7 +684,7 @@
     const T = () => {
       if (!A.store()) return s;
       const v = D();
-      if (!Array.isArray(v.emotions)) ownList(v);
+      if (!Array.isArray(v.emotions)) copyList(s, v);
       return v;
     };
     const renderState = () => {
@@ -704,7 +703,7 @@
         inp.onchange = () => {
           const id = inp.dataset.id;
           const nm = inp.value.trim();
-          if (!nm || E().emotions.some((x) => x.id !== id && x.name.toLowerCase() === nm.toLowerCase())) {
+          if (!nm || E().emotions.some((x) => x.id !== id && lc(x.name) === lc(nm))) {
             toastr.warning('Emotion names need to be unique and not empty.', 'Emotions');
             inp.value = E().emotions.find((x) => x.id === id)?.name || '';
             return;
@@ -733,7 +732,7 @@
       const inp = overlay.querySelector('#m_emo_new');
       const nm = inp.value.trim();
       if (!nm) return;
-      if (E().emotions.some((x) => x.name.toLowerCase() === nm.toLowerCase())) { toastr.warning('That emotion already exists.', 'Emotions'); return; }
+      if (E().emotions.some((x) => lc(x.name) === lc(nm))) { toastr.warning('That emotion already exists.', 'Emotions'); return; }
       if (E().emotions.length >= 100) { toastr.warning('A list holds up to 100 emotions.', 'Emotions'); return; }
       T().emotions.push({ id: newId('emo'), name: nm });
       inp.value = '';
@@ -751,9 +750,7 @@
     };
     overlay.querySelector('#m_emo_savetpl').onclick = async function() {
       if (!(await A.askYes(this, 'Make this list the template? Characters following it change too.', 'Save'))) return;
-      const L = E();
-      s.emotions = L.emotions.map((e) => ({ id: e.id, name: e.name }));
-      s.emoDefault = L.emoDefault;
+      copyList(E(), s);
       save(); renderEmo(); changed();
     };
     overlay.querySelector('#m_emo_add').onclick = addEmo;
@@ -795,11 +792,11 @@
           const k = b.dataset.key;
           if (b.dataset.custom) {
             if (!(await A.askYes(b, 'Remove this custom speaker and their uploaded pictures?', 'Remove', { danger: true }))) return;
-            D().customSpk = D().customSpk.filter((n) => n.toLowerCase() !== k);
+            D().customSpk = D().customSpk.filter((n) => lc(n) !== k);
             const olds = [D().sprites[k], ...Object.values(D().emoImgs[k] || {})].filter(Boolean);
             delete D().sprites[k];
             delete D().emoImgs[k];
-            setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
+            olds.forEach((u) => A.deleteFileIfUnused(u));
           } else {
             // Detected from the card, persona or chat: hide it. Uploaded pictures are kept for a later restore.
             const c = ctx();
@@ -825,7 +822,7 @@
     const setSpkImage = (p, url) => {
       let old;
       if (p.full) { old = D().sprites[p.key]; D().sprites[p.key] = url; }
-      else if (p.emo) {
+      else {
         if (!D().emoImgs[p.key]) D().emoImgs[p.key] = {};
         old = D().emoImgs[p.key][p.emo];
         D().emoImgs[p.key][p.emo] = url;
@@ -849,11 +846,11 @@
       const nm = inp.value.trim();
       if (!nm) return;
       if (!A.store()) { toastr.warning('Open a character chat first. Speakers are saved per character.', 'Emotions'); return; }
-      const k = nm.toLowerCase();
+      const k = lc(nm);
       if (k === lc(s.narratorWord)) { toastr.warning('That name is your narrator keyword.', 'Emotions'); return; }
       if ([s.delimSpkOpen, s.delimSpkClose, s.delimEmo].some((d) => nm.includes(d))) { toastr.warning('Names can\'t contain your tag delimiters.', 'Emotions'); return; }
       D().hiddenSpk = D().hiddenSpk.filter((n) => lc(n) !== k);
-      if (!D().customSpk.some((n) => n.toLowerCase() === k)) D().customSpk.push(nm);
+      if (!D().customSpk.some((n) => lc(n) === k)) D().customSpk.push(nm);
       spkOpen.add(k);
       inp.value = '';
       save(); renderSpk(); changed();
@@ -863,7 +860,7 @@
     overlay.querySelector('#m_spk_auto').onchange = function() { s.nodeAutoSpk = this.checked; save(); renderSpk(); changed(); };
 
     // In the Chat
-    const chk = (id, key, after) => { const el = overlay.querySelector(id); if (el) el.onchange = function() { s[key] = this.checked; save(); after?.(); }; };
+    const chk = (id, key, after) => { overlay.querySelector(id).onchange = function() { s[key] = this.checked; save(); after?.(); }; };
     chk('#m_emo_faces', 'emoFaces', () => { updateInjection(); schedule(); });
     chk('#m_emo_stage', 'emoStage', () => { overlay.querySelector('#m_emo_stagebody').classList.toggle('cb_dim', !s.emoStage); updateInjection(); schedule(); });
     chk('#m_emo_keepface', 'nodeSpriteBase', changed);
@@ -880,10 +877,6 @@
       };
       sl.onchange = save;
     });
-    // Agent is a placeholder for now.
-    const agent = overlay.querySelector('input[name="cbr_emosrc"][value="agent"]');
-    if (agent) { agent.disabled = true; agent.closest('label')?.classList.add('cb_dim'); }
-    onPills(overlay, 'emosrc', (v) => { s.emoSource = v === 'agent' ? 'agent' : 'tags'; save(); updateInjection(); });
 
     // Tags & Delimiters
     const dIns = [...overlay.querySelectorAll('.m_d_in')];
@@ -936,7 +929,6 @@
     spotBoxes,
     pickSpots,
     speakers,
-    stAvatar,
     baseFace,
     faceSrc,
     bodySrc,

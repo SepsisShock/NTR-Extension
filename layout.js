@@ -8,7 +8,7 @@
 // Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages, Hide Names and Avatars and Attached
 // Style (overrideCss, layoutChatCss, namesCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const LAYOUT_VERSION = '2.86.13';
+  const LAYOUT_VERSION = '2.86.14';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -733,8 +733,7 @@
     let room = 0;
     if (sendFree()) {
       if (!sendRo && window.ResizeObserver) (sendRo = new ResizeObserver(() => syncSendRoom())).observe(form);
-      const c = chat.getBoundingClientRect(), f = form.getBoundingClientRect();
-      if (f.height && f.left < c.right && f.right > c.left && f.top < c.bottom && f.top > c.top + c.height / 2) room = Math.ceil(c.bottom - f.top);
+      room = Math.ceil(A.sendCover(chat.getBoundingClientRect(), form));
     }
     const v = room ? room + 'px' : '';
     if (chat.style.getPropertyValue('--ntr-send-room') !== v) chat.style.setProperty('--ntr-send-room', v);

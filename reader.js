@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.86.13';
+  const READER_VERSION = '2.86.14';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -225,8 +225,7 @@
     let room = 0;
     if (A.sendFree() && !A.pageFree?.()) {
       if (!formRo && window.ResizeObserver) (formRo = new ResizeObserver(() => { placeBar(); if (geom) layoutBook(); })).observe(form);
-      const s = sheld.getBoundingClientRect(), f = form.getBoundingClientRect();
-      if (f.height && f.left < s.right && f.right > s.left && f.top < s.bottom && f.top > s.top + s.height / 2) room = Math.ceil(s.bottom - f.top);
+      room = Math.ceil(A.sendCover(sheld.getBoundingClientRect(), form));
     }
     const v = room ? room + 'px' : '';
     if (bar.style.marginBottom !== v) bar.style.marginBottom = v;

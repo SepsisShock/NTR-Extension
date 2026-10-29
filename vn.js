@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.86.13';
+  const VN_VERSION = '2.86.14';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
@@ -833,10 +833,7 @@
   function boxFloor(chat, form) {
     if (!A.sendFree?.() || !chat) return form ? window.innerHeight - form.getBoundingClientRect().top : 82;
     const c = chat.getBoundingClientRect();
-    let edge = c.bottom;
-    const f = form && form.getBoundingClientRect();
-    if (f && f.height && f.left < c.right && f.right > c.left && f.top < c.bottom && f.top > c.top + c.height / 2) edge = f.top;
-    return Math.max(0, window.innerHeight - edge);
+    return Math.max(0, window.innerHeight - c.bottom + A.sendCover(c, form));
   }
 
   // The chat panel or send bar moved (Layout): the dialogue box and sprites follow.

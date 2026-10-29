@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.86.5';
+  const AVATARS_VERSION = '2.86.6';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -176,6 +176,9 @@
       origin: `transform-origin: calc(${fw} * ${n(f.k / 2 - f.x)}) calc(${fh} * ${n(f.k / 2)} - ${fw} * ${n(f.y)});`,
       // How far it reaches past each side of the picture, turned, for the room In Line keeps around it.
       spill: reach.map(([w, h]) => `max(0px, ${fw} * ${n(w)} + ${fh} * ${n(h)})`),
+      // The picture's width and what reaches past its left and right, in picture widths, for a picture whose height
+      // is tall times its width.
+      across: (tall) => `(1 + ${[reach[1], reach[3]].map(([w, h]) => `max(0, ${n(w)} + ${tall} * ${n(h)})`).join(' + ')})`,
       bg: `background: url("${f.img}") center / contain no-repeat;`,
     };
   }
@@ -278,14 +281,15 @@
     // shape's frame is the shape. None's is the picture's own shape, Image Scale wide (Original: the picture's own
     // width). In a short message Fit shrinks it to show the whole picture; Fill and Original keep their width and get
     // cut off.
-    const noneW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
-    const boxH = framed ? `${frameH}px` : `calc(${noneW} / ${ar})`;
+    // The picture's width: Image Scale, or its own width for Original.
+    const pictureW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
+    const boxH = framed ? `${frameH}px` : `calc(${pictureW} / ${ar})`;
     const boxAR = framed ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
     const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
       + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
       + ` height: min(100%, ${boxH}) !important;${boxAR ? ` aspect-ratio: ${boxAR} !important;` : ''}`
       + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'})${turnCss} !important;`;
-    const boxW = boxAR ? 'auto' : noneW;
+    const boxW = boxAR ? 'auto' : pictureW;
 
     // Fade Strength bends every fade the same way. At 50% a fade goes evenly from gone at the edge to all there where it
     // ends; lower keeps more of the picture in it (0%: no fade), higher less (100%: the faded part is gone). u is the
@@ -336,12 +340,16 @@
       // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
       // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
       // The avatar's width, at most 40vw like the avatar's own.
-      const avW = `min(${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`}, 40vw)`;
+      const avW = `min(${pictureW}, 40vw)`;
       const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
       const gap = (side) => (where === side ? ' + 6px' : '');
+      // Beside the text, the picture shrinks so it and its Frame together take at most 40% of the message's width
+      // (40cqw, with the message as the container), leaving the text room.
+      const sideW = b && !stacked && `min(${pictureW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
       const frameCss = b ? `
+      ${sideW ? `#chat .mes[is_user="${isUserStr}"] { container-type: inline-size !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
-        position: relative !important; --ntr-fw: ${avW}; --ntr-fh: ${framed ? `calc(${avW} * ${aspect})` : `calc(${avW} / ${ar})`};
+        position: relative !important; --ntr-fw: ${sideW || avW}; --ntr-fh: ${framed ? `calc(var(--ntr-fw) * ${aspect})` : `calc(var(--ntr-fw) / ${ar})`};
         margin: calc(${b.spill[0]}${gap('below')}) ${stacked ? '0' : b.spill[1]} calc(${b.spill[2]}${gap('above')}) ${stacked ? '0' : b.spill[3]} !important;
       }
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper::before {
@@ -366,7 +374,7 @@
       ${frameCss}
       #chat .mes[is_user="${isUserStr}"] .avatar {
         position: relative !important; flex: none !important;
-        width: ${fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
+        width: ${sideW ? 'var(--ntr-fw)' : pictureW} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
         ${turn ? `transform: rotate(${turn}deg) !important;` : ''}

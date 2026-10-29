@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.86.7';
+  const AVATARS_VERSION = '2.86.8';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -339,13 +339,15 @@
       const boxShape = framed ? `aspect-ratio: 1 / ${aspect} !important; border-radius: ${frameR} !important;` : `aspect-ratio: ${ar} !important; border-radius: 0 !important;`;
       // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
       // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
-      // The avatar's width, at most 40vw like the avatar's own.
-      const avW = `min(${pictureW}, 40vw)`;
+      // The avatar's width. On a narrow screen it stops at a share of the screen that Picture Size still shrinks (25vw at
+      // 100%), so the text keeps room and the slider works on phones. Own Size ignores Picture Size and stops at 40vw.
+      const capW = `${fit === 'original' ? 40 : scale / 4}vw`;
+      const avW = `min(${pictureW}, ${capW})`;
       const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
       const gap = (side) => (where === side ? ' + 6px' : '');
       // Beside the text, the picture shrinks so it and its Frame together take at most 40% of the message's width
       // (40cqw, with the message as the container), leaving the text room.
-      const sideW = b && !stacked && `min(${pictureW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
+      const sideW = b && !stacked && `min(${avW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
       const frameCss = b ? `
       ${sideW ? `#chat .mes[is_user="${isUserStr}"] { container-type: inline-size !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
@@ -374,7 +376,7 @@
       ${frameCss}
       #chat .mes[is_user="${isUserStr}"] .avatar {
         position: relative !important; flex: none !important;
-        width: ${sideW ? 'var(--ntr-fw)' : pictureW} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
+        width: ${sideW ? 'var(--ntr-fw)' : pictureW} !important; height: auto !important; max-width: ${capW} !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
         ${turn ? `transform: rotate(${turn}deg) !important;` : ''}

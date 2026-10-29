@@ -6,7 +6,7 @@
 // overrideCss) and the corners and bottom line where the chat panel meets a Floating send bar (joinCss), which follow
 // this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.86.9';
+  const DECOR_VERSION = '2.86.10';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
@@ -195,12 +195,8 @@
       const rest = `${sel}${top ? '.ntr_bub_prev' : '.ntr_bub_next'}`;
       if (tail) css += cssRule(`${rest} .mes_text::before, ${rest} .mes_text::after`, { display: 'none' });
       if (squared) css += cssRule(`${rest} .mes_text`, { [cornerKey]: `${r}px` });
-      // The hidden avatar keeps its width, so the bubbles line up, but not its height. On a phone the text needs the
-      // room more.
-      if (!placed) {
-        css += cssRule(`${rest} .mesAvatarWrapper`, { visibility: 'hidden' }) + cssRule(`${rest} .mesAvatarWrapper .avatar`, { height: '0', 'min-height': '0', 'aspect-ratio': 'auto' });
-        css += `\n      @media (max-width: 1000px) {${cssRule(`${rest} .mesAvatarWrapper`, { display: 'none' })} }`;
-      }
+      // The hidden avatar keeps its width, so the bubbles line up, but not its height.
+      if (!placed) css += cssRule(`${rest} .mesAvatarWrapper`, { visibility: 'hidden' }) + cssRule(`${rest} .mesAvatarWrapper .avatar`, { height: '0', 'min-height': '0', 'aspect-ratio': 'auto' });
       css += cssRule(`${sel}.ntr_bub_next`, { 'padding-bottom': '2px' }) + cssRule(`${sel}.ntr_bub_prev`, { 'padding-top': '2px' });
       // Only the first message of a run shows the name and time. The message buttons keep their place.
       css += cssRule(`${sel}.ntr_bub_prev .ch_name > .flex1`, { visibility: 'hidden' });

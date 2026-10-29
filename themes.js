@@ -2,7 +2,7 @@
 // Loaded by index.js at start, for the Themes page. If this file fails to load, the rest of the extension keeps working,
 // and saved themes stay in the settings.
 // A theme is a saved copy of the look settings (LOOK in index.js) and which regex folders are on. The core keeps what
-// a theme holds, how old ones are upgraded and cleaned, and applying one; this file is the page that saves, renames,
+// a theme holds, how it's cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.
 (() => {
   const THEMES_VERSION = '2.86.17';

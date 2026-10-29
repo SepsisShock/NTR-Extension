@@ -2,7 +2,7 @@
 // it arrives in time and works from what the core shares; where things sit on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api, reloadSettings } from './env.mjs';
+import { api } from './env.mjs';
 
 test('the core loads Layout before it starts', () => {
   assert.ok(window.NTR.layout, 'layout.js was not loaded by the core');

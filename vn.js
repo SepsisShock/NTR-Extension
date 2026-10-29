@@ -1,30 +1,21 @@
 // Nitwit Tavern Redesign: Visual Novel Mode module.
 // Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
-  const VN_VERSION = '2.86.22';
+  const VN_VERSION = '2.86.23';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead } = A;
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
   const { ovLabel } = A.look;
-  const TAG = A.TAG || '';
+  const { TAG } = A;
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
   if (!C) { console.error('[NTR] vn.js loaded without cast.js.'); return; }
   const { tagRe, splitTag, castNew, castStep, spotBoxes, pickSpots } = C;
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
-  const VDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [], locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
-  function V() {
-    const st = A.store();
-    if (!st) return VDEF();
-    if (!st.vn || typeof st.vn !== 'object') st.vn = VDEF();
-    const d = VDEF();
-    for (const k of Object.keys(d)) if (st.vn[k] === undefined) st.vn[k] = d[k];
-    return st.vn;
-  }
+  const V = () => A.vnData();
 
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  const lc = (x) => String(x || '').trim().toLowerCase();
   const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
   const vnOn = () => A.isOn() && settings().nodeEnabled;
 
@@ -225,7 +216,6 @@
   // ones are deleted. md: the chat data whose saved message was read (see keepPlace).
   const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null, follow: true, shown: null, md: null };
   let nodeQ = null, nodeQAnim = false;
-  const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Scene tags inside the narrator delimiters: [[Location:X]], [[Choice: A | B]], [[Effect:X]], [[Weather:X]], [[CG:X]], [[Enter:X | left]], [[Exit:X]]
   function dirKind(word, s) {
@@ -1634,7 +1624,7 @@
     currentLoc,
     visitedLocs,
     openingHooks: opHooks,
-    titleName: () => { const c = ctx(); if (c.groupId) return ((c.groups || []).find((g) => g.id === c.groupId) || {}).name || ''; return c.name2 || ''; },
+    titleName: () => A.chatName(),
     titleArt: () => {
       const c = ctx();
       if (c.groupId || !c.name2) return null;

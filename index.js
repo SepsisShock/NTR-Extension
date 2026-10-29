@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.22';
+  const VERSION = '2.86.23';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -211,6 +211,9 @@ await (async () => {
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     }[match]));
   };
+  // Names compared the way tags are matched: trimmed, any case. reEsc makes text safe to put in a regex.
+  const lc = (x) => String(x || '').trim().toLowerCase();
+  const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Avatar Management's Shape choices (see avatars.js). A saved Shape is checked against them (PICK_KEYS).
   const SHAPE_OPTS = [['none', 'None'], ['round', 'Circle'], ['oval', 'Oval'], ['rectangle', 'Rectangle'], ['square', 'Square'], ['heart', 'Heart'], ['star', 'Star']];
@@ -1963,6 +1966,16 @@ await (async () => {
     return cleanStore(s.charData[key]);
   }
 
+  // The cards in the open chat: a group's members, or the open character. chatName is the group's or character's name.
+  const chatGroup = (c) => (c.groups || []).find((g) => g.id === c.groupId);
+  function chatCards() {
+    const c = ctx();
+    if (c.groupId) return (chatGroup(c)?.members || []).map((av) => (c.characters || []).find((x) => x.avatar === av)).filter(Boolean);
+    const ch = c.characterId != null ? c.characters?.[c.characterId] : null;
+    return ch ? [ch] : [];
+  }
+  const chatName = () => { const c = ctx(); return (c.groupId ? chatGroup(c)?.name : c.name2) || ''; };
+
   // The open chat's emotions: its own list (in the card, or the group's), or the template (the global list) when it has
   // none or no chat is open.
   function emoSet() {
@@ -1979,6 +1992,19 @@ await (async () => {
     const def = FG_DEF();
     for (const k of Object.keys(def)) if (st.fg[k] === undefined) st.fg[k] = def[k];
     return st.fg;
+  }
+
+  // The open chat's Visual Novel data, for cast.js and vn.js: speakers and their pictures, locations, CGs, maps and the
+  // opening video. Missing parts are filled in; with no chat open, it's empty data that isn't kept.
+  const VN_DEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [],
+    locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
+  function vnData() {
+    const st = store();
+    if (!st) return VN_DEF();
+    if (!st.vn) st.vn = VN_DEF();
+    const def = VN_DEF();
+    for (const k of Object.keys(def)) if (st.vn[k] === undefined) st.vn[k] = def[k];
+    return st.vn;
   }
 
   function scheduleCardFlush(key) {
@@ -2226,7 +2252,6 @@ await (async () => {
     'choiceWord', 'choiceSep', 'effectWord', 'weatherWord', 'cgWord', 'enterWord', 'exitWord', 'fxShake', 'fxFlash', 'fxFade', 'wxRain', 'wxSnow', 'wxClear'];
   function validateDelims(d) {
     const errs = [], warns = [];
-    const lc = (x) => String(x || '').trim().toLowerCase();
     if (TAG_KEYS.some((k) => !d[k])) errs.push('Every field needs a value.');
     const delims = [d.delimSpkOpen, d.delimSpkClose, d.delimNarOpen, d.delimNarClose];
     const distinct = (arr) => { const a = arr.filter(Boolean).map(lc); return new Set(a).size === a.length; };
@@ -3171,7 +3196,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,

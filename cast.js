@@ -5,25 +5,19 @@
 // Staying in index.js: the template emotion list and the tag settings (DEFAULTS), the open chat's list (emoSet), card
 // checks (cleanVn) and tag checks (validateDelims).
 (() => {
-  const CAST_VERSION = '2.86.22';
+  const CAST_VERSION = '2.86.23';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY } = A;
-  const lc = (x) => String(x || '').trim().toLowerCase();
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
 
   // A speaker's pictures live in the card's Visual Novel data (or per group): emoImgs holds the faces (speaker, then
   // emotion id), sprites the full bodies (one per speaker). The names stay as they are so saved cards keep working.
-  const CDEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [] });
   function D() {
-    const st = A.store();
-    if (!st) return CDEF();
-    if (!st.vn) st.vn = {};
-    const d = CDEF();
-    for (const k of Object.keys(d)) if (st.vn[k] === undefined) st.vn[k] = d[k];
-    if (Object.keys(st.vn.avatars).length) mergeOldFaces(st.vn);
+    const v = A.vnData();
+    if (Object.keys(v.avatars).length) mergeOldFaces(v);
     // A character with faces keeps its own emotion list, so a later change to the template can't strand its faces.
-    if (!Array.isArray(st.vn.emotions) && Object.values(st.vn.emoImgs).some((m) => Object.keys(m).length)) { copyList(settings(), st.vn); save(); }
-    return st.vn;
+    if (!Array.isArray(v.emotions) && Object.values(v.emoImgs).some((m) => Object.keys(m).length)) { copyList(settings(), v); save(); }
+    return v;
   }
   // The open chat's emotions (A.emoSet): its own list, or the template.
   const E = () => A.emoSet();
@@ -61,7 +55,6 @@
   };
 
   // ----- Tags, with the symbols from Tags & Delimiters: ((Name%%Emotion)) for speakers, [[...]] for the rest -----
-  const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const delimRes = (s) => [s.delimSpkOpen, s.delimSpkClose, s.delimNarOpen, s.delimNarClose].map(reEsc);
   // A speaker tag is group 1, anything inside the narrator delimiters (narration, scene tags) group 2.
   function tagRe(s) {
@@ -162,12 +155,7 @@
   function stAvatar(key) {
     const c = ctx();
     if (lc(c.name1) === key) { const u = userAvatarSrc(); return u ? { src: u, from: 'persona' } : null; }
-    let cards = [];
-    if (c.groupId) {
-      const g = (c.groups || []).find((x) => x.id === c.groupId);
-      cards = (g?.members || []).map((av) => (c.characters || []).find((x) => x.avatar === av));
-    } else if (c.characterId !== undefined && c.characterId !== null) cards = [c.characters?.[c.characterId]];
-    const ch = cards.find((x) => x && lc(x.name) === key);
+    const ch = A.chatCards().find((x) => lc(x.name) === key);
     if (ch && ch.avatar) return { src: `/characters/${encodeURIComponent(ch.avatar)}`, from: 'card' };
     return null;
   }
@@ -245,10 +233,7 @@
       else if (custom) map.get(k).custom = true;
     };
     add(c.name1);
-    if (c.groupId) {
-      const g = (c.groups || []).find((x) => x.id === c.groupId);
-      (g?.members || []).forEach((av) => { const ch = (c.characters || []).find((x) => x.avatar === av); if (ch) add(ch.name); });
-    } else if (c.characterId !== undefined && c.characterId !== null) add(c.name2);
+    A.chatCards().forEach((ch) => add(ch.name));
     D().customSpk.forEach((n) => add(n, true));
     if (s.nodeAutoSpk) {
       const re = tagRe(s);
@@ -689,11 +674,9 @@
       return v;
     };
     const renderState = () => {
-      const c = ctx();
       const chat = !!A.store();
       const own = chat && E().own;
-      const who = c.groupId ? (c.groups || []).find((g) => g.id === c.groupId)?.name : c.name2;
-      overlay.querySelector('#m_emo_state').textContent = !chat ? 'Editing the Template' : own ? `Own List: ${who || 'This Chat'}` : 'Following the Template';
+      overlay.querySelector('#m_emo_state').textContent = !chat ? 'Editing the Template' : own ? `Own List: ${A.chatName() || 'This Chat'}` : 'Following the Template';
       overlay.querySelector('#m_emo_tpl').style.display = own ? '' : 'none';
     };
     const renderEmo = () => {

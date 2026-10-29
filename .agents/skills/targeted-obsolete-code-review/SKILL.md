@@ -1,6 +1,6 @@
 ---
 name: targeted-obsolete-code-review
-description: Use only when the user explicitly asks for a targeted obsolete-code review.
+description: Use only when the user explicitly asks for a targeted obsolete-code review or OBCR1
 ---
 
 Review the requested file for dead code, obsolete migration and compatibility logic, copied code, unnecessary guards, and outdated comments.
@@ -15,4 +15,4 @@ Review the requested file for dead code, obsolete migration and compatibility lo
 
 ## Output
 
-Report findings with code evidence, why each item is unnecessary or outdated, and any compatibility or behavioral risks. Do not recommend changes solely to reduce line count. Do not modify files.
+Report findings with code evidence, why each item is unnecessary or outdated, and any compatibility or behavioral risks.

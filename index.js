@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.20';
+  const VERSION = '2.86.21';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1481,8 +1481,8 @@ await (async () => {
       ? `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`
       : `<input type="color" class="m_o_col" data-key="${key}" value="${toHex(s[key])}">`;
   }
-  function ovText(s, key, placeholder = '', max = 100) {
-    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="${max}" placeholder="${escapeHTML(placeholder)}" style="width:100%;">`;
+  function ovText(s, key, placeholder = '') {
+    return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="${strMax(key)}" placeholder="${escapeHTML(placeholder)}" style="width:100%;">`;
   }
   // A font box, in a holder fonts.js adds its list and button to, and the note it shows when Google has no font by that
   // name. Without fonts.js it's a plain text box.
@@ -1542,10 +1542,17 @@ await (async () => {
     });
     overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
       el.onchange = () => {
-        s[el.dataset.key] = el.value.slice(0, strMax(el.dataset.key));
+        s[el.dataset.key] = el.value;
         save();
         updateAvatarStyle();
       };
+    });
+    overlay.querySelectorAll('.m_css').forEach((box) => {
+      box.oninput = () => {
+        s[box.dataset.key] = box.value;
+        updateAvatarStyle();
+      };
+      box.onchange = save;
     });
   }
 
@@ -1657,11 +1664,11 @@ await (async () => {
   const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning'], ['rbArrowCss', '.mes_reasoning_details .mes_reasoning_arrow']];
   // The reasoning Custom CSS boxes that `get` gives text for, each inside its part's selector.
   const rbCssText = (get) => RB_CSS.map(([k, sel]) => {
-    const c = String(get(k) || '').slice(0, 2000).trim();
+    const c = (get(k) || '').trim();
     return c ? `${sel} { ${c} }` : '';
   }).filter(Boolean).join('\n');
   // A Custom CSS box, k its setting, and the last line under each one.
-  const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="2000" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
+  const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="${strMax(k)}" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
   const CSS_NOTE = 'Add <code>!important</code> if a setting doesn\'t take. Saved in themes; CSS from someone else\'s theme arrives switched off.';
   function cssTag(id, v) {
     let el = document.getElementById(id);

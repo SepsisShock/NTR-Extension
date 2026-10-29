@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.86.20';
+  const AVATARS_VERSION = '2.86.21';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -117,7 +117,7 @@
   function syncAvatarCss() {
     const s = settings();
     for (const [p, flag] of [['ai', 'false'], ['us', 'true']]) {
-      const c = ntrAvatars(s, p) && s[p + 'CssOn'] ? String(s[p + 'Css'] || '').slice(0, 2000).trim() : '';
+      const c = ntrAvatars(s, p) && s[p + 'CssOn'] ? s[p + 'Css'].trim() : '';
       cssTag(`ntr_av_css_${p}`, c ? `${s[p + 'Style'] === 'popout' ? `#cb_popf_${p}` : `#chat .mes[is_user="${flag}"] .avatar`} { ${c} }` : '');
     }
   }
@@ -966,10 +966,6 @@
       });
       onPills(col, `${prefix}filter`, (v) => { s[`${prefix}Filter`] = v; save(); syncScale(); updateAvatarStyle(); });
       onPills(col, `${prefix}texture`, (v) => { s[`${prefix}Texture`] = v; save(); syncScale(); updateAvatarStyle(); });
-      col.querySelectorAll('.m_css').forEach((box) => {
-        box.oninput = () => { s[box.dataset.key] = box.value.slice(0, 2000); syncAvatarCss(); };
-        box.onchange = save;
-      });
       // One slider for the fade picked on the fade grid.
       const fadeSl = col.querySelector(`#m_${prefix}_fade`);
       let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`).value;

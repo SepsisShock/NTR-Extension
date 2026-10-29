@@ -281,14 +281,15 @@
     // shape's frame is the shape. None's is the picture's own shape, Image Scale wide (Original: the picture's own
     // width). In a short message Fit shrinks it to show the whole picture; Fill and Original keep their width and get
     // cut off.
-    const noneW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
-    const boxH = framed ? `${frameH}px` : `calc(${noneW} / ${ar})`;
+    // The picture's width: Image Scale, or its own width for Original.
+    const pictureW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
+    const boxH = framed ? `${frameH}px` : `calc(${pictureW} / ${ar})`;
     const boxAR = framed ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
     const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
       + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
       + ` height: min(100%, ${boxH}) !important;${boxAR ? ` aspect-ratio: ${boxAR} !important;` : ''}`
       + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'})${turnCss} !important;`;
-    const boxW = boxAR ? 'auto' : noneW;
+    const boxW = boxAR ? 'auto' : pictureW;
 
     // Fade Strength bends every fade the same way. At 50% a fade goes evenly from gone at the edge to all there where it
     // ends; lower keeps more of the picture in it (0%: no fade), higher less (100%: the faded part is gone). u is the
@@ -339,13 +340,12 @@
       // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
       // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
       // The avatar's width, at most 40vw like the avatar's own.
-      const ownW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
-      const avW = `min(${ownW}, 40vw)`;
+      const avW = `min(${pictureW}, 40vw)`;
       const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
       const gap = (side) => (where === side ? ' + 6px' : '');
       // Beside the text, the picture shrinks so it and its Frame together take at most 40% of the message's width
       // (40cqw, with the message as the container), leaving the text room.
-      const sideW = b && !stacked && `min(${ownW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
+      const sideW = b && !stacked && `min(${pictureW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
       const frameCss = b ? `
       ${sideW ? `#chat .mes[is_user="${isUserStr}"] { container-type: inline-size !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
@@ -374,7 +374,7 @@
       ${frameCss}
       #chat .mes[is_user="${isUserStr}"] .avatar {
         position: relative !important; flex: none !important;
-        width: ${sideW ? 'var(--ntr-fw)' : ownW} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
+        width: ${sideW ? 'var(--ntr-fw)' : pictureW} !important; height: auto !important; max-width: 40vw !important; ${boxShape}
         overflow: hidden !important; container-type: size !important;
         margin: 0 !important; padding: 0 !important; background: transparent !important; border: none !important; cursor: pointer;
         ${turn ? `transform: rotate(${turn}deg) !important;` : ''}

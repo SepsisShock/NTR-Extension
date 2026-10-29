@@ -1491,8 +1491,8 @@ await (async () => {
       <div class="cb_hint ntr_fmiss" hidden></div>`;
   }
 
-  // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick and ovWhen, bound once for the
-  // whole menu. It runs after the modules', Layout's and Reader Mode's binders and before UI Decor's, Text
+  // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick, ovWhen and customCssBox, bound
+  // once for the whole menu. It runs after the modules', Layout's and Reader Mode's binders and before UI Decor's, Text
   // Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows earlier. Empty
   // colors get SillyTavern's own (stColor). The font boxes' list comes after, from fonts.js, which only listens.
   function bindRows(overlay, s) {
@@ -1659,8 +1659,9 @@ await (async () => {
     };
   }
 
-  // Custom CSS for the reasoning button, box and arrow, each inside its part's selector. Every Custom CSS box gets its own
-  // style tag (see syncCustomCss in elements.js), so a typo can't break the extension's other styles.
+  // Custom CSS for the reasoning button, box and arrow, each inside its part's selector. The three share one style tag,
+  // and each other Custom CSS box has its own (see syncCustomCss in elements.js), so a typo can't break the extension's
+  // other styles.
   const RB_CSS = [['rbBtnCss', '.mes_reasoning_header'], ['rbCss', '.mes_reasoning'], ['rbArrowCss', '.mes_reasoning_details .mes_reasoning_arrow']];
   // The reasoning Custom CSS boxes that `get` gives text for, each inside its part's selector.
   const rbCssText = (get) => RB_CSS.map(([k, sel]) => {

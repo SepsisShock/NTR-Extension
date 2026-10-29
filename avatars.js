@@ -339,15 +339,15 @@
       const boxShape = framed ? `aspect-ratio: 1 / ${aspect} !important; border-radius: ${frameR} !important;` : `aspect-ratio: ${ar} !important; border-radius: 0 !important;`;
       // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
       // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
-      // The avatar's width. On a narrow screen it stops at a share of the screen that Image Scale still shrinks (25vw at
-      // 100%), so the text keeps room and the slider works on phones.
-      const capW = `${scale / 4}vw`;
+      // The avatar's width. On a narrow screen it stops at a share of the screen that Picture Size still shrinks (25vw at
+      // 100%), so the text keeps room and the slider works on phones. Own Size ignores Picture Size and stops at 40vw.
+      const capW = `${fit === 'original' ? 40 : scale / 4}vw`;
       const avW = `min(${pictureW}, ${capW})`;
       const b = frame && frameBox(frame, 'var(--ntr-fw)', 'var(--ntr-fh)', turn);
       const gap = (side) => (where === side ? ' + 6px' : '');
       // Beside the text, the picture shrinks so it and its Frame together take at most 40% of the message's width
       // (40cqw, with the message as the container), leaving the text room.
-      const sideW = b && !stacked && `min(${pictureW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
+      const sideW = b && !stacked && `min(${avW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
       const frameCss = b ? `
       ${sideW ? `#chat .mes[is_user="${isUserStr}"] { container-type: inline-size !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {

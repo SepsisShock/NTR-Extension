@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.86.12';
+  const READER_VERSION = '2.86.13';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -44,9 +44,6 @@
   // The built-in books (assets/books) are one photo of an open book in seven cover colors, 3:2. Their page areas are where
   // the Book settings start (see DEFAULTS).
   const BOOK_RATIO = 1.5;
-  // The ink the built-in book starts with; empty or broken colors fall back to it.
-  const INK = { rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e' };
-  const COLOR_OK = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i;
 
   const live = () => isOn() && !!settings().rdEnabled && !settings().nodeEnabled;
   // Visual Novel, Reader Mode's third style.
@@ -299,7 +296,8 @@
     geom = g;
 
     const px = (v) => `${Math.round(v * 10) / 10}px`;
-    const col = (k) => (COLOR_OK.test(s[k]) ? s[k] : INK[k]);
+    // Empty or broken ink falls back to the built-in book's (DEFAULTS).
+    const col = (k) => (A.look.COLOR_RE.test(s[k]) ? s[k] : A.DEFAULTS[k]);
     const font = s.rdBookFontOn ? A.cleanFont(s.rdBookFont) : '';
     const B = 'html body.ntr_book';
     const css = `

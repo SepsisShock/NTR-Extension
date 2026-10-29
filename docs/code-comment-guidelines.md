@@ -1,4 +1,6 @@
-# Comment guidelines
+# Code comment guidelines
+
+Code comments guide coding agents maintaining the source; UI copy guides people using the extension. Apply these guidelines only to code comments.
 
 - Explain only non-obvious reasons, hidden constraints, or necessary workarounds.
 - Do not describe what is already obvious from the code.

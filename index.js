@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.13';
+  const VERSION = '2.86.14';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1570,6 +1570,14 @@ await (async () => {
 
   // Attached Style: Separate stands the send box apart from the chat panel. It sits in Layout, so Layout's switch counts.
   const sendSeparate = (s) => layoutOn(s) && s.ovSendPosOn && s.ovSendPos === 'separate';
+
+  // The room in px a box (r, a rect) keeps clear for a Floating send bar: from r's bottom up to the send bar's top, when
+  // that top is in r's lower half and their widths overlap; otherwise 0. For layout.js, reader.js and vn.js, which
+  // check Floating first.
+  function sendCover(r, form) {
+    const f = form?.getBoundingClientRect();
+    return f && f.height && f.left < r.right && f.right > r.left && f.top < r.bottom && f.top > r.top + r.height / 2 ? r.bottom - f.top : 0;
+  }
 
   // Layout's Space Between Messages, and the gap Separate leaves above the send box.
   function layoutChatCss(s) {
@@ -3409,7 +3417,7 @@ await (async () => {
     pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
-    sendFree: () => !!callModule('layout', 'sendFree'),
+    sendFree: () => !!callModule('layout', 'sendFree'), sendCover,
     // For reader.js and vn.js. Visual Novel Mode is Reader Mode's Visual Novel style, so setReader(true, true) turns
     // both on.
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).

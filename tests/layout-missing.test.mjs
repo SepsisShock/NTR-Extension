@@ -24,7 +24,7 @@ test('without layout.js, Layout stays SillyTavern\'s own', () => {
   assert.equal(api.pageFree(), false);
   assert.equal(api.banFree(), false);
   assert.equal(api.look.sendSeparate(s), false);
-  Object.assign(s, { ovNamesOn: true, ovNames: 'hide' });
+  Object.assign(s, { ovNamesOn: true });
   assert.equal(api.look.namesHidden(s), false);
   s.ovNamesOn = false;
 });

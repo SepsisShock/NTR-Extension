@@ -2,7 +2,7 @@
 // it arrives in time and works from what the core shares; where things sit on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api, reloadSettings } from './env.mjs';
+import { api } from './env.mjs';
 
 test('the core loads Layout before it starts', () => {
   assert.ok(window.NTR.layout, 'layout.js was not loaded by the core');
@@ -32,7 +32,7 @@ test('the Layout page draws, with its switch and Pinned Blocks', () => {
 
 test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s, and takes NTR Avatars with it', () => {
   const s = api.settings();
-  Object.assign(s, { masterEnabled: true, layEnabled: true, avatarEnabled: false, aiEnabled: true, ovNamesOn: true, ovNames: 'hide' });
+  Object.assign(s, { masterEnabled: true, layEnabled: true, avatarEnabled: false, aiEnabled: true, ovNamesOn: true });
   assert.equal(api.look.namesHidden(s), true);
   s.avatarEnabled = true;
   assert.equal(api.look.ntrAvatars(s, 'ai'), false);
@@ -42,8 +42,3 @@ test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s,
   s.ovNamesOn = false;
 });
 
-test('Names and Pictures on with Show, which hid nothing, loads as Hide Names and Avatars off', () => {
-  const s = reloadSettings({ ovNamesOn: true, ovNames: 'show' });
-  assert.equal(s.ovNamesOn, false);
-  assert.equal(s.ovNames, 'hide');
-});

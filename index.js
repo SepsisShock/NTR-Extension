@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.17';
+  const VERSION = '2.86.18';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -26,8 +26,7 @@ await (async () => {
     // AI Settings
     aiStyle: 'inline', aiPopX: 0, aiPopY: 0,
     aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiFocus: 0, aiScale: 100, aiPad: 140, 
-    aiTopFade: 0, aiBotFade: 180, aiLeftFade: 0, aiRightFade: 50,
-    aiEnabled: true, aiLeftFadePx: 0, aiRightFadePx: 150,
+    aiEnabled: true,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0, aiFadeStr: 50,
     aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape', aiFilter: 'none', aiFilterStr: 100, aiTexture: 'none', aiTextureStr: 100, aiCssOn: false, aiCss: '',
     aiFrame: '', aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0,
@@ -35,8 +34,7 @@ await (async () => {
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
     usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usFocus: 0, usScale: 100, usPad: 140, 
-    usTopFade: 0, usBotFade: 180, usLeftFade: 50, usRightFade: 0,
-    usEnabled: true, usLeftFadePx: 150, usRightFadePx: 0,
+    usEnabled: true,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0, usFadeStr: 50,
     usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape', usFilter: 'none', usFilterStr: 100, usTexture: 'none', usTextureStr: 100, usCssOn: false, usCss: '',
     usFrame: '', usFrameImg: '', usFrameSize: 140, usFrameX: 0, usFrameY: 0,
@@ -130,12 +128,12 @@ await (async () => {
     // Display overrides
     ovEnabled: true,
     ovWidthOn: false, ovWidth: 50, ovFontOn: false, ovFont: 1,
-    ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2, ovAvatarOn: false, ovAvatar: 'round',
+    ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2,
     // Interface Shape shapes the chat panel and the rest of the interface (see uiShapeCss in decor.js). Empty colors mean SillyTavern's own (see COLOR_FROM).
     ovShapeOn: false, ovShape: 'rounded', ovRound: 10,
     ovPanelBgOn: true, ovPanelBg: 'clear', ovPanelBgColor: '', ovPanelBgOpacity: 100,
     ovPanelBorderOn: false, ovPanelBorder: 'line', ovPanelBorderColor: '', ovPanelBorderWidth: 1, ovPanelBorderOpacity: 100,
-    ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false, ovNames: 'hide',
+    ovMesGapOn: false, ovMesGap: 5, ovNamesOn: false,
     ovSendPosOn: false, ovSendPos: 'separate', ovSendGap: 8,
     // Speech Bubbles: AI and User messages as chat bubbles around the message text (see bubbleCss in decor.js). Their color, roundness
     // and border come from AI Message and User Message.
@@ -204,8 +202,6 @@ await (async () => {
   }
   // Overall Font Scale keeps its old UI Display key names so saved configs keep working; it now lives in Text Formatting.
   const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
-  // No setting uses these now; they stay only so old settings and themes still load (upgradeLook switches it off).
-  const AVATAR_SHAPE_KEYS = ['ovAvatarOn', 'ovAvatar'];
 
   const ctx = () => SillyTavern.getContext();
   const save = () => {
@@ -233,107 +229,6 @@ await (async () => {
   // An SVG path as a mask, drawn in a 100 x 100 box stretched over its frame. Avatar Management's Heart and Star
   // (avatars.js) and the Speech Bubble tails cut with it.
   const svgMask = (d) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${d}"/></svg>`)}")`;
-  // Left and right fades used to be a % of the image width. The image box is Scale x 3 px wide.
-  const pctFadeToPx = (pct, scale) => Math.min(400, Math.max(0, Math.round((Number(pct) || 0) / 100 * (Number(scale) || 100) * 3)));
-
-  // Settings from before the UI Display and Reasoning Block Design redesigns, turned into the new ones so the chat looks
-  // the same. Works on the settings and on a theme's keys put together; the new keys win if both are there.
-  function upgradeLook(o) {
-    const put = (k, v) => { if (!(k in o)) o[k] = v; };
-    const msgs = (fn) => { for (const p of ['Ai', 'Us']) fn(p); };
-    // NTR Avatars had its own see-through, 15px rounded messages.
-    const ntrAv = (p) => o.avatarEnabled !== false && o[p.toLowerCase() + 'Enabled'] !== false;
-    // Avatar Shape was one setting for SillyTavern's chat avatars where NTR Avatars was off. NTR leaves SillyTavern's
-    // avatars alone now, so it just switches off.
-    if (o.ovAvatarOn) o.ovAvatarOn = false;
-    // Names and Pictures had Show and Hide, and Show changed nothing. It's one tick now, Hide Names and Avatars, so
-    // Hide is the only value, and on with Show stays as it was: off.
-    if (o.ovNames === 'show') { o.ovNamesOn = false; o.ovNames = 'hide'; }
-    // Rounded was a Shape of its own: a square with corners a fifth of its width.
-    for (const p of ['ai', 'us']) if (o[p + 'Shape'] === 'rounded') { o[p + 'Shape'] = 'square'; put(p + 'Corner', 20); }
-    // Avatar Blur is gone; Filter took its place.
-    for (const p of ['ai', 'us']) delete o[p + 'Blur'];
-    // Avatar fades are a % of the picture, so they keep their share of it at any Image Scale and message height. Pixel
-    // fades become a % of the picture at Scale 100 (300px wide), taken as a portrait 1.5 times as tall as wide. A smaller
-    // Scale made pixel fades swallow the picture, so its own Scale would carry that over.
-    // The first side fades were already a % of the width.
-    for (const p of ['ai', 'us']) {
-      const w = 300;
-      const pct = (v, size) => Math.min(100, Math.max(0, Math.round((Number(v) || 0) / size * 100)));
-      if (p + 'TopFade' in o) put(p + 'FadeTop', pct(o[p + 'TopFade'], w * 1.5));
-      if (p + 'BotFade' in o) put(p + 'FadeBot', pct(o[p + 'BotFade'], w * 1.5));
-      for (const side of ['Left', 'Right']) {
-        if (p + side + 'FadePx' in o) put(p + 'Fade' + side, pct(o[p + side + 'FadePx'], w));
-        else if (p + side + 'Fade' in o) put(p + 'Fade' + side, pct(o[p + side + 'Fade'], 100));
-      }
-    }
-    // Make Chat Panel Transparent is the Chat Panel's Background set to Transparent.
-    if ('chatTransparent' in o) {
-      put('ovPanelBgOn', !!o.chatTransparent);
-      put('ovPanelBg', 'clear');
-      delete o.chatTransparent;
-    }
-    // Chat Style is now made of the message settings, with Bubbles' own 10px corners, 1px line and 5px space (the defaults).
-    // Empty colors are SillyTavern's own message and border colors.
-    if ('ovChatStyle' in o || 'ovChatStyleOn' in o) {
-      const st = o.ovChatStyleOn ? o.ovChatStyle : '';
-      if (st === 'bubbles') {
-        msgs((p) => {
-          if (!ntrAv(p)) { put(`ov${p}ShapeOn`, true); put(`ov${p}Shape`, 'rounded'); put(`ov${p}Round`, DEFAULTS.ovAiRound); put(`ov${p}BgOn`, true); put(`ov${p}Bg`, 'color'); }
-          put(`ov${p}BorderOn`, true); put(`ov${p}Border`, 'line'); put(`ov${p}BorderWidth`, DEFAULTS.ovAiBorderWidth);
-        });
-        put('ovMesGapOn', true); put('ovMesGap', DEFAULTS.ovMesGap);
-      } else if (st === 'flat' || st === 'document') {
-        msgs((p) => { put(`ov${p}BgOn`, true); put(`ov${p}Bg`, 'clear'); put(`ov${p}BorderOn`, true); put(`ov${p}Border`, 'none'); });
-        if (st === 'document') { put('ovNamesOn', true); put('ovNames', 'hide'); }
-      }
-      delete o.ovChatStyle; delete o.ovChatStyleOn;
-    }
-    // Keep message background (NTR Avatars): unticked made that side's messages see-through.
-    for (const [old, p] of [['aiMsgBg', 'Ai'], ['usMsgBg', 'Us']]) {
-      if (!(old in o)) continue;
-      if (o[old] === false && ntrAv(p)) { put(`ov${p}BgOn`, true); put(`ov${p}Bg`, 'clear'); }
-      delete o[old];
-    }
-    // Reasoning's Background Color Transparency is now Opacity: 30% see-through is 70% opacity.
-    for (const k of ['rbBtn', 'rbBox']) {
-      if (!(k + 'Alpha' in o)) continue;
-      const n = Number(o[k + 'Alpha']);
-      put(k + 'Opacity', 100 - Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0)));
-      delete o[k + 'Alpha'];
-    }
-    // The reasoning status text had ticks; an unticked one meant ST's own text, which is now an empty box.
-    if ('rbThinkOn' in o) {
-      for (const k of ['rbThink', 'rbDone', 'rbSome']) { if (!o[k + 'On']) o[k] = ''; delete o[k + 'On']; }
-    }
-    // The box's Border Style had Glow, now a Border Effect over ST's own line, and Solid, which is ST's own line.
-    // Both go back to unticked.
-    if (o.rbBorderStyle === 'glow' || o.rbBorderStyle === 'solid') {
-      if (o.rbBorderStyle === 'glow' && o.rbBorderStyleOn && (o.rbEdgeFx ?? 'none') === 'none') {
-        o.rbEdgeFx = 'glow';
-        put('rbEdgeFxSize', DEFAULTS.rbEdgeFxSize); // the old glow's size
-      }
-      o.rbBorderStyle = 'none';
-      o.rbBorderStyleOn = false;
-    }
-    // Fade was one of the Background Patterns; it's its own switch now, so it can go with a pattern. A theme from before
-    // that had another pattern turns Fade off.
-    if ('rbPat' in o && !('rbPatFadeOn' in o)) o.rbPatFadeOn = o.rbPat === 'fade';
-    if (o.rbPat === 'fade') o.rbPat = 'none';
-    // The button's Border Style had None, which is ST's own look: unticked.
-    if (o.rbBtnBorder === 'none') { o.rbBtnBorder = DEFAULTS.rbBtnBorder; o.rbBtnBorderOn = false; }
-    // UI Display's switch used to cover Chat Width, Space Between Messages, Attached Style, the scrollbar and the
-    // cursor. They follow Layout's switch and their own Elements switches now, so whatever showed before still shows:
-    // with UI Display on, Layout comes on for them (it changes nothing until something is moved); with it off, they go off.
-    if ('ovEnabled' in o && !('ovScrollOn' in o)) {
-      const on = o.ovEnabled !== false;
-      const lay = ['ovWidthOn', 'ovMesGapOn', 'ovSendPosOn'];
-      o.ovScrollOn = on;
-      if (!on) { o.ovCursorOn = false; o.ovNamesOn = false; for (const k of lay) o[k] = false; }
-      else if (lay.some((k) => o[k]) && o.layEnabled !== true) o.layEnabled = true;
-    }
-    return o;
-  }
 
   // While NTR data is being removed, nothing may write the settings back: until the page reloads, code that
   // still runs gets a throwaway copy of the defaults.
@@ -350,68 +245,23 @@ await (async () => {
     if (s && s === loaded) return s;
     if (wiping && !s) return (wipeStub ??= structuredClone(DEFAULTS));
     if (!s) all[MODULE] = {};
-    loadSettings(all[MODULE], !s);
+    loadSettings(all[MODULE]);
     loaded = all[MODULE];
     return loaded;
   }
 
-  // Saved settings brought up to date: settings from older versions turned into the new ones, missing ones filled in
-  // from DEFAULTS, and lists checked. Also run after a theme is applied, since a theme's Default Emotion can name an
-  // emotion it doesn't have.
-  function loadSettings(s, fresh = false) {
-    const keepOldLook = !fresh && !('artBg' in s) && !!(s.vnUsed || s.nodeEnabled);
-    // Border Style had no tick in 2.10.0, so a border picked there stays on.
-    if ('rbBtnBorder' in s && !('rbBtnBorderOn' in s)) s.rbBtnBorderOn = s.rbBtnBorder !== 'none';
-    if ('rbBorderStyle' in s && !('rbBorderStyleOn' in s)) s.rbBorderStyleOn = s.rbBorderStyle !== 'solid';
-    // The built-in book was a drawing before 2.36.0, and its page areas don't fit the photo books.
-    if (!('rdBook' in s) && !s.rdBookImg && s.rdBookTop === 7 && s.rdBookBottom === 8 && s.rdBookOuter === 7 && s.rdBookSpine === 8) {
-      for (const k of ['rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine']) s[k] = DEFAULTS[k];
-    }
-    if (!fresh) upgradeLook(s);
+  // Saved settings brought up to date: missing ones filled in from DEFAULTS, and lists checked. Also run after a theme
+  // is applied, since a theme's Default Emotion can name an emotion it doesn't have.
+  function loadSettings(s) {
     for (const k of Object.keys(DEFAULTS)) {
       if (s[k] === undefined) s[k] = structuredClone(DEFAULTS[k]);
     }
-    if (!s.fadePxMigrated) {
-      if (!fresh) {
-        for (const p of ['ai', 'us']) {
-          for (const k of ['TopFade', 'BotFade']) {
-            s[p + k] = Math.min(400, Math.round((Number(s[p + k]) || 0) * 3));
-          }
-        }
-      }
-      s.fadePxMigrated = true;
-    }
-    if (!s.sideFadePxMigrated) {
-      if (!fresh) {
-        for (const p of ['ai', 'us']) {
-          for (const k of ['LeftFade', 'RightFade']) s[p + k + 'Px'] = pctFadeToPx(s[p + k], s[p + 'Scale']);
-        }
-      }
-      s.sideFadePxMigrated = true;
-    }
-    if (keepOldLook) { s.artBg = 'none'; s.artSprite = 'none'; }
-    if ('rbBtnShapeOn' in s && !s.rbBtnShapeOn) s.rbBtnShape = DEFAULTS.rbBtnShape;
-    for (const k of ['rbBtnShapeOn', 'rbType', 'rbSizeOn', 'rbSize', 'rbWeightOn', 'rbWeight', 'rbColorOn', 'rbColor', 'rbEmOn', 'rbEm',
-      'rbFxOn', 'rbFx', 'rbFxStr', 'rbFxColorOn', 'rbFxColor', 'ovScrollWidthOn', 'ovScrollWidth', 'ovScrollShapeOn', 'ovScrollShape', 'ovCursorSpot', 'ovCursorPtrSpot',
-      'themeFontMoved', 'themeLookV2', 'avatarShapeMoved']) delete s[k];
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
-    if (s.bannerEnabled !== undefined && !s.migratedBanner) {
-      s.bannerMode = s.bannerEnabled ? 'image' : 'off';
-      s.migratedBanner = true;
-      delete s.bannerEnabled;
-    }
-    // Off used to be one of the banner kinds; it's now its own switch for every character.
-    if (s.bannerMode === 'off') { s.bannerOn = false; s.bannerMode = 'image'; }
-    if (s.vnUsed === undefined) s.vnUsed = !!s.nodeEnabled || Object.keys(s.nodeAvatars || {}).length > 0;
     // Visual Novel Mode is Reader Mode's Visual Novel style, so it's only on while Reader Mode is.
     if (s.nodeEnabled && !s.rdEnabled) s.rdEnabled = true;
     if (s.uiOpen && !('rd_vn' in s.uiOpen)) openStyleGroup(s);
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
-    // Saved themes are brought up to date once. upgradeTheme makes every change in one go: the settings that changed
-    // pages (Chat Width to Layout, Scrollbar to Elements and so on) move to their new sections, Fade as a pattern gets
-    // its own switch, and the avatar Blur goes. themeLookV3 to V5 marked earlier changes; a new one needs themeLookV7.
-    if (!s.themeLookV6) { s.themes.forEach((th) => upgradeTheme(th && th.data)); s.themeLookV6 = true; }
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
     // The template is copied into cards, which check a list like a theme's, so it keeps to the same limits.
@@ -420,18 +270,6 @@ await (async () => {
     if (!cleaned.has(s.frameLib)) s.frameLib = cleanFrameLib(s.frameLib);
     s.frameHidden = Array.isArray(s.frameHidden) ? FRAME_SERIES.map((f) => f.id).filter((id) => s.frameHidden.includes(id)) : [];
     if (!cleaned.has(s.frameFits)) s.frameFits = cleanFrameFits(s.frameFits);
-    // Frames uploaded before the library go in its first folder, so they stay in the list.
-    if (!s.frameLibMoved) {
-      for (const p of ['ai', 'us']) {
-        const img = cUrl(s[p + 'FrameImg']);
-        if (!img || img.startsWith('data:')) continue;
-        s.frameFits[p][img] = ['FrameSize', 'FrameX', 'FrameY'].map((n) => rangeNum(s, p + n));
-        if (s.frameLib.folders.some((f) => f.frames.some((fr) => fr.img === img))) continue;
-        if (!s.frameLib.folders.length) s.frameLib.folders.push({ id: newId('frf'), name: 'My Frames', frames: [] });
-        s.frameLib.folders[0].frames.push({ id: newId('fr'), name: 'Your picture', img });
-      }
-      s.frameLibMoved = true;
-    }
     if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
   }
 
@@ -1511,9 +1349,6 @@ await (async () => {
   }
 
   // ===== Look helpers the look pages share (UI Decor is in decor.js; its keys start with ov, from its old name UI Display) =====
-  // The old Avatar Shape's values, checked only so old settings and themes still load.
-  const AV_CLS = { round: '', rectangle: 'big-avatars', square: 'square-avatars', rounded: 'rounded-avatars' };
-
   // UI Decor's switch, with decor.js loaded. Without decor.js, the parts of UI Decor the core builds stay SillyTavern's
   // own too, whatever is saved: Blur and Shadow, the corners and bottom line where the chat panel meets a Floating send
   // bar, and Speech Bubbles (bubblesOn).
@@ -1535,7 +1370,7 @@ await (async () => {
 
   // Hide Names and Avatars takes away avatars, names and timestamps, NTR Avatars and pop-outs included. It sits in
   // Layout, so Layout's switch is the one that counts, and without layout.js it stays off, whatever is saved.
-  const namesHidden = (s) => isOn() && layoutOn(s) && s.ovNamesOn && s.ovNames === 'hide';
+  const namesHidden = (s) => isOn() && layoutOn(s) && s.ovNamesOn;
   // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar. Without avatars.js they
   // stay off, whatever is saved, and other pages stop making room for NTR's avatars.
   const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
@@ -1693,7 +1528,7 @@ await (async () => {
     });
     const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
     for (const k of Object.keys(PICK_KEYS)) {
-      if (k.startsWith('ov') && k !== 'ovAvatar') onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
+      if (k.startsWith('ov')) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
     }
     syncWhen();
     overlay.querySelectorAll('.m_o_col').forEach((el) => {
@@ -1775,7 +1610,7 @@ await (async () => {
   for (const p of FX_PARTS) PICK_KEYS[p + 'Fx'] = FX;
   // The other pick-one settings a theme holds. The Visual Novel and opening choices match the menus in vn.js and opening.js.
   Object.assign(PICK_KEYS, {
-    bannerBackdrop: ['wallpaper', 'panel'], ovAvatar: Object.keys(AV_CLS), ovShape: OV_SHAPES, ovNames: ['show', 'hide'], ovSendPos: ['joined', 'separate'],
+    bannerBackdrop: ['wallpaper', 'panel'], ovShape: OV_SHAPES, ovSendPos: ['joined', 'separate'],
     layBarEdge: LAY_EDGES, laySend: ['attached', 'free'], layPhBarEdge: LAY_EDGES, layPhSend: ['attached', 'free'],
     layPage: ['attached', 'free'], layPhPage: ['attached', 'free'], layBan: ['attached', 'free'], layPhBan: ['attached', 'free'],
     nodeShape: ['rounded', 'round', 'square', 'rect'], artBg: ['none', 'dusk', 'night', 'room', 'forest', 'custom'], artSprite: ['builtin', 'custom', 'none'],
@@ -2380,16 +2215,15 @@ await (async () => {
   // ===== Theme data =====
   const PFP_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ai') || k.startsWith('us'));
   // UI Display keys that sit on other pages now, and go in those pages' theme sections.
-  const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap'];
-  const NAMES_KEYS = ['ovNamesOn', 'ovNames'];
+  const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap', 'ovNamesOn'];
   const ELEMENT_OV_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ovScroll') || k.startsWith('ovCursor') || k.startsWith('ovQr'));
-  const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...AVATAR_SHAPE_KEYS, ...LAYOUT_OV_KEYS, ...NAMES_KEYS, ...ELEMENT_OV_KEYS];
+  const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...LAYOUT_OV_KEYS, ...ELEMENT_OV_KEYS];
   // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
   const LOOK = {
-    layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS, ...NAMES_KEYS] },
+    layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },
     text: { label: 'Text Formatting', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('tf')), ...FONT_SCALE_KEYS] },
-    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, ...AVATAR_SHAPE_KEYS, 'emoStageScale', 'emoStageOpacity'] },
+    pfp: { label: 'Avatar Management', keys: ['avatarEnabled', ...PFP_KEYS, 'emoStageScale', 'emoStageOpacity'] },
     reasoning: { label: 'Elements', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('rb') || k.startsWith('md') || k.startsWith('mb')), ...ELEMENT_OV_KEYS] },
     banner: { label: 'Banner Look (Height, Gap, Transparent Areas, Rotation)', keys: ['bannerHeight', 'bannerGap', 'bannerBackdrop', 'bannerRotate', 'bannerRotateSec', 'bannerRotateFx', 'bannerRotateOrder'] },
     bannerGlobal: { label: 'Global Banner (Pictures, YouTube Link, Video)', keys: ['bannerGlobal'] },
@@ -2493,11 +2327,10 @@ await (async () => {
   }
   for (const p of ['ai', 'us']) {
     Object.assign(NUM_RANGE, {
-      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'ShiftX']: [0, 100, 1, '%'], [p + 'Zoom']: [100, 200, 5, '%'], [p + 'Rotate']: [-180, 180, 1, '°'], [p + 'Pad']: [0, 400, 5, 'px'], [p + 'TopFade']: [0, 400, 5, 'px'], [p + 'BotFade']: [0, 400, 5, 'px'],
-      [p + 'LeftFadePx']: [0, 400, 5, 'px'], [p + 'RightFadePx']: [0, 400, 5, 'px'], [p + 'FilterStr']: [0, 100, 1, '%'], [p + 'TextureStr']: [0, 100, 1, '%'],
+      [p + 'Scale']: [10, 300, 5, '%'], [p + 'Corner']: [0, 25, 1, '%'], [p + 'Focus']: [0, 100, 1, '%'], [p + 'ShiftX']: [0, 100, 1, '%'], [p + 'Zoom']: [100, 200, 5, '%'], [p + 'Rotate']: [-180, 180, 1, '°'], [p + 'Pad']: [0, 400, 5, 'px'],
+      [p + 'FilterStr']: [0, 100, 1, '%'], [p + 'TextureStr']: [0, 100, 1, '%'],
       [p + 'FrameSize']: [100, 300, 1, '%'], [p + 'FrameX']: [-50, 50, 1, '%'], [p + 'FrameY']: [-50, 50, 1, '%'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
-      [p + 'LeftFade']: [0, 100], [p + 'RightFade']: [0, 100], // the old side fades, a % of the image width (see pctFadeToPx)
       [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],
       [p + 'FadeTL']: [0, 100, 1, '%'], [p + 'FadeTR']: [0, 100, 1, '%'], [p + 'FadeBL']: [0, 100, 1, '%'], [p + 'FadeBR']: [0, 100, 1, '%'], [p + 'FadeStr']: [0, 100, 1, '%'],
     });
@@ -2567,26 +2400,6 @@ await (async () => {
     return structuredClone(v);
   }
 
-  // Themes saved or exported before keep some keys in the part they used to belong to (Overall Font Scale in UI Display,
-  // Avatar Shape in UI Display) and settings from before the UI Display and Reasoning Block Design redesigns. Each key
-  // is moved to its part now, and the old settings are turned into the new ones.
-  function upgradeTheme(data) {
-    if (!data || typeof data !== 'object') return;
-    const flat = {};
-    for (const sec of Object.keys(data)) {
-      const part = data[sec];
-      if (!LOOK[sec] || !part || typeof part !== 'object') continue;
-      // A key already in its own part wins over the same key left in an old part.
-      for (const k of Object.keys(part)) if (!(k in flat) || LOOK[sec].keys.includes(k)) flat[k] = part[k];
-    }
-    upgradeLook(flat);
-    for (const sec of Object.keys(LOOK)) {
-      const part = {};
-      for (const k of LOOK[sec].keys) if (k in flat) part[k] = flat[k];
-      if (Object.keys(part).length || sec in data) data[sec] = part;
-    }
-  }
-
   function cleanLookSection(sec, part) {
     const out = {};
     if (!part || typeof part !== 'object') return out;
@@ -2601,15 +2414,6 @@ await (async () => {
     if (sec === 'vn' && TAG_KEYS.some((k) => k in out)) {
       const s = settings();
       if (validateDelims(Object.fromEntries(TAG_KEYS.map((k) => [k, k in out ? out[k] : s[k]]))).errs.length) for (const k of TAG_KEYS) delete out[k];
-    }
-    if (sec === 'pfp') {
-      for (const p of ['ai', 'us']) {
-        // Themes from before the built-in frames have a frame picture but no built-in frame: theirs replaces yours.
-        if (p + 'FrameImg' in out && !(p + 'Frame' in out)) out[p + 'Frame'] = '';
-        for (const k of ['LeftFade', 'RightFade']) {
-          if (p + k in out && !(p + k + 'Px' in out)) out[p + k + 'Px'] = pctFadeToPx(out[p + k], out[p + 'Scale'] ?? settings()[p + 'Scale']);
-        }
-      }
     }
     return out;
   }
@@ -3255,7 +3059,6 @@ await (async () => {
     const wasVN = !!s.nodeEnabled;
     s.rdEnabled = !!on;
     s.nodeEnabled = !!on && !!vn;
-    if (s.nodeEnabled) s.vnUsed = true;
     openStyleGroup(s);
     save();
     const live = isOn();
@@ -3419,7 +3222,7 @@ await (async () => {
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
     refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v), fontName: (v) => fontName(v),
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
-    LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, upgradeTheme, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
+    LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
     unpackFiles, isObj, stColor,
     // For themes.js and agents.js: their exported files, and names for what they import
     downloadJson, freeName,

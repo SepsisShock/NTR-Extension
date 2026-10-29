@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.23';
+  const VERSION = '2.86.24';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -252,10 +252,6 @@ await (async () => {
       if (s[k] === undefined) s[k] = structuredClone(DEFAULTS[k]);
     }
     if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
-    // An old copy of foreground images and VN portraits. Cleanup would count its files as in use forever.
-    delete s.legacyBackup;
-    // The Emotion Source choice, which only ever had Tags.
-    delete s.emoSource;
     // Visual Novel Mode is Reader Mode's Visual Novel style, so it's only on while Reader Mode is.
     if (s.nodeEnabled && !s.rdEnabled) s.rdEnabled = true;
     if (s.uiOpen && !('rd_vn' in s.uiOpen)) openStyleGroup(s);
@@ -1860,7 +1856,6 @@ await (async () => {
   }
 
   function cleanVn(v) {
-    v.avatars = cUrlMap(v.avatars);
     v.sprites = cUrlMap(v.sprites);
     const emo = Object.create(null);
     if (isObj(v.emoImgs)) for (const k of Object.keys(v.emoImgs).slice(0, 500)) if (k.length <= 200) emo[k] = cUrlMap(v.emoImgs[k]);
@@ -1996,7 +1991,7 @@ await (async () => {
 
   // The open chat's Visual Novel data, for cast.js and vn.js: speakers and their pictures, locations, CGs, maps and the
   // opening video. Missing parts are filled in; with no chat open, it's empty data that isn't kept.
-  const VN_DEF = () => ({ avatars: Object.create(null), sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [],
+  const VN_DEF = () => ({ sprites: Object.create(null), emoImgs: Object.create(null), customSpk: [], hiddenSpk: [],
     locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
   function vnData() {
     const st = store();

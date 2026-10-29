@@ -8,11 +8,10 @@ ChatGPT reviews pull requests and submits review comments directly on GitHub, un
 
 ## Review skills
 
-- When the user says "cleancom", "$cleancom", or requests the four-point cleanup review, read and follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).
+- When the user says "cleancom" or "$cleancom", read and follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).
 - When the user asks for a "code simplification review" or "$code-simplification", read and follow [.agents/skills/code-simplification/SKILL.md](.agents/skills/code-simplification/SKILL.md).
 - These are review requests, not instructions to edit source code. Use the review target established in the conversation.
 - For these explicitly requested reviews, concrete comment/naming cleanup and behavior-preserving simplification suggestions are allowed in addition to Bug or Verify findings. Prefix them with `ChatGPT review: Cleanup:` or `ChatGPT review: Simplification:`, respectively. The Bug/Verify-only rule below still applies to ordinary PR reviews.
-- Follow the existing rules for where to post, avoiding duplicate findings, and reporting validation.
 
 ## Writing
 
@@ -56,7 +55,7 @@ Pay particular attention to:
 - Saved settings keys are kept, or renamed or removed with an upgrade in `loadSettings`.
 - Modules reuse helpers from `index.js` through `window.NTR` instead of copying them.
 - Number ranges live in `NUM_RANGE`, not typed directly into the menu or other code. Respect documented exceptions for modules that have not migrated yet.
-- Flag repeated helpers or logic when the copies could drift apart and give different results, and old code the change no longer updates but that still runs. Don't flag code `CLAUDE.md` always keeps (`loadSettings` upgrades, `cleanStore` checks, `NUM_RANGE` checks, missing-module handling, checks for optional SillyTavern features), or other exceptions explained in the PR description or a code comment.
+- Flag repeated helpers or logic when the copies could drift apart and give different results, and old code the change no longer updates but that still runs. Don't flag code `CLAUDE.md`'s Dead Code & Guards says to always keep, or other exceptions explained in the PR description or a code comment.
 - For `.js` or `.css` changes, check the bump level: last number for fixes, middle for new features, first only when the PR description states approval. Judge the bump for the whole PR against `main`. A PR bumps once, so fix commits pushed later don't bump again, unless `main` got a new version first. CI checks that the bump happened everywhere. Docs-only changes need no bump.
 
 After the checklist, look for any other bugs the change could cause, including ones outside the listed areas. The same evidence standards apply.
@@ -69,5 +68,6 @@ After the checklist, look for any other bugs the change could cause, including o
 
 ### Finishing the review
 
+- Submit every review as a Comment, never Approve or Request changes; GitHub rejects those on the owner's own PRs.
 - If there are no findings, submit a short overall review comment saying that no issues worth flagging were found.
 - For reviews authorized for posting, verify that GitHub accepted the submitted review, including any inline comments, before reporting completion. Do not leave the review pending.

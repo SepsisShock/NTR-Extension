@@ -5,7 +5,7 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.86.11';
+  const AVATARS_VERSION = '2.86.12';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -92,10 +92,15 @@
     return `<span style="position: relative; display: block; width: 100%; height: 100%;">${pic}${layer ? `<span style="position: absolute; inset: 0; ${escapeHTML(layer)}"></span>` : ''}</span>`;
   }
   // The Filter and Texture tiles. Each group previews only its own effect, at full strength.
-  const filterTiles = (prefix, cur) => tiles(`${prefix}filter`, 'Filter',
-    FILTER_OPTS.map(([v, l]) => [v, l, previewFace(sidePic(prefix), FILTERS[v] ? `filter: ${FILTERS[v].fx(1, 0.25)};` : '', '')]), cur, true);
-  const textureTiles = (prefix, cur) => tiles(`${prefix}texture`, 'Texture',
-    TEXTURE_OPTS.map(([v, l]) => [v, l, previewFace(sidePic(prefix), '', TEXTURES[v] || '')]), cur, true);
+  function filterTiles(prefix, cur) {
+    const pic = sidePic(prefix);
+    return tiles(`${prefix}filter`, 'Filter',
+      FILTER_OPTS.map(([v, l]) => [v, l, previewFace(pic, FILTERS[v] ? `filter: ${FILTERS[v].fx(1, 0.25)};` : '', '')]), cur, true);
+  }
+  function textureTiles(prefix, cur) {
+    const pic = sidePic(prefix);
+    return tiles(`${prefix}texture`, 'Texture', TEXTURE_OPTS.map(([v, l]) => [v, l, previewFace(pic, '', TEXTURES[v] || '')]), cur, true);
+  }
   // Custom CSS for each side's avatar box (the frame, on Pop Out), in its own style tag so a typo can't break the
   // others. Gone while NTR, Avatar Management or that side is off.
   function syncAvatarCss() {

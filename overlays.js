@@ -294,7 +294,7 @@
     updateBanner();
   }
 
-  // The old image fades out on top of the new one, once the new one has loaded.
+  // The old image fades out on top of the new one, once the new one has loaded or failed to load.
   function crossfade(img, u, pos) {
     if (img.dataset.next === u) return;
     img.dataset.next = u;

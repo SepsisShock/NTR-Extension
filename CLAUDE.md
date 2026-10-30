@@ -3,7 +3,7 @@
 SillyTavern extension. NTR is being developed for public release.
 
 ## Communication
-- Plain language. No em dashes; use semicolons, colons, or a new sentence instead.
+- Plain language. No em dashes; use semicolons or colons.
 
 ## UI Copy
 - Use concise, general terms. Never use examples from my personal setup.

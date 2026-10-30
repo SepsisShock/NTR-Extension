@@ -5,4 +5,4 @@
   - If SillyTavern can't be run, say so in the PR.
 - **Versioning:** Bump with `node scripts/version.cjs bump patch` (fixes) or `minor` (features).
 - **Docs:** Propose removing shipped features from `ROADMAP.md`. Propose a few-word `manifest.json` description update only when a new top-level area ships.
-- **PR Summary:** State what changed, why, how it was tested, what caught any real bug (a test, script, skill, review, or plan check) and when (planning, building, or review), or "none", and explain any out-of-scope file touches. If CI's Core growth check warns, justify why that code belongs in core; if you can't, propose moving it.
+- **PR Summary:** State what changed, why, how it was tested, what caught any real bug (a test, script, skill, review, or plan check) and when (planning, building, or review), or "none", and explain any out-of-scope file touches. If CI's Core growth check warns, justify why that code belongs in core; if you can't, propose moving it. End it with the line `Checklist: done`, so the user can tell this checklist came up.

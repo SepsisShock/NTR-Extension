@@ -62,7 +62,7 @@ jobs:
             const a = base.split(".").map(Number), b = head.split(".").map(Number);
             const diff = [0, 1, 2].map(i => (b[i] || 0) - (a[i] || 0)).find(d => d !== 0) || 0;
             if (diff <= 0) {
-              console.log(`::error::A .js or .css file changed, but the version was not bumped. It is ${head}; main has ${base}.`);
+              console.log(`::error::A .js or .css file changed, but the version was not bumped. It is ${head}; main has ${base}. Merge main in, then bump with node scripts/version.cjs bump patch (fixes) or minor (features).`);
               process.exit(1);
             }
           ' "$RUNNER_TEMP/main-manifest.json"

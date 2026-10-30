@@ -34,7 +34,7 @@ function codeOnly(src) {
       const end = close < 0 ? src.length : close + (src[i + 1] === '/' ? 0 : 2); // a file can end inside a comment
       blank(i, end); i = end - 1; continue;
     }
-    if (c === "'" || c === '"' || (c === '/' && (!/[\w$)\]}]/.test(last) || KEYWORD_BEFORE.test(src.slice(i - 12, i))))) {
+    if (c === "'" || c === '"' || (c === '/' && (!/[\w$)\]}]/.test(last) || KEYWORD_BEFORE.test(src.slice(Math.max(0, i - 12), i))))) {
       let j = i + 1;
       for (let cls = false; j < src.length && (src[j] !== c || cls); j++) {
         if (src[j] === '\\') j++;
@@ -92,6 +92,8 @@ test('the code-only copies keep all the code', () => {
   assert.equal(codeOnly('f(); // end'), 'f();       ');
   assert.equal(codeOnly('f(); /* end'), 'f();       ');
   assert.equal(codeOnly("f('end"), "f('   ");
+  // A keyword in the first few characters, where a negative slice would read from the end of the file instead.
+  assert.equal(codeOnly("return /'/.test(a)"), 'return / /.test(a)');
 });
 
 test('settings, ranges, cleaning and upload names are defined only in index.js', () => {

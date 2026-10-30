@@ -6,7 +6,7 @@
 // pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
 // for it, and it uses the saved page and the page number box from here.
 (() => {
-  const READER_VERSION = '2.86.24';
+  const READER_VERSION = '2.86.25';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -494,7 +494,7 @@
     textObs?.disconnect();
     textObs = null;
     const last = geom && cur === pages.length - 1 && document.querySelector(`#chat > .mes[mesid="${pages[cur]?.[1]}"] .mes_text`);
-    if (!last || !window.MutationObserver) return;
+    if (!last) return;
     textObs = new MutationObserver(() => {
       if (textQueued) return;
       textQueued = true;

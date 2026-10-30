@@ -4,16 +4,16 @@ Nitwit Tavern Redesign (NTR) is a SillyTavern extension being developed for publ
 
 ## Communication
 
-Use plain, literal language. Use a colon, a semicolon, or a new sentence instead of an em dash.
+Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 ## Ground Rules
 
 - Edit files only when explicitly requested.
-- For GitHub tasks, use the GitHub Connector.
 - Use the review target set in the conversation.
-- Before posting, confirm the repository is `SepsisShock/NTR-Extension` and the PR number matches. Posting anywhere else needs explicit permission.
+- For GitHub tasks, use the GitHub Connector.
 - Run tests and other shell commands with `timeout` (for example, `timeout 60 node --test tests/*.test.mjs`).
-- If a call fails, retry the same call at most once. After that, change the approach or report the blocker.
+- If a call fails, retry the same call just once. After that, change the approach or report the blocker.
+- Before posting, confirm the repository is `SepsisShock/NTR-Extension`. Posting anywhere else needs explicit permission.
 
 ## Review Process
 
@@ -37,22 +37,23 @@ Use plain, literal language. Use a colon, a semicolon, or a new sentence instead
 - An unfamiliar API, a missing defensive check, or a theoretical risk alone is not a finding. Respect intentional features and existing safeguards.
 - The IP address being visible to an external link the user opened, or to remote media they configured, is not a finding by itself. Name the unexpected request, bypassed restriction, or extra data exposed.
 
-## Writing Findings
+## Writing Reviews
 
-Start each comment and reply with `ChatGPT review:`. Label findings `Bug:` (state the trigger and what goes wrong) or `Verify:` (state the trigger, the possible result, and a test). A requested skill may use its own labels.
-
-Name exact functions, keys, and files. Keep comments short.
-
-## Submitting
-
+- Start each comment and reply with `ChatGPT review:`. Label findings `Bug:` (state the trigger and what goes wrong) or `Verify:` (state the trigger, the possible result, and a test). A requested skill may use its own labels.
+- Name exact functions, keys, and files. Keep comments short.
 - Put each finding in its own inline comment on a related changed line, or in the overall comment if no changed line fits.
-- Submit as Comment; never leave the review pending. Never Approve or Request changes; GitHub rejects those on the owner's own PRs.
 - In the overall comment, say what you inspected and any limits, and whether you tested runtime behavior in SillyTavern. Keep tests you ran separate from existing CI results. Don't claim a reproduction based on reading code alone.
 - With no findings, the overall comment says no issues worth flagging were found.
+
+## Submitting Reviews
+
+- Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
+- Never leave the review pending.
 - In chat, give a short summary and the review link.
 
 ## Review Skills
 
+Open a skill file only when it's requested:
 - "cleancom" or "$cleancom": follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).
 - "code simplification review" or "$code-simplification": follow [.agents/skills/code-simplification/SKILL.md](.agents/skills/code-simplification/SKILL.md).
 - "open-ended obsolete-code review", "$open-ended-obsolete-code-review", or "OBCR2": follow [.agents/skills/open-ended-obsolete-code-review/SKILL.md](.agents/skills/open-ended-obsolete-code-review/SKILL.md).

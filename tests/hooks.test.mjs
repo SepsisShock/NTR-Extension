@@ -1,5 +1,6 @@
 // The Claude Code hooks in .claude/hooks: commit-guard.mjs (the user approves wording changes, deletions, renames and
-// major version bumps before they reach GitHub) and pr-checklist.mjs (the PR checklist comes up once per branch).
+// major version bumps before they reach GitHub) and pr-checklist.mjs (the PR checklist comes up once each time a
+// branch starts from main).
 // Each test feeds a hook the JSON Claude Code would send, in a scratch repo with its own "origin", so nothing touches
 // this repo or GitHub. This checks the scripts only: whether settings.json still makes Claude Code run them (tool names,
 // matchers, onFailure) can only be seen in a real session.
@@ -9,11 +10,14 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ROOT } from './env.mjs';
+import { fileURLToPath } from 'node:url';
+
+// Not imported from env.mjs, which also starts the extension: these tests should only fail when a hook breaks.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 const PUSH = 'git push origin feat';
 
-// A repo on branch feat, one commit ahead of main, with main already on its bare origin.
+// A repo on branch feat, level with main, with main already on its bare origin. Tests add the commits they need.
 function scratch(t) {
   const tmp = mkdtempSync(join(tmpdir(), 'ntr-hooks-'));
   t.after(() => rmSync(tmp, { recursive: true, force: true }));

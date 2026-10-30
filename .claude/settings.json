@@ -13,7 +13,14 @@
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/commit-guard.mjs\"", "if": "Bash(git *)", "timeout": 60, "onFailure": "block" },
-          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/commit-guard.mjs\"", "if": "Bash(gh *)", "timeout": 60, "onFailure": "block" }
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/commit-guard.mjs\"", "if": "Bash(gh *)", "timeout": 60, "onFailure": "block" },
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-checklist.mjs\"", "if": "Bash(gh *)", "timeout": 30 }
+        ]
+      },
+      {
+        "matcher": "mcp__github__create_pull_request",
+        "hooks": [
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-checklist.mjs\"", "timeout": 30 }
         ]
       },
       {

@@ -19,7 +19,7 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 1. Read the PR description: what changed, why, and how it was tested.
 2. Read existing review comments and replies. Skip findings already raised or resolved; if new evidence shows one still stands, reply in its thread.
-3. Read these `CLAUDE.md` sections and review against them: Architecture & Module Routing; Data, Controls & Hygiene; and the Versioning item under Testing & Releases. The rest of `CLAUDE.md` is for Claude Code.
+3. Read these `CLAUDE.md` sections and review against them: Architecture & Module Routing; Data, Controls & Hygiene. The rest of `CLAUDE.md` is for Claude Code.
 4. Read the changes and the code around them. Trace callers, exports, and data flow.
 5. Check the areas below, then look for any other bugs the change could cause.
 

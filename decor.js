@@ -9,10 +9,9 @@
   const DECOR_VERSION = '2.86.29';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
-  const { card, onPills, pageHtml, pills, rangeNum, save, settings } = A;
+  const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
   const { BUB_INK_OPTS, BUB_TAIL_OPTS, COLOR_FROM, SWITCHES, bubRight, bubblesOn, cssRule, joinCss, ntrAvatars, ovBgRow, ovBorderRow, ovBorderVal,
     ovColorVal, ovLabel, ovPick, ovRadius, ovRow, ovShapeRow, ovWhen, rangeSlider, restyle: updateAvatarStyle, sendSeparate, svgMask } = A.look;
-  const openCombinedModal = () => A.openMenu();
 
   // The AI and User messages.
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
@@ -298,7 +297,7 @@
     onPills(page, 'obubpreset', (v) => {
       if (!BUB_PRESETS[v]) return;
       Object.assign(s, BUB_PRESETS[v][1]);
-      save(); updateAvatarStyle(); openCombinedModal();
+      save(); updateAvatarStyle(); openMenu();
     });
   }
 

@@ -1962,13 +1962,7 @@
       changed(true);
       refreshBoxes();
     };
-    const freeName = (base) => {
-      const used = new Set(a.fields.map((f) => f.name.toLowerCase()));
-      let n = 1;
-      while (used.has((n > 1 ? `${base} ${n}` : base).toLowerCase())) n++;
-      return n > 1 ? `${base} ${n}` : base;
-    };
-    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field') }));
+    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', (n) => a.fields.some((f) => f.name.toLowerCase() === n.toLowerCase())) }));
     root.querySelector('#m_agf_head')?.addEventListener('click', () => add({ kind: 'heading', name: 'New Heading' }));
     if (!box) return;
     const at = (el) => a.fields.find((f) => f.id === el.closest('[data-fd]')?.dataset.fd);

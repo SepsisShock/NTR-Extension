@@ -254,7 +254,7 @@
   const rot = { key: null, idx: null, timer: null, sec: 0, fade: false };
   // Waits while the Overlays page is open (page id 'fg'), so the Crop slider works on the picked image.
   const rotPaused = () => !!document.getElementById('cb_modal_overlay') && settings().uiPage === 'fg';
-  // The picked image of a banner source, kept inside the list in case its idx points past the end.
+  // The saved image index, clamped to the source's current list.
   const pickedIdx = (r) => Math.max(0, Math.min(r.idx, r.images.length - 1));
   function shownIdx(key, r) {
     const n = r.images.length;

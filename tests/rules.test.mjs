@@ -73,7 +73,8 @@ function callArgs(file, at) {
 const calls = (file, names) => [...CODE[file].matchAll(new RegExp(`(?<![\\w.$])(?:A\\.)?(${names.join('|')})\\(`, 'g'))]
   .filter((m) => !/function\s+$/.test(CODE[file].slice(0, m.index)))
   .map((m) => [m[1], callArgs(file, m.index + m[0].length - 1), m.index]);
-const literal = (arg) => /^'(\w+)'$/.exec(arg || '')?.[1];
+// A key or name written out in quotes, or in a template with no ${}.
+const literal = (arg) => /^(['"`])(\w+)\1$/.exec(arg || '')?.[2];
 
 // If the scan took a regex for division or the other way round, it would blank real code up to the next / and the
 // checks below would miss calls there without failing.

@@ -30,12 +30,13 @@ function codeOnly(src) {
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (c === '/' && (src[i + 1] === '/' || src[i + 1] === '*')) {
-      const end = src[i + 1] === '/' ? src.indexOf('\n', i) : src.indexOf('*/', i) + 2;
+      const close = src[i + 1] === '/' ? src.indexOf('\n', i) : src.indexOf('*/', i);
+      const end = close < 0 ? src.length : close + (src[i + 1] === '/' ? 0 : 2); // a file can end inside a comment
       blank(i, end); i = end - 1; continue;
     }
     if (c === "'" || c === '"' || (c === '/' && (!/[\w$)\]}]/.test(last) || KEYWORD_BEFORE.test(src.slice(i - 12, i))))) {
       let j = i + 1;
-      for (let cls = false; src[j] !== c || cls; j++) {
+      for (let cls = false; j < src.length && (src[j] !== c || cls); j++) {
         if (src[j] === '\\') j++;
         else if (c === '/' && (src[j] === '[' || src[j] === ']')) cls = src[j] === '[';
       }
@@ -87,6 +88,10 @@ test('the code-only copies keep all the code', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
   const sample = "const f = (a) => /x'/i.test(a); // f('x')\nconst g = a / 2 / b; return /\\//.test(c) && uploadImage(q, 'z');";
   assert.equal(codeOnly(sample), `const f = (a) => /  /i.test(a); ${' '.repeat(9)}\nconst g = a / 2 / b; return /  /.test(c) && uploadImage(q, ' ');`);
+  // A file that ends in a comment, or (not valid, so CI's parse check reports it) in an unclosed comment or string.
+  assert.equal(codeOnly('f(); // end'), 'f();       ');
+  assert.equal(codeOnly('f(); /* end'), 'f();       ');
+  assert.equal(codeOnly("f('end"), "f('   ");
 });
 
 test('settings, ranges, cleaning and upload names are defined only in index.js', () => {

@@ -331,11 +331,11 @@
 
     const src = bannerSrc(r);
     if (kind === 'image') {
+      const n = src.images.length;
+      if (!n) { hideBanner(); return; }
       stopBannerYt();
       stopBannerVid();
       vid.style.display = 'none';
-      const n = src.images.length;
-      if (!n) { hideBanner(); return; }
       banner.style.display = 'block';
       yt.style.display = 'none';
       img.style.display = 'block';
@@ -357,11 +357,11 @@
       if (o.rotate && n > 1) armRotation(o.rotateSec); else stopRotation();
       
     } else if (kind === 'youtube') {
+      const videoId = getYouTubeId(src.youtubeUrl || '');
+      if (!videoId) { hideBanner(); return; }
       stopRotation();
       stopBannerVid();
       vid.style.display = 'none';
-      const videoId = getYouTubeId(src.youtubeUrl || '');
-      if (!videoId) { hideBanner(); return; }
       banner.style.display = 'block';
       img.style.display = 'none';
       yt.style.display = 'block';
@@ -370,10 +370,10 @@
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=0&mute=0&loop=1&playlist=${videoId}&controls=1&modestbranding=1`;
       if (yt.getAttribute('src') !== embedUrl) yt.src = embedUrl;
     } else if (kind === 'video') {
-      stopRotation();
-      stopBannerYt();
       const u = media(src.video);
       if (!u) { hideBanner(); return; }
+      stopRotation();
+      stopBannerYt();
       banner.style.display = 'block';
       img.style.display = 'none';
       yt.style.display = 'none';

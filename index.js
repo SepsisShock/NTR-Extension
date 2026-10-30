@@ -1,20 +1,20 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.27';
+  const VERSION = '2.86.28';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
   const TAG_KEY = '<i class="fa-solid fa-tag ntr_tag" aria-hidden="true"></i> Marks settings saved per character.';
-  const DEFAULTS = { 
+  const DEFAULTS = {
     bannerOn: false,
-    bannerMode: 'image', 
+    bannerMode: 'image',
     bannerRotate: false,
     bannerRotateSec: 8,
     bannerRotateFx: 'fade',
     bannerRotateOrder: 'order',
     bannerHeight: 120,
     bannerGap: 10,
-    bannerBackdrop: 'wallpaper', 
+    bannerBackdrop: 'wallpaper',
     bannerVideoSound: false,
     bannerGlobal: { images: [], idx: 0, youtubeUrl: '', video: '', videoPos: 50 },
     chars: {},
@@ -22,18 +22,18 @@ await (async () => {
     // The Frame library: your own folders of uploaded frames, the built-in folders you've hidden, and each side's fit
     // (Frame Size, Left/Right, Up/Down) for each frame it has used.
     frameLib: { folders: [{ id: 'frf_mine', name: 'My Frames', frames: [] }] }, frameHidden: [], frameFits: { ai: {}, us: {} },
-    
+
     // AI Settings
     aiStyle: 'inline', aiPopX: 0, aiPopY: 0,
-    aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiFocus: 0, aiScale: 100, aiPad: 140, 
+    aiSide: 'tl', aiFit: 'contain', aiShape: 'none', aiCorner: 10, aiFocus: 0, aiScale: 100, aiPad: 140,
     aiEnabled: true,
     aiFadeTop: 0, aiFadeBot: 0, aiFadeLeft: 0, aiFadeRight: 0, aiFadeTL: 0, aiFadeTR: 0, aiFadeBL: 0, aiFadeBR: 0, aiFadeStr: 50,
     aiShiftX: 50, aiZoom: 100, aiRotate: 0, aiRotateMode: 'shape', aiFilter: 'none', aiFilterStr: 100, aiTexture: 'none', aiTextureStr: 100, aiCssOn: false, aiCss: '',
     aiFrame: '', aiFrameImg: '', aiFrameSize: 140, aiFrameX: 0, aiFrameY: 0,
-    
+
     // User Settings
     usStyle: 'inline', usPopX: 0, usPopY: 0,
-    usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usFocus: 0, usScale: 100, usPad: 140, 
+    usSide: 'tl', usFit: 'contain', usShape: 'none', usCorner: 10, usFocus: 0, usScale: 100, usPad: 140,
     usEnabled: true,
     usFadeTop: 0, usFadeBot: 0, usFadeLeft: 0, usFadeRight: 0, usFadeTL: 0, usFadeTR: 0, usFadeBL: 0, usFadeBR: 0, usFadeStr: 50,
     usShiftX: 50, usZoom: 100, usRotate: 0, usRotateMode: 'shape', usFilter: 'none', usFilterStr: 100, usTexture: 'none', usTextureStr: 100, usCssOn: false, usCss: '',
@@ -204,7 +204,7 @@ await (async () => {
   const isOn = () => settings().masterEnabled !== false;
   // ST's own Reduced Motion (User Settings) or the device's setting.
   const reducedMotion = () => !!ctx().powerUserSettings?.reduced_motion || !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  const popMsg = { ai: '', us: '' }; 
+  const popMsg = { ai: '', us: '' };
 
   const escapeHTML = (str) => {
     return String(str).replace(/[&<>'"]/g, match => ({
@@ -450,7 +450,7 @@ await (async () => {
     }
 
     const s = settings();
-    
+
     let cssString = `
       /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) left fixed
          boxes with no height. style.css now gives the page root its height back, and this workaround stays. */
@@ -492,7 +492,7 @@ await (async () => {
       .cb_grp { flex-direction: column; gap: 8px; }
       .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
       .cb_sub { font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--ntr-line); }
-      
+
 
       .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
       .cb_dim { opacity: .4; pointer-events: none; filter: grayscale(.5); transition: opacity .15s; }
@@ -1113,7 +1113,7 @@ await (async () => {
 
     const close = () => { cancelAsks(overlay); overlay.remove(); syncPopouts(); rotRestart(); };
     overlay.querySelector('.cb_close_btn').onclick = close;
-    
+
     callModule('overlays', 'bind', overlay, s);
 
     callModule('themes', 'bind', overlay, s);

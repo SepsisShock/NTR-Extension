@@ -58,3 +58,5 @@ Open a skill file only when it's requested:
 - "code simplification review" or "$code-simplification": follow [.agents/skills/code-simplification/SKILL.md](.agents/skills/code-simplification/SKILL.md).
 - "open-ended obsolete-code review", "$open-ended-obsolete-code-review", or "OBCR2": follow [.agents/skills/open-ended-obsolete-code-review/SKILL.md](.agents/skills/open-ended-obsolete-code-review/SKILL.md).
 - "targeted obsolete-code review", "$targeted-obsolete-code-review", or "OBCR1": follow [.agents/skills/targeted-obsolete-code-review/SKILL.md](.agents/skills/targeted-obsolete-code-review/SKILL.md).
+
+Post findings as comment if for an open PR.

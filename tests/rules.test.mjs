@@ -3,17 +3,22 @@
 // The rules that take judgment (cleaning new card fields, reading numbers through rangeNum) stay in CLAUDE.md.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { api, ROOT, MODULES, LOOK } from './env.mjs';
 
 // The source with comments and the text inside strings and regexes blanked out, at the same length, so calls are only
-// found in code. Code inside a template's ${} is kept.
+// found in code. Code inside a template's ${} is kept. A test below checks that the result still parses, which it
+// wouldn't if the scan lost its place.
+// A / starts a regex unless it follows a value: a name or number (other than a keyword like return), ), ] or }.
+const KEYWORD_BEFORE = /\b(?:return|typeof|case|do|else|in|of|void|delete|throw|new|yield|await)\s*$/;
 function codeOnly(src) {
   const out = src.split('');
   const blank = (a, b) => { for (let k = a; k < b; k++) if (src[k] !== '\n') out[k] = ' '; };
   const inside = []; // the brace depth of each ${ the scan is in
-  let depth = 0, last = '';
+  let depth = 0, last = ''; // the last code character that isn't a space; ')' after a string, regex or template
   // Blanks template text from i to the closing ` or the next ${, and returns where the scan goes on.
   const template = (i) => {
     for (let j = i; j < src.length; j++) {
@@ -28,17 +33,17 @@ function codeOnly(src) {
       const end = src[i + 1] === '/' ? src.indexOf('\n', i) : src.indexOf('*/', i) + 2;
       blank(i, end); i = end - 1; continue;
     }
-    if (c === "'" || c === '"' || (c === '/' && (/[(,=:[!&|?{};]/.test(last) || !last || /\breturn\s*$/.test(src.slice(i - 10, i))))) {
+    if (c === "'" || c === '"' || (c === '/' && (!/[\w$)\]}]/.test(last) || KEYWORD_BEFORE.test(src.slice(i - 12, i))))) {
       let j = i + 1;
       for (let cls = false; src[j] !== c || cls; j++) {
         if (src[j] === '\\') j++;
         else if (c === '/' && (src[j] === '[' || src[j] === ']')) cls = src[j] === '[';
       }
-      blank(i + 1, j); i = j; last = c; continue;
+      blank(i + 1, j); i = j; last = ')'; continue;
     }
-    if (c === '`') { i = template(i + 1); last = c; continue; }
+    if (c === '`') { i = template(i + 1); last = ')'; continue; }
     if (c === '{') depth++;
-    else if (c === '}' && inside.at(-1) === depth--) { inside.pop(); i = template(i + 1); last = '`'; continue; }
+    else if (c === '}' && inside.at(-1) === depth--) { inside.pop(); i = template(i + 1); last = ')'; continue; }
     if (!/\s/.test(c)) last = c;
   }
   return out.join('');
@@ -68,6 +73,21 @@ const calls = (file, names) => [...CODE[file].matchAll(new RegExp(`(?<![\\w.$])(
   .filter((m) => !/function\s+$/.test(CODE[file].slice(0, m.index)))
   .map((m) => [m[1], callArgs(file, m.index + m[0].length - 1), m.index]);
 const literal = (arg) => /^'(\w+)'$/.exec(arg || '')?.[1];
+
+// If the scan took a regex for division or the other way round, it would blank real code up to the next / and the
+// checks below would miss calls there without failing.
+test('the code-only copies keep all the code', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ntr-code-'));
+  try {
+    for (const [file, code] of Object.entries(CODE)) {
+      writeFileSync(join(dir, `${file}.mjs`), code);
+      assert.doesNotThrow(() => execFileSync(process.execPath, ['--check', join(dir, `${file}.mjs`)], { stdio: 'pipe' }),
+        `${file} no longer parses with comments and strings blanked: codeOnly lost its place in it, or the file itself has a syntax error`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  const sample = "const f = (a) => /x'/i.test(a); // f('x')\nconst g = a / 2 / b; return /\\//.test(c) && uploadImage(q, 'z');";
+  assert.equal(codeOnly(sample), `const f = (a) => /  /i.test(a); ${' '.repeat(9)}\nconst g = a / 2 / b; return /  /.test(c) && uploadImage(q, ' ');`);
+});
 
 test('settings, ranges, cleaning and upload names are defined only in index.js', () => {
   const owned = ['DEFAULTS', 'NUM_RANGE', 'cleanStore', 'loadSettings', 'OWN_FILE'];

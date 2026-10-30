@@ -125,6 +125,21 @@ test('pr-checklist uses the checked-out branch, not --head text, and ignores oth
   assert.equal(s.bash('pr-checklist.mjs', 'git commit -m "gh pr create later"').decision, 'pass');
 });
 
+test('pr-checklist shows the checklist again when the same branch is restarted from a newer main', (t) => {
+  const s = scratch(t);
+  s.commit('a.js', 'y\n');
+  const pr = () => s.bash('pr-checklist.mjs', 'gh pr create --title x').decision;
+  assert.equal(pr(), 'deny');
+  assert.equal(pr(), 'pass');
+  // The PR is merged, and the branch is restarted from the new main under the same name.
+  s.git('checkout', '-q', 'main');
+  s.git('merge', '-q', 'feat');
+  s.git('push', '-q', 'origin', 'main');
+  s.git('checkout', '-q', '-B', 'feat', 'origin/main');
+  assert.equal(pr(), 'deny');
+  assert.equal(pr(), 'pass');
+});
+
 test('pr-checklist lets the PR through without recording the branch if the checklist file is missing', (t) => {
   const s = scratch(t);
   unlinkSync(join(s.repo, '.claude/hooks/pr-checklist.md'));

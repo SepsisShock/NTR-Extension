@@ -8,6 +8,8 @@
 //   only if the pushed copy differs from both GitHub's copy of the branch and main, so changes merged in from main
 //   and changes already pushed don't ask again.
 // - Either command chained with others is denied, since the commits it would push may not exist yet when this runs.
+//   So is a push of anything but one branch to origin, since that's the only one it compares.
+// - If GitHub's copies can't be read, the command is blocked rather than let through.
 // - GitHub tools that commit (push_files, create_or_update_file, delete_file): checks their content against HEAD.
 // - If this script fails, settings.json's onFailure blocks the command.
 import { spawnSync } from 'node:child_process';
@@ -20,6 +22,8 @@ const input = JSON.parse(readFileSync(0, 'utf8'));
 const dir = process.env.CLAUDE_PROJECT_DIR || input.cwd;
 const run = (...args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 15000 });
 const out = (...args) => run(...args).stdout.trim();
+// For reads the check depends on: a failure throws, and settings.json's onFailure blocks the command.
+const must = (...args) => { const r = run(...args); if (r.status) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`); return r.stdout.trim(); };
 const show = (rev, f) => { const r = run('show', `${rev}:${f}`); return r.status === 0 ? r.stdout : null; };
 const version = (text) => text?.match(/"version": "([^"]*)"/)?.[1];
 const withoutVersion = (text) => text?.replace(/"version": "[^"]*"/, '"version": ""');
@@ -61,23 +65,27 @@ if (input.tool_name === 'Bash') {
   const push = /\bgit\b/.test(bare) && /\bpush\b/.test(bare);
   const pr = /\bgh\s+pr\s+create\b/.test(bare);
   if (!push && !pr) process.exit(0);
-  // Only plain forms, so the commits are already made and the branch is easy to read: no chaining, -C, quotes or variables.
-  if (push && !/^git\s+push(\s+[\w./:@^~+=-]+)*$/.test(cmd)) say('deny', 'Run git push by itself, from the project folder, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
+  // Only plain forms, so the commits are already made and exactly one branch goes to origin: no chaining, -C, quotes,
+  // variables, other remotes, several branches or flags like --all.
+  const form = cmd.match(/^git\s+push(?:\s+(?:-u|--set-upstream|-f|--force|--force-with-lease|-q|--quiet))*\s+origin\s+\+?([\w./@^~-]+)(?::([\w./-]+))?$/);
+  if (push && (!form || out('config', '--get-all', 'remote.origin.push'))) say('deny', 'Run git push by itself as git push [-u] origin <branch>, from the project folder: one branch, to origin, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
   if (pr && !/^gh\s+pr\s+create\b[^;&|`$<>\n]*$/.test(bare)) say('deny', 'Run gh pr create by itself, after pushing, so the guard can check the commits it sends.');
 
-  // What's pushed: the refspec's source, or HEAD. Where to: the refspec's target, or the current branch.
-  const args = push ? cmd.split(/\s+/).slice(2).filter((a) => !a.startsWith('-')) : [];
-  const [src, dst] = (args[1] || '').replace(/^\+/, '').split(':');
-  const sha = out('rev-parse', src || 'HEAD');
-  const branch = dst || (src && src !== 'HEAD' ? src : out('symbolic-ref', '-q', '--short', 'HEAD'));
-  run('fetch', '-q', 'origin', 'main');
-  if (branch) run('fetch', '-q', 'origin', branch);
+  // What's pushed: the refspec's source (gh pr create: HEAD). Where to: the refspec's target, or the source branch.
+  const [src, dst] = form ? [form[1], form[2]] : ['HEAD'];
+  const sha = must('rev-parse', `${src}^{commit}`);
+  const branch = dst || (src !== 'HEAD' ? src : must('symbolic-ref', '--short', 'HEAD'));
+  // GitHub's current copies of main and the branch, fetched into their usual refs. A branch GitHub doesn't have yet has none.
   const main = 'refs/remotes/origin/main';
-  const remote = branch && run('rev-parse', '-q', '--verify', `refs/remotes/origin/${branch}`).status === 0 ? `refs/remotes/origin/${branch}` : null;
-  const changed = (base) => new Set(out('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
+  must('fetch', '-q', 'origin', `+refs/heads/main:${main}`);
+  const onGitHub = run('ls-remote', '--exit-code', '--heads', 'origin', branch);
+  if (onGitHub.status && onGitHub.status !== 2) throw new Error(`git ls-remote failed: ${onGitHub.stderr}`);
+  const remote = onGitHub.status ? null : `refs/remotes/origin/${branch}`;
+  if (remote) must('fetch', '-q', 'origin', `+refs/heads/${branch}:${remote}`);
+  const changed = (base) => new Set(must('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
   let files = changed(main);
   if (remote) { const r = changed(remote); files = new Set([...files].filter((f) => r.has(f))); }
-  const renames = new Map(out('diff', '--name-status', '-M', main, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t').slice(1)));
+  const renames = new Map(must('diff', '--name-status', '-M', main, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t').slice(1)));
   for (const f of files) check(f, show(sha, f), remote ? [show(remote, f), show(main, f)] : [show(main, f)], renames.get(f));
 } else if (input.tool_name === 'mcp__github__delete_file') {
   check(input.tool_input.path, null, [show('HEAD', input.tool_input.path)]);

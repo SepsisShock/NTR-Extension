@@ -5,14 +5,13 @@
 // the chat panel, with their page in the menu. Their settings and card data stay in index.js; Edit Placement is in
 // layout.js.
 (() => {
-  const OVERLAYS_VERSION = '2.86.25';
+  const OVERLAYS_VERSION = '2.86.26';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
     media, escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
-    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, ROT_KEYS, BANNER_LOOK_KEYS, startChar } = A;
+    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, ROT_KEYS, BANNER_LOOK_KEYS, startChar, openMenu } = A;
   const { ovLabel } = A.look;
-  const openCombinedModal = () => A.openMenu();
 
   const CSS = `
       #cb_banner { width: 100%; height: var(--cb-h, 120px); position: relative; overflow: hidden; display: block; border-radius: 10px; margin-bottom: var(--cb-gap, 10px); }
@@ -150,16 +149,11 @@
     banner.querySelector('.cb_nav_prev').onclick = (e) => { e.stopPropagation(); step(-1); };
     banner.querySelector('.cb_nav_next').onclick = (e) => { e.stopPropagation(); step(1); };
     banner.querySelector('.cb_snd').onclick = (e) => { e.stopPropagation(); toggleBannerSound(); };
-    if (window.ResizeObserver) new ResizeObserver(() => syncWallpaper()).observe(banner);
-  }
-
-  function watchBannerImg() {
-    const img = banner?.querySelector('.cb_img');
-    if (!img || img.dataset.watched) return;
-    img.dataset.watched = '1';
+    const img = banner.querySelector('.cb_img');
     img.addEventListener('error', () => {
       if (img.getAttribute('src')) toastr.error(`Banner picture failed to load: ${img.getAttribute('src')}`, 'Banner');
     });
+    if (window.ResizeObserver) new ResizeObserver(() => syncWallpaper()).observe(banner);
   }
 
   // The Global or Char choice is saved per character: Char uses the character's own banner (saved in its card), Global the
@@ -180,8 +174,6 @@
     if (yt && yt.src && yt.src !== 'about:blank') yt.src = 'about:blank';
   }
 
-  // A video banner starts muted unless sound was turned on before; the speaker button's choice is saved right away.
-  // Browsers can block sound until the page is clicked, so a blocked start plays muted for now without changing the choice.
   function stopBannerVid() {
     const v = banner?.querySelector('.cb_vid');
     if (!v || !v.getAttribute('src')) return;
@@ -196,6 +188,8 @@
     b.innerHTML = `<i class="fa-solid ${muted ? 'fa-volume-xmark' : 'fa-volume-high'}"></i>`;
     b.title = muted ? 'Sound on' : 'Mute';
   }
+  // A video banner starts muted unless sound was turned on before; the speaker button's choice is saved right away.
+  // Browsers can block sound until the page is clicked, so a blocked start plays muted for now without changing the choice.
   function playBannerVid(v) {
     const want = !!currentLook().videoSound;
     v.muted = !want;
@@ -233,8 +227,8 @@
     return o;
   }
 
-  // Banner height, gap, transparent areas and video sound follow the same switch (BANNER_LOOK_KEYS in index.js). A Char
-  // character with no value of its own yet (set to Char before these were per character) uses the global one.
+  // Banner height, gap, transparent areas and video sound follow the same switch (BANNER_LOOK_KEYS in index.js).
+  // Per-character look values fall back to global values when unset.
   function bannerLook(r) {
     const s = settings();
     const own = !!r && r.scope === 'char';
@@ -254,12 +248,13 @@
     document.documentElement.style.setProperty('--cb-gap', o.gap + 'px');
   }
 
-  // rot.idx is the image on screen while rotating. It's never saved, so the card isn't rewritten every few
-  // seconds and each chat opens on the picked image (r.idx), which only the arrows and the menu change.
+  // rot.idx is the image on screen while rotating. It's never saved, so the card isn't rewritten every few seconds and
+  // each chat opens on the picked image: the idx saved in bannerSrc(r), the shared banner's for a Global character.
+  // Only the arrows and the menu change it.
   const rot = { key: null, idx: null, timer: null, sec: 0, fade: false };
   // Waits while the Overlays page is open (page id 'fg'), so the Crop slider works on the picked image.
   const rotPaused = () => !!document.getElementById('cb_modal_overlay') && settings().uiPage === 'fg';
-  // The picked image, kept inside the list in case r.idx points past the end.
+  // The picked image of a banner source, kept inside the list in case its idx points past the end.
   const pickedIdx = (r) => Math.max(0, Math.min(r.idx, r.images.length - 1));
   function shownIdx(key, r) {
     const n = r.images.length;
@@ -268,6 +263,12 @@
   function stopRotation() {
     clearTimeout(rot.timer);
     rot.timer = null;
+  }
+  function hideBanner() {
+    stopRotation();
+    stopBannerYt();
+    stopBannerVid();
+    if (banner) banner.style.display = 'none';
   }
   function armRotation(sec) {
     if (rot.timer && rot.sec === sec) return;
@@ -290,7 +291,7 @@
       rot.idx = next;
       rot.fade = o.rotateFx === 'fade';
     }
-    updateBanner(); // shows it and sets up the next one
+    updateBanner();
   }
 
   // The old image fades out on top of the new one, once the new one has loaded.
@@ -319,17 +320,10 @@
     rot.fade = false;
     const r = key ? peek(key) : null;
     const kind = bannerKind(r);
-    if (kind === 'off') {
-      stopRotation();
-      stopBannerYt();
-      stopBannerVid();
-      banner.style.display = 'none';
-      return;
-    }
+    if (kind === 'off') { hideBanner(); return; }
     
     applyBannerSize();
 
-    watchBannerImg();
     const img = banner.querySelector('.cb_img');
     const yt = banner.querySelector('.cb_yt');
     const nav = banner.querySelector('.cb_nav');
@@ -341,10 +335,7 @@
       stopBannerVid();
       vid.style.display = 'none';
       const n = src.images.length;
-      if (!n) {
-        banner.style.display = 'none';
-        return;
-      }
+      if (!n) { hideBanner(); return; }
       banner.style.display = 'block';
       yt.style.display = 'none';
       img.style.display = 'block';
@@ -352,7 +343,7 @@
       const i = shownIdx(key, src);
       const im = src.images[i] || src.images[0];
       const u = media(im.url);
-      if (!u) { banner.style.display = 'none'; return; }
+      if (!u) { hideBanner(); return; }
       const pos = `50% ${cardNum(im.pos, 'bannerPos', 45)}%`;
       if (img.getAttribute('src') !== u && fade && img.getAttribute('src')) crossfade(img, u, pos);
       else {
@@ -370,11 +361,7 @@
       stopBannerVid();
       vid.style.display = 'none';
       const videoId = getYouTubeId(src.youtubeUrl || '');
-      if (!videoId) {
-        stopBannerYt();
-        banner.style.display = 'none';
-        return;
-      }
+      if (!videoId) { hideBanner(); return; }
       banner.style.display = 'block';
       img.style.display = 'none';
       yt.style.display = 'block';
@@ -386,11 +373,7 @@
       stopRotation();
       stopBannerYt();
       const u = media(src.video);
-      if (!u) {
-        stopBannerVid();
-        banner.style.display = 'none';
-        return;
-      }
+      if (!u) { hideBanner(); return; }
       banner.style.display = 'block';
       img.style.display = 'none';
       yt.style.display = 'none';
@@ -445,18 +428,12 @@
       hookChat(chat);
       
       chat.style.paddingTop = ''; // placeBanner sets it again when the banner overlaps
-      if (!isOn()) { if (banner) banner.style.display = 'none'; stopRotation(); stopBannerYt(); stopBannerVid(); syncWallpaper(); return; }
+      if (!isOn()) { hideBanner(); syncWallpaper(); return; }
       
       if (!banner) buildBanner();
       const key = currentKey();
       const r = key ? peek(key) : null;
-      if (bannerKind(r) === 'off') {
-        stopRotation();
-        stopBannerYt();
-        stopBannerVid();
-        banner.style.display = 'none';
-        return;
-      }
+      if (bannerKind(r) === 'off') { hideBanner(); return; }
       
       placeBanner(chat, r);
       updateBanner();
@@ -475,7 +452,7 @@
     stopRotation(); // the arrows restart the rotation timer
     save();
     updateBanner();
-    if (document.getElementById('cb_modal_overlay')) openCombinedModal();
+    if (document.getElementById('cb_modal_overlay')) openMenu();
   }
 
   async function addFiles(files) {
@@ -529,20 +506,20 @@
     const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
     const r = key ? peek(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
-    const ownKind = !!key && r.scope === 'char';
-    const kind = ownKind && r.mode ? r.mode : s.bannerMode;
-    const ro = rotation(ownKind ? r : null);
-    const bl = bannerLook(ownKind ? r : null);
-    const btag = ownKind ? ' ' + TAG : '';
-    const src = bannerSrc(ownKind ? r : null);
+    const ownBanner = !!key && r.scope === 'char';
+    const kind = ownBanner && r.mode ? r.mode : s.bannerMode;
+    const ro = rotation(ownBanner ? r : null);
+    const bl = bannerLook(ownBanner ? r : null);
+    const btag = ownBanner ? ' ' + TAG : '';
+    const src = bannerSrc(ownBanner ? r : null);
     const n = src.images.length;
     const picked = pickedIdx(src);
     const curImg = src.images[picked] || null;
-    return { F, chatOpen, key, r, ownKind, kind, ro, bl, btag, src, n, picked, curImg };
+    return { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg };
   }
 
   function sectionHtml(s) {
-    const { F, chatOpen, key, r, ownKind, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
+    const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
     const free = A.banFree?.();
     const sl = (id, label, valId, val, unit, attrs, extra = '') => `
               <div class="cb_row" style="margin-top: 10px;"><label for="${id}">${label}</label><span><span id="${valId}" class="ntr_slval">${val}</span>${unit}</span></div>
@@ -550,11 +527,10 @@
     return pageHtml('fg', `
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
             ${card('Source', `
-              ${ovLabel('Banner', pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'This Character', BANNER_NOTE.char]], ownKind ? 'char' : 'global'))}
-              ${ovLabel('Kind' + (ownKind ? ' ' + TAG : ''), pills('bmode', [['image', 'Pictures'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind))}
-              ${ownKind ? '' : '<div class="cb_hint" style="margin-bottom: 0;">Banner changes show on every character set to Global.</div>'}`, 'fa-photo-film')}
+              ${ovLabel('Banner', pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'This Character', BANNER_NOTE.char]], ownBanner ? 'char' : 'global'))}
+              ${ovLabel('Kind' + (ownBanner ? ' ' + TAG : ''), pills('bmode', [['image', 'Pictures'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind))}
+              ${ownBanner ? '' : '<div class="cb_hint" style="margin-bottom: 0;">Banner changes show on every character set to Global.</div>'}`, 'fa-photo-film')}
 
-            <!-- Picture Controls -->
             <div id="m_b_img_controls" style="display: ${kind === 'image' ? 'block' : 'none'};">
               ${card('Pictures' + btag, `
               <div class="cb_actions">
@@ -574,7 +550,7 @@
 
               ${curImg ? sl('m_b_p', `Crop Position${btag}`, 'm_b_pval', cardNum(curImg.pos, 'bannerPos', 45), numRange('bannerPos')[3], rangeAttrs('bannerPos')) : ''}`, 'fa-images')}
 
-              ${card('Rotation' + (ownKind ? ' ' + TAG : ''), `
+              ${card('Rotation' + (ownBanner ? ' ' + TAG : ''), `
                 <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate Pictures</span></label>
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
                   ${sl('m_b_rot_sec', 'Every', 'm_b_rot_val', ro.rotateSec, numRange('bannerRotateSec')[3], rangeAttrs('bannerRotateSec'))}
@@ -584,13 +560,11 @@
                 ${n < 2 ? '<div class="cb_hint" style="margin-bottom: 0;">Needs 2 or more pictures.</div>' : ''}`, 'fa-arrows-rotate')}
             </div>
 
-            <!-- YouTube Controls -->
             <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
               ${card('YouTube Loop' + btag, `
               ${ovLabel('YouTube Link', `<input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">`)}`, 'fa-circle-play')}
             </div>
 
-            <!-- Video Controls -->
             <div id="m_b_vid_controls" style="display: ${kind === 'video' ? 'block' : 'none'};">
               ${card('Video' + btag, `
               <div class="cb_row">
@@ -674,7 +648,7 @@
   }
 
   function bind(overlay, s) {
-    const { F, key, r, ownKind, src, n, curImg } = menuState(s);
+    const { F, key, r, ownBanner, src, n, curImg } = menuState(s);
     if (s.uiPage === 'fg' && rot.idx != null) { rot.idx = null; updateBanner(); }
     if (!key) {
       const ch = overlay.querySelector('input[name="cbr_bscope"][value="char"]');
@@ -685,7 +659,7 @@
       s.bannerOn = this.checked;
       save();
       render();
-      openCombinedModal();
+      openMenu();
     };
     onPills(overlay, 'bscope', (v) => {
       if (key) {
@@ -696,9 +670,9 @@
       if (BANNER_NOTE[v]) toastr.info(BANNER_NOTE[v], 'Banner');
       save();
       render();
-      openCombinedModal();
+      openMenu();
     });
-    const rotSet = (k, v) => { if (ownKind) r[k] = v; else s[ROT_KEYS[k]] = v; save(); updateBanner(); };
+    const rotSet = (k, v) => { if (ownBanner) r[k] = v; else s[ROT_KEYS[k]] = v; save(); updateBanner(); };
     overlay.querySelector('#m_b_rot').onchange = function() {
       rotSet('rotate', this.checked);
       overlay.querySelector('#m_b_rot_body').classList.toggle('cb_dim', !this.checked);
@@ -709,7 +683,7 @@
     onPills(overlay, 'brfx', (v) => rotSet('rotateFx', v));
     onPills(overlay, 'brord', (v) => rotSet('rotateOrder', v));
     onPills(overlay, 'bmode', (v) => {
-      if (ownKind) r.mode = v; else s.bannerMode = v;
+      if (ownBanner) r.mode = v; else s.bannerMode = v;
       save();
       overlay.querySelector('#m_b_img_controls').style.display = v === 'image' ? 'block' : 'none';
       overlay.querySelector('#m_b_yt_controls').style.display = v === 'youtube' ? 'block' : 'none';
@@ -725,7 +699,7 @@
       save();
       updateBanner();
       deleteFileIfUnused(old);
-      openCombinedModal();
+      openMenu();
     };
     const vfile = overlay.querySelector('#m_b_vfile');
     const vup = overlay.querySelector('#m_b_vup');
@@ -742,7 +716,7 @@
       } catch (e) {
         console.error('[NTR banner video]', e);
         toastr.error(e.message || 'Video upload failed', 'Banner');
-        openCombinedModal();
+        openMenu();
       }
     };
     overlay.querySelector('#m_b_vurl').onclick = async () => {
@@ -764,7 +738,6 @@
       vp.onchange = save;
     }
 
-    // Foreground Event Bindings
     overlay.querySelector('#m_f_hidevn').onchange = function() { s.fgHideVN = this.checked; save(); ensureFg(); };
     for (const pos of FG_POS) onPills(overlay, 'fgl' + pos, (val) => { F[pos + 'Layer'] = val; save(); ensureFg(); });
     overlay.querySelector('#m_f_enable').onchange = function() {
@@ -800,6 +773,14 @@
       sl.onchange = save;
     });
 
+    const setFg = (pos, url) => {
+      const old = F[pos];
+      F[pos] = url;
+      save();
+      ensureFg();
+      deleteFileIfUnused(old);
+      openMenu();
+    };
     const fgFile = overlay.querySelector('#m_f_file');
     let pendingFgPos = null;
 
@@ -812,26 +793,12 @@
         const pos = btn.dataset.pos;
         // The columns are narrow, so the question goes under all three.
         const url = await askImageUrl(`${pos} Foreground Picture`, btn.closest('.ntr_fgrid'));
-        if (!url) return;
-        const old = F[pos];
-        F[pos] = url;
-        deleteFileIfUnused(old);
-        save();
-        ensureFg();
-        openCombinedModal();
+        if (url) setFg(pos, url);
       };
     });
 
     overlay.querySelectorAll('.m_f_del').forEach(btn => {
-      btn.onclick = () => { 
-        const pos = btn.dataset.pos;
-        const old = F[pos];
-        F[pos] = '';
-        save();
-        ensureFg();
-        deleteFileIfUnused(old);
-        openCombinedModal(); 
-      };
+      btn.onclick = () => setFg(btn.dataset.pos, '');
     });
 
     fgFile.onchange = async () => {
@@ -841,14 +808,7 @@
       const pos = pendingFgPos;
       try {
         const url = await uploadHere(() => uploadImage(f, `fg_${pos.toLowerCase()}`));
-        if (!url) return;
-        const old = F[pos];
-        F[pos] = url;
-        deleteFileIfUnused(old);
-        
-        save();
-        ensureFg();
-        openCombinedModal();
+        if (url) setFg(pos, url);
       } catch (e) {
         console.error('[NTR fg upload]', e);
         toastr.error(e.message || 'Foreground upload failed', 'Foreground');
@@ -885,15 +845,15 @@
       if (!url) return;
       src.images.push({ url, pos: 45 });
       src.idx = src.images.length - 1;
-      save(); updateBanner(); openCombinedModal();
+      save(); updateBanner(); openMenu();
     };
-    fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openCombinedModal(); }};
-    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openCombinedModal(); };
+    fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openMenu(); }};
+    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openMenu(); };
     if (n > 0) {
       overlay.querySelector('#m_b_prev').onclick = () => step(-1);
       overlay.querySelector('#m_b_next').onclick = () => step(1);
       overlay.querySelectorAll('.cb_thumbbtn').forEach((t) => {
-        t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openCombinedModal(); };
+        t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openMenu(); };
       });
       const strip = overlay.querySelector('.cb_thumbs');
       const act = strip?.querySelector('.active');
@@ -907,7 +867,7 @@
     const ytUrl = overlay.querySelector('#m_b_yt_url');
     ytUrl.oninput = function() { src.youtubeUrl = this.value; };
     ytUrl.onchange = function() { save(); updateBanner(); };
-    const lookSet = (k, v) => { if (ownKind) r[k] = v; else s[BANNER_LOOK_KEYS[k]] = v; };
+    const lookSet = (k, v) => { if (ownBanner) r[k] = v; else s[BANNER_LOOK_KEYS[k]] = v; };
     const bh = overlay.querySelector('#m_b_h');
     bh.oninput = function() { lookSet('height', Number(this.value)); overlay.querySelector('#m_b_hval').textContent = this.value; applyBannerSize(); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
     bh.onchange = save;

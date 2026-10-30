@@ -70,7 +70,7 @@ function callArgs(file, at) {
   throw new Error(`unclosed call at ${file}:${at}`);
 }
 // Every call to one of `names` in the code of `file`, as [name, args, index].
-const calls = (file, names) => [...CODE[file].matchAll(new RegExp(`(?<![\\w.$])(?:A\\.)?(${names.join('|')})\\(`, 'g'))]
+const calls = (file, names) => [...CODE[file].matchAll(new RegExp(`(?<![\\w.$])(?:A\\s*\\??\\.\\s*)?(${names.join('|')})\\s*\\(`, 'g'))]
   .filter((m) => !/function\s+$/.test(CODE[file].slice(0, m.index)))
   .map((m) => [m[1], callArgs(file, m.index + m[0].length - 1), m.index]);
 // A key or name written out in quotes, or in a template with no ${}.
@@ -117,7 +117,7 @@ const PREFIX_OF = {
 };
 const prefixNames = (arg) => literal(arg) ? [literal(arg)] : /^`\w+\$\{[^}]*\}`$/.test(arg) ? [arg.slice(1, -1).replace(/\$\{[^}]*\}/, 'x')] : PREFIX_OF[arg];
 const uploads = Object.keys(SRC).flatMap((file) => calls(file, ['uploadImage', 'uploadVideo'])
-  .map(([, args, at]) => ({ file, prefix: args[1], wrapped: /uploadHere\(\(\) => $/.test(CODE[file].slice(Math.max(0, at - 40), at)) })));
+  .map(([, args, at]) => ({ file, prefix: args[1], wrapped: /uploadHere\s*\(\s*\(\s*\)\s*=>\s*$/.test(CODE[file].slice(Math.max(0, at - 40), at)) })));
 
 test('every upload name is one the cleanup recognizes', () => {
   assert.ok(uploads.length > 0, 'found no upload calls');

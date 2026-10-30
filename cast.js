@@ -5,7 +5,7 @@
 // Staying in index.js: the template emotion list and the tag settings (DEFAULTS), the open chat's list (emoSet), card
 // checks (cleanVn) and tag checks (validateDelims).
 (() => {
-  const CAST_VERSION = '2.86.25';
+  const CAST_VERSION = '2.86.26';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;

@@ -92,7 +92,7 @@ test('the code-only copies keep all the code', () => {
 test('settings, ranges, cleaning and upload names are defined only in index.js', () => {
   const owned = ['DEFAULTS', 'NUM_RANGE', 'cleanStore', 'loadSettings', 'OWN_FILE'];
   const def = (name) => new RegExp(`\\b(?:const|let|var|function)\\s+${name}\\b`);
-  for (const name of owned) assert.match(core, def(name), `index.js no longer defines ${name}; this test needs to follow`);
+  for (const name of owned) assert.match(CODE['index.js'], def(name), `index.js no longer defines ${name}; this test needs to follow`);
   const found = modules.flatMap(([file]) => [
     ...owned.filter((name) => def(name).test(CODE[file])).map((name) => `${file} defines ${name}`),
     ...(/\bextensionSettings\b/.test(CODE[file]) ? [`${file} uses extensionSettings`] : []),

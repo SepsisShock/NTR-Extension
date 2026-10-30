@@ -38,16 +38,19 @@ function scratch(t) {
     else { writeFileSync(join(repo, file), text); git('add', file); }
     git('commit', '-qm', file);
   };
-  // What the hook decides: 'deny', 'ask', or 'pass' when it lets the call through; status is its exit code.
-  const hook = (name, tool_name, tool_input) => {
+  // What the hook decides: 'deny', 'ask', or 'pass' when it lets the call through. A hook that crashes also prints
+  // nothing, so it fails the test unless fails is set; Claude Code would block that call (onFailure) or let it through.
+  const hook = (name, tool_name, tool_input, fails = false) => {
     const r = spawnSync(process.execPath, [join(ROOT, '.claude/hooks', name)], {
       input: JSON.stringify({ cwd: repo, tool_name, tool_input }), encoding: 'utf8',
       env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
     });
+    if (fails) assert.notEqual(r.status, 0);
+    else assert.equal(r.status, 0, r.stderr);
     const out = r.stdout ? JSON.parse(r.stdout).hookSpecificOutput : null;
-    return { decision: out?.permissionDecision ?? 'pass', reason: out?.permissionDecisionReason ?? '', status: r.status };
+    return { decision: out?.permissionDecision ?? 'pass', reason: out?.permissionDecisionReason ?? '' };
   };
-  const bash = (name, command) => hook(name, 'Bash', { command });
+  const bash = (name, command, fails) => hook(name, 'Bash', { command }, fails);
   return { repo, git, commit, hook, bash };
 }
 
@@ -98,9 +101,7 @@ test('commit-guard fails when GitHub can\'t be read, so onFailure blocks the pus
   const s = scratch(t);
   s.commit('a.js', 'y\n');
   s.git('remote', 'set-url', 'origin', join(s.repo, 'missing.git'));
-  const r = s.bash('commit-guard.mjs', PUSH);
-  assert.equal(r.decision, 'pass');
-  assert.notEqual(r.status, 0);
+  assert.equal(s.bash('commit-guard.mjs', PUSH, true).decision, 'pass');
 });
 
 test('pr-checklist shows the checklist once per branch, from the CLI or the GitHub tool', (t) => {
@@ -127,8 +128,6 @@ test('pr-checklist uses the checked-out branch, not --head text, and ignores oth
 test('pr-checklist lets the PR through without recording the branch if the checklist file is missing', (t) => {
   const s = scratch(t);
   unlinkSync(join(s.repo, '.claude/hooks/pr-checklist.md'));
-  const r = s.hook('pr-checklist.mjs', 'mcp__github__create_pull_request', { head: 'feat', base: 'main' });
-  assert.equal(r.decision, 'pass');
-  assert.notEqual(r.status, 0);
+  assert.equal(s.hook('pr-checklist.mjs', 'mcp__github__create_pull_request', { head: 'feat', base: 'main' }, true).decision, 'pass');
   assert.equal(existsSync(join(s.repo, '.git/ntr-pr-checklist.json')), false);
 });

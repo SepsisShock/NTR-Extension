@@ -7,7 +7,8 @@ Investigate and check for...
 
 1. Outdated or duplicated comments, and comments that restate obvious code
 2. Misspelled identifiers, misleading names, inconsistent terminology
-3. Imports, functions, paths, and event handlers that still point to old locations
-4. Incorrect loading order, duplicate initialization, forgotten cleanup
+3. Trailing whitespace and whitespace-only lines
+4. Imports, functions, paths, and event handlers that still point to old locations
+5. Incorrect loading order, duplicate initialization, forgotten cleanup
 
 Propose concise edits or deletions.

@@ -5,7 +5,7 @@
 // Staying in index.js: the template emotion list and the tag settings (DEFAULTS), the open chat's list (emoSet), card
 // checks (cleanVn) and tag checks (validateDelims).
 (() => {
-  const CAST_VERSION = '2.86.24';
+  const CAST_VERSION = '2.86.25';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -422,7 +422,7 @@
   let chatObs = null, cleanT = null;
   function ensure() {
     const chat = document.getElementById('chat');
-    if (!chat || !window.MutationObserver || (chatObs && chatObs._el === chat)) return;
+    if (!chat || (chatObs && chatObs._el === chat)) return;
     if (chatObs) chatObs.disconnect();
     // The messages that changed are cleaned right away, before the browser draws them, so a reply that streams in
     // never shows its tags. A full pass after the chat goes quiet catches anything else.
@@ -743,8 +743,9 @@
           if (full) { old = D().sprites[key]; delete D().sprites[key]; }
           else if (D().emoImgs[key]) { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }
           save(); renderSpk(); changed();
-          A.deleteFileIfUnused(old).then((gone) => {
-            if (!gone && /^\/?user\/files\//.test(String(old || ''))) toastr.info('Removed. The file itself was kept because something else still uses it.', 'Emotions');
+          A.deleteFileIfUnused(old).then((kept) => {
+            const why = { used: 'something else still uses it', lazy: "with lazy loading on, other characters can't be checked for it", failed: "it couldn't be deleted" }[kept];
+            if (why) toastr.info(`Removed. The file itself was kept because ${why}.`, 'Emotions');
           });
         };
       });

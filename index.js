@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.24';
+  const VERSION = '2.86.25';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2181,12 +2181,14 @@ await (async () => {
     return left.length;
   }
 
+  // Says why the file was kept: 'used', 'lazy', 'failed', or 'other' when it isn't NTR's upload. '' once it's deleted.
   async function deleteFileIfUnused(path) {
     const p = normFile(path);
-    if (!p || !OWN_FILE.test(p) || filesInUse().has(p)) return false;
+    if (!p || !OWN_FILE.test(p)) return 'other';
+    if (filesInUse().has(p)) return 'used';
     // With SillyTavern's lazy loading on, cards that haven't been opened yet aren't loaded, so their files can't be checked: keep the file.
-    if ((ctx().characters || []).some((c) => c && c.shallow)) return false;
-    return deleteFile(p);
+    if ((ctx().characters || []).some((c) => c && c.shallow)) return 'lazy';
+    return (await deleteFile(p)) ? '' : 'failed';
   }
 
   // ===== Theme data =====

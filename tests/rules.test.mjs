@@ -1,6 +1,8 @@
 // The CLAUDE.md rules a script can check: what stays in the core, upload names and uploadHere, slider ranges, imports
 // between NTR files, and missing-module tests. Each failure says what the rule is, so fixing it doesn't need CLAUDE.md.
 // The rules that take judgment (cleaning new card fields, reading numbers through rangeNum) stay in CLAUDE.md.
+// This reads the code as text, not with a parser, so it catches the usual ways of writing a call but not every one:
+// keys built at runtime, calls through another name (`const r = rangeSlider; r(...)`) and `A['rangeAttrs']` get by.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

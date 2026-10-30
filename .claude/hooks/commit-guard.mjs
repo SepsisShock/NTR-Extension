@@ -35,7 +35,7 @@ const say = (decision, reason) => {
   process.exit(0);
 };
 
-// A diff of one file from its old text to its new text, cut short so the prompt stays readable.
+// A diff of one file from its old text to its new text, cut short so it stays readable in chat.
 function diff(f, old, now) {
   const tmp = mkdtempSync(join(tmpdir(), 'ntr-guard-'));
   writeFileSync(join(tmp, 'a'), old ?? '');
@@ -80,15 +80,15 @@ if (input.tool_name === 'Bash') {
   // GitHub's current copies of main and the branch, fetched into their usual refs. A branch GitHub doesn't have yet has none.
   const main = 'refs/remotes/origin/main';
   must('fetch', '-q', 'origin', `+refs/heads/main:${main}`);
-  const onGitHub = run('ls-remote', '--exit-code', '--heads', 'origin', branch);
-  if (onGitHub.status && onGitHub.status !== 2) throw new Error(`git ls-remote failed: ${onGitHub.stderr}`);
-  const remote = onGitHub.status ? null : `refs/remotes/origin/${branch}`;
-  if (remote) must('fetch', '-q', 'origin', `+refs/heads/${branch}:${remote}`);
+  const branchLookup = run('ls-remote', '--exit-code', '--heads', 'origin', branch);
+  if (branchLookup.status && branchLookup.status !== 2) throw new Error(`git ls-remote failed: ${branchLookup.stderr}`);
+  const branchRef = branchLookup.status ? null : `refs/remotes/origin/${branch}`;
+  if (branchRef) must('fetch', '-q', 'origin', `+refs/heads/${branch}:${branchRef}`);
   const changed = (base) => new Set(must('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
   let files = changed(main);
-  if (remote) { const r = changed(remote); files = new Set([...files].filter((f) => r.has(f))); }
+  if (branchRef) { const r = changed(branchRef); files = new Set([...files].filter((f) => r.has(f))); }
   const renames = new Map(must('diff', '--name-status', '-M', main, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t').slice(1)));
-  for (const f of files) check(f, show(sha, f), remote ? [show(remote, f), show(main, f)] : [show(main, f)], renames.get(f));
+  for (const f of files) check(f, show(sha, f), branchRef ? [show(branchRef, f), show(main, f)] : [show(main, f)], renames.get(f));
 } else if (input.tool_name === 'mcp__github__delete_file') {
   check(input.tool_input.path, null, [show('HEAD', input.tool_input.path)]);
 } else if (input.tool_name === 'mcp__github__create_or_update_file') {

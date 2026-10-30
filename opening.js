@@ -1,7 +1,7 @@
 // Nitwit Tavern Redesign: Opening video module.
 // Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
-  const OP_VERSION = '2.86.23';
+  const OP_VERSION = '2.86.24';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -44,17 +44,12 @@
 
   // ----- Data (per character, inside the VN data) -----
   const ODEF = { src: 'off', yt: '', file: '', title: false, logo: 'upload', logoUrl: '', when: 'newchat' };
-  const raw = () => {
-    const v = VN().data();
-    if (!v.opening || typeof v.opening !== 'object') v.opening = {};
-    return v.opening;
-  };
+  const raw = () => VN().data().opening;
   const op = () => ({ ...ODEF, ...raw() });
   const setOp = (k, val) => { raw()[k] = val; save(); };
   const ytId = (o) => (o.yt && A.getYouTubeId ? A.getYouTubeId(o.yt) : '') || '';
   const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!media(o.file) : false);
   function logoSrc(o) {
-    // Older saves may still say 'banner'; that choice is gone, so they use the uploaded logo.
     return o.logo === 'none' ? '' : media(o.logoUrl);
   }
 

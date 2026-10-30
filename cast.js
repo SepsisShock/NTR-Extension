@@ -5,7 +5,7 @@
 // Staying in index.js: the template emotion list and the tag settings (DEFAULTS), the open chat's list (emoSet), card
 // checks (cleanVn) and tag checks (validateDelims).
 (() => {
-  const CAST_VERSION = '2.86.23';
+  const CAST_VERSION = '2.86.24';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -14,7 +14,6 @@
   // emotion id), sprites the full bodies (one per speaker). The names stay as they are so saved cards keep working.
   function D() {
     const v = A.vnData();
-    if (Object.keys(v.avatars).length) mergeOldFaces(v);
     // A character with faces keeps its own emotion list, so a later change to the template can't strand its faces.
     if (!Array.isArray(v.emotions) && Object.values(v.emoImgs).some((m) => Object.keys(m).length)) { copyList(settings(), v); save(); }
     return v;
@@ -25,24 +24,6 @@
   function copyList(from, to) {
     to.emotions = from.emotions.map((e) => ({ id: e.id, name: e.name }));
     to.emoDefault = from.emoDefault;
-  }
-
-  // Speakers used to have a separate face picture next to their emotion images. The face is the emotion images now:
-  // a speaker who has emotion images loses the old copy (file included); one who has none gets it as their default emotion.
-  function mergeOldFaces(v) {
-    const s = Array.isArray(v.emotions) ? v : settings();
-    const olds = [];
-    for (const k of Object.keys(v.avatars)) {
-      const u = v.avatars[k];
-      delete v.avatars[k];
-      if (!u) continue;
-      const imgs = v.emoImgs[k];
-      if (imgs && s.emotions.some((e) => imgs[e.id])) { olds.push(u); continue; }
-      if (!v.emoImgs[k]) v.emoImgs[k] = Object.create(null);
-      v.emoImgs[k][s.emoDefault] = u;
-    }
-    save();
-    setTimeout(() => olds.forEach((u) => A.deleteFileIfUnused(u)), 0);
   }
 
   // Something here changed (an emotion, a speaker, a picture, the tags): the chat and vn.js redraw.

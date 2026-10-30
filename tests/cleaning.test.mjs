@@ -35,7 +35,7 @@ test('unsafe links are removed, safe ones kept', () => {
     banner: { images: [...SAFE, ...UNSAFE].map((url) => ({ url })), video: UNSAFE[0] },
     fg: { Left: UNSAFE[0], Center: UNSAFE[1], Right: SAFE[0] },
     vn: {
-      avatars: { Alice: UNSAFE[2], Bob: SAFE[1] },
+      sprites: { Alice: UNSAFE[2], Bob: SAFE[1] },
       locations: [{ name: 'Room', url: UNSAFE[3] }],
       locDefault: UNSAFE[4],
       opening: { file: UNSAFE[0], logoUrl: SAFE[0] },
@@ -44,7 +44,7 @@ test('unsafe links are removed, safe ones kept', () => {
   assert.deepEqual(st.banner.images.map((im) => im.url), SAFE);
   assert.equal(st.banner.video, '');
   assert.deepEqual([st.fg.Left, st.fg.Center, st.fg.Right], ['', '', SAFE[0]]);
-  assert.deepEqual({ ...st.vn.avatars }, { Bob: SAFE[1] });
+  assert.deepEqual({ ...st.vn.sprites }, { Bob: SAFE[1] });
   assert.equal(st.vn.locations[0].url, '');
   assert.equal(st.vn.locDefault, '');
   assert.equal(st.vn.opening.file, '');
@@ -73,7 +73,7 @@ test('values of the wrong type are replaced', () => {
   const st = card({
     banner: { images: 'nope', locked: 'yes', scope: 'everywhere', mode: 42 },
     fg: { LeftScale: 'big', LeftLayer: 'top' },
-    vn: { avatars: [], customSpk: ['Alice', 7, null, '  ', { name: 'Bob' }], maps: [null, 'map'] },
+    vn: { sprites: [], customSpk: ['Alice', 7, null, '  ', { name: 'Bob' }], maps: [null, 'map'] },
     regex: { folders: [{ name: 7, ids: [1, 'abc', null] }, 'folder'] },
   });
   assert.deepEqual(st.banner.images, []);
@@ -82,7 +82,7 @@ test('values of the wrong type are replaced', () => {
   assert.equal(st.banner.mode, '');
   assert.equal(st.fg.LeftScale, 100);
   assert.equal(st.fg.LeftLayer, 'behind');
-  assert.deepEqual({ ...st.vn.avatars }, {});
+  assert.deepEqual({ ...st.vn.sprites }, {});
   assert.deepEqual(st.vn.customSpk, ['Alice']);
   assert.deepEqual(st.vn.maps, []);
   assert.equal(st.regex.folders.length, 1);
@@ -110,7 +110,7 @@ test('long text and long lists are cut down', () => {
     vn: {
       customSpk: Array.from({ length: 1000 }, (_, i) => `Name ${i} ${long(500)}`),
       locations: Array.from({ length: 1000 }, (_, i) => ({ name: long(1000), url: `/l${i}.png` })),
-      avatars: { [long(300)]: SAFE[0] },
+      sprites: { [long(300)]: SAFE[0] },
     },
     regex: { folders: Array.from({ length: 500 }, () => ({ name: long(1000), ids: Array(5000).fill('a') })) },
   });
@@ -119,7 +119,7 @@ test('long text and long lists are cut down', () => {
   assert.ok(st.vn.customSpk.every((s) => s.length <= 200));
   assert.equal(st.vn.locations.length, 500);
   assert.equal(st.vn.locations[0].name.length, 200);
-  assert.deepEqual({ ...st.vn.avatars }, {});
+  assert.deepEqual({ ...st.vn.sprites }, {});
   assert.equal(st.regex.folders.length, 100);
   assert.equal(st.regex.folders[0].name.length, 60);
   assert.equal(st.regex.folders[0].ids.length, 1000);

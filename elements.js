@@ -6,7 +6,7 @@
 // shares in window.NTR.api.look.
 // Give each new part its own bind* and *Css functions, like bindMessageDetails and messageDetailsCss.
 (() => {
-  const ELEMENTS_VERSION = '2.86.29';
+  const ELEMENTS_VERSION = '2.86.30';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,

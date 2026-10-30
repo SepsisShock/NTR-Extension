@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.29';
+  const VERSION = '2.86.30';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -257,7 +257,7 @@ await (async () => {
     if (s.uiOpen && !('rd_vn' in s.uiOpen)) openStyleGroup(s);
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
     if (!Array.isArray(s.themes)) s.themes = [];
-    if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanBannerSrc(s.bannerGlobal);
+    if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanGlobalBanner(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
     // The template is copied into cards, which check a list like a theme's, so it keeps to the same limits.
     if (!validEmotions(s.emotions)) s.emotions = fixEmotions(s.emotions);
@@ -1736,9 +1736,12 @@ await (async () => {
 
   // ===== Card data cleanup =====
   // Character cards get shared, so their NTR data is untrusted: every field is forced to the
-  // type and range the extension expects before anything reads it. Unknown keys are left alone.
+  // type and range the extension expects before anything reads it. Unknown keys are dropped, so a new card field must be
+  // added here or it won't load.
   const cleaned = new WeakSet();
   const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  // Removes every key of `o` not in `keys`, in place: callers keep using the same object.
+  const keepOnly = (o, keys) => { for (const k of Object.keys(o)) if (!keys.includes(k)) delete o[k]; return o; };
   const cNum = (v, d, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
   const cBool = (v, d) => (typeof v === 'boolean' ? v : d);
   const cStr = (v, max = 200) => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -1810,13 +1813,13 @@ await (async () => {
     return out;
   }
   const cList = (v, max, fn) => (Array.isArray(v) ? v.filter(isObj).slice(0, max).map(fn) : []);
-  const cNamed = (x, p) => ({ ...x, id: cId(x.id, p), name: cStr(x.name), url: cUrl(x.url) });
+  const cNamed = (x, p) => ({ id: cId(x.id, p), name: cStr(x.name), url: cUrl(x.url) });
 
   // The banner's content: images, YouTube link and video. A card's banner has it, and so does the shared Global banner.
   function cleanBannerSrc(b) {
     if (!isObj(b)) b = {};
     cleaned.add(b);
-    const images = cList(b.images, 200, (im) => ({ ...im, url: cUrl(im.url), pos: cardNum(im.pos, 'bannerPos', 45) })).filter((im) => im.url);
+    const images = cList(b.images, 200, (im) => ({ url: cUrl(im.url), pos: cardNum(im.pos, 'bannerPos', 45) })).filter((im) => im.url);
     return Object.assign(b, {
       images,
       idx: Math.round(cNum(b.idx, 0, 0, Math.max(0, images.length - 1))),
@@ -1843,7 +1846,10 @@ await (async () => {
       backdrop: b.backdrop == null ? null : cPick(b.backdrop, ['wallpaper', 'panel']),
       videoSound: b.videoSound == null ? null : cBool(b.videoSound, false),
     });
+    keepOnly(b, Object.keys(defaultBanner()));
   }
+  // The shared Global banner has only the content fields.
+  const cleanGlobalBanner = (b) => keepOnly(cleanBannerSrc(b), Object.keys(DEFAULTS.bannerGlobal));
 
   function cleanFg(f) {
     for (const p of FG_POS) {
@@ -1853,9 +1859,11 @@ await (async () => {
       f[p + 'Y'] = Math.round(cardNum(f[p + 'Y'], 'fgY', 0));
       f[p + 'Layer'] = cPick(f[p + 'Layer'], ['behind', 'front']);
     }
+    keepOnly(f, Object.keys(FG_DEF()));
   }
 
   function cleanVn(v) {
+    keepOnly(v, [...Object.keys(VN_DEF()), 'emotions', 'emoDefault']);
     v.sprites = cUrlMap(v.sprites);
     const emo = Object.create(null);
     if (isObj(v.emoImgs)) for (const k of Object.keys(v.emoImgs).slice(0, 500)) if (k.length <= 200) emo[k] = cUrlMap(v.emoImgs[k]);
@@ -1873,13 +1881,12 @@ await (async () => {
     v.cgs = cList(v.cgs, 500, (g) => cNamed(g, 'cg'));
     v.maps = cList(v.maps, 100, (m) => ({
       ...cNamed(m, 'map'),
-      pins: cList(m.pins, 500, (p) => ({ ...p, id: cId(p.id, 'pin'), x: cNum(p.x, 0, 0, 1), y: cNum(p.y, 0, 0, 1), loc: cRef(p.loc), map: cRef(p.map) })),
+      pins: cList(m.pins, 500, (p) => ({ id: cId(p.id, 'pin'), x: cNum(p.x, 0, 0, 1), y: cNum(p.y, 0, 0, 1), loc: cRef(p.loc), map: cRef(p.map) })),
     }));
     v.mapRoot = cRef(v.mapRoot);
     if ('opening' in v) {
       const o = isObj(v.opening) ? v.opening : {};
       v.opening = {
-        ...o,
         src: cPick(o.src, ['off', 'youtube', 'file']),
         yt: cStr(o.yt, 500),
         file: cUrl(o.file),
@@ -1897,12 +1904,14 @@ await (async () => {
     r.folders = (Array.isArray(r.folders) ? r.folders : []).filter(isObj).slice(0, 100).map((f) => ({
       id: cStr(f.id, 40) || newId('rxf'), name: cStr(f.name, 60) || 'Folder', ids: ids(f.ids), was: Array.isArray(f.was) ? ids(f.was) : null,
     }));
-    for (const k of Object.keys(r)) if (k !== 'folders') delete r[k];
+    keepOnly(r, ['folders']);
   }
 
   function cleanStore(st) {
     if (!isObj(st) || cleaned.has(st)) return st;
     cleaned.add(st);
+    keepOnly(st, ['v', 'banner', 'fg', 'vn', 'regex']);
+    if ('v' in st) st.v = 1;
     for (const [k, fn] of [['banner', cleanBanner], ['fg', cleanFg], ['vn', cleanVn], ['regex', cleanRegex]]) {
       if (!(k in st)) continue;
       if (isObj(st[k])) fn(st[k]); else delete st[k];
@@ -2386,7 +2395,7 @@ await (async () => {
       if (v !== undefined) out[k] = v;
     }
     // The Global banner's images and links get the same checks as a card's banner.
-    if (out.bannerGlobal) out.bannerGlobal = cleanBannerSrc(out.bannerGlobal);
+    if (out.bannerGlobal) out.bannerGlobal = cleanGlobalBanner(out.bannerGlobal);
     // Tag symbols and keywords must pass the menu's Apply check, with your own filling in any the theme doesn't have.
     // If they clash, all of them are left out and yours stay.
     if (sec === 'vn' && TAG_KEYS.some((k) => k in out)) {

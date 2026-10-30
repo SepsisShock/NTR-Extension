@@ -91,9 +91,8 @@ test('values of the wrong type are replaced', () => {
 });
 
 test('sections that are not objects are dropped', () => {
-  const st = card({ banner: 'nope', fg: [], vn: null, regex: 7, other: 'kept' });
+  const st = card({ banner: 'nope', fg: [], vn: null, regex: 7 });
   for (const k of ['banner', 'fg', 'vn', 'regex']) assert.ok(!(k in st), k);
-  assert.equal(st.other, 'kept');
 });
 
 test('card data that is not an object is replaced', () => {
@@ -125,12 +124,28 @@ test('long text and long lists are cut down', () => {
   assert.equal(st.regex.folders[0].ids.length, 1000);
 });
 
-test('unknown fields are kept, except in regex', () => {
-  const st = card({ note: 'hi', banner: { extra: 1 }, vn: { extra: 2 }, regex: { folders: [], extra: 3 } });
-  assert.equal(st.note, 'hi');
-  assert.equal(st.banner.extra, 1);
-  assert.equal(st.vn.extra, 2);
-  assert.deepEqual(Object.keys(st.regex), ['folders']);
+test('unknown fields are dropped at every level, and known ones next to them kept', () => {
+  const X = 'user/files/banner_x.png';
+  const st = card({
+    v: { big: long(1000) }, note: X,
+    banner: { scope: 'char', locked: false, extra: X, images: [{ url: SAFE[0], pos: 30, extra: X }] },
+    fg: { LeftScale: 120, extra: X },
+    vn: {
+      extra: X, emotions: [{ id: 'joy', name: 'Joy', extra: X }], locations: [{ name: 'Room', extra: X }], cgs: [{ name: 'CG', extra: X }],
+      maps: [{ name: 'Map', extra: X, pins: [{ x: 0.5, y: 0.5, extra: X }] }], opening: { src: 'youtube', extra: X },
+    },
+    regex: { folders: [], extra: X },
+  });
+  assert.equal(JSON.stringify(st).includes(X), false);
+  assert.equal(api.collectFileRefs(st).has(X), false);
+  assert.equal(st.v, 1);
+  assert.equal(st.banner.scope, 'char');
+  assert.equal(st.banner.locked, false);
+  assert.equal(st.banner.images[0].pos, 30);
+  assert.equal(st.fg.LeftScale, 120);
+  assert.equal(st.vn.emotions[0].name, 'Joy');
+  assert.equal(st.vn.maps[0].pins[0].x, 0.5);
+  assert.equal(st.vn.opening.src, 'youtube');
 });
 
 test('reading again returns the same cleaned data', () => {

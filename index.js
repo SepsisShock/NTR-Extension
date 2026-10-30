@@ -2181,7 +2181,7 @@ await (async () => {
     return left.length;
   }
 
-  // Says why the file was kept: 'used', 'lazy', 'failed', or 'other' when it isn't NTR's upload. '' once it's deleted.
+  // Says why the file was kept: 'used', 'lazy', 'failed', or 'other' when it isn't NTR's upload. '' once it's deleted or already gone.
   async function deleteFileIfUnused(path) {
     const p = normFile(path);
     if (!p || !OWN_FILE.test(p)) return 'other';

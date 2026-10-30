@@ -25,8 +25,8 @@ SillyTavern extension. NTR is being developed for public release.
   - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
   - **CSS changes, in any file:** compare before and after screenshots of the pages they reach; add `NTR_PHONE=1` screenshots for CSS in a `pointer: coarse` or width query.
   - If SillyTavern can't be run, say so in the PR.
-- Before adding a test to the repo, tell me in one plain sentence: what users would notice if the feature it checks broke, why it's needed (or "just in case"), and its run time.
-- **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features). A `major` bump needs my approval; state it in the PR summary. Fixes pushed to an open PR don't bump again, unless `main` gets a new version first: then merge it in, keep `main`'s version where they conflict, and bump again.
+- Before adding a test to the repo, tell me in one plain sentence: what users would notice if the feature it checks broke, why it's needed, and its run time.
+- **Versioning:** Bump once per `.js`/`.css` PR via `node scripts/version.cjs bump patch` (fixes) or `minor` (features). A `major` bump needs my approval; state it in the PR summary. Fixes pushed to an open PR don't bump again, unless CI's version check fails: then merge main in and bump again.
 - **Docs:** Propose removing shipped features from `ROADMAP.md`. Propose a few-word `manifest.json` description update only when a new top-level area ships.
 - **PR Summary:** State what changed, why, how it was tested, what caught any real bug (a test, script, skill, review, or plan check) and when (planning, building, or review), or "none", and explain any out-of-scope file touches. If CI's Core growth check warns, justify why that code belongs in core; if you can't, propose moving it.
 

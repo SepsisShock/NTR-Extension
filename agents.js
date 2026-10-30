@@ -8,7 +8,7 @@
 // Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
 // of free text (see Fields below).
 (() => {
-  const AGENTS_VERSION = '2.86.28';
+  const AGENTS_VERSION = '2.86.29';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -1962,13 +1962,7 @@
       changed(true);
       refreshBoxes();
     };
-    const freeName = (base) => {
-      const used = new Set(a.fields.map((f) => f.name.toLowerCase()));
-      let n = 1;
-      while (used.has((n > 1 ? `${base} ${n}` : base).toLowerCase())) n++;
-      return n > 1 ? `${base} ${n}` : base;
-    };
-    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field') }));
+    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', (n) => a.fields.some((f) => f.name.toLowerCase() === n.toLowerCase())) }));
     root.querySelector('#m_agf_head')?.addEventListener('click', () => add({ kind: 'heading', name: 'New Heading' }));
     if (!box) return;
     const at = (el) => a.fields.find((f) => f.id === el.closest('[data-fd]')?.dataset.fd);

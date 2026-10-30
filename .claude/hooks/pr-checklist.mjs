@@ -3,7 +3,8 @@
 // goes through.
 //
 // - gh pr create always runs by itself (commit-guard.mjs denies other forms), so a command that doesn't start with it
-//   only mentions it in quoted text.
+//   only mentions it in quoted text. Its branch is the checked-out one: --head isn't read, since the title or body can
+//   contain that text too.
 // - Branches already shown are kept in .git/ntr-pr-checklist.json, which git doesn't track. A new container starts
 //   without it, so a branch can see the checklist again in a later session.
 // - It's a reminder, not a guard: if this script fails, the PR goes through.
@@ -17,9 +18,8 @@ const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' 
 
 let branch = input.tool_input.head;
 if (input.tool_name === 'Bash') {
-  const cmd = input.tool_input.command.trim();
-  if (!/^gh\s+pr\s+create\b/.test(cmd)) process.exit(0);
-  branch = cmd.match(/(?:--head|-H)[=\s]+["']?([^\s"']+)/)?.[1] ?? git('symbolic-ref', '--short', 'HEAD');
+  if (!/^gh\s+pr\s+create\b/.test(input.tool_input.command.trim())) process.exit(0);
+  branch = git('symbolic-ref', '--short', 'HEAD');
 }
 // A head like owner:branch names a fork's branch.
 branch = branch.replace(/^[^:]*:/, '');

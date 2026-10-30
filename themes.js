@@ -5,14 +5,13 @@
 // a theme holds, how it's cleaned, and applying one; this file is the page that saves, renames,
 // deletes, imports and exports them.
 (() => {
-  const THEMES_VERSION = '2.86.26';
+  const THEMES_VERSION = '2.86.27';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
     lookSnapshot, applyLook, resetLook, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
-    unpackFiles, isObj, stColor, downloadJson, freeName } = A;
+    unpackFiles, isObj, stColor, downloadJson, freeName, openMenu } = A;
   const { COLOR_FROM, rbCssText, RB_CSS } = A.look;
-  const openCombinedModal = () => A.openMenu();
 
   // The parts with Custom CSS: their theme section, keys, name, where they're set, and the CSS shown on import (by
   // default the one key's). The Reasoning Block's three boxes show as one, each inside its part's selector.
@@ -115,7 +114,7 @@
       s.themes.push(t);
       s.themeActive = t.id;
       save();
-      openCombinedModal();
+      openMenu();
       toastr.success(`Saved "${name}"`, 'Themes');
     };
 
@@ -126,10 +125,10 @@
       const q = t ? `Your current look isn't saved as a theme and will be replaced. Apply "${t.name}" anyway?`
         : 'Your current look isn\'t saved as a theme. Go back to the default look?';
       if (dirty && !(await askYes(row, q, t ? 'Apply' : 'Reset'))) return;
-      if (!t) { resetLook(); openCombinedModal(); return; }
+      if (!t) { resetLook(); openMenu(); return; }
       s.themeActive = t.id;
       applyLook(t.data);
-      openCombinedModal();
+      openMenu();
       if (t.regex && s.rxEnabled) (await loadModule('regex'))?.applyStates?.(t.regex);
     };
 
@@ -138,7 +137,7 @@
       if (!name || name === t.name) return;
       t.name = name;
       save();
-      openCombinedModal();
+      openMenu();
     };
 
     const del = async (t, row) => {
@@ -148,7 +147,7 @@
       if (s.themeActive === t.id) s.themeActive = null;
       save();
       refs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
+      openMenu();
     };
 
     page.addEventListener('click', (e) => {
@@ -184,7 +183,7 @@
       if (rs) t.regex = rs;
       save();
       oldRefs.forEach((p) => deleteFileIfUnused(p));
-      openCombinedModal();
+      openMenu();
       toastr.success(`Updated "${t.name}"`, 'Themes');
     };
 
@@ -271,7 +270,7 @@
         }
         s.themes.push({ id: newId('th'), name, data });
         save();
-        openCombinedModal();
+        openMenu();
         toastr.success(`Added "${name}". Pick it in the list to apply it.`, 'Themes');
       };
     };

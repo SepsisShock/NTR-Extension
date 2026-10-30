@@ -5,14 +5,13 @@
 // layer and loading (Edit Placement is in layout.js); this file writes their size and position CSS. It builds from
 // what index.js shares in window.NTR.api.look.
 (() => {
-  const AVATARS_VERSION = '2.86.26';
+  const AVATARS_VERSION = '2.86.27';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
-    rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
+    openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
   const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
     restyle: updateAvatarStyle, svgMask } = A.look;
-  const openCombinedModal = () => A.openMenu();
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
   const FADE_PARTS = {
@@ -1003,7 +1002,7 @@
         s.frameFits[prefix] = {};
         save();
         updateAvatarStyle();
-        openCombinedModal();
+        openMenu();
       };
 
       const sliders = [

@@ -7,6 +7,13 @@
           { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/skills/run-ntr-extension/st.sh\" hook" }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-tests.mjs\"", "timeout": 150 }
+        ]
+      }
     ]
   }
 }

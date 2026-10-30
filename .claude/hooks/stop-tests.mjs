@@ -1,8 +1,10 @@
-// Stop hook (see .claude/settings.json): runs tests/*.test.mjs when the code changed since the last check, and sends
-// Claude back to fix what fails. It checks the files on disk, so edits made through Bash and commits count too.
+// Stop hook (see .claude/settings.json): runs tests/*.test.mjs at a session's first stop and whenever the code changed
+// since the last check, and sends Claude back to fix what fails. It checks the files on disk, so edits made through
+// Bash and commits count too.
 //
-// - Nothing changed (questions, plans): no run.
-// - First check of a session: failures are only reported, so an already broken branch can't block a plain answer.
+// - First check of a session: always runs, and failures are only reported, so an already broken branch can't block a
+//   plain answer.
+// - After that, nothing changed (questions, plans): no run.
 // - Sent back already and the same tests still fail: Claude may stop, and the user is told.
 //
 // What it saw last is kept in .git/ntr-stop-hook.json, which git doesn't track.

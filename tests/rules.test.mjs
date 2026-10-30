@@ -7,37 +7,75 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { api, ROOT, MODULES, LOOK } from './env.mjs';
 
+// The source with comments and the text inside strings and regexes blanked out, at the same length, so calls are only
+// found in code. Code inside a template's ${} is kept.
+function codeOnly(src) {
+  const out = src.split('');
+  const blank = (a, b) => { for (let k = a; k < b; k++) if (src[k] !== '\n') out[k] = ' '; };
+  const inside = []; // the brace depth of each ${ the scan is in
+  let depth = 0, last = '';
+  // Blanks template text from i to the closing ` or the next ${, and returns where the scan goes on.
+  const template = (i) => {
+    for (let j = i; j < src.length; j++) {
+      if (src[j] === '\\') j++;
+      else if (src[j] === '`') { blank(i, j); return j; }
+      else if (src[j] === '$' && src[j + 1] === '{') { blank(i, j); inside.push(++depth); return j + 1; }
+    }
+  };
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '/' && (src[i + 1] === '/' || src[i + 1] === '*')) {
+      const end = src[i + 1] === '/' ? src.indexOf('\n', i) : src.indexOf('*/', i) + 2;
+      blank(i, end); i = end - 1; continue;
+    }
+    if (c === "'" || c === '"' || (c === '/' && (/[(,=:[!&|?{};]/.test(last) || !last || /\breturn\s*$/.test(src.slice(i - 10, i))))) {
+      let j = i + 1;
+      for (let cls = false; src[j] !== c || cls; j++) {
+        if (src[j] === '\\') j++;
+        else if (c === '/' && (src[j] === '[' || src[j] === ']')) cls = src[j] === '[';
+      }
+      blank(i + 1, j); i = j; last = c; continue;
+    }
+    if (c === '`') { i = template(i + 1); last = c; continue; }
+    if (c === '{') depth++;
+    else if (c === '}' && inside.at(-1) === depth--) { inside.pop(); i = template(i + 1); last = '`'; continue; }
+    if (!/\s/.test(c)) last = c;
+  }
+  return out.join('');
+}
+
 const read = (name) => readFileSync(join(ROOT, `${name}.js`), 'utf8');
 const SRC = Object.fromEntries(['index', ...MODULES].map((name) => [`${name}.js`, read(name)]));
+const CODE = Object.fromEntries(Object.entries(SRC).map(([file, src]) => [file, codeOnly(src)]));
 const core = SRC['index.js'];
 const modules = Object.entries(SRC).filter(([file]) => file !== 'index.js');
 
-// The arguments of the call whose `(` is at `at`, as source text, split at the commas that aren't inside brackets.
-function callArgs(src, at) {
-  const args = [];
+// The arguments of the call whose `(` is at `at` in `file`, as source text, split at the commas that aren't inside
+// brackets.
+function callArgs(file, at) {
+  const code = CODE[file], args = [];
   let depth = 0, start = at + 1;
-  for (let i = at; i < src.length; i++) {
-    const c = src[i];
-    if (c === "'" || c === '"' || c === '`') { i = src.indexOf(c, i + 1); continue; }
+  for (let i = at; i < code.length; i++) {
+    const c = code[i];
     if ('([{'.includes(c)) depth++;
-    else if (')]}'.includes(c) && --depth === 0) { args.push(src.slice(start, i).trim()); return args; }
-    else if (c === ',' && depth === 1) { args.push(src.slice(start, i).trim()); start = i + 1; }
+    else if (')]}'.includes(c) && --depth === 0) { args.push(SRC[file].slice(start, i).trim()); return args; }
+    else if (c === ',' && depth === 1) { args.push(SRC[file].slice(start, i).trim()); start = i + 1; }
   }
-  throw new Error(`unclosed call at ${at}`);
+  throw new Error(`unclosed call at ${file}:${at}`);
 }
-// Every call to one of `names` in `src`, as [name, args, index].
-const calls = (src, names) => [...src.matchAll(new RegExp(`(?<![\\w.$])(?:A\\.)?(${names.join('|')})\\(`, 'g'))]
-  .filter((m) => !/function\s+$/.test(src.slice(0, m.index)))
-  .map((m) => [m[1], callArgs(src, m.index + m[0].length - 1), m.index]);
+// Every call to one of `names` in the code of `file`, as [name, args, index].
+const calls = (file, names) => [...CODE[file].matchAll(new RegExp(`(?<![\\w.$])(?:A\\.)?(${names.join('|')})\\(`, 'g'))]
+  .filter((m) => !/function\s+$/.test(CODE[file].slice(0, m.index)))
+  .map((m) => [m[1], callArgs(file, m.index + m[0].length - 1), m.index]);
 const literal = (arg) => /^'(\w+)'$/.exec(arg || '')?.[1];
 
 test('settings, ranges, cleaning and upload names are defined only in index.js', () => {
   const owned = ['DEFAULTS', 'NUM_RANGE', 'cleanStore', 'loadSettings', 'OWN_FILE'];
   const def = (name) => new RegExp(`\\b(?:const|let|var|function)\\s+${name}\\b`);
   for (const name of owned) assert.match(core, def(name), `index.js no longer defines ${name}; this test needs to follow`);
-  const found = modules.flatMap(([file, src]) => [
-    ...owned.filter((name) => def(name).test(src)).map((name) => `${file} defines ${name}`),
-    ...(/\bextensionSettings\b/.test(src) ? [`${file} uses extensionSettings`] : []),
+  const found = modules.flatMap(([file]) => [
+    ...owned.filter((name) => def(name).test(CODE[file])).map((name) => `${file} defines ${name}`),
+    ...(/\bextensionSettings\b/.test(CODE[file]) ? [`${file} uses extensionSettings`] : []),
   ]);
   assert.deepEqual(found, [], `${found.join('; ')}. These belong in index.js; modules read settings through A.settings().`);
 });
@@ -50,8 +88,8 @@ const PREFIX_OF = {
   '...o.upload': listed(/\bupload: \['(\w+)'/g),
 };
 const prefixNames = (arg) => literal(arg) ? [literal(arg)] : /^`\w+\$\{[^}]*\}`$/.test(arg) ? [arg.slice(1, -1).replace(/\$\{[^}]*\}/, 'x')] : PREFIX_OF[arg];
-const uploads = Object.entries(SRC).flatMap(([file, src]) => calls(src, ['uploadImage', 'uploadVideo'])
-  .map(([, args, at]) => ({ file, prefix: args[1], wrapped: /uploadHere\(\(\) => $/.test(src.slice(at - 40, at)) })));
+const uploads = Object.keys(SRC).flatMap((file) => calls(file, ['uploadImage', 'uploadVideo'])
+  .map(([, args, at]) => ({ file, prefix: args[1], wrapped: /uploadHere\(\(\) => $/.test(CODE[file].slice(at - 40, at)) })));
 
 test('every upload name is one the cleanup recognizes', () => {
   assert.ok(uploads.length > 0, 'found no upload calls');
@@ -86,14 +124,14 @@ test('sliders and number boxes take their limits from NUM_RANGE', () => {
   const own = tags.filter(([file, tag]) => /\bm(?:in|ax)="/.test(tag) && !tag.includes('rangeAttrs('));
   const bad = own.filter(([file, tag]) => !OWN_LIMITS.some(([f, has]) => f === file && tag.includes(has))).map(([file, tag]) => `${file}: ${tag.slice(0, 80)}`);
   assert.deepEqual(bad, [], `these write their own min/max:\n${bad.join('\n')}\nDefine the range in NUM_RANGE and use rangeSlider or rangeAttrs.`);
-  const ov = calls(core, ['ovSlider']);
+  const ov = calls('index.js', ['ovSlider']);
   assert.ok(ov.length === 1 && /const rangeSlider = [^\n]*$/.test(core.slice(0, ov[0][2]).split('\n').pop()),
     'ovSlider writes its own min/max, so only rangeSlider may call it');
 });
 
 test('NUM_RANGE entries have the right shape, and every key used has one', () => {
   const RANGE_CALLS = { rangeNum: 1, rangeSlider: 1, cardNum: 1, rangeAttrs: 0, numRange: 0 };
-  const used = Object.entries(SRC).flatMap(([file, src]) => calls(src, Object.keys(RANGE_CALLS))
+  const used = Object.keys(SRC).flatMap((file) => calls(file, Object.keys(RANGE_CALLS))
     .map(([name, args]) => [file, name, literal(args[RANGE_CALLS[name]])]).filter(([, , k]) => k));
   assert.ok(used.length > 0, 'found no range calls');
   const missing = used.filter(([, , k]) => !api.numRange(k)).map(([file, name, k]) => `${file}: ${name}('${k}')`);
@@ -110,11 +148,13 @@ test('NUM_RANGE entries have the right shape, and every key used has one', () =>
 
 test('modules don\'t import other NTR files', () => {
   const ntr = new Set(['index', ...MODULES]);
-  // Static imports, and the quoted paths inside each import(...) call.
-  const specs = (src) => [...[...src.matchAll(/^\s*import\s+(?:[\w$\s{},*]+\s+from\s+)?['"]([^'"]+)['"]/gm)].map((m) => m[1]),
-    ...calls(src, ['import']).flatMap(([, args]) => [...args.join(',').matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]))];
-  assert.deepEqual(specs(SRC['regex.js']), ['../../regex/engine.js'], 'regex.js\'s import of SillyTavern\'s regex engine changed; this test needs to follow');
-  const found = modules.flatMap(([file, src]) => specs(src)
+  // Static imports, and the quoted paths inside each import(...) call. Both are found in code only, then read from
+  // the source.
+  const specs = (file) => [
+    ...[...CODE[file].matchAll(/^[ \t]*import\b(?!\s*\()/gm)].map((m) => /^[^;]*?['"]([^'"]+)['"]/.exec(SRC[file].slice(m.index))[1]),
+    ...calls(file, ['import']).flatMap(([, args]) => [...args.join(',').matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]))];
+  assert.deepEqual(specs('regex.js'), ['../../regex/engine.js'], 'regex.js\'s import of SillyTavern\'s regex engine changed; this test needs to follow');
+  const found = modules.flatMap(([file]) => specs(file)
     .filter((spec) => ntr.has(spec.split('/').pop().replace(/\.m?js$/, '')))
     .map((spec) => `${file} imports ${spec}`));
   assert.deepEqual(found, [], `${found.join('; ')}. Modules use window.NTR instead.`);

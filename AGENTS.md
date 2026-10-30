@@ -55,5 +55,5 @@ Name exact functions, keys, and files. Keep comments short.
 
 - "cleancom" or "$cleancom": follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).
 - "code simplification review" or "$code-simplification": follow [.agents/skills/code-simplification/SKILL.md](.agents/skills/code-simplification/SKILL.md).
-- "open-ended obsolete-code review" or "$open-ended-obsolete-code-review": follow [.agents/skills/open-ended-obsolete-code-review/SKILL.md](.agents/skills/open-ended-obsolete-code-review/SKILL.md).
-- "targeted obsolete-code review" or "$targeted-obsolete-code-review": follow [.agents/skills/targeted-obsolete-code-review/SKILL.md](.agents/skills/targeted-obsolete-code-review/SKILL.md).
+- "open-ended obsolete-code review", "$open-ended-obsolete-code-review", or "OBCR2": follow [.agents/skills/open-ended-obsolete-code-review/SKILL.md](.agents/skills/open-ended-obsolete-code-review/SKILL.md).
+- "targeted obsolete-code review", "$targeted-obsolete-code-review", or "OBCR1": follow [.agents/skills/targeted-obsolete-code-review/SKILL.md](.agents/skills/targeted-obsolete-code-review/SKILL.md).

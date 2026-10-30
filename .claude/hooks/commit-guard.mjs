@@ -60,8 +60,10 @@ function check(f, now, olds, renamedTo) {
 
 if (input.tool_name === 'Bash') {
   const cmd = input.tool_input.command.trim();
-  // Heredoc bodies and quoted text, like commit messages, aren't commands.
-  const bare = cmd.replace(/<<-?\s*(['"]?)(\w+)\1[\s\S]*?\n\2(?=\n|$)/g, '').replace(/(["'])(?:\\.|(?!\1)[\s\S])*\1/g, '""');
+  // Heredoc bodies and quoted text with spaces, like commit messages, aren't commands. Quotes or backslashes inside a
+  // single word (git "push", pu\sh) are unwrapped first, since they can hide the subcommand itself.
+  const bare = cmd.replace(/<<-?\s*(['"]?)(\w+)\1[\s\S]*?\n\2(?=\n|$)/g, '').replace(/(["'])([^\s"']*)\1/g, '$2').replace(/\\(?=\w)/g, '')
+    .replace(/(["'])(?:\\.|(?!\1)[\s\S])*\1/g, '""');
   const push = /\bgit\b/.test(bare) && /\bpush\b/.test(bare);
   const pr = /\bgh\s+pr\s+create\b/.test(bare);
   if (!push && !pr) process.exit(0);

@@ -1,95 +1,87 @@
-// PreToolUse hook (see .claude/settings.json): before a commit, asks the user to approve it when it changes a .md file,
-// changes a .json file beyond "version", raises the major version, or deletes or renames a file. The prompt shows the
-// changes, so approving it is approving the wording. Covers git commits through Bash and the GitHub tools that commit.
+// PreToolUse hook (see .claude/settings.json): before changes reach GitHub, asks the user to approve them when they
+// change a .md file, change a .json file beyond "version", raise the major version, or delete or rename a file. The
+// prompt shows the changes, so approving it is approving the wording.
 //
-// - Bash: the staged copies; the working-tree copies instead when the same command stages them (git add, commit -a),
-//   and only the named files for git commit <paths>. Checks the repo git -C names, or the shell's folder.
-// - Finishing a merge: files that match main's side came from main, so they don't ask.
-// - Misses commits it can't see coming, like a file edited in the same command, git stash pop, or git run indirectly.
+// - git push and gh pr create: checks the commits already made, so it doesn't matter how they were made. A file asks
+//   only if the pushed copy differs from both GitHub's copy of the branch and main, so changes merged in from main
+//   and changes already pushed don't ask again.
+// - Either command chained with others is denied, since the commits it would push may not exist yet when this runs.
+// - GitHub tools that commit (push_files, create_or_update_file, delete_file): checks their content against HEAD.
 // - If this script fails, settings.json's onFailure blocks the command.
-import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 const input = JSON.parse(readFileSync(0, 'utf8'));
-const cmd = input.tool_input.command || '';
-const commit = cmd.match(/\bgit\b((?:\s+-[cC]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*)\s+commit\b([^;&|]*)/);
-if (input.tool_name === 'Bash' && !commit) process.exit(0);
-const target = commit?.[1].match(/-C\s+(\S+)/)?.[1].replace(/^(["'])(.*)\1$/, '$2');
-let dir = input.tool_name === 'Bash' ? resolve(input.cwd, target ?? '.') : process.env.CLAUDE_PROJECT_DIR || input.cwd;
-const show = (rev) => spawnSync('git', ['show', rev], { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 }).stdout || null;
-if (input.tool_name === 'Bash') {
-  const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: dir, encoding: 'utf8' });
-  if (top.status) process.exit(0);
-  dir = top.stdout.trim();
-}
-const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20 });
-const headText = (f) => show(`HEAD:${f}`);
+const dir = process.env.CLAUDE_PROJECT_DIR || input.cwd;
+const run = (...args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 15000 });
+const out = (...args) => run(...args).stdout.trim();
+const show = (rev, f) => { const r = run('show', `${rev}:${f}`); return r.status === 0 ? r.stdout : null; };
 const version = (text) => text?.match(/"version": "([^"]*)"/)?.[1];
-const withoutVersion = (text) => text.replace(/"version": "[^"]*"/, '"version": ""');
+const withoutVersion = (text) => text?.replace(/"version": "[^"]*"/, '"version": ""');
 
 const problems = [];
 const shown = [];
+const say = (decision, reason) => {
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } }));
+  process.exit(0);
+};
 
-// A diff of one file from HEAD to its new text, cut short so the prompt stays readable.
-function diff(f, now) {
+// A diff of one file from its old text to its new text, cut short so the prompt stays readable.
+function diff(f, old, now) {
   const tmp = mkdtempSync(join(tmpdir(), 'ntr-guard-'));
-  writeFileSync(join(tmp, 'a'), headText(f) ?? '');
+  writeFileSync(join(tmp, 'a'), old ?? '');
   writeFileSync(join(tmp, 'b'), now ?? '');
-  const out = spawnSync('git', ['diff', '--no-index', '--no-color', '-U1', 'a', 'b'], { cwd: tmp, encoding: 'utf8' }).stdout;
+  const text = spawnSync('git', ['diff', '--no-index', '--no-color', '-U1', 'a', 'b'], { cwd: tmp, encoding: 'utf8' }).stdout;
   rmSync(tmp, { recursive: true, force: true });
-  const body = out.split('\n').slice(4).join('\n').trim();
+  const body = text.split('\n').slice(4).join('\n').trim();
   return `--- ${f}\n${body.length > 1500 ? `${body.slice(0, 1500)}\n(cut short)` : body}`;
 }
 
-function check(status, f, now) {
-  if (status === 'D') return problems.push(`deletes ${f}`);
-  if (status.startsWith('R')) return problems.push(`renames ${f} to ${status.slice(2)}`);
-  const old = headText(f);
-  if (f.endsWith('.md')) problems.push(`changes ${f}`);
-  else if (f.endsWith('.json') && (old == null || withoutVersion(old) !== withoutVersion(now))) problems.push(`changes ${f} beyond "version"`);
-  else if (f === 'manifest.json' && parseInt(version(now)) > parseInt(version(old))) problems.push(`raises the major version (${version(old)} to ${version(now)})`);
+// Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with, and the
+// first one is shown as the diff's old side.
+function check(f, now, olds, renamedTo) {
+  const differs = (g) => olds.every((o) => g(o) !== g(now));
+  if (now == null) problems.push(renamedTo ? `renames ${f} to ${renamedTo}` : `deletes ${f}`);
+  else if (f.endsWith('.md')) problems.push(`changes ${f}`);
+  else if (f.endsWith('.json') && differs(withoutVersion)) problems.push(`changes ${f} beyond "version"`);
+  else if (f === 'manifest.json' && olds.every((o) => parseInt(version(now)) > parseInt(version(o)))) problems.push(`raises the major version (${version(olds[0])} to ${version(now)})`);
   else return;
-  shown.push(diff(f, now));
+  if (now != null) shown.push(diff(f, olds[0], now));
 }
 
 if (input.tool_name === 'Bash') {
-  // Files named after commit (git commit -m x a.md, or -- a.md): quoted text and flag values aren't paths.
-  const words = commit[2].replace(/(["'])(?:\\.|(?!\1).)*\1/g, ' ').trim().split(/\s+/).filter(Boolean);
-  const paths = words.filter((w, i) => !w.startsWith('-') && !/^-[mFcCt]$/.test(words[i - 1] || '') && existsSync(join(dir, w)));
-  const staging = paths.length > 0 || /\bgit\b[^;&|]*\s(add|rm|mv)\b|\scommit\b[^;&|]*\s(-[a-zA-Z]*a[a-zA-Z]*|--all|--include|-i)\b/.test(cmd);
-  const files = new Map();
-  const add = (out) => {
-    for (const line of out.split('\n').filter(Boolean)) {
-      const [s, from, to] = line.split('\t');
-      if (s.startsWith('R')) files.set(from, `R ${to}`).set(to, 'A');
-      else if (!files.get(from)?.startsWith('R')) files.set(from, s);
-    }
-  };
-  if (paths.length) add(git('diff', '--name-status', '-M', 'HEAD', '--', ...paths));
-  else {
-    add(git('diff', '--cached', '--name-status', '-M', 'HEAD'));
-    if (staging) {
-      add(git('diff', '--name-status', '-M', 'HEAD'));
-      for (const f of git('ls-files', '--others', '--exclude-standard').split('\n').filter(Boolean)) if (!files.has(f)) files.set(f, 'A');
-    }
-  }
-  if (existsSync(join(git('rev-parse', '--absolute-git-dir').trim(), 'MERGE_HEAD'))) {
-    const same = (f) => spawnSync('git', ['diff', '--quiet', ...(staging ? [] : ['--cached']), 'MERGE_HEAD', '--', f], { cwd: dir }).status === 0;
-    for (const f of [...files.keys()]) if (same(f)) files.delete(f);
-  }
-  // What the commit will hold: the working-tree copy if this command stages it, else the staged copy.
-  const content = (f) => (staging ? (existsSync(join(dir, f)) ? readFileSync(join(dir, f), 'utf8') : null) : show(`:${f}`));
-  for (const [f, s] of files) check(s, f, s === 'D' ? null : content(f));
+  const cmd = input.tool_input.command.trim();
+  // Heredoc bodies and quoted text, like commit messages, aren't commands.
+  const bare = cmd.replace(/<<-?\s*(['"]?)(\w+)\1[\s\S]*?\n\2(?=\n|$)/g, '').replace(/(["'])(?:\\.|(?!\1)[\s\S])*\1/g, '""');
+  const push = /\bgit\b/.test(bare) && /\bpush\b/.test(bare);
+  const pr = /\bgh\s+pr\s+create\b/.test(bare);
+  if (!push && !pr) process.exit(0);
+  // Only plain forms, so the commits are already made and the branch is easy to read: no chaining, -C, quotes or variables.
+  if (push && !/^git\s+push(\s+[\w./:@^~+=-]+)*$/.test(cmd)) say('deny', 'Run git push by itself, from the project folder, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
+  if (pr && !/^gh\s+pr\s+create\b[^;&|`$<>\n]*$/.test(bare)) say('deny', 'Run gh pr create by itself, after pushing, so the guard can check the commits it sends.');
+
+  // What's pushed: the refspec's source, or HEAD. Where to: the refspec's target, or the current branch.
+  const args = push ? cmd.split(/\s+/).slice(2).filter((a) => !a.startsWith('-')) : [];
+  const [src, dst] = (args[1] || '').replace(/^\+/, '').split(':');
+  const sha = out('rev-parse', src || 'HEAD');
+  const branch = dst || (src && src !== 'HEAD' ? src : out('symbolic-ref', '-q', '--short', 'HEAD'));
+  run('fetch', '-q', 'origin', 'main');
+  if (branch) run('fetch', '-q', 'origin', branch);
+  const main = 'refs/remotes/origin/main';
+  const remote = branch && run('rev-parse', '-q', '--verify', `refs/remotes/origin/${branch}`).status === 0 ? `refs/remotes/origin/${branch}` : null;
+  const changed = (base) => new Set(out('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
+  let files = changed(main);
+  if (remote) { const r = changed(remote); files = new Set([...files].filter((f) => r.has(f))); }
+  const renames = new Map(out('diff', '--name-status', '-M', main, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t').slice(1)));
+  for (const f of files) check(f, show(sha, f), remote ? [show(remote, f), show(main, f)] : [show(main, f)], renames.get(f));
 } else if (input.tool_name === 'mcp__github__delete_file') {
-  check('D', input.tool_input.path);
+  check(input.tool_input.path, null, [show('HEAD', input.tool_input.path)]);
 } else if (input.tool_name === 'mcp__github__create_or_update_file') {
-  check('M', input.tool_input.path, input.tool_input.content);
+  check(input.tool_input.path, input.tool_input.content, [show('HEAD', input.tool_input.path)]);
 } else if (input.tool_name === 'mcp__github__push_files') {
-  for (const f of input.tool_input.files || []) check('M', f.path, f.content);
+  for (const f of input.tool_input.files || []) check(f.path, f.content, [show('HEAD', f.path)]);
 }
 
-if (!problems.length) process.exit(0);
-const why = `This commit ${problems.join('; ')}. You approve wording changes, deletions, renames and major version bumps before they're committed.`;
-process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: [why, ...shown].join('\n\n') } }));
+if (problems.length) say('ask', [`Not on GitHub yet: this ${problems.join('; ')}. You approve wording changes, deletions, renames and major version bumps before they reach GitHub.`, ...shown].join('\n\n'));

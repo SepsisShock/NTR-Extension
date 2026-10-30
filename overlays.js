@@ -162,8 +162,8 @@
     global: 'Global shows the shared banner on every character without its own.',
     char: 'This Character gives it its own banner, saved in its card.',
   };
-  // The open chat's character record, or null with no chat open.
-  function charRec() {
+  // The current character's banner record, or null outside a character chat.
+  function currentBannerRec() {
     const key = currentKey();
     return key ? peek(key) : null;
   }
@@ -210,7 +210,7 @@
   function toggleBannerSound() {
     const v = banner?.querySelector('.cb_vid');
     if (!v) return;
-    const r = charRec();
+    const r = currentBannerRec();
     const want = v.muted;
     if (r && r.scope === 'char') r.videoSound = want;
     else settings().bannerVideoSound = want;
@@ -243,7 +243,7 @@
     return o;
   }
   function currentLook() {
-    return bannerLook(charRec());
+    return bannerLook(currentBannerRec());
   }
   function applyBannerSize() {
     const o = currentLook();
@@ -407,7 +407,7 @@
     hooked = chat;
     chat.addEventListener('scroll', () => syncWallpaper(), { passive: true });
     new MutationObserver(() => {
-      const r = charRec();
+      const r = currentBannerRec();
       if (!banner || !r || !settings().bannerOn) return;
       if (!r.locked && !A.banFree?.() && chat.firstElementChild !== banner) chat.prepend(banner);
     }).observe(chat, { childList: true });
@@ -434,7 +434,7 @@
       if (!isOn()) { hideBanner(); syncWallpaper(); return; }
 
       if (!banner) buildBanner();
-      const r = charRec();
+      const r = currentBannerRec();
       if (bannerKind(r) === 'off') { hideBanner(); return; }
 
       placeBanner(chat, r);
@@ -446,7 +446,7 @@
 
   function step(d) {
     const key = currentKey();
-    const r = bannerSrc(charRec());
+    const r = bannerSrc(currentBannerRec());
     const n = r.images.length;
     if (n < 2) return;
     r.idx = (shownIdx(key, r) + d + n) % n;
@@ -457,14 +457,13 @@
     if (document.getElementById('cb_modal_overlay')) openMenu();
   }
 
-  // Adds a picture to the banner and shows it.
   function addPicture(src, url) {
     src.images.push({ url, pos: 45 });
     src.idx = src.images.length - 1;
   }
 
   async function addFiles(files) {
-    const r = bannerSrc(charRec());
+    const r = bannerSrc(currentBannerRec());
     let added = 0;
     for (const f of files) {
       try {
@@ -484,7 +483,7 @@
   }
 
   async function removeCurrentBanner(anchor) {
-    const r = bannerSrc(charRec());
+    const r = bannerSrc(currentBannerRec());
     const i = pickedIdx(r);
     const im = r.images[i];
     if (!im || !(await askYes(anchor, 'Remove this picture from the banner?', 'Remove', { danger: true }))) return;
@@ -893,7 +892,7 @@
       layoutFg();
       // Layout can make the banner Floating or Attached.
       const chat = document.getElementById('chat');
-      const r = charRec();
+      const r = currentBannerRec();
       if (banner && chat && r && banner.style.display !== 'none') placeBanner(chat, r);
       syncWallpaper();
     },

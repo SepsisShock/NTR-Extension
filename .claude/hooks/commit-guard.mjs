@@ -1,7 +1,9 @@
-// PreToolUse hook (see .claude/settings.json): before changes reach GitHub, asks the user to approve them when they
-// change a .md file, change a .json file beyond "version", raise the major version, or delete or rename a file. The
-// prompt shows the changes, so approving it is approving the wording.
+// PreToolUse hook (see .claude/settings.json): before changes reach GitHub, gets the user's approval when they change
+// a .md file, change a .json file beyond "version", raise the major version, or delete or rename a file.
 //
+// - The claude.ai app's permission prompt shows only the command, so the first attempt is denied with the changes for
+//   Claude to show the user in chat. Trying again with the same changes then asks, as the final confirmation.
+//   What was last shown is kept in .git/ntr-commit-guard.json, which git doesn't track.
 // - git push and gh pr create: checks the commits already made, so it doesn't matter how they were made. A file asks
 //   only if the pushed copy differs from both GitHub's copy of the branch and main, so changes merged in from main
 //   and changes already pushed don't ask again.
@@ -9,6 +11,7 @@
 // - GitHub tools that commit (push_files, create_or_update_file, delete_file): checks their content against HEAD.
 // - If this script fails, settings.json's onFailure blocks the command.
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -84,4 +87,12 @@ if (input.tool_name === 'Bash') {
   for (const f of input.tool_input.files || []) check(f.path, f.content, [show('HEAD', f.path)]);
 }
 
-if (problems.length) say('ask', [`Not on GitHub yet: this ${problems.join('; ')}. You approve wording changes, deletions, renames and major version bumps before they reach GitHub.`, ...shown].join('\n\n'));
+if (!problems.length) process.exit(0);
+const changes = [`Not on GitHub yet: this ${problems.join('; ')}.`, ...shown].join('\n\n');
+const key = createHash('sha256').update(changes).digest('hex');
+const stateFile = join(run('rev-parse', '--absolute-git-dir').stdout.trim(), 'ntr-commit-guard.json');
+let shownKey = null;
+try { shownKey = JSON.parse(readFileSync(stateFile, 'utf8')).key; } catch {}
+if (shownKey === key) say('ask', `${changes}\n\nThe user approves wording changes, deletions, renames and major version bumps before they reach GitHub.`);
+writeFileSync(stateFile, JSON.stringify({ key }));
+say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged, and ask for approval. Once they approve, run the same command again; they'll then confirm it in the prompt.\n\n${changes}`);

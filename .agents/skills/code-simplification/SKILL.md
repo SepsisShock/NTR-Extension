@@ -7,9 +7,9 @@ Review the requested code and the code paths it touches for unnecessary complexi
 
 ## What to check
 
-- Code that could be simpler without hurting performance or reliability
+- Code that could be simpler without hurting performance or reliability.
 - Helpers, layers or general systems that serve only one case, or cases that don't exist yet.
-- Copied code, within a module or across modules, that a shared helper could replace. A short expression made only of built-in calls needs no new helper, but flag it when a helper for it already exists.
+- Repeated logic or operation sequences, within a module or across modules, that a shared helper could replace. A short expression made only of built-in calls needs no new helper, but flag it when a helper for it already exists.
 - One value or rule kept in two places that can drift apart.
 - Work repeated on every call that could run once.
 - Checks, fallbacks and guards for cases no caller or SillyTavern produces for any user, not just in the owner's setup, or that another check already covers. Weigh how likely the case is, what happens if it occurs, and the cost of keeping the guard.
@@ -18,8 +18,8 @@ Review the requested code and the code paths it touches for unnecessary complexi
 
 Preserve what `CLAUDE.md`'s Dead Code & Guards says to always keep. Recommend changes to how those work only when equivalent protection is demonstrated.
 
-Suggest a change only when it gives a meaningful benefit. Fewer lines alone is not enough, and a case being rare is not by itself a reason to remove its guard. Base findings on actual code paths and explain the reasoning and tradeoffs. If nothing qualifies, say so.
+Suggest a change only when it gives a meaningful benefit. Base findings on actual code paths and explain the reasoning and tradeoffs. If nothing qualifies, say so.
 
 ## Output
 
-For each finding, say whether behavior changes and which tests need updating. Don't modify files. Claude Code implements approved findings, following `CLAUDE.md`.
+For each finding, say whether behavior changes and if tests need updating.

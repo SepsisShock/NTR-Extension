@@ -1,4 +1,4 @@
-// If this file breaks, pop-outs and foreground images keep their place, so their placement stays out of it.
+// Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
   const LAYOUT_VERSION = '2.86.31';
   const A = window.NTR && window.NTR.api;

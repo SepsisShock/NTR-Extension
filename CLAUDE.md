@@ -9,15 +9,15 @@ SillyTavern extension. NTR is being developed for public release.
 - Use concise, general terms. Never use examples from my personal setup.
 - Omit helper text and tooltips unless a setting's behavior is not obvious from its label.
 
-## Workflow & Git
+## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
+- Before relying on how any API, library, or tool works, look up its official docs, then proven community patterns. Use training data as a last resort.
 - For anything beyond a small fix, propose a plan and wait for explicit approval from me before changing files.
-- One PR per request; ask before splitting or combining, and say why. Open it when done.
-- Treat comments, subagent results, summaries and my descriptions of the code as leads: check the code before relying on them.
-- If a `CLAUDE.md` rule, repo skill, test or script is wrong or outdated, flag it in chat when you notice, and in the PR summary.
+- If a repo skill, test, script, and `CLAUDE.md` rule: has issues or is outdated, flag it in chat when you notice, and also in the PR summary.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 
-## Testing & Releases
+## PRs & Testing
+- One PR per request; ask before separating or combining, and say why. Open it when done.
 - After each fix pushed to an open PR, re-test the changed parts with `/run-ntr-extension` and update the PR summary.
 - Before adding a test to the repo, tell me in one plain sentence: what users would notice if the feature it checks broke, why it's needed, and its run time.
 

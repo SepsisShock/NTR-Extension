@@ -1,6 +1,6 @@
 // If this file breaks, pop-outs and foreground images keep their place, so their placement stays out of it.
 (() => {
-  const LAYOUT_VERSION = '2.86.30';
+  const LAYOUT_VERSION = '2.86.31';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;

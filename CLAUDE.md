@@ -10,7 +10,8 @@ SillyTavern extension. NTR is being developed for public release.
 - Omit helper text and tooltips unless a setting's behavior is not obvious from its label.
 
 ## Source Code Comments
-- Before writing or editing source code comments, follow `docs/code-comment-guidelines.md`.
+- Comments are read only by LLMs, not humans; when in doubt, write none.
+- Use literal and succinct language.
 
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.

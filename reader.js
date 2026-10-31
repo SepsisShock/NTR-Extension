@@ -1,10 +1,5 @@
-// Nitwit Tavern Redesign: Reader Mode module.
-// Loaded on demand by index.js, once Reader Mode is switched on. If this file breaks, the rest of the extension keeps working.
-// Shows the chat a page at a time. The messages are SillyTavern's own, so swipes, editing and the "..." menu keep working.
-// Messages on other pages are only hidden on screen, like Visual Novel Mode does: they stay in the prompt.
-// Two styles: Standard (a page scrolls when it's long) and Book (an open book across the screen, the text flowing over both
-// pages and on to the next two pages). The third, Visual Novel, is Visual Novel Mode (vn.js): the paging here stands aside
-// for it, and it uses the saved page and the page number box from here.
+// Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
+// are only hidden with CSS, so they stay in the prompt.
 (() => {
   const READER_VERSION = '2.86.30';
   const A = window.NTR && window.NTR.api;

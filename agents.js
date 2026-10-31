@@ -1,12 +1,5 @@
-// Nitwit Tavern Redesign: Agents module.
-// Loaded by index.js for the Agents page, and when the page is on. If this file breaks, the rest of the extension keeps working.
-// An agent is a separate request to a model that does one job you give it: its own name, picture, instructions, connection,
-// samplers and limits. Its connection never changes your chat's connection or SillyTavern's Connection Profiles: it sends
-// its own request through SillyTavern (Chat Completion or Text Completion), or uses your chat's connection (Same as Chat).
-// Your API keys stay in SillyTavern; an agent keeps only which saved key it uses.
-// An agent's answer shows in its activity and is saved in the chat, and a Dashboard (a Pinned Block set to Agent
-// Results, layout.js) shows it on screen. With Answer set to Fields, it keeps named values instead
-// of free text (see Fields below).
+// An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
+// API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
   const AGENTS_VERSION = '2.86.30';
   const A = window.NTR && window.NTR.api;

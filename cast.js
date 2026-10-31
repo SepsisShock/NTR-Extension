@@ -1,9 +1,3 @@
-// Nitwit Tavern Redesign: Cast module. The emotion list, speakers, and each speaker's faces and full body; with Visual
-// Novel Mode off, faces on chat avatars and a stage behind the chat. It also owns the tag symbols and hides tags in the chat.
-// Loaded by index.js whenever NTR is on or the menu opens, and before vn.js, which draws the same pictures in Visual
-// Novel Mode. If this file breaks, the rest of the extension keeps working.
-// Staying in index.js: the template emotion list and the tag settings (DEFAULTS), the open chat's list (emoSet), card
-// checks (cleanVn) and tag checks (validateDelims).
 (() => {
   const CAST_VERSION = '2.86.30';
   const A = window.NTR && window.NTR.api;

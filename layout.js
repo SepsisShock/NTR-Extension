@@ -1,12 +1,4 @@
-// Nitwit Tavern Redesign: Layout module: the Layout page, where the chat panel, SillyTavern's menu bar, the send bar,
-// Reader Mode's page bar and the banner sit in each layout; Pinned Blocks; and Edit Placement, which drags them and the
-// pop-out avatars and foreground images. Loaded by index.js before NTR starts, so its styles are there from the first
-// draw, unless it takes over 5 seconds; then it moves things into place when it arrives. If this file breaks, the rest
-// of the extension keeps working, with SillyTavern's own layout; pop-outs and foreground images keep their place and
-// their sliders.
-// The settings, their limits and the lists they're checked against stay in index.js, and so do cleaning saved Pinned
-// Blocks (cleanPins), the pop-out pictures, and Chat Width, Space Between Messages, Hide Names and Avatars and Attached
-// Style (overrideCss, layoutChatCss, namesCss and sendSeparate), which follow this file. It builds from what index.js shares in window.NTR.api.look.
+// If this file breaks, pop-outs and foreground images keep their place, so their placement stays out of it.
 (() => {
   const LAYOUT_VERSION = '2.86.30';
   const A = window.NTR && window.NTR.api;

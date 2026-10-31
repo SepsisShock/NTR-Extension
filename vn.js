@@ -1,5 +1,3 @@
-// Nitwit Tavern Redesign: Visual Novel Mode module.
-// Loaded on demand by index.js. If this file breaks, the rest of the extension keeps working.
 (() => {
   const VN_VERSION = '2.86.30';
   const A = window.NTR && window.NTR.api;

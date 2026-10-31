@@ -1,5 +1,3 @@
-// Nitwit Tavern Redesign: Opening video module.
-// Loaded on demand by vn.js. If this file breaks, Visual Novel Mode and the rest of the extension keep working.
 (() => {
   const OP_VERSION = '2.86.30';
   const A = window.NTR && window.NTR.api;

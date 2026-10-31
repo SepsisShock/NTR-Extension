@@ -6,16 +6,16 @@ SillyTavern extension. NTR is being developed for public release.
 - Plain language. No em dashes; use semicolons or colons.
 
 ## UI Copy
-- Use concise, general terms. Never use examples from my personal setup.
+- Use succinct, general terms. Never use examples from my personal setup.
 - Omit helper text and tooltips unless a setting's behavior is not obvious from its label.
 
 ## Source Code Comments
-- Before writing or editing source code comments, read `docs/code-comment-guidelines.md`.
+- Before writing or editing source code comments, follow `docs/code-comment-guidelines.md`.
 
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
-- Before stating, configuring, or disputing how any tool, API, or library behaves (Claude Code included), check its official docs, then proven community patterns. Training data is a last resort.
 - For anything beyond a small fix, propose a plan and wait for explicit approval from me before changing files.
+- Before stating or disputing how any tool, API, or library behaves (Claude Code included), check its official docs, then search proven community patterns.
 - If a repo skill, test, script, or `CLAUDE.md` rule has issues or is outdated, flag it in chat when you notice, and also in the PR summary.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 

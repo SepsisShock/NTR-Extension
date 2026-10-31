@@ -86,10 +86,11 @@ if (input.tool_name === 'Bash') {
   const branchRef = branchLookup.status ? null : `refs/remotes/origin/${branch}`;
   if (branchRef) must('fetch', '-q', 'origin', `+refs/heads/${branch}:${branchRef}`);
   const changed = (base) => new Set(must('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
-  let files = changed(main);
-  if (branchRef) { const r = changed(branchRef); files = new Set([...files].filter((f) => r.has(f))); }
-  const renames = new Map(must('diff', '--name-status', '-M', main, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t').slice(1)));
-  for (const f of files) if (!renames.has(f)) check(f, show(sha, f), branchRef ? [show(branchRef, f), show(main, f)] : [show(main, f)]);
+  const renamedFrom = (base) => new Set(must('diff', '--name-status', '-M', base, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t')[1]));
+  const inBoth = (list) => { const m = list(main); if (!branchRef) return m; const r = list(branchRef); return new Set([...m].filter((f) => r.has(f))); };
+  // Checked against both, or a deletion after an earlier push of a copy passes as a rename.
+  const renamed = inBoth(renamedFrom);
+  for (const f of inBoth(changed)) if (!renamed.has(f)) check(f, show(sha, f), branchRef ? [show(branchRef, f), show(main, f)] : [show(main, f)]);
 } else if (input.tool_name === 'mcp__github__delete_file') {
   check(input.tool_input.path, null, [show('HEAD', input.tool_input.path)]);
 } else if (input.tool_name === 'mcp__github__create_or_update_file') {

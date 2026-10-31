@@ -9,11 +9,11 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 ## Ground Rules
 
 - Edit files only when explicitly requested.
-- For GitHub tasks, use the GitHub Connector.
+- For GitHub tasks, use the GitHub Connector, because otherwise it will fail.
 - Use the review target set in the conversation.
 - Run tests and other shell commands with `timeout` (for example, `timeout 60 node --test tests/*.test.mjs`).
 - If a call fails, retry the same call just once. After that, change the approach or report the blocker.
-- Before posting, confirm the repository is `SepsisShock/NTR-Extension`. Posting anywhere else needs explicit permission.
+- Before posting, confirm the repository belongs to `SepsisShock`. Posting anywhere else needs explicit permission.
 
 ## Review Process
 
@@ -53,10 +53,8 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 ## Review Skills
 
-Open a skill file only when it's requested:
+Open the skill files below only when it's requested. Submit findings following the "Submitting Reviews" guidelines:
 - "cleancom" or "$cleancom": follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).
 - "code simplification review" or "$code-simplification": follow [.agents/skills/code-simplification/SKILL.md](.agents/skills/code-simplification/SKILL.md).
 - "open-ended obsolete-code review", "$open-ended-obsolete-code-review", or "OBCR2": follow [.agents/skills/open-ended-obsolete-code-review/SKILL.md](.agents/skills/open-ended-obsolete-code-review/SKILL.md).
 - "targeted obsolete-code review", "$targeted-obsolete-code-review", or "OBCR1": follow [.agents/skills/targeted-obsolete-code-review/SKILL.md](.agents/skills/targeted-obsolete-code-review/SKILL.md).
-
-Post findings as a comment on the PR if for an open PR.

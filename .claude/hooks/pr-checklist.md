@@ -1,3 +1,7 @@
+- **Comments:** Have a new independent Sonnet subagent audit comments against `docs/code-comment-guidelines.md`:
+  - Scope: every comment added or changed in `git diff origin/main...HEAD`, plus comments anywhere that mention names this PR renamed or removed.
+  - Verdicts: one per comment (keep, shorten or delete), citing the guideline number.
+  - Apply and commit its fixes, unless one deletes a constraint the code needs.
 - Unless the change is only comments or tests, run `/run-ntr-extension`, comparing `main` with the branch:
   - Test the changed and new parts with driver commands.
   - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.

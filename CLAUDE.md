@@ -11,9 +11,9 @@ SillyTavern extension. NTR is being developed for public release.
 
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
-- Before relying on how any API, library, or tool works, look up its official docs, then proven community patterns. Use training data as a last resort.
+- Before stating, configuring, or disputing how any tool, API, or library behaves (Claude Code included), check its official docs, then proven community patterns. Training data is a last resort.
 - For anything beyond a small fix, propose a plan and wait for explicit approval from me before changing files.
-- If a repo skill, test, script, and `CLAUDE.md` rule: has issues or is outdated, flag it in chat when you notice, and also in the PR summary.
+- If a repo skill, test, script, or `CLAUDE.md` rule has issues or is outdated, flag it in chat when you notice, and also in the PR summary.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 
 ## PRs & Testing

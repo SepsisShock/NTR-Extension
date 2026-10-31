@@ -573,8 +573,6 @@
     return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
   }
 
-  // Elements' CSS, in the order it has always been written: Scrollbar, Cursor, Menu Bar Icons, Quick Replies, Message
-  // Details, then the Reasoning Block.
   function elementsCss(s) {
     return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
   }

@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.31';
+  const CAST_VERSION = '2.86.32';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;

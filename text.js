@@ -1,10 +1,5 @@
-// Nitwit Tavern Redesign: Text Formatting module: names, nameplates and message text, in the chat and in Visual Novel
-// Mode. Loaded by index.js before NTR starts, so its styles are there from the first draw. If this file breaks, the rest
-// of the extension keeps working, with SillyTavern's own look for these parts.
-// The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
-// shares in window.NTR.api.look.
 (() => {
-  const TEXT_VERSION = '2.86.30';
+  const TEXT_VERSION = '2.86.31';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { bindPicSlot, card, onPills, pageHtml, picSlotHtml, pills, rangeNum, save, subHead } = A;

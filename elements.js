@@ -1,12 +1,5 @@
-// Nitwit Tavern Redesign: Elements module: Reasoning Block, Message Details, Scrollbar, Cursor, Menu Bar Icons and
-// Quick Replies. Loaded by index.js before NTR starts, so its styles are there from the first draw, unless it takes
-// over 5 seconds; then it restyles when it arrives. If this file breaks, the rest of the extension keeps working, with
-// SillyTavern's own look for these parts.
-// The settings, their limits and the lists they're checked against stay in index.js; this file builds from what it
-// shares in window.NTR.api.look.
-// Give each new part its own bind* and *Css functions, like bindMessageDetails and messageDetailsCss.
 (() => {
-  const ELEMENTS_VERSION = '2.86.30';
+  const ELEMENTS_VERSION = '2.86.31';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -580,13 +573,12 @@
     return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
   }
 
-  // Elements' CSS, in the order it has always been written: Scrollbar, Cursor, Menu Bar Icons, Quick Replies, Message
-  // Details, then the Reasoning Block.
   function elementsCss(s) {
     return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
   }
 
-  // Each part's switch, then its own binder. The rows it shares with other pages are bound by bindRows.
+  // Each part's switch, then its own binder. A new part gets its own *Css function, added to elementsCss, and its own
+  // bind* function when bindRows isn't enough.
   function bindElements(overlay, s) {
     for (const [id, key] of [['m_rb_enable', 'rbEnabled'], ['m_md_enable', 'mdOn'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_mb_enable', 'mbOn'], ['m_qr_enable', 'ovQrOn']]) {
       overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };

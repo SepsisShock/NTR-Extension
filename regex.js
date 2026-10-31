@@ -1,9 +1,4 @@
-// Nitwit Tavern Redesign: Regexes module.
-// Loaded by index.js for the Regexes page. If this file breaks, the rest of the extension keeps working.
-// Shows SillyTavern's own regex scripts (Global, Preset and Character) with folders. SillyTavern keeps and runs every
-// regex, and every change made here goes through its own Regex panel (on/off, editor, delete, import, reorder, bulk
-// on/off), so that panel and the chat stay in step exactly as if it was done there. Only the folders are NTR's: Global
-// ones in the settings, Preset ones in the settings by preset, Character ones in the card.
+// Every regex change goes through SillyTavern's own Regex panel, so it and the chat stay in step; NTR keeps only the folders.
 
 let E = null;
 try {
@@ -13,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.30';
+  const REGEX_VERSION = '2.86.31';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;

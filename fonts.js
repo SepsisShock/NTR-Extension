@@ -1,10 +1,6 @@
-// Nitwit Tavern Redesign: Font List module: the list of Google fonts under every font box in the menu, each name shown in
-// its own font, and the box's own preview. Loaded by index.js when the menu opens. If this file breaks, the rest of the
-// extension keeps working: the font boxes stay plain text boxes, and the fonts they name still load in the chat.
-// The boxes, their settings and the chat's fonts (ovFont, fontName, syncGoogleFonts) stay in index.js; this file builds
-// from what it shares in window.NTR.api.
+// If this file breaks, the font boxes stay plain text boxes and the chat's fonts still load, so loading them stays in index.js.
 (() => {
-  const FONTS_VERSION = '2.86.30';
+  const FONTS_VERSION = '2.86.31';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] fonts.js loaded without the core (index.js).'); return; }
   const { cleanFont, closePops, fontName, popMenu } = A;

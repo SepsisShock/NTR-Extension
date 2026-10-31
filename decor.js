@@ -1,12 +1,5 @@
-// Nitwit Tavern Redesign: UI Decor module: the chat panel, messages and send box, Interface Shape, Speech Bubbles, and
-// the page that sets them. Loaded by index.js before NTR starts, so its styles are there from the first draw, unless it
-// takes over 5 seconds; then it restyles when it arrives. If this file breaks, the rest of the extension keeps working,
-// with SillyTavern's own look for these parts.
-// The settings, their limits and the lists they're checked against stay in index.js, and so do Blur and Shadow (in
-// overrideCss) and the corners and bottom line where the chat panel meets a Floating send bar (joinCss), which follow
-// this file. It builds from what index.js shares in window.NTR.api.look.
 (() => {
-  const DECOR_VERSION = '2.86.30';
+  const DECOR_VERSION = '2.86.31';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;

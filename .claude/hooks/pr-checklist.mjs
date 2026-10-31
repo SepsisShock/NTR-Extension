@@ -1,5 +1,5 @@
 // PreToolUse hook (see .claude/settings.json): the first time Claude opens a PR from a branch, blocks it and shows the
-// checklist in pr-checklist.md, so those rules come up when they apply instead of sitting in CLAUDE.md. The next try
+// checklist in docs/pr-checklist.md, so those rules come up when they apply instead of sitting in CLAUDE.md. The next try
 // goes through.
 //
 // - gh pr create always runs by itself (commit-guard.mjs denies other forms), so a command that doesn't start with it
@@ -33,7 +33,7 @@ const stateFile = join(git('rev-parse', '--absolute-git-dir'), 'ntr-pr-checklist
 let branches = [];
 try { branches = JSON.parse(readFileSync(stateFile, 'utf8')).branches; } catch {}
 if (branches.includes(key)) process.exit(0);
-const checklist = readFileSync(join(dir, '.claude/hooks/pr-checklist.md'), 'utf8');
+const checklist = readFileSync(join(dir, 'docs/pr-checklist.md'), 'utf8');
 writeFileSync(stateFile, JSON.stringify({ branches: [...branches, key] }));
 process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny',
   permissionDecisionReason: `Before opening a PR from ${branch}, go through this checklist, then open it again with a summary that covers it:\n\n${checklist}` } }));

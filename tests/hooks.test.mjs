@@ -27,8 +27,8 @@ function scratch(t) {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   git('config', 'user.name', 'test');
   git('config', 'user.email', 'test@example.com');
-  mkdirSync(join(repo, '.claude/hooks'), { recursive: true });
-  copyFileSync(join(ROOT, '.claude/hooks/pr-checklist.md'), join(repo, '.claude/hooks/pr-checklist.md'));
+  mkdirSync(join(repo, 'docs'), { recursive: true });
+  copyFileSync(join(ROOT, 'docs/pr-checklist.md'), join(repo, 'docs/pr-checklist.md'));
   writeFileSync(join(repo, 'manifest.json'), '{ "version": "1.0.0", "name": "x" }\n');
   writeFileSync(join(repo, 'a.md'), 'x\n');
   writeFileSync(join(repo, 'a.js'), 'x\n');
@@ -146,7 +146,7 @@ test('pr-checklist shows the checklist again when the same branch is restarted f
 
 test('pr-checklist lets the PR through without recording the branch if the checklist file is missing', (t) => {
   const s = scratch(t);
-  unlinkSync(join(s.repo, '.claude/hooks/pr-checklist.md'));
+  unlinkSync(join(s.repo, 'docs/pr-checklist.md'));
   assert.equal(s.hook('pr-checklist.mjs', 'mcp__github__create_pull_request', { head: 'feat', base: 'main' }, true).decision, 'pass');
   assert.equal(existsSync(join(s.repo, '.git/ntr-pr-checklist.json')), false);
 });

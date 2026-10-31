@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.31';
+  const VN_VERSION = '2.86.32';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -318,8 +318,6 @@
     return h.replace(/\n/g, '<br>');
   }
 
-  // Normal chat view: ((Rafe%%Sad)) -> ((Rafe)), and location, effect, weather, CG, enter and exit tags disappear.
-  // `els` limits it to some messages' .mes_text (the chat watcher passes the ones that just changed).
   // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
   function spriteSrc(name, emoName) {
     return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());

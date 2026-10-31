@@ -1,5 +1,5 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.31';
+  const OVERLAYS_VERSION = '2.86.32';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,

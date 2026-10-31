@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.31';
+  const LAYOUT_VERSION = '2.86.32';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -208,7 +208,7 @@
     placeSet(d.it, { x: pct(L, W), y, w: pct(R - L, W), h, moved: true });
   }
 
-  // Dragging a Layout part. The chat panel and send bar move anywhere and resize from their handles. The menu bar slides
+  // Dragging a Layout part. Every part but the menu bar moves anywhere and resizes from its handles. The menu bar slides
   // along its edge, changes length from its ends, and goes to another edge when dragged close to it. Kept on screen and
   // saved as a % of it. Everything here is in the screen's own pixels: dx, dy and the pointer (px, py) too.
   function dragLayout(d, dx, dy, px, py, g) {
@@ -516,7 +516,7 @@
   }
 
   // ===== Layout =====
-  // The chat panel, SillyTavern's menu bar and the send bar can be moved (the Layout page and Edit Layout). There are two
+  // The parts in LAY_PART can be moved (the Layout page and Edit Layout). There are two
   // layouts: Desktop for screens wider than 1000px, and Phone for 1000px or less, where SillyTavern switches to its phone
   // look. Each has its own settings: the Phone one's names start with layPh (see lk in index.js).
   const LAY_WIDE = window.matchMedia('(width > 1000px)');
@@ -1092,7 +1092,7 @@
         } else {
           // Docked: the whole height of its edge, beside SillyTavern's menu bar when the bar is on that edge. On a phone,
           // where the bar runs across the whole screen, it also stays clear of a bar along the top or bottom, and it's a
-          // drawer at most most of the screen wide.
+          // drawer that never covers the whole screen width.
           const edge = s[lk(phone, 'BarEdge')];
           const bt = 'var(--ntr-bt, var(--topBarBlockSize))';
           const above = phone && edge === 'top' ? bt : '0px', below = phone && edge === 'bottom' ? bt : '0px';

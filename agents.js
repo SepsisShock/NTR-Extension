@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.33';
+  const AGENTS_VERSION = '2.86.34';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -99,6 +99,8 @@
       return o;
     });
   }
+  const AGENT_MAX = 30;
+  const fullNote = () => toastr.info(`Up to ${AGENT_MAX} agents.`, 'Agents');
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
   function clean(a) {
     const d = fresh('Agent');
@@ -117,7 +119,7 @@
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
       answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields),
-      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter((x) => typeof x === 'string' && /^[\w-]{1,40}$/.test(x)))].slice(0, 30) : [] };
+      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter((x) => typeof x === 'string' && /^[\w-]{1,40}$/.test(x)))].slice(0, AGENT_MAX) : [] };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
@@ -141,7 +143,7 @@
     const s = settings();
     if (!Array.isArray(s.agents)) s.agents = [];
     if (!checked.has(s.agents)) {
-      s.agents = s.agents.slice(0, 30).map(clean);
+      s.agents = s.agents.slice(0, AGENT_MAX).map(clean);
       oldReads(s.agents);
       // Reports only come from other agents that are still there.
       const have = new Set(s.agents.map((a) => a.id));
@@ -254,11 +256,11 @@
   }
   // Adds a file's agents at the end, switched off, with new ids. A name already used gets a number. Reports from
   // agents in the file follow their new ids; others are dropped. Its department comes in as a new one. Null if it
-  // isn't an agents file. Up to 30 agents and DEPT_MAX departments: what doesn't fit is skipped.
+  // isn't an agents file. Up to AGENT_MAX agents and DEPT_MAX departments: what doesn't fit is skipped.
   async function addFile(j) {
     const items = j?.ntrAgents === 1 && Array.isArray(j.agents) ? j.agents.filter((x) => x && typeof x === 'object') : [];
     if (!items.length) return null;
-    const room = () => Math.max(0, 30 - list().length);
+    const room = () => Math.max(0, AGENT_MAX - list().length);
     const want = items.slice(0, room());
     const pics = [];
     for (const x of want) pics.push(await picIn(x.pic));
@@ -579,16 +581,15 @@
     const end = at ?? (ctx().chat || []).length - 1;
     const chat = readMsgs(a, end);
     const said = (m) => `${m.name || (m.is_user ? 'User' : 'Character')}: ${m.mes}`;
-    const text = chat.map(said).join('\n\n');
-    if (hasTag(a)) return [{ role: 'system', content: withLast(a, end, text) }, { role: 'user', content: 'Follow your instructions.' }];
-    const job = withLast(a, end);
-    if (a.split) {
-      return [{ role: 'system', content: job }, ...chat.map((m) => ({ role: m.is_user ? 'user' : 'assistant', content: said(m) })),
+    if (splits(a)) {
+      return [{ role: 'system', content: withLast(a, end) }, ...chat.map((m) => ({ role: m.is_user ? 'user' : 'assistant', content: said(m) })),
         { role: 'user', content: 'Follow your instructions for the chat messages above.' }];
     }
+    const text = chat.map(said).join('\n\n');
+    if (hasTag(a)) return [{ role: 'system', content: withLast(a, end, text) }, { role: 'user', content: 'Follow your instructions.' }];
     const head = a.readBy === 'num' ? `Chat messages ${rangeName(a)}, oldest first:`
       : a.readBy === 'since' && sinceFrom(a, end) != null ? 'The chat messages since your last result, oldest first:' : 'The latest chat messages, oldest first:';
-    return [{ role: 'system', content: job }, { role: 'user', content: `${head}\n\n${text}` }];
+    return [{ role: 'system', content: withLast(a, end) }, { role: 'user', content: `${head}\n\n${text}` }];
   }
   // Your chat's full prompt: Same as Chat only, and never for Test Connection.
   const usesFull = (a, test) => a.kind === 'chat' && a.full && !test;
@@ -1044,8 +1045,13 @@
     </div>`;
   }
 
+  function testSum(a) {
+    const run = (runs.get(a.id) || [])[0];
+    return busy(a.id) ? { text: runState(a.id)[1] }
+      : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' };
+  }
   // What each folded part is set to, in the words its buttons use. A setting that stops the agent from running gets a
-  // warning; Test and Activity shows its latest run.
+  // warning.
   function sums(a) {
     const fields = a.answer === 'fields';
     const n = fieldsOf(a).length;
@@ -1056,7 +1062,6 @@
     const missing = a.kind === 'cc' ? (!a.ccModel.trim() ? 'No Model' : a.ccSource === 'custom' && !a.ccUrl.trim() ? 'No Link' : '')
       : a.kind === 'tc' && !a.tcUrl.trim() ? 'No Server Link' : '';
     const last = a.last && !fields ? ' · Its Last Result' : '';
-    const run = (runs.get(a.id) || [])[0];
     return {
       ins: !a.job.trim() && !usesFields(a) ? { warn: 'Empty: Won\'t Run' } : { text: a.job.split('\n').map((l) => l.trim()).find(Boolean) || 'Empty' },
       ans: { text: !fields ? 'Free Text' : n ? `Fields · ${n} ${n === 1 ? 'Field' : 'Fields'}` : 'Fields · No Fields Yet' },
@@ -1069,8 +1074,7 @@
         : a.readBy === 'num' && !readMsgs(a).length ? { warn: `${rangeName(a)} · Not in This Chat Yet` }
           : { text: `${a.readBy === 'num' ? rangeName(a) : `${a.readBy === 'since' ? 'Since Its Last Result · At Most ' : ''}${a.context} ${a.context === 1 ? 'Message' : 'Messages'}`} · ${hasTag(a) ? 'In Instructions' : a.split ? 'As Separate Messages' : 'As One Block'}${last}` },
       rep: { text: `From ${sendersOf(a).map((x) => x.name).join(', ') || 'No One'} · To ${readersOf(a).map((x) => x.name).join(', ') || 'No One'}` },
-      test: busy(a.id) ? { text: runState(a.id)[1] }
-        : run ? { ok: run.ok, text: `${run.test ? 'Last Test' : 'Last Run'} ${clock(run.at)} · ${run.ok ? 'Worked' : 'Failed'}` } : { text: 'No runs yet' },
+      test: testSum(a),
     };
   }
   const sumHtml = (o) => (o.warn ? `<i class="fa-solid fa-triangle-exclamation"></i><span>${esc(o.warn)}</span>`
@@ -1338,7 +1342,7 @@
     }
     const run2 = root.querySelector('#m_ag_run');
     if (a && run2) run2.disabled = !a.on;
-    if (a) setSum('test', sums(a).test);
+    if (a) setSum('test', testSum(a));
     root.querySelectorAll('.m_ag_row').forEach(syncRow);
   }
   // A roster row's line under the name.
@@ -1530,7 +1534,7 @@
     root.querySelector('#m_ag_new').onclick = async function() {
       const name = await askText(this, { label: 'Agent Name', value: `Agent ${list().length + 1}`, ok: '<i class="fa-solid fa-plus"></i> Hire', check: (v) => (v.trim() ? { value: v.trim().slice(0, 60) } : { error: 'Type a name first.' }) });
       if (!name) return;
-      if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
+      if (list().length >= AGENT_MAX) { fullNote(); return; }
       const x = fresh(name);
       list().push(x);
       s.agPick = x.id;
@@ -1546,22 +1550,22 @@
       if (!f) return;
       let j;
       try { j = JSON.parse(await readText(f)); } catch (e) { j = null; }
-      if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
+      if (list().length >= AGENT_MAX) { fullNote(); return; }
       const r = await addFile(j);
       if (!r) { toastr.error('That isn\'t a Nitwit Tavern Redesign agents file.', 'Agents'); return; }
       // Agents hired meanwhile can take the room.
-      if (!r.added.length) { toastr.info('Up to 30 agents.', 'Agents'); return; }
+      if (!r.added.length) { fullNote(); return; }
       s.agPick = r.added[0].id;
       changed(true);
       showHead();
       const n = r.added.length;
-      const notes = [r.skipped && `${r.skipped} skipped (up to 30 agents)`, r.picFails && `${r.picFails} picture(s) couldn't be added`,
+      const notes = [r.skipped && `${r.skipped} skipped (up to ${AGENT_MAX} agents)`, r.picFails && `${r.picFails} picture(s) couldn't be added`,
         r.deptsOut && `up to ${DEPT_MAX} departments, so ${r.deptsOut > 1 ? 'some agents are' : 'its agents are'} in no department`].filter(Boolean);
       toastr.success(`Added ${n} agent${n === 1 ? '' : 's'}, switched off.${notes.length ? ` ${notes.join('; ')}.` : ''}`, 'Agents');
     };
     const ex = root.querySelector('#m_ag_ex');
     if (ex) ex.onclick = () => {
-      if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
+      if (list().length >= AGENT_MAX) { fullNote(); return; }
       const x = { ...fresh('Margi'), title: 'Story Tracker', example: true, pic: MARGI_PIC, on: true, job: MARGI_JOB, runs: 'reply', answer: 'fields', fields: cleanFields(MARGI_FIELDS) };
       list().push(x);
       s.agPick = x.id;
@@ -1748,7 +1752,7 @@
     };
     // The copy goes right under the original, in its department.
     const dup = () => {
-      if (list().length >= 30) { toastr.info('Up to 30 agents.', 'Agents'); return; }
+      if (list().length >= AGENT_MAX) { fullNote(); return; }
       const x = { ...structuredClone(a), id: newId('ag'), name: `${a.name} (copy)`.slice(0, 60), on: false, example: false };
       list().splice(list().indexOf(a) + 1, 0, x);
       const d = deptOf(a.id);

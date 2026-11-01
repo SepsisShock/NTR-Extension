@@ -16,3 +16,5 @@ Review the requested file for dead code, obsolete migration and compatibility lo
 ## Output
 
 Report findings with code evidence, why each item is unnecessary or outdated, and any compatibility or behavioral risks.
+
+For each redundancy claim, name the case the code handles and the evidence that the case can't occur now (callers, writers, defaults). Mark the claim unverified if either is missing.

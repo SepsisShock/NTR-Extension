@@ -42,8 +42,8 @@ function scratch(t) {
     else { writeFileSync(join(repo, file), text); git('add', file); }
     git('commit', '-qm', file);
   };
-  // What the hook decides: 'deny', 'ask', or 'pass' when it lets the call through. A hook that crashes also prints
-  // nothing, so it fails the test unless fails is set; Claude Code would block that call (onFailure) or let it through.
+  // What the hook decides: 'deny', 'ask', 'allow', or 'pass' when it lets the call through. A hook that crashes also
+  // prints nothing, so it fails the test unless fails is set; Claude Code would block that call (onFailure) or let it through.
   const hook = (name, tool_name, tool_input, fails = false) => {
     const r = spawnSync(process.execPath, [join(ROOT, '.claude/hooks', name)], {
       input: JSON.stringify({ cwd: repo, tool_name, tool_input }), encoding: 'utf8',
@@ -64,24 +64,28 @@ test('commit-guard lets a push through when only code changed', (t) => {
   assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'pass');
 });
 
-test('commit-guard shows a .md change first, then asks with the same changes', (t) => {
+test('commit-guard shows changes first, then lets .md-only changes through and asks for others', (t) => {
   const s = scratch(t);
   s.commit('a.md', 'y\n');
   const first = s.bash('commit-guard.mjs', PUSH);
   assert.equal(first.decision, 'deny');
   assert.match(first.reason, /changes a\.md/);
   assert.match(first.reason, /\+y/);
+  assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'allow');
+  s.commit('a.js', null);
+  assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'deny');
   assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'ask');
 });
 
-test('commit-guard flags .json changes beyond "version", a major bump and a deletion, but not a minor bump', (t) => {
+test('commit-guard flags a major bump and a deletion, but not a minor bump or other .json changes', (t) => {
   const s = scratch(t);
   s.commit('manifest.json', '{ "version": "1.1.0", "name": "x" }\n');
   assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'pass');
   s.commit('manifest.json', '{ "version": "2.0.0", "name": "x" }\n');
   assert.match(s.bash('commit-guard.mjs', PUSH).reason, /raises the major version/);
+  s.git('push', '-q', 'origin', 'feat');
   s.commit('manifest.json', '{ "version": "2.0.0", "name": "y" }\n');
-  assert.match(s.bash('commit-guard.mjs', PUSH).reason, /changes manifest\.json beyond "version"/);
+  assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'pass');
   s.commit('a.js', null);
   assert.match(s.bash('commit-guard.mjs', PUSH).reason, /deletes a\.js/);
 });

@@ -86,6 +86,22 @@ test('commit-guard flags .json changes beyond "version", a major bump and a dele
   assert.match(s.bash('commit-guard.mjs', PUSH).reason, /deletes a\.js/);
 });
 
+test('commit-guard lets a code rename through, still asks for a .md rename and a deletion after a pushed copy', (t) => {
+  const s = scratch(t);
+  s.git('mv', 'a.js', 'b.js');
+  s.git('commit', '-qm', 'rename');
+  assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'pass');
+  s.git('mv', 'a.md', 'b.md');
+  s.git('commit', '-qm', 'rename md');
+  assert.match(s.bash('commit-guard.mjs', PUSH).reason, /changes b\.md/);
+  // A copy already on GitHub's branch makes main see a rename; the push itself only deletes.
+  const c = scratch(t);
+  c.commit('b.js', 'x\n');
+  c.git('push', '-q', 'origin', 'feat');
+  c.commit('a.js', null);
+  assert.match(c.bash('commit-guard.mjs', PUSH).reason, /deletes a\.js/);
+});
+
 test('commit-guard denies pushes and PRs chained with other commands, and ignores them in quoted text', (t) => {
   const s = scratch(t);
   assert.equal(s.bash('commit-guard.mjs', `git add . && ${PUSH}`).decision, 'deny');

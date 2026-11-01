@@ -1,5 +1,5 @@
-// The Claude Code hooks in .claude/hooks: commit-guard.mjs (the user approves wording changes, deletions, renames and
-// major version bumps before they reach GitHub) and pr-checklist.mjs (the PR checklist comes up once each time a
+// The Claude Code hooks in .claude/hooks: commit-guard.mjs (the user approves wording changes, deletions and major
+// version bumps before they reach GitHub) and pr-checklist.mjs (the PR checklist comes up once each time a
 // branch starts from main).
 // Each test feeds a hook the JSON Claude Code would send, in a scratch repo with its own "origin", so nothing touches
 // this repo or GitHub. This checks the scripts only: whether settings.json still makes Claude Code run them (tool names,

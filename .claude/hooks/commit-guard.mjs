@@ -1,5 +1,6 @@
 // PreToolUse hook (see .claude/settings.json): before changes reach GitHub, gets the user's approval when they change
-// a .md file, change a .json file beyond "version", raise the major version, or delete or rename a file.
+// a .md file, change a .json file beyond "version", raise the major version, or delete a file. A renamed file is
+// checked only at its new path.
 //
 // - The claude.ai app's permission prompt shows only the command, so the first attempt is denied with the changes for
 //   Claude to show the user in chat. Trying again with the same changes then asks, as the final confirmation.
@@ -48,9 +49,9 @@ function diff(f, old, now) {
 
 // Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with, and the
 // first one is shown as the diff's old side.
-function check(f, now, olds, renamedTo) {
+function check(f, now, olds) {
   const differs = (g) => olds.every((o) => g(o) !== g(now));
-  if (now == null) problems.push(renamedTo ? `renames ${f} to ${renamedTo}` : `deletes ${f}`);
+  if (now == null) problems.push(`deletes ${f}`);
   else if (f.endsWith('.md')) problems.push(`changes ${f}`);
   else if (f.endsWith('.json') && differs(withoutVersion)) problems.push(`changes ${f} beyond "version"`);
   else if (f === 'manifest.json' && olds.every((o) => parseInt(version(now)) > parseInt(version(o)))) problems.push(`raises the major version (${version(olds[0])} to ${version(now)})`);
@@ -85,10 +86,11 @@ if (input.tool_name === 'Bash') {
   const branchRef = branchLookup.status ? null : `refs/remotes/origin/${branch}`;
   if (branchRef) must('fetch', '-q', 'origin', `+refs/heads/${branch}:${branchRef}`);
   const changed = (base) => new Set(must('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
-  let files = changed(main);
-  if (branchRef) { const r = changed(branchRef); files = new Set([...files].filter((f) => r.has(f))); }
-  const renames = new Map(must('diff', '--name-status', '-M', main, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t').slice(1)));
-  for (const f of files) check(f, show(sha, f), branchRef ? [show(branchRef, f), show(main, f)] : [show(main, f)], renames.get(f));
+  const renamedFrom = (base) => new Set(must('diff', '--name-status', '-M', base, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t')[1]));
+  const inBoth = (list) => { const m = list(main); if (!branchRef) return m; const r = list(branchRef); return new Set([...m].filter((f) => r.has(f))); };
+  // Checked against both, or a deletion after an earlier push of a copy passes as a rename.
+  const renamed = inBoth(renamedFrom);
+  for (const f of inBoth(changed)) if (!renamed.has(f)) check(f, show(sha, f), branchRef ? [show(branchRef, f), show(main, f)] : [show(main, f)]);
 } else if (input.tool_name === 'mcp__github__delete_file') {
   check(input.tool_input.path, null, [show('HEAD', input.tool_input.path)]);
 } else if (input.tool_name === 'mcp__github__create_or_update_file') {
@@ -103,6 +105,6 @@ const key = createHash('sha256').update(changes).digest('hex');
 const stateFile = join(run('rev-parse', '--absolute-git-dir').stdout.trim(), 'ntr-commit-guard.json');
 let shownKey = null;
 try { shownKey = JSON.parse(readFileSync(stateFile, 'utf8')).key; } catch {}
-if (shownKey === key) say('ask', `${changes}\n\nThe user approves wording changes, deletions, renames and major version bumps before they reach GitHub.`);
+if (shownKey === key) say('ask', `${changes}\n\nThe user approves wording changes, deletions and major version bumps before they reach GitHub.`);
 writeFileSync(stateFile, JSON.stringify({ key }));
 say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged, and ask for approval. Once they approve, run the same command again; they'll then confirm it in the prompt.\n\n${changes}`);

@@ -1665,9 +1665,9 @@
       syncAll();
     };
 
-    // More: Move Up and Move Down stay within its group. Move to Department shows the departments in the same menu; with
-    // none yet, it makes one. Delete and a new department's name ask under the header, where the menu was. Focus comes
-    // back to More after a move.
+    // More: Move Up and Move Down stay within its group. Move to Department shows the departments in the same menu;
+    // with none yet, it makes one. Delete and a new department's name ask under the header, where the menu was. Focus
+    // comes back to More after a move.
     const more = root.querySelector('#m_ag_more');
     const ask = () => root.querySelector('.m_ag_headrow');
     const group = () => deptOf(a.id)?.ids || loose().map((x) => x.id);

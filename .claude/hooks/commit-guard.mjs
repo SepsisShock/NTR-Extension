@@ -36,26 +36,38 @@ const say = (decision, reason) => {
   process.exit(0);
 };
 
-// Before/After in plain Markdown, not a code block, so it wraps on a phone. Markup is escaped so it can't hide text
-// from the approval.
-const esc = (l) => (l.trim() ? l.replace(/[\\`*_{}[\]()#+\-.!|<>~&]/g, '\\$&') : '(blank line)');
+// Each side in its own code block: text shows exactly as typed, and short blocks wrap on a phone. The fence is longer
+// than any backtick run in the file, so content can't close it.
 function diff(f, old, now) {
   const tmp = mkdtempSync(join(tmpdir(), 'ntr-guard-'));
   writeFileSync(join(tmp, 'a'), old ?? '');
   writeFileSync(join(tmp, 'b'), now ?? '');
   const text = spawnSync('git', ['diff', '--no-index', '--no-color', '-U0', 'a', 'b'], { cwd: tmp, encoding: 'utf8' }).stdout;
   rmSync(tmp, { recursive: true, force: true });
+  const fence = '`'.repeat(Math.max(3, ...[...`${old ?? ''}${now ?? ''}`.matchAll(/`+/g)].map((m) => m[0].length + 1)));
+  const box = (title, side) => `**${title}${side.noEol ? ' (no newline at end of file)' : ''}:**\n${fence}\n${side.lines.join('\n')}\n${fence}`;
   const parts = [];
   for (const hunk of text.split(/^@@/m).slice(1)) {
-    const lines = hunk.split('\n');
-    const at = lines[0].match(/\+(\d+)/)[1];
-    const side = (c) => lines.slice(1).filter((l) => l[0] === c).map((l) => `> ${esc(l.slice(1))}`).join('\n>\n');
-    const was = side('-');
-    const is = side('+');
-    parts.push([`Line ${at}`, was && `**${is ? 'Before' : 'Removed'}:**\n${was}`, is && `**${was ? 'After' : 'Added'}:**\n${is}`].filter(Boolean).join('\n\n'));
+    const [head, ...lines] = hunk.split('\n');
+    const [, from, to] = head.match(/-(\d+)(?:,\d+)? \+(\d+)/);
+    const was = { lines: [] };
+    const is = { lines: [] };
+    lines.forEach((l, i) => {
+      if (l[0] === '-') was.lines.push(l.slice(1));
+      else if (l[0] === '+') is.lines.push(l.slice(1));
+      else if (l[0] === '\\') (lines[i - 1][0] === '-' ? was : is).noEol = true;
+    });
+    const both = was.lines.length && is.lines.length;
+    parts.push([is.lines.length ? `Line ${to}` : `Line ${from}, removed`, was.lines.length && box(both ? 'Before' : 'Removed', was),
+      is.lines.length && box(both ? 'After' : 'Added', is)].filter(Boolean).join('\n'));
   }
-  const body = parts.join('\n\n');
-  return `**${f}**\n\n${body.length > 1500 ? `${body.slice(0, 1500)}\n\n(cut short)` : body}`;
+  let body = parts.join('\n\n') || 'Binary change; not shown.';
+  if (body.length > 1500) {
+    body = body.slice(0, body.lastIndexOf('\n', 1500));
+    if (body.split('\n').filter((l) => l === fence).length % 2) body += `\n${fence}`;
+    body += '\n\n(cut short)';
+  }
+  return `\`${f}\`\n\n${body}`;
 }
 
 // Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with.
@@ -116,4 +128,4 @@ let shownKey = null;
 try { shownKey = JSON.parse(readFileSync(stateFile, 'utf8')).key; } catch {}
 if (shownKey === key) say(onlyMd ? 'allow' : 'ask', `${changes}\n\nThe user approves .md changes, deletions and major version bumps before they reach GitHub.`);
 writeFileSync(stateFile, JSON.stringify({ key }));
-say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat as normal text, not in a code block, unchanged, and ask for approval. Once they approve, run the same command again${onlyMd ? '' : "; they'll then confirm it in the prompt"}.\n\n${changes}`);
+say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged and not wrapped in another code block, and ask for approval. Once they approve, run the same command again${onlyMd ? '' : "; they'll then confirm it in the prompt"}.\n\n${changes}`);

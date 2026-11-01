@@ -70,7 +70,7 @@ test('commit-guard shows changes first, then lets .md-only changes through and a
   const first = s.bash('commit-guard.mjs', PUSH);
   assert.equal(first.decision, 'deny');
   assert.match(first.reason, /changes a\.md/);
-  assert.match(first.reason, /\*\*After:\*\*\n> y/);
+  assert.match(first.reason, /\*\*After:\*\*\n```\ny\n```/);
   assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'allow');
   s.commit('a.js', null);
   assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'deny');

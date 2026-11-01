@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.34';
+  const ELEMENTS_VERSION = '2.86.35';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,

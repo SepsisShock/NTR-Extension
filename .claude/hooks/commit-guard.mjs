@@ -36,8 +36,8 @@ const say = (decision, reason) => {
   process.exit(0);
 };
 
-// One file's changes as Before/After lines in plain Markdown, which wraps on a phone. Each line is escaped so it shows
-// as typed (HTML comments and other markup can't hide text), and the whole is cut short so it stays readable in chat.
+// Before/After in plain Markdown, not a code block, so it wraps on a phone. Markup is escaped so it can't hide text
+// from the approval.
 const esc = (l) => (l.trim() ? l.replace(/[\\`*_{}[\]()#+\-.!|<>~&]/g, '\\$&') : '(blank line)');
 function diff(f, old, now) {
   const tmp = mkdtempSync(join(tmpdir(), 'ntr-guard-'));
@@ -58,8 +58,7 @@ function diff(f, old, now) {
   return `**${f}**\n\n${body.length > 1500 ? `${body.slice(0, 1500)}\n\n(cut short)` : body}`;
 }
 
-// Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with, and the
-// first one is shown as the diff's old side.
+// Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with.
 function check(f, now, olds) {
   if (now == null) problems.push(`deletes ${f}`);
   else if (f.endsWith('.md')) problems.push(`changes ${f}`);

@@ -1,5 +1,5 @@
 (() => {
-  const AVATARS_VERSION = '2.86.32';
+  const AVATARS_VERSION = '2.86.33';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,

@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.32';
+  const AGENTS_VERSION = '2.86.33';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -474,8 +474,7 @@
     if (v && v.i <= upTo && (ctx().chat || [])[v.i]?.send_date === v.date) return v.text;
     return latest(id, upTo)?.text ?? null;
   }
-  // The snapshot for a run asked for now, on message `at` (the last one when null): every agent but `waiting`, the ones
-  // it waits for.
+  // What's saved now for each agent not in `waiting`, on message `at` (the last one when null).
   function snapshot(waiting, at) {
     const chat = ctx().chat || [];
     return new Map(list().filter((x) => !waiting.has(x.id)).map((x) => {
@@ -745,8 +744,7 @@
   // - last, for one of RUN_MAX places, so nothing waits on anything else while it holds one. Its time limit starts there.
   const RUN_MAX = 3;
   // Each agent keeps its last 10 runs until you reload.
-  // fails: each agent's last failed run and the chat it ran in; that chat's Pinned Block shows it until the agent runs
-  // fine again.
+  // fails: each agent's last failed run; its chat's Pinned Block shows it until the agent runs fine again.
   const runs = new Map();
   const fails = new Map();
   // The runs not finished yet, oldest first: { id, lane, batch, test, early, late, ctrl, state, waitFor, done }. lane: the
@@ -1578,7 +1576,6 @@
       changed(true);
     };
 
-    // Departments: the name opens and folds it. Rename and Delete ask under its row.
     root.querySelectorAll('.m_ag_dept').forEach((el) => {
       const d = depts().find((x) => x.id === el.dataset.dept);
       if (!d) return;
@@ -1665,9 +1662,7 @@
       syncAll();
     };
 
-    // More: Move Up and Move Down stay within its group. Move to Department shows the departments in the same menu;
-    // with none yet, it makes one. Delete and a new department's name ask under the header, where the menu was. Focus
-    // comes back to More after a move.
+    // More: Delete and a new department's name ask under the header, where the menu was.
     const more = root.querySelector('#m_ag_more');
     const ask = () => root.querySelector('.m_ag_headrow');
     const group = () => deptOf(a.id)?.ids || loose().map((x) => x.id);

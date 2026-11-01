@@ -123,29 +123,12 @@
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
-  // Agents used to get each other's answers through {{agent::Name}} in their instructions or fields' hints. Each one
-  // that names an agent becomes a report from that agent, and leaves the text.
-  const OLD_READ = /\{\{\s*agent\s*::([^{}]*?)\}\}/gi;
-  function oldReads(l) {
-    for (const a of l) {
-      const take = (t) => t.replace(OLD_READ, (m, name) => {
-        const x = l.find((y) => y.name.toLowerCase() === name.trim().toLowerCase());
-        if (!x) return m;
-        if (!a.reportsFrom.includes(x.id)) a.reportsFrom.push(x.id);
-        return '';
-      });
-      a.job = take(a.job);
-      for (const f of a.fields) if (f.kind === 'field') f.hint = take(f.hint);
-    }
-  }
   const checked = new WeakSet();
   function list() {
     const s = settings();
     if (!Array.isArray(s.agents)) s.agents = [];
     if (!checked.has(s.agents)) {
       s.agents = s.agents.slice(0, AGENT_MAX).map(clean);
-      oldReads(s.agents);
-      // Reports only come from other agents that are still there.
       const have = new Set(s.agents.map((a) => a.id));
       for (const a of s.agents) a.reportsFrom = a.reportsFrom.filter((id) => id !== a.id && have.has(id));
       checked.add(s.agents);

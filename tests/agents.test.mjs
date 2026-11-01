@@ -63,20 +63,15 @@ test('departments are cleaned, and the agents list follows the roster', () => {
   assert.deepEqual(s.agents.map((a) => a.id), ['ag_b', 'ag_d', 'ag_c', 'ag_a'], 'no department first, then each department');
 });
 
-// Reports only come from other agents that are still there, and {{agent::Name}} from before Reports becomes one.
-test('reports are cleaned, and old agent macros become reports', () => {
+test('reports are cleaned', () => {
   const s = api.settings();
   s.agents = [
-    { id: 'ag_a', name: 'A', job: 'Use {{agent::b}} and {{agent::Nobody}}.', reportsFrom: ['ag_a', 'ag_gone', 'ag_c', 'ag_c', 7] },
-    { id: 'ag_b', name: 'B', answer: 'fields', fields: [{ name: 'X', hint: 'from {{ agent::A }}' }] },
+    { id: 'ag_a', name: 'A', reportsFrom: ['ag_a', 'ag_gone', 'ag_c', 'ag_c', 7] },
     { id: 'ag_c', name: 'C', reportsFrom: 'junk' },
   ];
   window.NTR.agents.answer('ag_a');
-  const [a, b, c] = s.agents;
-  assert.deepEqual(a.reportsFrom, ['ag_c', 'ag_b'], 'itself, unknown and repeated agents are dropped');
-  assert.equal(a.job, 'Use  and {{agent::Nobody}}.', 'a macro naming no agent stays as typed');
-  assert.deepEqual(b.reportsFrom, ['ag_a']);
-  assert.equal(b.fields[0].hint, 'from ');
+  const [a, c] = s.agents;
+  assert.deepEqual(a.reportsFrom, ['ag_c'], 'itself, unknown and repeated agents are dropped');
   assert.deepEqual(c.reportsFrom, []);
 });
 

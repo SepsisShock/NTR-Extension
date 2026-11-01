@@ -265,7 +265,7 @@ await (async () => {
     if (!cleaned.has(s.frameLib)) s.frameLib = cleanFrameLib(s.frameLib);
     s.frameHidden = Array.isArray(s.frameHidden) ? FRAME_SERIES.map((f) => f.id).filter((id) => s.frameHidden.includes(id)) : [];
     if (!cleaned.has(s.frameFits)) s.frameFits = cleanFrameFits(s.frameFits);
-    if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
+    if (!cleaned.has(s.layPins)) s.layPins = cleanPins(s.layPins);
   }
 
   // ===== Pop-out pictures and foreground images =====
@@ -410,7 +410,7 @@ await (async () => {
   // Saved blocks, and blocks from theme files, made safe to use.
   function cleanPins(v) {
     const ids = new Set();
-    return cList(v, PIN_MAX, (p) => {
+    const out = cList(v, PIN_MAX, (p) => {
       let id = cRef(p.id);
       if (!id || ids.has(id)) id = newId('pin');
       ids.add(id);
@@ -432,6 +432,8 @@ await (async () => {
         phone: pinRect(p.phone, PIN_START.phone),
       };
     });
+    cleaned.add(out);
+    return out;
   }
 
   // ===== NTR's main stylesheet (aw_dynamic_style) =====
@@ -667,7 +669,7 @@ await (async () => {
     const d = cardData(key);
     let r;
     if (d) {
-      if (!d.banner || typeof d.banner !== 'object') {
+      if (!d.banner) {
         if (s.chars[key]) { d.banner = structuredClone(s.chars[key]); cleanBanner(d.banner); legacyMoved.add(key); scheduleCardFlush(key); }
         else d.banner = defaultBanner();
       }
@@ -677,8 +679,6 @@ await (async () => {
       r = s.chars[key];
       if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
     }
-    const def = defaultBanner();
-    for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
     return r;
   };
 
@@ -1992,9 +1992,7 @@ await (async () => {
   function fgData() {
     const st = store();
     if (!st) return FG_DEF();
-    if (!st.fg || typeof st.fg !== 'object') st.fg = FG_DEF();
-    const def = FG_DEF();
-    for (const k of Object.keys(def)) if (st.fg[k] === undefined) st.fg[k] = def[k];
+    if (!st.fg) st.fg = FG_DEF();
     return st.fg;
   }
 
@@ -2169,7 +2167,7 @@ await (async () => {
       } else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});
       for (const k of CHAR_SETTINGS) {
         collectFileRefs(s[k], gone);
-        if (k in DEFAULTS) s[k] = structuredClone(DEFAULTS[k]); else delete s[k];
+        s[k] = structuredClone(DEFAULTS[k]);
       }
     }
     if (look) {
@@ -2983,7 +2981,11 @@ await (async () => {
     onPills(overlay, 'rdper', (v) => { s.rdPer = v; save(); window.NTR.reader?.refresh(); });
     onPills(overlay, 'rdstyle', async (v) => {
       if (v !== 'vn') s.rdStyle = v;
-      if (v === 'vn' || s.nodeEnabled) await setReader(s.rdEnabled || v === 'vn', v === 'vn');
+      if (v === 'vn' || s.nodeEnabled) {
+        await setReader(s.rdEnabled || v === 'vn', v === 'vn');
+        updateAvatarStyle();
+        return;
+      }
       updateAvatarStyle();
       // The picked style's part opens.
       openStyleGroup(s);

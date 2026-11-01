@@ -94,7 +94,7 @@ test('commit-guard lets a code rename through, still asks for a .md rename and a
   s.git('mv', 'a.md', 'b.md');
   s.git('commit', '-qm', 'rename md');
   assert.match(s.bash('commit-guard.mjs', PUSH).reason, /changes b\.md/);
-  // A copy already on GitHub's branch makes main see a rename; the push itself only deletes.
+  // b.js is pushed first so the diff against main shows a rename; the guard must still flag the deletion of a.js.
   const c = scratch(t);
   c.commit('b.js', 'x\n');
   c.git('push', '-q', 'origin', 'feat');

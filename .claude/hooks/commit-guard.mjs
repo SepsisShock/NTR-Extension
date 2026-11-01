@@ -36,15 +36,26 @@ const say = (decision, reason) => {
   process.exit(0);
 };
 
-// A diff of one file from its old text to its new text, cut short so it stays readable in chat.
+// One file's changes as Before/After lines in plain Markdown, which wraps on a phone. Each line is escaped so it shows
+// as typed (HTML comments and other markup can't hide text), and the whole is cut short so it stays readable in chat.
+const esc = (l) => (l.trim() ? l.replace(/[\\`*_{}[\]()#+\-.!|<>~&]/g, '\\$&') : '(blank line)');
 function diff(f, old, now) {
   const tmp = mkdtempSync(join(tmpdir(), 'ntr-guard-'));
   writeFileSync(join(tmp, 'a'), old ?? '');
   writeFileSync(join(tmp, 'b'), now ?? '');
-  const text = spawnSync('git', ['diff', '--no-index', '--no-color', '-U1', 'a', 'b'], { cwd: tmp, encoding: 'utf8' }).stdout;
+  const text = spawnSync('git', ['diff', '--no-index', '--no-color', '-U0', 'a', 'b'], { cwd: tmp, encoding: 'utf8' }).stdout;
   rmSync(tmp, { recursive: true, force: true });
-  const body = text.split('\n').slice(4).join('\n').trim();
-  return `--- ${f}\n${body.length > 1500 ? `${body.slice(0, 1500)}\n(cut short)` : body}`;
+  const parts = [];
+  for (const hunk of text.split(/^@@/m).slice(1)) {
+    const lines = hunk.split('\n');
+    const at = lines[0].match(/\+(\d+)/)[1];
+    const side = (c) => lines.slice(1).filter((l) => l[0] === c).map((l) => `> ${esc(l.slice(1))}`).join('\n>\n');
+    const was = side('-');
+    const is = side('+');
+    parts.push([`Line ${at}`, was && `**${is ? 'Before' : 'Removed'}:**\n${was}`, is && `**${was ? 'After' : 'Added'}:**\n${is}`].filter(Boolean).join('\n\n'));
+  }
+  const body = parts.join('\n\n');
+  return `**${f}**\n\n${body.length > 1500 ? `${body.slice(0, 1500)}\n\n(cut short)` : body}`;
 }
 
 // Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with, and the
@@ -106,4 +117,4 @@ let shownKey = null;
 try { shownKey = JSON.parse(readFileSync(stateFile, 'utf8')).key; } catch {}
 if (shownKey === key) say(onlyMd ? 'allow' : 'ask', `${changes}\n\nThe user approves .md changes, deletions and major version bumps before they reach GitHub.`);
 writeFileSync(stateFile, JSON.stringify({ key }));
-say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged, and ask for approval. Once they approve, run the same command again${onlyMd ? '' : "; they'll then confirm it in the prompt"}.\n\n${changes}`);
+say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat as normal text, not in a code block, unchanged, and ask for approval. Once they approve, run the same command again${onlyMd ? '' : "; they'll then confirm it in the prompt"}.\n\n${changes}`);

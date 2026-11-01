@@ -1,4 +1,4 @@
-# NTR-Extension: ChatGPT Instructions
+# ChatGPT Instructions
 
 Nitwit Tavern Redesign (NTR) is a SillyTavern extension being developed for public release.
 
@@ -10,8 +10,8 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 - Edit files only when explicitly requested.
 - For GitHub tasks, use the GitHub Connector, because otherwise it will fail.
+- In Codex cloud environments, run Node tests and Playwright/Chromium checks with `sandbox_permissions: "with_additional_permissions"` and `additional_permissions: {"network":{"enabled":true}}`. Network-disabled execution can block local Unix socket operations and cause misleading `EPERM` errors. Keep filesystem sandboxing enabled.
 - Use the review target set in the conversation.
-- Run tests and other shell commands with `timeout` (for example, `timeout 60 node --test tests/*.test.mjs`).
 - If a call fails, retry the same call just once. After that, change the approach or report the blocker.
 - Before posting, confirm the repository belongs to `SepsisShock`. Posting anywhere else needs explicit permission.
 

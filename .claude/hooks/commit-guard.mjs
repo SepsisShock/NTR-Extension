@@ -1,9 +1,9 @@
 // PreToolUse hook (see .claude/settings.json): before changes reach GitHub, gets the user's approval when they change
-// a .md file, change a .json file beyond "version", raise the major version, or delete a file. A renamed file is
-// checked only at its new path.
+// a .md file, raise the major version, or delete a file. A renamed file is checked only at its new path.
 //
 // - The claude.ai app's permission prompt shows only the command, so the first attempt is denied with the changes for
-//   Claude to show the user in chat. Trying again with the same changes then asks, as the final confirmation.
+//   Claude to show the user in chat. Trying again with the same changes then goes through if they only change .md
+//   files, or asks, as the final confirmation, otherwise.
 //   What was last shown is kept in .git/ntr-commit-guard.json, which git doesn't track.
 // - git push and gh pr create: checks the commits already made, so it doesn't matter how they were made. A file asks
 //   only if the pushed copy differs from both GitHub's copy of the branch and main, so changes merged in from main
@@ -27,9 +27,9 @@ const out = (...args) => run(...args).stdout.trim();
 const must = (...args) => { const r = run(...args); if (r.status) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`); return r.stdout.trim(); };
 const show = (rev, f) => { const r = run('show', `${rev}:${f}`); return r.status === 0 ? r.stdout : null; };
 const version = (text) => text?.match(/"version": "([^"]*)"/)?.[1];
-const withoutVersion = (text) => text?.replace(/"version": "[^"]*"/, '"version": ""');
 
 const problems = [];
+let onlyMd = true;
 const shown = [];
 const say = (decision, reason) => {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } }));
@@ -50,12 +50,11 @@ function diff(f, old, now) {
 // Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with, and the
 // first one is shown as the diff's old side.
 function check(f, now, olds) {
-  const differs = (g) => olds.every((o) => g(o) !== g(now));
   if (now == null) problems.push(`deletes ${f}`);
   else if (f.endsWith('.md')) problems.push(`changes ${f}`);
-  else if (f.endsWith('.json') && differs(withoutVersion)) problems.push(`changes ${f} beyond "version"`);
   else if (f === 'manifest.json' && olds.every((o) => parseInt(version(now)) > parseInt(version(o)))) problems.push(`raises the major version (${version(olds[0])} to ${version(now)})`);
   else return;
+  if (now == null || !f.endsWith('.md')) onlyMd = false;
   if (now != null) shown.push(diff(f, olds[0], now));
 }
 
@@ -105,6 +104,6 @@ const key = createHash('sha256').update(changes).digest('hex');
 const stateFile = join(run('rev-parse', '--absolute-git-dir').stdout.trim(), 'ntr-commit-guard.json');
 let shownKey = null;
 try { shownKey = JSON.parse(readFileSync(stateFile, 'utf8')).key; } catch {}
-if (shownKey === key) say('ask', `${changes}\n\nThe user approves wording changes, deletions and major version bumps before they reach GitHub.`);
+if (shownKey === key) say(onlyMd ? 'allow' : 'ask', `${changes}\n\nThe user approves .md changes, deletions and major version bumps before they reach GitHub.`);
 writeFileSync(stateFile, JSON.stringify({ key }));
-say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged, and ask for approval. Once they approve, run the same command again; they'll then confirm it in the prompt.\n\n${changes}`);
+say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged, and ask for approval. Once they approve, run the same command again${onlyMd ? '' : "; they'll then confirm it in the prompt"}.\n\n${changes}`);

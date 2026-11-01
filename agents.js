@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.32';
+  const AGENTS_VERSION = '2.86.33';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -474,11 +474,10 @@
     if (v && v.i <= upTo && (ctx().chat || [])[v.i]?.send_date === v.date) return v.text;
     return latest(id, upTo)?.text ?? null;
   }
-  // The snapshot for a run asked for now, on message `at` (the last one when null): every agent but `fresh`, the ones
-  // it waits for.
-  function snapshot(fresh, at) {
+  // What's saved now for each agent not in `waiting`, on message `at` (the last one when null).
+  function snapshot(waiting, at) {
     const chat = ctx().chat || [];
-    return new Map(list().filter((x) => !fresh.has(x.id)).map((x) => {
+    return new Map(list().filter((x) => !waiting.has(x.id)).map((x) => {
       const r = latest(x.id, at);
       return [x.id, r ? { text: r.text, i: r.mes, date: chat[r.mes].send_date } : null];
     }));
@@ -745,7 +744,7 @@
   // - last, for one of RUN_MAX places, so nothing waits on anything else while it holds one. Its time limit starts there.
   const RUN_MAX = 3;
   // Each agent keeps its last 10 runs until you reload.
-  // fails: each agent's last failed run in a chat, shown in the Pinned Block until it runs fine again.
+  // fails: each agent's last failed run; its chat's Pinned Block shows it until the agent runs fine again.
   const runs = new Map();
   const fails = new Map();
   // The runs not finished yet, oldest first: { id, lane, batch, test, early, late, ctrl, state, waitFor, done }. lane: the
@@ -888,7 +887,7 @@
   const opt = (pairs, cur) => pairs.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const { ovLabel: lab } = A.look;
   const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;"${title ? ` title="${esc(title)}" aria-label="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label || ''}</button>`;
-  // An agent's picture is always a circle.
+  // An agent's picture is a circle; Avatar Management's Shape doesn't apply.
   const picHtml = (a, size) => {
     return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
       : `<i class="fa-solid fa-fw fa-robot" style="width:${size}px;text-align:center;opacity:.7;flex:none;"></i>`;
@@ -1577,8 +1576,6 @@
       changed(true);
     };
 
-    // Departments: the name opens and folds it, More has Rename, Move Up, Move Down and Delete. Rename and Delete ask
-    // under its row.
     root.querySelectorAll('.m_ag_dept').forEach((el) => {
       const d = depts().find((x) => x.id === el.dataset.dept);
       if (!d) return;
@@ -1665,9 +1662,7 @@
       syncAll();
     };
 
-    // More: Duplicate, Move Up and Move Down (within its group), Move to Department, and Delete. Move to Department
-    // shows the departments in the same menu; with none yet, it makes one. Delete and a new department's name ask
-    // under the header, where the menu was. Focus comes back to More after a move.
+    // More: Delete and a new department's name ask under the header, where the menu was.
     const more = root.querySelector('#m_ag_more');
     const ask = () => root.querySelector('.m_ag_headrow');
     const group = () => deptOf(a.id)?.ids || loose().map((x) => x.id);

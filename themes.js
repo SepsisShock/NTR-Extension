@@ -1,5 +1,5 @@
 (() => {
-  const THEMES_VERSION = '2.86.32';
+  const THEMES_VERSION = '2.86.33';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,

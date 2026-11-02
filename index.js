@@ -2138,7 +2138,7 @@ await (async () => {
     try {
       return await removeNow(opts);
     } catch (e) {
-      // Nothing was removed, so saving goes back on, and any card edit that was waiting to save gets saved.
+      // Removal didn't finish, so saving goes back on, and any card edit that was waiting to save gets saved.
       wiping = false;
       for (const key of cardSnap.keys()) scheduleCardFlush(key);
       throw e;
@@ -2163,7 +2163,7 @@ await (async () => {
         const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
         const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
         if (missed) {
-          throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so nothing was removed. Check the SillyTavern console.`);
+          throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so removal didn't finish. Check the SillyTavern console.`);
         }
         // SillyTavern clears memory only for `updated`; unsaved data on a `skipped` card would put its files in `keep` below.
         for (const ch of withData) delete ch.data.extensions.ntr;

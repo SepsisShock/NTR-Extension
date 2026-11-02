@@ -118,7 +118,7 @@
       const one = { 'line-height': '1.3', 'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0' };
       // NTR Avatars In Line above the text puts the name row under the avatar. There the name leaves its row for the
       // message's top edge, and the avatar moves down to clear it.
-      const side = String(s[prefix + 'Side']);
+      const side = s[prefix + 'Side'];
       if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
         // Speech Bubbles put this side's name row on the right: the name lines up with the row's right end instead of
         // running past the message.

@@ -1716,8 +1716,8 @@ await (async () => {
   // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
   const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
     + ovWhen(`ov${p}Shape`, 'rounded', ovLabel('Roundness', rangeSlider(s, `ov${p}Round`))));
-  const ovBgRow = (s, p, hint = '') => ovRow(s, `ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
-    + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BgOpacity`))) + hint);
+  const ovBgRow = (s, p) => ovRow(s, `ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
+    + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BgOpacity`))));
   const ovBorderRow = (s, p) => ovRow(s, `ov${p}BorderOn`, 'Border', ovPick(s, `ov${p}Border`, [['none', 'None'], ['line', 'Line']])
     + ovWhen(`ov${p}Border`, 'line', ovLabel('Line Color', ovColor(s, `ov${p}BorderColor`)) + ovLabel('Thickness', rangeSlider(s, `ov${p}BorderWidth`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BorderOpacity`))));
 

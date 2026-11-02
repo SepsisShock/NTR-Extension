@@ -208,8 +208,8 @@ test('your reply sends agents\' newest results while a full-prompt agent runs', 
   for (const k of ['chat', 'saveChat', 'setExtensionPrompt', 'generateQuietPrompt']) delete context[k];
 });
 
-// An agent that runs on a user message with Send to Main AI goes first: the chat's reply waits for it, so its answer reaches
-// that reply. It doesn't wait for a Same as Chat run above it that waits for the chat's reply.
+// An agent that runs on a user message with Send to Main AI goes first: the chat's reply waits for it, so its answer reaches that reply.
+// It doesn't wait for a Same as Chat run above it, which itself waits for the chat's reply.
 test('your reply waits for agents that run on your message, and they skip runs that wait for your reply', async () => {
   const s = api.settings();
   s.agEnabled = true;
@@ -224,7 +224,7 @@ test('your reply waits for agents that run on your message, and they skip runs t
   context.generateRaw = ({ systemPrompt }) => new Promise((res) => { live.set(/^job (\w)/.exec(systemPrompt)[1], res); });
   const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   const ag = window.NTR.agents;
-  ag.genStarted('normal', false); // the chat's reply is on its way
+  ag.genStarted('normal', false); // chat reply starts
   ag.replied('normal', 0); // S waits for it
   context.chat.push({ send_date: 'd1', mes: 'Go', name: 'Me', is_user: true, extra: {} });
   ag.replied('sent', 1);

@@ -284,7 +284,6 @@
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
   }
 
-  // What index.js calls.
   window.NTR.text = {
     version: TEXT_VERSION,
     sectionHtml: textSectionHtml,

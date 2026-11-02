@@ -6,7 +6,6 @@
   const { BUB_INK_OPTS, BUB_TAIL_OPTS, COLOR_FROM, SWITCHES, bubRight, bubblesOn, cssRule, joinCss, ntrAvatars, ovBgRow, ovBorderRow, ovBorderVal,
     ovColorVal, ovLabel, ovPick, ovRadius, ovRow, ovShapeRow, ovWhen, rangeSlider, restyle: updateAvatarStyle, sendSeparate, svgMask } = A.look;
 
-  // The AI and User messages.
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
   const NO_BLUR = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
   const on = (s, k) => s[k + 'On'];
@@ -292,7 +291,6 @@
     });
   }
 
-  // What index.js calls.
   window.NTR.decor = {
     version: DECOR_VERSION,
     sectionHtml: displaySectionHtml,

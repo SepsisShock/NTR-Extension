@@ -1044,7 +1044,6 @@
     }).join('')}</div>`;
   }
 
-  // What index.js calls.
   window.NTR.avatars = {
     version: AVATARS_VERSION,
     sectionHtml: avatarsSectionHtml,

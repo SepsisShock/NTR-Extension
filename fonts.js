@@ -152,7 +152,6 @@
     overlay.querySelectorAll('.m_o_txt').forEach((el) => bindFontBox(el));
   }
 
-  // What index.js calls.
   window.NTR.fonts = {
     version: FONTS_VERSION,
     bind,

@@ -996,7 +996,7 @@
   for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, onCursorUp, true);
   window.addEventListener('blur', onCursorUp);
 
-  // What index.js calls. sync runs while NTR is off too: that's what takes the labels, details and Custom CSS away.
+  // sync runs while NTR is off too: that's what takes the labels, details and Custom CSS away.
   window.NTR.elements = {
     version: ELEMENTS_VERSION,
     sectionHtml: elementsSectionHtml,

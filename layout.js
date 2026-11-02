@@ -1295,7 +1295,6 @@
     });
   }
 
-  // What index.js calls.
   window.NTR.layout = {
     version: LAYOUT_VERSION,
     sectionHtml: layoutSectionHtml,

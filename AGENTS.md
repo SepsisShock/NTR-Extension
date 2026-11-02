@@ -8,11 +8,10 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 ## Ground Rules
 
-- Edit files only when explicitly requested.
-- For GitHub tasks, use the GitHub Connector, because otherwise it will fail.
-- Use the review target set in the conversation.
-- If a call fails, retry the same call just once. After that, change the approach or report the blocker.
-- Before posting, confirm the repository belongs to `SepsisShock`. Posting anywhere else needs explicit permission.
+1. Edit files only when explicitly requested.
+2. For GitHub tasks, use the GitHub Connector, because otherwise it will fail.
+3. If a call fails, retry the same call just once. After that, change the approach or report the blocker.
+4. Before posting, confirm the repository belongs to `SepsisShock`. Posting anywhere else needs explicit permission.
 
 ### Codex Cloud Execution Requirements
 

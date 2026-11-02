@@ -181,7 +181,7 @@ test('a report from an agent below is its last answer, whichever finishes first'
   for (const k of ['ChatCompletionService', 'chat', 'saveChat']) delete context[k];
 });
 
-// A full-prompt agent's snapshot is for its own quiet request, never for your reply while it waits for an answer.
+// A full-prompt agent's snapshot is for its own quiet request, never for the chat's reply while it waits for an answer.
 test('your reply sends agents\' newest results while a full-prompt agent runs', async () => {
   const s = api.settings();
   s.agEnabled = true;
@@ -208,8 +208,8 @@ test('your reply sends agents\' newest results while a full-prompt agent runs', 
   for (const k of ['chat', 'saveChat', 'setExtensionPrompt', 'generateQuietPrompt']) delete context[k];
 });
 
-// An agent that runs on your message with Send to Main AI goes first: your reply waits for it, so its answer reaches
-// that reply. It doesn't wait for a Same as Chat run above it that waits for your reply.
+// An agent that runs on a user message with Send to Main AI goes first: the chat's reply waits for it, so its answer reaches
+// that reply. It doesn't wait for a Same as Chat run above it that waits for the chat's reply.
 test('your reply waits for agents that run on your message, and they skip runs that wait for your reply', async () => {
   const s = api.settings();
   s.agEnabled = true;
@@ -224,7 +224,7 @@ test('your reply waits for agents that run on your message, and they skip runs t
   context.generateRaw = ({ systemPrompt }) => new Promise((res) => { live.set(/^job (\w)/.exec(systemPrompt)[1], res); });
   const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   const ag = window.NTR.agents;
-  ag.genStarted('normal', false); // your reply is on its way
+  ag.genStarted('normal', false); // the chat's reply is on its way
   ag.replied('normal', 0); // S waits for it
   context.chat.push({ send_date: 'd1', mes: 'Go', name: 'Me', is_user: true, extra: {} });
   ag.replied('sent', 1);
@@ -251,7 +251,7 @@ test('your reply waits for agents that run on your message, and they skip runs t
 });
 
 // A run that goes first can finish, and build its request, before SillyTavern reaches the wait: its answer still goes
-// into your reply, and its own samplers stay in its request.
+// into the chat's reply, and its own samplers stay in its request.
 test('a run that goes first and is done before your reply waits still reaches it, with its own samplers', async () => {
   const s = api.settings();
   s.agEnabled = true;

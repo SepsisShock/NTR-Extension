@@ -22,7 +22,7 @@
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 
 ## PRs & Testing
-- One PR per request; ask before separating or combining, and say why. Open it when done.
+- Group related changes into one PR; split them when separate PRs are easier to review or revert, and justify why in chat before splitting.
 - After each fix pushed to an open PR, re-test the changed parts with `/run-ntr-extension` and update the PR summary.
 - Before adding a test to the repo, tell me in one plain sentence: what users would notice if the feature it checks broke, why it's needed, and its run time.
 

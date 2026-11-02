@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.36';
+  const AGENTS_VERSION = '2.86.37';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -123,29 +123,12 @@
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
-  // Agents used to get each other's answers through {{agent::Name}} in their instructions or fields' hints. Each one
-  // that names an agent becomes a report from that agent, and leaves the text.
-  const OLD_READ = /\{\{\s*agent\s*::([^{}]*?)\}\}/gi;
-  function oldReads(l) {
-    for (const a of l) {
-      const take = (t) => t.replace(OLD_READ, (m, name) => {
-        const x = l.find((y) => y.name.toLowerCase() === name.trim().toLowerCase());
-        if (!x) return m;
-        if (!a.reportsFrom.includes(x.id)) a.reportsFrom.push(x.id);
-        return '';
-      });
-      a.job = take(a.job);
-      for (const f of a.fields) if (f.kind === 'field') f.hint = take(f.hint);
-    }
-  }
   const checked = new WeakSet();
   function list() {
     const s = settings();
     if (!Array.isArray(s.agents)) s.agents = [];
     if (!checked.has(s.agents)) {
       s.agents = s.agents.slice(0, AGENT_MAX).map(clean);
-      oldReads(s.agents);
-      // Reports only come from other agents that are still there.
       const have = new Set(s.agents.map((a) => a.id));
       for (const a of s.agents) a.reportsFrom = a.reportsFrom.filter((id) => id !== a.id && have.has(id));
       checked.add(s.agents);
@@ -391,16 +374,15 @@
   }
   // One field's value from what was read. rules: Max Change applies (to the agent's answers, not to your own edits).
   function fieldValue(f, v, old, rules) {
-    if (f.type === 'list') return (Array.isArray(v) ? v : [v]).map((x) => String(x).replace(/\s+/g, ' ').trim().slice(0, 200)).filter(Boolean).slice(0, f.cap);
+    if (f.type === 'list') return v.map((x) => x.replace(/\s+/g, ' ').trim().slice(0, 200)).filter(Boolean).slice(0, f.cap);
     if (f.type === 'num') {
-      const m = /-?\d+(?:\.\d+)?/.exec(String(v));
+      const m = /-?\d+(?:\.\d+)?/.exec(v);
       if (!m) return old;
-      const was = typeof old === 'number' ? old : f.start;
       let n = Number(m[0]);
-      if (rules && f.step > 0) n = Math.min(was + f.step, Math.max(was - f.step, n));
+      if (rules && f.step > 0) n = Math.min(old + f.step, Math.max(old - f.step, n));
       return Math.round(Math.min(f.max, Math.max(f.min, n)) * 100) / 100;
     }
-    return String(v).replace(/\s+/g, ' ').trim().slice(0, 200) || old;
+    return v.replace(/\s+/g, ' ').trim().slice(0, 200) || old;
   }
   // `text` laid over `prev`. Null when it names none of the fields.
   function mergeFields(a, prev, text, rules) {
@@ -1045,6 +1027,7 @@
     </div>`;
   }
 
+  const insSum = (a) => (!a.job.trim() && !usesFields(a) ? { warn: 'Empty: Won\'t Run' } : { text: a.job.split('\n').map((l) => l.trim()).find(Boolean) || 'Empty' });
   function testSum(a) {
     const run = (runs.get(a.id) || [])[0];
     return busy(a.id) ? { text: runState(a.id)[1] }
@@ -1063,7 +1046,7 @@
       : a.kind === 'tc' && !a.tcUrl.trim() ? 'No Server Link' : '';
     const last = a.last && !fields ? ' · Its Last Result' : '';
     return {
-      ins: !a.job.trim() && !usesFields(a) ? { warn: 'Empty: Won\'t Run' } : { text: a.job.split('\n').map((l) => l.trim()).find(Boolean) || 'Empty' },
+      ins: insSum(a),
       ans: { text: !fields ? 'Free Text' : n ? `Fields · ${n} ${n === 1 ? 'Field' : 'Fields'}` : 'Fields · No Fields Yet' },
       runs: a.runs === 'reply' && !a.runOn.length ? { warn: 'No Message Ticked: Won\'t Run' }
         : { text: runsText(a) + (a.runs === 'reply' && a.runFrom.trim() ? ` · Only From ${a.runFrom.trim()}` : '') },
@@ -1166,6 +1149,7 @@
       </div>`;
   }
 
+  const instructNames = () => { try { return ctx().getPresetManager('instruct')?.getAllPresets() || []; } catch (e) { return []; } };
   function editorHtml(a) {
     if (!a) return '';
     const fields = a.answer === 'fields';
@@ -1174,7 +1158,6 @@
     const sampRows = SAMP.map(([f, label, k]) => `
       <div class="cb_ovrow m_ag_samp${a[f + 'On'] ? '' : ' m_ag_unset'}"><div class="m_ag_srow"><label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="${f}On" ${a[f + 'On'] ? 'checked' : ''}><span>${label}</span></label>${numBox(a, f, k, label)}</div>
         ${f === 'topK' ? '' : `<div class="m_o_body">${slider(a, f, k, label)}</div>`}</div>`).join('');
-    const instructs = (() => { try { return ctx().getPresetManager('instruct')?.getAllPresets() || []; } catch (e) { return []; } })();
     const connBody = a.kind === 'cc' ? `
       ${lab('API', `<select class="text_pole m_ag_txt" data-f="ccSource" data-redraw="1" style="width:100%;">${opt(CC, a.ccSource)}</select>`)}
       ${lab('Model', `<input type="text" class="text_pole m_ag_txt" data-f="ccModel" data-redraw="1" value="${esc(a.ccModel)}" maxlength="200" placeholder="like deepseek/deepseek-chat-v3" style="width:100%;">`)}
@@ -1186,7 +1169,7 @@
       ${lab('Server Type', `<select class="text_pole m_ag_txt" data-f="tcType" data-redraw="1" style="width:100%;">${opt(TC, a.tcType)}</select>`)}
       ${lab('Server Link', `<input type="text" class="text_pole m_ag_txt" data-f="tcUrl" data-redraw="1" value="${esc(a.tcUrl)}" maxlength="500" placeholder="like http://127.0.0.1:5001" style="width:100%;">`)}
       ${TC_MODEL.has(a.tcType) ? lab('Model', `<input type="text" class="text_pole m_ag_txt" data-f="tcModel" value="${esc(a.tcModel)}" maxlength="200" placeholder="Only if your server asks for one" style="width:100%;">`) : ''}
-      ${lab('Instruct Template', `<select class="text_pole m_ag_txt" data-f="tcInstruct" style="width:100%;"><option value="">None (Plain Format)</option>${opt(instructs.map((n) => [n, n]), a.tcInstruct)}</select>`)}
+      ${lab('Instruct Template', `<select class="text_pole m_ag_txt" data-f="tcInstruct" style="width:100%;"><option value="">None (Plain Format)</option>${opt(instructNames().map((n) => [n, n]), a.tcInstruct)}</select>`)}
       <div class="cb_hint">Only the format is used, not your other settings. A saved key for this server type is used if needed.</div>
       ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is your chat\'s server, which answers one request at a time, so this agent waits until your reply is done.</div>' : ''}`
       : '<div class="cb_hint" style="margin-bottom:0;">Uses your chat\'s API, model and key, and waits until a reply is finished.</div>';
@@ -1869,7 +1852,7 @@
     // Instructions' summary follows what's typed; the text itself saves when the box loses focus.
     const job = root.querySelector('.m_ag_txt[data-f="job"]');
     job.oninput = () => {
-      setSum('ins', sums({ ...a, job: job.value }).ins);
+      setSum('ins', insSum({ ...a, job: job.value }));
     };
     // Macros: a tap puts the macro where the cursor last was in the instructions, or at the end.
     let sel = null;

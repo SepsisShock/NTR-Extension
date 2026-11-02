@@ -1,21 +1,25 @@
 # NTR-Extension
 
-[unreleased] Nitwit Tavern Redesign (NTR) is a non-profit SillyTavern extension being developed for public release, using minimal, lightweight code for users on slower devices.
+## Project Context
+- Nitwit Tavern Redesign (NTR), non-profit and open-source SillyTavern extension, being developed for public release.
+- Lightweight code matters because some users will be on slower devices.
+- Clean and maintainable codebase, even when effects are unnoticed by users. Unnecessary code or information add to what LLMs process.
 
 ## Communication
-- Plain language. No em dashes; use semicolons or colons.
+- Chat: Plain language.
+- Everywhere: No em dashes, use semicolons or colons instead.
 
-## UI Copy
-- Use succinct, general terms. Never use examples from my personal setup.
-- Omit helper text and tooltips unless a setting's behavior is not obvious from its label.
+### UI Copy (Helper text and Tooltips)
+- Use general, succint language.
+- Omit unless a setting's behavior is not obvious from its label.
 
-## Source Code Comments
-- Use literal and succinct language.
+### Source Code Comments
+- Use literal and succinct language. 3rd person if perspective is needed.
+- Don't cite examples from my personal setup.
 - Comments are read only by LLMs, not humans; when in doubt, write none.
 
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
-- For anything beyond a small fix, propose a plan and wait for explicit approval from me before changing files.
 - Before stating or disputing how any tool, API, or library behaves, check its official docs, then search proven community patterns.
 - One rule, one file: don't restate a rule from another instruction file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
 - If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag it in chat when you notice, and also in the PR summary.

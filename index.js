@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.35';
+  const VERSION = '2.86.36';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2158,8 +2158,10 @@ await (async () => {
       const withData = c.characters.filter((ch) => ch?.data?.extensions?.ntr);
       for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
       if (typeof c.writeExtensionFieldBulk === 'function' && unset) {
-        // A failed save doesn't throw, it only leaves the card out of `updated`.
-        const done = new Set((await c.writeExtensionFieldBulk(null, 'ntr', unset))?.updated || []);
+        // A failed save doesn't throw; the card is in neither `updated` nor `skipped`. `skipped` means no NTR data on file,
+        // so there is nothing to remove.
+        const r = await c.writeExtensionFieldBulk(null, 'ntr', unset);
+        const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
         const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
         if (missed) {
           throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so nothing was removed. Check the SillyTavern console.`);

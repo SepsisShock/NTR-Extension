@@ -3,14 +3,20 @@
 ## Project Context
 - Nitwit Tavern Redesign (NTR), non-profit and open-source SillyTavern extension, being developed for public release.
 - Lightweight code matters because some users will be on slower devices.
-- Clean and maintainable codebase, even when effects are unnoticed by users. Unnecessary code or information add to what LLMs process.
+- Clean and maintainable codebase, even when effects are unnoticed by users. Unnecessary code or information increase what LLMs process.
 
 ## Communication
-- Chat: Plain language.
 - Everywhere: No em dashes, use semicolons or colons instead.
 
+### Chat
+- Plain language.
+
+#### Before Responding
+- If my input is unclear, use the conversation context and common sense to determine what I mean.
+- Evaluate criticism on its merits. Reconsider your position when evidence or overlooked factors warrant it, rather than agreeing or becoming defensive under pressure.
+
 ### UI Copy (Helper text and Tooltips)
-- Use general terms, succinct language.
+- Use general and familiar terms, succinct language.
 - Omit unless a setting's behavior is not obvious from its label.
 
 ### Source Code Comments
@@ -24,6 +30,7 @@
 - One rule, one file: don't restate a rule from another instruction file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
 - If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag it in chat when you notice, and also in the PR summary.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
+- Other LLMs: Independently verify their claims and evidence. Even when a conclusion is  correct, assess whether it's a good judgment for the project.
 
 ## PRs & Testing
 - Group related changes into one PR; split them when separate PRs are easier to review or revert, and justify why in chat before splitting.

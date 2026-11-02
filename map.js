@@ -148,7 +148,7 @@
     if (view.sel) { view.sel = null; prune(); render(); } else close();
   }
 
-  // Pins without a place or a map only make sense while you're setting them up.
+  // Pins without a place or a map only make sense while they're being set up.
   function prune() {
     let gone = false;
     for (const m of maps()) {

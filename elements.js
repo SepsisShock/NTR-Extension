@@ -517,7 +517,7 @@
     return false;
   };
 
-  // Each detail's text for a message, or '' when it has none (a greeting has no reply time, your messages no model).
+  // Each detail's text for a message, or '' when it has none (a greeting has no reply time, user messages no model).
   function mdValue(id, mes, mesid, s) {
     const x = mes.extra || {};
     const secs = mes.gen_started && mes.gen_finished ? (new Date(mes.gen_finished) - new Date(mes.gen_started)) / 1000 : NaN;

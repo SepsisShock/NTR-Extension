@@ -67,8 +67,8 @@
   const editing = () => document.body.classList.contains('ntr_bk_edit');
   const booked = () => !!geom && !editing();
 
-  // Pages are counted from the whole chat, not just the messages SillyTavern has drawn. A page starts at each of your
-  // messages and holds the replies after it; the messages before your first one (the opening) are page 1.
+  // Pages are counted from the whole chat, not just the messages SillyTavern has drawn. A page starts at each user
+  // message and holds the replies after it; the messages before the first one (the opening) are page 1.
   function build() {
     const chat = ctx().chat || [];
     const drawn = drawnMes();
@@ -231,7 +231,7 @@
   // ----- Book -----
   // A picture link as it goes into the CSS. Links with characters that could break out of url("") use the built-in book.
   const cssUrl = (u, s) => (u && !/["\\\n\r]/.test(u) ? `url("${u}")` : `url("${A.bookUrl(s.rdBook)}")`);
-  // Your own picture keeps its own shape, known once it has loaded.
+  // A custom picture keeps its own shape, known once it has loaded.
   const ratios = new Map();
   function ratioOf(u) {
     if (!u) return BOOK_RATIO;
@@ -483,7 +483,7 @@
     decoded.set(u, img);
   }
 
-  // The book follows a reply as it's written, while you're on its last two pages.
+  // The book follows a reply as it's written, while the current page is one of its last two.
   let textObs = null, textQueued = false;
   function watchText() {
     textObs?.disconnect();
@@ -504,7 +504,7 @@
     textObs.observe(last, { childList: true, subtree: true, characterData: true });
   }
 
-  // Editing a message shows it like Standard until you're done, so the edit box has room.
+  // Editing a message shows it like Standard until the edit is done, so the edit box has room.
   function syncEdit() {
     const on = !!geom && !!document.querySelector('#chat .edit_textarea');
     if (on === editing()) return;
@@ -591,7 +591,7 @@
     remember();
   }
 
-  // The page you're on is kept in the chat's own data, saved with the chat, so the chat opens there next time: its first
+  // The current page is kept in the chat's own data, saved with the chat, so the chat opens there next time: its first
   // message's number and send date (deleting earlier messages renumbers it), or, on the last page, just that, so new
   // replies are followed.
   const SAVED = 'ntr_reader';
@@ -688,7 +688,7 @@
   const typingIn = (el) => !!el && el.matches?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
 
   // Page Up and Page Down turn pages: a page taller than the chat scrolls first, and in the book they go through the
-  // page's spreads first. They're left alone while you type in a text box with text in it, and in the NTR menu and
+  // page's spreads first. They're left alone while the user types in a text box with text in it, and in the NTR menu and
   // SillyTavern's popups.
   // SillyTavern's Left and Right arrow keys swipe the last reply, which is hidden on an earlier page, so they wait for
   // the last page.
@@ -728,7 +728,7 @@
   window.addEventListener('keydown', onKey, true);
 
   let wasLive = false;
-  // Switched on: the page this chat was left on, or the last page. Switched off: the chat stays at the page you were reading.
+  // Switched on: the page this chat was left on, or the last page. Switched off: the chat stays at the page being read.
   function refresh() {
     dropFlip();
     const on = live();
@@ -768,7 +768,7 @@
     relayout,
     // A chat opens on the page it was left on, or its last page.
     chatChanged: () => { if (live()) openSaved(); },
-    // Sending a message or starting a reply goes to the last page, so you see the reply arrive.
+    // Sending a message or starting a reply goes to the last page, so the reply shows as it arrives.
     // Quiet generations and Impersonate don't add a reply to the chat, so they leave the page alone.
     genStarted: (type, dryRun) => {
       if (dryRun || type === 'quiet' || type === 'impersonate' || !live() || !pages.length) return;
@@ -784,7 +784,7 @@
     barMin,
     // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.
     drawTo: (first) => loadUpTo(first, opened),
-    // For Pinned Blocks: the last message on the page you're on, or the message Visual Novel shows, or null when Reader
+    // For Pinned Blocks: the last message on the current page, or the message Visual Novel shows, or null when Reader
     // Mode is off or on the newest.
     upTo: () => (vnNow() ? window.NTR.vn?.shownMsg?.() ?? null : live() && pages.length ? pages[cur][1] : null),
     // For Speech Bubbles: the first and last message on the page on screen, or null when Reader Mode is off.

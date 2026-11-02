@@ -31,6 +31,8 @@ const version = (text) => text?.match(/"version": "([^"]*)"/)?.[1];
 const problems = [];
 let onlyMd = true;
 const shown = [];
+// The approval key covers full contents, since what's shown is cut short.
+const full = [];
 const say = (decision, reason) => {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } }));
   process.exit(0);
@@ -62,10 +64,16 @@ function diff(f, old, now) {
       is.lines.length && box(both ? 'After' : 'Added', is)].filter(Boolean).join('\n'));
   }
   let body = parts.join('\n\n') || 'Binary change; not shown.';
+  // Cut at a line break, or inside a line that doesn't fit, so a block is never left empty.
   if (body.length > 1500) {
-    body = body.slice(0, body.lastIndexOf('\n', 1500));
-    if (body.split('\n').filter((l) => l === fence).length % 2) body += `\n${fence}`;
-    body += '\n\n(cut short)';
+    let cut = '';
+    let open = false;
+    for (const l of body.split('\n')) {
+      if (cut.length + l.length >= 1500) { if (open) cut += `${l.slice(0, 1500 - cut.length)}\n`; break; }
+      cut += `${l}\n`;
+      if (l === fence) open = !open;
+    }
+    body = `${cut}${open ? `${fence}\n` : ''}\n(cut short)`;
   }
   return `\`${f}\`\n\n${body}`;
 }
@@ -77,6 +85,7 @@ function check(f, now, olds) {
   else if (f === 'manifest.json' && olds.every((o) => parseInt(version(now)) > parseInt(version(o)))) problems.push(`raises the major version (${version(olds[0])} to ${version(now)})`);
   else return;
   if (now == null || !f.endsWith('.md')) onlyMd = false;
+  full.push([f, now]);
   if (now != null) shown.push(diff(f, olds[0], now));
 }
 
@@ -122,7 +131,7 @@ if (input.tool_name === 'Bash') {
 
 if (!problems.length) process.exit(0);
 const changes = [`Not on GitHub yet: this ${problems.join('; ')}.`, ...shown].join('\n\n');
-const key = createHash('sha256').update(changes).digest('hex');
+const key = createHash('sha256').update(JSON.stringify([changes, full])).digest('hex');
 const stateFile = join(run('rev-parse', '--absolute-git-dir').stdout.trim(), 'ntr-commit-guard.json');
 let shownKey = null;
 try { shownKey = JSON.parse(readFileSync(stateFile, 'utf8')).key; } catch {}

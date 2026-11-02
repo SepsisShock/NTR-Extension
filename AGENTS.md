@@ -52,13 +52,13 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 - In the overall comment, say what you inspected and any limits, and whether you tested runtime behavior in SillyTavern. Keep tests you ran separate from existing CI results. Don't claim a reproduction based on reading code alone.
 - With no findings, the overall comment says no issues worth flagging were found.
 
-### Submitting Reviews
+### Submitting Reviews For Open PRs
 
-- Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
-- Never leave the review pending.
-- In chat, give a short summary and the review link.
+1. Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
+2. Never leave the review pending.
+3. In chat, give a short summary and the review link.
 
-## Review Skills
+## Special Review Skills
 
 Open the skill files below only when it's requested. Submit findings following the "Submitting Reviews" guidelines:
 - "cleancom" or "$cleancom": follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).

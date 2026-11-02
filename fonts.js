@@ -1,6 +1,6 @@
 // If this file breaks, the font boxes stay plain text boxes and the chat's fonts still load, so loading them stays in index.js.
 (() => {
-  const FONTS_VERSION = '2.86.38';
+  const FONTS_VERSION = '2.86.39';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] fonts.js loaded without the core (index.js).'); return; }
   const { cleanFont, closePops, fontName, popMenu } = A;
@@ -152,7 +152,6 @@
     overlay.querySelectorAll('.m_o_txt').forEach((el) => bindFontBox(el));
   }
 
-  // What index.js calls.
   window.NTR.fonts = {
     version: FONTS_VERSION,
     bind,

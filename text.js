@@ -1,5 +1,5 @@
 (() => {
-  const TEXT_VERSION = '2.86.38';
+  const TEXT_VERSION = '2.86.39';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { bindPicSlot, card, onPills, pageHtml, picSlotHtml, pills, rangeNum, save, subHead } = A;
@@ -118,7 +118,7 @@
       const one = { 'line-height': '1.3', 'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0' };
       // NTR Avatars In Line above the text puts the name row under the avatar. There the name leaves its row for the
       // message's top edge, and the avatar moves down to clear it.
-      const side = String(s[prefix + 'Side']);
+      const side = s[prefix + 'Side'];
       if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
         // Speech Bubbles put this side's name row on the right: the name lines up with the row's right end instead of
         // running past the message.
@@ -284,7 +284,6 @@
     for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
   }
 
-  // What index.js calls.
   window.NTR.text = {
     version: TEXT_VERSION,
     sectionHtml: textSectionHtml,

@@ -1,13 +1,15 @@
 (() => {
-  const DECOR_VERSION = '2.86.38';
+  const DECOR_VERSION = '2.86.39';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
   const { BUB_INK_OPTS, BUB_TAIL_OPTS, COLOR_FROM, SWITCHES, bubRight, bubblesOn, cssRule, joinCss, ntrAvatars, ovBgRow, ovBorderRow, ovBorderVal,
     ovColorVal, ovLabel, ovPick, ovRadius, ovRow, ovShapeRow, ovWhen, rangeSlider, restyle: updateAvatarStyle, sendSeparate, svgMask } = A.look;
 
-  // The AI and User messages.
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
+  const NO_BLUR = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
+  const on = (s, k) => s[k + 'On'];
+  const bgColor = (s, p) => ovColorVal(s, `ov${p}BgColor`, `ov${p}BgOpacity`);
 
   // Interface Shape for the rest of the interface: SillyTavern's Menu Bar, drawers, side panels, menus and popups, and NTR's
   // own windows. Every corner follows it, wherever the part sits, even against the screen edge. Boxes inside them are a
@@ -48,21 +50,18 @@
   function chatLookCss(s) {
     if (!s.ovEnabled) return '';
     let css = '';
-    const on = (k) => s[k + 'On'];
-    const color = (k, opacity) => ovColorVal(s, k, opacity);
     const radius = (p) => ovRadius(s, p);
     const border = (p) => ovBorderVal(s, p);
-    const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : color(`ov${p}BgColor`, `ov${p}BgOpacity`));
+    const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : bgColor(s, p));
     const separate = sendSeparate(s);
-    const noBlur = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
 
     // Chat panel. Transparent also clears the boxes around it, as Make Chat Panel Transparent did.
-    if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...noBlur, border: 'none', 'box-shadow': 'none' });
-    else if (on('ovPanelBg')) css += cssRule('#chat', { 'background-color': fill('Panel') });
+    if (on(s, 'ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...NO_BLUR, border: 'none', 'box-shadow': 'none' });
+    else if (on(s, 'ovPanelBg')) css += cssRule('#chat', { 'background-color': fill('Panel') });
     // No line along the top, which stays flush with SillyTavern's top bar. The corners and the bottom line follow joinCss.
-    const line = on('ovPanelBorder') && s.ovPanelBorder !== 'none';
+    const line = on(s, 'ovPanelBorder') && s.ovPanelBorder !== 'none';
     css += cssRule('#chat', {
-      border: on('ovPanelBorder') ? border('Panel') : '',
+      border: on(s, 'ovPanelBorder') ? border('Panel') : '',
       'border-top': line ? 'none' : '',
     });
     css += joinCss(s, separate) + uiShapeCss(s);
@@ -72,23 +71,23 @@
     for (const p of ['Ai', 'Us']) {
       if (s.ovBubOn) { css += bubbleCss(s, p); continue; }
       const sel = MES_SEL[p];
-      const boxed = (on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'color') || (on(`ov${p}Border`) && s[`ov${p}Border`] === 'line');
-      const r = on(`ov${p}Shape`) ? `${radius(p)}px` : '';
+      const boxed = (on(s, `ov${p}Bg`) && s[`ov${p}Bg`] === 'color') || (on(s, `ov${p}Border`) && s[`ov${p}Border`] === 'line');
+      const r = on(s, `ov${p}Shape`) ? `${radius(p)}px` : '';
       css += cssRule(sel, {
         'border-radius': r,
-        'background-color': on(`ov${p}Bg`) ? fill(p) : '',
-        ...(on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'clear' ? noBlur : {}),
-        border: on(`ov${p}Border`) ? border(p) : '',
+        'background-color': on(s, `ov${p}Bg`) ? fill(p) : '',
+        ...(on(s, `ov${p}Bg`) && s[`ov${p}Bg`] === 'clear' ? NO_BLUR : {}),
+        border: on(s, `ov${p}Border`) ? border(p) : '',
         padding: boxed && !ntrAvatars(s, p.toLowerCase()) ? '10px' : '',
       });
     }
 
     // Send box.
-    const sr = on('ovSendShape') ? radius('Send') : null;
+    const sr = on(s, 'ovSendShape') ? radius('Send') : null;
     // #form_sheld in front: SillyTavern's Fast UI gives the send box its color with a stronger rule.
     css += cssRule('#form_sheld #send_form', {
-      ...(on('ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...noBlur } : { 'background-color': on('ovSendBg') ? fill('Send') : '' }),
-      border: on('ovSendBorder') ? border('Send') : '',
+      ...(on(s, 'ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...NO_BLUR } : { 'background-color': on(s, 'ovSendBg') ? fill('Send') : '' }),
+      border: on(s, 'ovSendBorder') ? border('Send') : '',
       // Bars other extensions put inside it, with their own square backgrounds, follow its rounded corners.
       // SillyTavern's own menus open outside it, so nothing gets cut off.
       overflow: sr ? 'clip' : '',
@@ -118,33 +117,31 @@
   // Anywhere else, the avatar goes to its message's side.
   function avatarPlaced(s, p) {
     const prefix = p.toLowerCase();
-    return ntrAvatars(s, prefix) && (s[prefix + 'Style'] !== 'inline' || String(s[prefix + 'Side'])[1] === 'c');
+    return ntrAvatars(s, prefix) && (s[prefix + 'Style'] !== 'inline' || s[prefix + 'Side'][1] === 'c');
   }
 
   function bubbleCss(s, p) {
-    const on = (k) => s[k + 'On'];
     const sel = `body:not(.ntr_book) ${MES_SEL[p]}`;
     const right = bubRight(s, p);
     const top = s.ovBubTailPos === 'top';
     const placed = avatarPlaced(s, p);
-    const clear = on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'clear';
+    const clear = on(s, `ov${p}Bg`) && s[`ov${p}Bg`] === 'clear';
     // Unticked, the bubble takes SillyTavern's own message color, so it always shows.
-    const fill = clear ? 'transparent' : on(`ov${p}Bg`) ? ovColorVal(s, `ov${p}BgColor`, `ov${p}BgOpacity`) : `var(${COLOR_FROM[`ov${p}BgColor`]})`;
-    const line = on(`ov${p}Border`) && s[`ov${p}Border`] === 'line';
+    const fill = clear ? 'transparent' : on(s, `ov${p}Bg`) ? bgColor(s, p) : `var(${COLOR_FROM[`ov${p}BgColor`]})`;
+    const line = on(s, `ov${p}Border`) && s[`ov${p}Border`] === 'line';
     const bw = line ? rangeNum(s, `ov${p}BorderWidth`) : 0;
-    const r = on(`ov${p}Shape`) ? ovRadius(s, p) : 15;
+    const r = on(s, `ov${p}Shape`) ? ovRadius(s, p) : 15;
     // A see-through bubble gets no tail: there's nothing to draw it in.
-    const tail = clear ? '' : BUB_TAILS[s.ovBubTail] || '';
+    const tail = clear ? '' : BUB_TAILS[s.ovBubTail];
     // Pointed and Curved grow out of the bubble's corner, so that corner is square.
     const cornerKey = `border-${top ? 'top' : 'bottom'}-${right ? 'right' : 'left'}-radius`;
     const squared = tail && s.ovBubTail !== 'thought';
     // Room for the tail between the bubble and the avatar.
     const room = tail ? (s.ovBubTail === 'thought' ? THOUGHT_PX : TAIL_PX) + 4 : 0;
-    const ink = BUB_INK[s.ovBubInk] || '';
-    const noBlur = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
+    const ink = BUB_INK[s.ovBubInk];
 
     // The message itself loses SillyTavern's box, unless NTR Avatars draws the picture behind it.
-    let css = placed ? '' : cssRule(sel, { 'background-color': 'transparent', border: 'none', 'box-shadow': 'none', ...noBlur });
+    let css = placed ? '' : cssRule(sel, { 'background-color': 'transparent', border: 'none', 'box-shadow': 'none', ...NO_BLUR });
     css += cssRule(sel, { 'flex-direction': 'row' });
     if (!placed) css += cssRule(`${sel} .mesAvatarWrapper`, { order: right ? '1' : '0' });
     if (right) css += cssRule(`${sel} .ch_name`, { 'flex-direction': 'row-reverse' }) + cssRule(`${sel} .ch_name > .flex1`, { 'justify-content': 'flex-end' });
@@ -153,7 +150,7 @@
       width: s.ovBubFit === 'shrink' ? 'fit-content' : '', 'max-width': `${rangeNum(s, 'ovBubWidth')}%`,
       'margin-left': right ? 'auto' : `${room}px`, 'margin-right': right ? `${room}px` : 'auto',
       padding: '8px 12px', 'border-radius': `${r}px`, ...(squared ? { [cornerKey]: '0' } : {}),
-      'background-color': fill, border: line ? ovBorderVal(s, p) : 'none', ...(clear ? noBlur : {}),
+      'background-color': fill, border: line ? ovBorderVal(s, p) : 'none', ...(clear ? NO_BLUR : {}),
       color: ink, 'text-shadow': ink ? 'none' : '',
     });
     // While editing, the box gets the whole width.
@@ -203,12 +200,12 @@
     const chat = document.getElementById('chat');
     if (!chat) return;
     const s = settings();
-    const on = bubblesOn(s) && s.ovBubGroup === 'group';
+    const grouped = bubblesOn(s) && s.ovBubGroup === 'group';
     const page = window.NTR.reader?.page?.();
     const shown = (m) => !page || (Number(m.getAttribute('mesid')) >= page[0] && Number(m.getAttribute('mesid')) <= page[1]);
     let prev = null;
     for (const m of chat.querySelectorAll(':scope > .mes')) {
-      const same = on && !!prev && shown(prev) && shown(m) && prev.getAttribute('is_user') === m.getAttribute('is_user') && prev.getAttribute('ch_name') === m.getAttribute('ch_name');
+      const same = grouped && !!prev && shown(prev) && shown(m) && prev.getAttribute('is_user') === m.getAttribute('is_user') && prev.getAttribute('ch_name') === m.getAttribute('ch_name');
       m.classList.toggle('ntr_bub_prev', same);
       if (prev) prev.classList.toggle('ntr_bub_next', same);
       prev = m;
@@ -238,7 +235,7 @@
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key) => rangeSlider(s, key);
     const shape = (p) => ovShapeRow(s, p);
-    const bg = (p, hint = '') => ovBgRow(s, p, hint);
+    const bg = (p) => ovBgRow(s, p);
     const border = (p) => ovBorderRow(s, p);
     return pageHtml('display', `
           <div class="cb_hint">Changes how ST looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
@@ -294,7 +291,6 @@
     });
   }
 
-  // What index.js calls.
   window.NTR.decor = {
     version: DECOR_VERSION,
     sectionHtml: displaySectionHtml,

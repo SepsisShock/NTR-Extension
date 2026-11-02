@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.38';
+  const VERSION = '2.86.39';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1716,8 +1716,8 @@ await (async () => {
   // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
   const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
     + ovWhen(`ov${p}Shape`, 'rounded', ovLabel('Roundness', rangeSlider(s, `ov${p}Round`))));
-  const ovBgRow = (s, p, hint = '') => ovRow(s, `ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
-    + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BgOpacity`))) + hint);
+  const ovBgRow = (s, p) => ovRow(s, `ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
+    + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BgOpacity`))));
   const ovBorderRow = (s, p) => ovRow(s, `ov${p}BorderOn`, 'Border', ovPick(s, `ov${p}Border`, [['none', 'None'], ['line', 'Line']])
     + ovWhen(`ov${p}Border`, 'line', ovLabel('Line Color', ovColor(s, `ov${p}BorderColor`)) + ovLabel('Thickness', rangeSlider(s, `ov${p}BorderWidth`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BorderOpacity`))));
 

@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.38';
+  const ELEMENTS_VERSION = '2.86.39';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -996,7 +996,7 @@
   for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, onCursorUp, true);
   window.addEventListener('blur', onCursorUp);
 
-  // What index.js calls. sync runs while NTR is off too: that's what takes the labels, details and Custom CSS away.
+  // sync runs while NTR is off too: that's what takes the labels, details and Custom CSS away.
   window.NTR.elements = {
     version: ELEMENTS_VERSION,
     sectionHtml: elementsSectionHtml,

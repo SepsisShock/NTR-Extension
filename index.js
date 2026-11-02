@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.39';
+  const VERSION = '2.86.40';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2397,8 +2397,8 @@ await (async () => {
     }
     // The Global banner's images and links get the same checks as a card's banner.
     if (out.bannerGlobal) out.bannerGlobal = cleanGlobalBanner(out.bannerGlobal);
-    // Tag symbols and keywords must pass the menu's Apply check, with the current ones filling in any the theme doesn't have.
-    // If they clash, all of them are left out and the current ones stay.
+    // Tag symbols and keywords must pass the menu's Apply check, with the user's own filling in any the theme doesn't have.
+    // If they clash, all of them are left out and the user's own stay.
     if (sec === 'vn' && TAG_KEYS.some((k) => k in out)) {
       const s = settings();
       if (validateDelims(Object.fromEntries(TAG_KEYS.map((k) => [k, k in out ? out[k] : s[k]]))).errs.length) for (const k of TAG_KEYS) delete out[k];

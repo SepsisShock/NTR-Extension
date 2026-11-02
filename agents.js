@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.39';
+  const AGENTS_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -587,7 +587,7 @@
   // While a Same as Chat run builds its request, its ticked samplers replace the chat preset's in that one request. Only
   // samplers SillyTavern already put in it are replaced, so one the chat's API doesn't take stays out. Reasoning
   // Effort is different for each API (Auto leaves it out for some), so SillyTavern works it out: the agent's choice
-  // stands in the Chat Completion settings only while the request is built, and the user's is back as soon as it's ready.
+  // stands in the Chat Completion settings only while the request is built, and the user's setting is back as soon as it's ready.
   // A chat reply started meanwhile keeps the chat preset's samplers. Returns the function that stops listening.
   function ownSamplers(a, c) {
     const ev = OWN_SAMP_API[c.mainApi];
@@ -1275,7 +1275,7 @@
     box.innerHTML = open ? macListHtml() : '';
   }
   // Preview Prompt, under Reports: it shows what the agent sends, for every part of its settings. It stays open
-  // while they're being changed, until Collapse All or a reload.
+  // while its settings are changed, until Collapse All or a reload.
   let prevOpen = false;
   const prevBtn = () => `<i class="fa-solid ${prevOpen ? 'fa-eye-slash' : 'fa-eye'}"></i>${prevOpen ? 'Hide Preview' : 'Preview Prompt'}`;
   const prevRowHtml = (a) => `

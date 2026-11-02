@@ -8,7 +8,7 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 ## Ground Rules
 
-1. Edit files only when explicitly requested.
+1. Edit files when explicitly requested or noted per instructions in this file.
 2. For GitHub tasks, use the GitHub Connector, because otherwise it will fail.
 3. If a call fails, retry the same call just once. After that, change the approach or report the blocker.
 4. Before posting, confirm the repository belongs to `SepsisShock`. Posting anywhere else needs explicit permission.

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.35';
+  const VERSION = '2.86.37';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -265,7 +265,7 @@ await (async () => {
     if (!cleaned.has(s.frameLib)) s.frameLib = cleanFrameLib(s.frameLib);
     s.frameHidden = Array.isArray(s.frameHidden) ? FRAME_SERIES.map((f) => f.id).filter((id) => s.frameHidden.includes(id)) : [];
     if (!cleaned.has(s.frameFits)) s.frameFits = cleanFrameFits(s.frameFits);
-    if (!cleaned.has(s.layPins)) { s.layPins = cleanPins(s.layPins); cleaned.add(s.layPins); }
+    if (!cleaned.has(s.layPins)) s.layPins = cleanPins(s.layPins);
   }
 
   // ===== Pop-out pictures and foreground images =====
@@ -410,7 +410,7 @@ await (async () => {
   // Saved blocks, and blocks from theme files, made safe to use.
   function cleanPins(v) {
     const ids = new Set();
-    return cList(v, PIN_MAX, (p) => {
+    const out = cList(v, PIN_MAX, (p) => {
       let id = cRef(p.id);
       if (!id || ids.has(id)) id = newId('pin');
       ids.add(id);
@@ -432,6 +432,8 @@ await (async () => {
         phone: pinRect(p.phone, PIN_START.phone),
       };
     });
+    cleaned.add(out);
+    return out;
   }
 
   // ===== NTR's main stylesheet (aw_dynamic_style) =====
@@ -667,7 +669,7 @@ await (async () => {
     const d = cardData(key);
     let r;
     if (d) {
-      if (!d.banner || typeof d.banner !== 'object') {
+      if (!d.banner) {
         if (s.chars[key]) { d.banner = structuredClone(s.chars[key]); cleanBanner(d.banner); legacyMoved.add(key); scheduleCardFlush(key); }
         else d.banner = defaultBanner();
       }
@@ -677,8 +679,6 @@ await (async () => {
       r = s.chars[key];
       if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
     }
-    const def = defaultBanner();
-    for (const k of Object.keys(def)) if (r[k] === undefined) r[k] = def[k];
     return r;
   };
 
@@ -1992,9 +1992,7 @@ await (async () => {
   function fgData() {
     const st = store();
     if (!st) return FG_DEF();
-    if (!st.fg || typeof st.fg !== 'object') st.fg = FG_DEF();
-    const def = FG_DEF();
-    for (const k of Object.keys(def)) if (st.fg[k] === undefined) st.fg[k] = def[k];
+    if (!st.fg) st.fg = FG_DEF();
     return st.fg;
   }
 
@@ -2140,7 +2138,7 @@ await (async () => {
     try {
       return await removeNow(opts);
     } catch (e) {
-      // Nothing was removed, so saving goes back on, and any card edit that was waiting to save gets saved.
+      // Removal didn't finish, so saving goes back on, and any card edit that was waiting to save gets saved.
       wiping = false;
       for (const key of cardSnap.keys()) scheduleCardFlush(key);
       throw e;
@@ -2160,16 +2158,19 @@ await (async () => {
       const withData = c.characters.filter((ch) => ch?.data?.extensions?.ntr);
       for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
       if (typeof c.writeExtensionFieldBulk === 'function' && unset) {
-        // A failed save doesn't throw, it only leaves the card out of `updated`.
-        const done = new Set((await c.writeExtensionFieldBulk(null, 'ntr', unset))?.updated || []);
+        // A failed save doesn't throw; the card is in neither `updated` nor `skipped` (no NTR data on file, nothing to remove).
+        const r = await c.writeExtensionFieldBulk(null, 'ntr', unset);
+        const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
         const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
         if (missed) {
-          throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so nothing was removed. Check the SillyTavern console.`);
+          throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so removal didn't finish. Check the SillyTavern console.`);
         }
+        // SillyTavern clears memory only for `updated`; unsaved data on a `skipped` card would put its files in `keep` below.
+        for (const ch of withData) delete ch.data.extensions.ntr;
       } else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});
       for (const k of CHAR_SETTINGS) {
         collectFileRefs(s[k], gone);
-        if (k in DEFAULTS) s[k] = structuredClone(DEFAULTS[k]); else delete s[k];
+        s[k] = structuredClone(DEFAULTS[k]);
       }
     }
     if (look) {
@@ -2983,7 +2984,11 @@ await (async () => {
     onPills(overlay, 'rdper', (v) => { s.rdPer = v; save(); window.NTR.reader?.refresh(); });
     onPills(overlay, 'rdstyle', async (v) => {
       if (v !== 'vn') s.rdStyle = v;
-      if (v === 'vn' || s.nodeEnabled) await setReader(s.rdEnabled || v === 'vn', v === 'vn');
+      if (v === 'vn' || s.nodeEnabled) {
+        await setReader(s.rdEnabled || v === 'vn', v === 'vn');
+        updateAvatarStyle();
+        return;
+      }
       updateAvatarStyle();
       // The picked style's part opens.
       openStyleGroup(s);

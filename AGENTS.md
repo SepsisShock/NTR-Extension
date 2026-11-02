@@ -1,6 +1,6 @@
-# NTR-Extension: ChatGPT Instructions
+# ChatGPT Instructions
 
-Nitwit Tavern Redesign (NTR) is a SillyTavern extension being developed for public release.
+[unreleased] Nitwit Tavern Redesign (NTR) is a non-profit SillyTavern extension being developed for public release, using minimal, lightweight code for users on slower devices.
 
 ## Communication
 
@@ -11,9 +11,16 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 - Edit files only when explicitly requested.
 - For GitHub tasks, use the GitHub Connector, because otherwise it will fail.
 - Use the review target set in the conversation.
-- Run tests and other shell commands with `timeout` (for example, `timeout 60 node --test tests/*.test.mjs`).
 - If a call fails, retry the same call just once. After that, change the approach or report the blocker.
 - Before posting, confirm the repository belongs to `SepsisShock`. Posting anywhere else needs explicit permission.
+
+### Codex Cloud Execution Requirements
+
+1. Before the first attempt at any Node test or Playwright/Chromium command, supply both execution-tool arguments:
+- `sandbox_permissions: "with_additional_permissions"`
+- `additional_permissions: {"network":{"enabled":true}}`
+2. Apply this even when the command makes no external requests: local Unix socket operations need this permission in the affected environment. Keep filesystem sandboxing enabled.
+3. If EPERM occurs, inspect the actual failed tool call and complete error. If the permission grant was omitted, retry once with it. If it was already approved, investigate other causes. If permission is denied or unavailable, report the exact limitation.
 
 ## Review Process
 
@@ -45,13 +52,13 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 - In the overall comment, say what you inspected and any limits, and whether you tested runtime behavior in SillyTavern. Keep tests you ran separate from existing CI results. Don't claim a reproduction based on reading code alone.
 - With no findings, the overall comment says no issues worth flagging were found.
 
-## Submitting Reviews
+### Submitting Reviews For Open PRs
 
-- Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
-- Never leave the review pending.
-- In chat, give a short summary and the review link.
+1. Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
+2. Never leave the review pending.
+3. In chat, give a short summary and the review link.
 
-## Review Skills
+## Special Review Skills
 
 Open the skill files below only when it's requested. Submit findings following the "Submitting Reviews" guidelines:
 - "cleancom" or "$cleancom": follow [.agents/skills/cleancom/SKILL.md](.agents/skills/cleancom/SKILL.md).

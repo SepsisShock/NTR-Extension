@@ -10,7 +10,7 @@
 - Everywhere: No em dashes, use semicolons or colons instead.
 
 ### UI Copy (Helper text and Tooltips)
-- Use general, succint language.
+- Use general terms, succinct language.
 - Omit unless a setting's behavior is not obvious from its label.
 
 ### Source Code Comments

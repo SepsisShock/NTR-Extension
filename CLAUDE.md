@@ -1,6 +1,6 @@
-# NTR-Extension (Nitwit Tavern Redesign)
+# NTR-Extension
 
-SillyTavern extension. NTR is being developed for public release.
+Nitwit Tavern Redesign (NTR) is a non-profit SillyTavern extension being developed for public release, using minimal, lightweight code for users on slower devices.
 
 ## Communication
 - Plain language. No em dashes; use semicolons or colons.
@@ -10,8 +10,8 @@ SillyTavern extension. NTR is being developed for public release.
 - Omit helper text and tooltips unless a setting's behavior is not obvious from its label.
 
 ## Source Code Comments
-- Comments are read only by LLMs, not humans; when in doubt, write none.
 - Use literal and succinct language.
+- Comments are read only by LLMs, not humans; when in doubt, write none.
 
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.

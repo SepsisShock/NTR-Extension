@@ -8,6 +8,7 @@
 
   // The AI and User messages.
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
+  const NO_BLUR = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
 
   // Interface Shape for the rest of the interface: SillyTavern's Menu Bar, drawers, side panels, menus and popups, and NTR's
   // own windows. Every corner follows it, wherever the part sits, even against the screen edge. Boxes inside them are a
@@ -49,15 +50,13 @@
     if (!s.ovEnabled) return '';
     let css = '';
     const on = (k) => s[k + 'On'];
-    const color = (k, opacity) => ovColorVal(s, k, opacity);
     const radius = (p) => ovRadius(s, p);
     const border = (p) => ovBorderVal(s, p);
-    const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : color(`ov${p}BgColor`, `ov${p}BgOpacity`));
+    const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : ovColorVal(s, `ov${p}BgColor`, `ov${p}BgOpacity`));
     const separate = sendSeparate(s);
-    const noBlur = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
 
     // Chat panel. Transparent also clears the boxes around it, as Make Chat Panel Transparent did.
-    if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...noBlur, border: 'none', 'box-shadow': 'none' });
+    if (on('ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...NO_BLUR, border: 'none', 'box-shadow': 'none' });
     else if (on('ovPanelBg')) css += cssRule('#chat', { 'background-color': fill('Panel') });
     // No line along the top, which stays flush with SillyTavern's top bar. The corners and the bottom line follow joinCss.
     const line = on('ovPanelBorder') && s.ovPanelBorder !== 'none';
@@ -77,7 +76,7 @@
       css += cssRule(sel, {
         'border-radius': r,
         'background-color': on(`ov${p}Bg`) ? fill(p) : '',
-        ...(on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'clear' ? noBlur : {}),
+        ...(on(`ov${p}Bg`) && s[`ov${p}Bg`] === 'clear' ? NO_BLUR : {}),
         border: on(`ov${p}Border`) ? border(p) : '',
         padding: boxed && !ntrAvatars(s, p.toLowerCase()) ? '10px' : '',
       });
@@ -87,7 +86,7 @@
     const sr = on('ovSendShape') ? radius('Send') : null;
     // #form_sheld in front: SillyTavern's Fast UI gives the send box its color with a stronger rule.
     css += cssRule('#form_sheld #send_form', {
-      ...(on('ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...noBlur } : { 'background-color': on('ovSendBg') ? fill('Send') : '' }),
+      ...(on('ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...NO_BLUR } : { 'background-color': on('ovSendBg') ? fill('Send') : '' }),
       border: on('ovSendBorder') ? border('Send') : '',
       // Bars other extensions put inside it, with their own square backgrounds, follow its rounded corners.
       // SillyTavern's own menus open outside it, so nothing gets cut off.
@@ -118,7 +117,7 @@
   // Anywhere else, the avatar goes to its message's side.
   function avatarPlaced(s, p) {
     const prefix = p.toLowerCase();
-    return ntrAvatars(s, prefix) && (s[prefix + 'Style'] !== 'inline' || String(s[prefix + 'Side'])[1] === 'c');
+    return ntrAvatars(s, prefix) && (s[prefix + 'Style'] !== 'inline' || s[prefix + 'Side'][1] === 'c');
   }
 
   function bubbleCss(s, p) {
@@ -134,17 +133,16 @@
     const bw = line ? rangeNum(s, `ov${p}BorderWidth`) : 0;
     const r = on(`ov${p}Shape`) ? ovRadius(s, p) : 15;
     // A see-through bubble gets no tail: there's nothing to draw it in.
-    const tail = clear ? '' : BUB_TAILS[s.ovBubTail] || '';
+    const tail = clear ? '' : BUB_TAILS[s.ovBubTail];
     // Pointed and Curved grow out of the bubble's corner, so that corner is square.
     const cornerKey = `border-${top ? 'top' : 'bottom'}-${right ? 'right' : 'left'}-radius`;
     const squared = tail && s.ovBubTail !== 'thought';
     // Room for the tail between the bubble and the avatar.
     const room = tail ? (s.ovBubTail === 'thought' ? THOUGHT_PX : TAIL_PX) + 4 : 0;
-    const ink = BUB_INK[s.ovBubInk] || '';
-    const noBlur = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
+    const ink = BUB_INK[s.ovBubInk];
 
     // The message itself loses SillyTavern's box, unless NTR Avatars draws the picture behind it.
-    let css = placed ? '' : cssRule(sel, { 'background-color': 'transparent', border: 'none', 'box-shadow': 'none', ...noBlur });
+    let css = placed ? '' : cssRule(sel, { 'background-color': 'transparent', border: 'none', 'box-shadow': 'none', ...NO_BLUR });
     css += cssRule(sel, { 'flex-direction': 'row' });
     if (!placed) css += cssRule(`${sel} .mesAvatarWrapper`, { order: right ? '1' : '0' });
     if (right) css += cssRule(`${sel} .ch_name`, { 'flex-direction': 'row-reverse' }) + cssRule(`${sel} .ch_name > .flex1`, { 'justify-content': 'flex-end' });
@@ -153,7 +151,7 @@
       width: s.ovBubFit === 'shrink' ? 'fit-content' : '', 'max-width': `${rangeNum(s, 'ovBubWidth')}%`,
       'margin-left': right ? 'auto' : `${room}px`, 'margin-right': right ? `${room}px` : 'auto',
       padding: '8px 12px', 'border-radius': `${r}px`, ...(squared ? { [cornerKey]: '0' } : {}),
-      'background-color': fill, border: line ? ovBorderVal(s, p) : 'none', ...(clear ? noBlur : {}),
+      'background-color': fill, border: line ? ovBorderVal(s, p) : 'none', ...(clear ? NO_BLUR : {}),
       color: ink, 'text-shadow': ink ? 'none' : '',
     });
     // While editing, the box gets the whole width.
@@ -238,7 +236,7 @@
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     const sl = (key) => rangeSlider(s, key);
     const shape = (p) => ovShapeRow(s, p);
-    const bg = (p, hint = '') => ovBgRow(s, p, hint);
+    const bg = (p) => ovBgRow(s, p);
     const border = (p) => ovBorderRow(s, p);
     return pageHtml('display', `
           <div class="cb_hint">Changes how ST looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>

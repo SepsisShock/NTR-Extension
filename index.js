@@ -2158,14 +2158,15 @@ await (async () => {
       const withData = c.characters.filter((ch) => ch?.data?.extensions?.ntr);
       for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
       if (typeof c.writeExtensionFieldBulk === 'function' && unset) {
-        // A failed save doesn't throw; the card is in neither `updated` nor `skipped`. `skipped` means no NTR data on file,
-        // so there is nothing to remove.
+        // A failed save doesn't throw; the card is in neither `updated` nor `skipped` (no NTR data on file, nothing to remove).
         const r = await c.writeExtensionFieldBulk(null, 'ntr', unset);
         const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
         const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
         if (missed) {
           throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so nothing was removed. Check the SillyTavern console.`);
         }
+        // SillyTavern clears memory only for `updated`; unsaved data on a `skipped` card would put its files in `keep` below.
+        for (const ch of withData) delete ch.data.extensions.ntr;
       } else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});
       for (const k of CHAR_SETTINGS) {
         collectFileRefs(s[k], gone);

@@ -1,5 +1,5 @@
 (() => {
-  const AVATARS_VERSION = '2.86.37';
+  const AVATARS_VERSION = '2.86.38';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -130,12 +130,12 @@
   // A side's Frame picture: a built-in frame, or one of yours (a link).
   const frameSrc = (s, prefix) => frameUrl(s[prefix + 'Frame']) || s[prefix + 'FrameImg'];
   // The Frame library's folders as shown: the built-in ones you haven't hidden, then yours. Each frame has its tile
-  // value (id), name and picture (src); yours also have their link (img).
+  // value (id), name and picture (src).
   function frameFolders(s) {
     return [
-      ...FRAME_SERIES.filter((f) => !s.frameHidden.includes(f.id)).map((f) => ({ id: f.id, name: f.name, builtin: true,
+      ...FRAME_SERIES.filter((f) => !s.frameHidden.includes(f.id)).map((f) => ({ id: f.id, name: f.name,
         frames: f.frames.map(([v, name]) => ({ id: `${f.id}/${v}`, name, src: frameUrl(`${f.id}/${v}`) })) })),
-      ...s.frameLib.folders.map((f) => ({ id: f.id, name: f.name, own: f, frames: f.frames.map((fr) => ({ id: fr.id, name: fr.name, src: fr.img, img: fr.img })) })),
+      ...s.frameLib.folders.map((f) => ({ id: f.id, name: f.name, own: f, frames: f.frames.map((fr) => ({ id: fr.id, name: fr.name, src: fr.img })) })),
     ];
   }
   // A side's frame in the library: { folder, frame }, { other: true } for a picture that isn't in it (from a theme),
@@ -145,13 +145,13 @@
     if (FRAME_IDS.includes(b)) {
       const f = FRAME_SERIES.find((x) => b.startsWith(x.id + '/'));
       const [, name] = f.frames.find(([v]) => `${f.id}/${v}` === b);
-      return { folder: { id: f.id, name: f.name, builtin: true }, frame: { id: b, name } };
+      return { folder: { id: f.id, name: f.name }, frame: { id: b, name } };
     }
     const img = s[prefix + 'FrameImg'];
     if (!img) return null;
     for (const f of s.frameLib.folders) {
       const fr = f.frames.find((x) => x.img === img);
-      if (fr) return { folder: { id: f.id, name: f.name, own: f }, frame: { id: fr.id, name: fr.name, img } };
+      if (fr) return { folder: { id: f.id, name: f.name, own: f }, frame: { id: fr.id, name: fr.name } };
     }
     return { other: true };
   }
@@ -225,7 +225,6 @@
     const leftFade = n('FadeLeft');
     const rightFade = n('FadeRight');
     const look = lookCss(s, prefix);
-    const zoom = n('Zoom') / 100;
     const turn = n('Rotate');
     const turnCss = turn ? ` rotate(${turn}deg)` : '';
     const frame = style !== 'backdrop' ? frameOf(s, prefix) : null;
@@ -283,18 +282,7 @@
     // --cb-ar is the picture's shape and --cb-nw its own width (see setAvatarRatio).
     const ar = 'var(--cb-ar, 0.6667)';
     const framed = !!shape;
-    // Backdrop's box is a frame placed by Position, no taller than the message, which clips it to its own corners. A
-    // shape's frame is the shape. None's is the picture's own shape, Picture Size wide, or the picture's own width with
-    // Use Picture's Own Size. In a short message Shrink Picture shrinks it to show the whole picture; Crop Picture and
-    // Use Picture's Own Size keep their width and get cut off.
     const pictureW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
-    const boxH = framed ? `${frameH}px` : `calc(${pictureW} / ${ar})`;
-    const boxAR = framed ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
-    const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
-      + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
-      + ` height: min(100%, ${boxH}) !important;${boxAR ? ` aspect-ratio: ${boxAR} !important;` : ''}`
-      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'})${turnCss} !important;`;
-    const boxW = boxAR ? 'auto' : pictureW;
 
     // Fade Strength bends every fade the same way. At 50% a fade goes evenly from gone at the edge to all there where it
     // ends; lower keeps more of the picture in it (0%: no fade), higher less (100%: the faded part is gone). u is the
@@ -392,6 +380,17 @@
     `;
     }
 
+    // Backdrop's box is a frame placed by Position, no taller than the message, which clips it to its own corners. A
+    // shape's frame is the shape; None's is the picture's own shape, pictureW wide. In a short message Shrink Picture
+    // shrinks it to show the whole picture; Crop Picture and Use Picture's Own Size keep their width and get cut off.
+    const boxH = framed ? `${frameH}px` : `calc(${pictureW} / ${ar})`;
+    const boxAR = framed ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
+    const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
+      + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
+      + ` height: min(100%, ${boxH}) !important;${boxAR ? ` aspect-ratio: ${boxAR} !important;` : ''}`
+      + ` transform: translate(${h === 'c' ? '-50%' : '0'}, ${v === 'c' ? '-50%' : '0'})${turnCss} !important;`;
+    const boxW = boxAR ? 'auto' : pictureW;
+
     return `
       .mes[is_user="${isUserStr}"] .avatar {
         position: absolute !important; ${boxPos}
@@ -423,9 +422,10 @@
   // The open menu's refresh of each side's rows (see bindCol), for a picture that loads while it's open.
   const colSyncs = {};
 
-  // NTR's Backdrop shows the full-size picture, not SillyTavern's small thumbnail. It's loaded first and only swapped
-  // in once it's there: SillyTavern replaces a chat avatar that fails to load with a "missing" icon. SillyTavern puts its
-  // thumbnail back when it redraws a message in place (a swipe, a finished reply), so it's swapped in again then.
+  // In Line and Backdrop show the full-size picture, not SillyTavern's small thumbnail. It's loaded first and only
+  // swapped in once it's there: SillyTavern replaces a chat avatar that fails to load with a "missing" icon.
+  // SillyTavern puts its thumbnail back when it redraws a message in place (a swipe, a finished reply), so it's swapped
+  // in again then.
   function fullAvatar(img) {
     const src = img.getAttribute('src');
     // Already the full-size picture.
@@ -601,7 +601,7 @@
   // None first. Your own folders get Upload Frame.
   function frameLibHtml(s, prefix, open) {
     const shown = frameFolders(s);
-    const f = shown.find((x) => x.id === open) || shown[0];
+    const f = shown.find((x) => x.id === open);
     const now = frameNow(s, prefix);
     const cur = !now ? '' : now.frame?.id || null;
     const opts = [['', 'None'], ...f.frames.map((fr) => [fr.id, fr.name, `<img src="${escapeHTML(fr.src)}" alt="" decoding="async">`])];

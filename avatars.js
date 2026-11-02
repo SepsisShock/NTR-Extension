@@ -1,5 +1,5 @@
 (() => {
-  const AVATARS_VERSION = '2.86.39';
+  const AVATARS_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -127,9 +127,9 @@
   // Whether a side's Rotation turns the shape alone (Keep Picture Upright), and not the picture with it.
   const shapeOnly = (s, prefix) => !!shapeOf(s, prefix) && s[`${prefix}RotateMode`] !== 'both' && rangeNum(s, prefix + 'Rotate') !== 0;
 
-  // A side's Frame picture: a built-in frame, or one of yours (a link).
+  // A side's Frame picture: a built-in frame, or an uploaded one (a link).
   const frameSrc = (s, prefix) => frameUrl(s[prefix + 'Frame']) || s[prefix + 'FrameImg'];
-  // The Frame library's folders as shown: the built-in ones you haven't hidden, then yours. Each frame has its tile
+  // The Frame library's folders as shown: the built-in ones not hidden, then the user's own. Each frame has its tile
   // value (id), name and picture (src).
   function frameFolders(s) {
     return [
@@ -584,7 +584,7 @@
     return { FrameSize: val('FrameSize', k * 100), FrameX: val('FrameX', -dx * k * m * 100), FrameY: val('FrameY', -dy * k * m * 100) };
   }
 
-  // The Frame row's name: the frame and its folder, Your picture for one that isn't in the library, or No Frame.
+  // The Frame row's name: the frame and its folder, 'Your picture' for one that isn't in the library, or No Frame.
   function frameNameHtml(s, prefix) {
     const now = frameNow(s, prefix);
     if (!now) return 'No Frame';
@@ -598,7 +598,7 @@
     return (shown.find((f) => f.id === id) || shown[0])?.id || '';
   }
   // The library under the Frame row: a pill for each folder with the More menu, then the open folder's frames as tiles,
-  // None first. Your own folders get Upload Frame.
+  // None first. The user's own folders get Upload Frame.
   function frameLibHtml(s, prefix, open) {
     const shown = frameFolders(s);
     const f = shown.find((x) => x.id === open);
@@ -799,7 +799,7 @@
         drawFrame();
         updateAvatarStyle();
       };
-      // Picks a frame by its tile value: a built-in frame, one of yours, or '' for none. A frame this side hasn't used
+      // Picks a frame by its tile value: a built-in frame, an uploaded one, or '' for none. A frame this side hasn't used
       // before gets Fit to Hole.
       const pickFrame = async (v) => {
         const own = s.frameLib.folders.flatMap((f) => f.frames).find((fr) => fr.id === v);
@@ -831,7 +831,7 @@
       redraws.push(() => { drawLib(); drawFrame(); frameSliders(); });
       // After a change to the library, both columns show it.
       const libChanged = () => { save(); updateAvatarStyle(); redraws.forEach((fn) => fn()); };
-      // Your folder names are kept different from each other and from the built-in ones.
+      // The user's folder names are kept different from each other and from the built-in ones.
       const nameCheck = (self) => (v) => {
         if (!v) return { error: 'Type a name.' };
         if ([...FRAME_SERIES, ...s.frameLib.folders].some((x) => x !== self && x.name.toLowerCase() === v.toLowerCase())) return { error: 'A folder with that name already exists.' };

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.39';
+  const VERSION = '2.86.40';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -19,7 +19,7 @@ await (async () => {
     bannerGlobal: { images: [], idx: 0, youtubeUrl: '', video: '', videoPos: 50 },
     chars: {},
     avatarEnabled: true,
-    // The Frame library: your own folders of uploaded frames, the built-in folders you've hidden, and each side's fit
+    // The Frame library: the user's own folders of uploaded frames, the hidden built-in folders, and each side's fit
     // (Frame Size, Left/Right, Up/Down) for each frame it has used.
     frameLib: { folders: [{ id: 'frf_mine', name: 'My Frames', frames: [] }] }, frameHidden: [], frameFits: { ai: {}, us: {} },
 
@@ -62,14 +62,14 @@ await (async () => {
     layPhPage: 'attached', layPhPageX: 0, layPhPageB: 12, layPhPageW: 100,
     layPhBan: 'attached', layPhBanX: 0, layPhBanY: 6, layPhBanW: 100, layPhBanH: 15,
 
-    // Reader Mode (reader.js): the chat a page at a time. Per Page is 'pair' (your message and the replies after it) or 'one'.
+    // Reader Mode (reader.js): the chat a page at a time. Per Page is 'pair' (a user message and the replies after it) or 'one'.
     rdEnabled: false, rdPer: 'pair',
     // Its look, in themes: Standard or Book. An empty picture is the built-in book, and the page areas start as its own:
     // where the text sits on the picture, as a % of its height (Top, Bottom) or width (Outer edge, Spine gap).
     rdStyle: 'plain', rdBook: 'brown', rdBookImg: '', rdBookW: 90, rdBookTop: 13, rdBookBottom: 15, rdBookOuter: 11, rdBookSpine: 11,
     rdInk: '#2b2118', rdInkEm: '#6b4f2a', rdInkQuote: '#7a2e1e', rdBookFontOn: false, rdBookFont: '', rdFlip: true,
 
-    // Agents page (agents.js): your agents (each with its own job, connection, samplers and limits; see clean in agents.js),
+    // Agents page (agents.js): the user's agents (each with its own job, connection, samplers and limits; see clean in agents.js),
     // the one picked in the menu, and the departments grouping them (see depts in agents.js). Not in themes.
     agEnabled: false, agents: [], agPick: '', agDepts: [],
 
@@ -134,7 +134,7 @@ await (async () => {
     ovScrollCssOn: false, ovScrollCss: '',
     ovCursorOn: false, ovCursorImg: '', ovCursorPtrImg: '', ovCursorDownImg: '', ovCursorTextImg: '', ovCursorSize: 32,
     ovCursorCssOn: false, ovCursorCss: '',
-    // Menu Bar Icons (Elements): your own pictures for the icons on SillyTavern's menu bar, keyed by the id of each icon's
+    // Menu Bar Icons (Elements): custom pictures for the icons on SillyTavern's menu bar, keyed by the id of each icon's
     // drawer (see menuBarIconCss in elements.js). Each is { img, mode: 'tint' or 'full', name }.
     mbOn: false, mbIcons: {},
     // Message Details (Elements): which details show in each spot, and their look (see messageDetailsCss in elements.js).
@@ -1149,7 +1149,7 @@ await (async () => {
     ['regex', 'fa-code', 'Regexes', 'Regexes'],
     ['agents', 'fa-robot', 'Agents', 'Agents'],
   ];
-  // Lines in the column: Themes and Reader Mode, then your look (Layout to Overlays), then the pages that work on the chat itself.
+  // Lines in the column: Themes and Reader Mode, then the look settings (Layout to Overlays), then the pages that work on the chat itself.
   const NAV_SEP = new Set(['layout', 'regex']);
   const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
     `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
@@ -2397,8 +2397,8 @@ await (async () => {
     }
     // The Global banner's images and links get the same checks as a card's banner.
     if (out.bannerGlobal) out.bannerGlobal = cleanGlobalBanner(out.bannerGlobal);
-    // Tag symbols and keywords must pass the menu's Apply check, with your own filling in any the theme doesn't have.
-    // If they clash, all of them are left out and yours stay.
+    // Tag symbols and keywords must pass the menu's Apply check, with the user's own filling in any the theme doesn't have.
+    // If they clash, all of them are left out and the user's own stay.
     if (sec === 'vn' && TAG_KEYS.some((k) => k in out)) {
       const s = settings();
       if (validateDelims(Object.fromEntries(TAG_KEYS.map((k) => [k, k in out ? out[k] : s[k]]))).errs.length) for (const k of TAG_KEYS) delete out[k];
@@ -3012,7 +3012,7 @@ await (async () => {
       save();
       updateAvatarStyle();
       deleteFileIfUnused(old);
-      // Your own picture: no cover dot stays picked, so any dot can be picked to go back.
+      // A custom picture: no cover dot stays picked, so any dot can be picked to go back.
       if (url) { overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; }); renderPic(); } else openCombinedModal();
     };
     overlay.querySelector('#m_rd_up').onclick = () => file.click();
@@ -3020,7 +3020,7 @@ await (async () => {
       const url = await askImageUrl('Book Picture', this, false);
       if (url) setPic(url);
     };
-    // With your own picture set, going back deletes it and resets the page areas, so it asks first.
+    // With a custom picture set, going back deletes it and resets the page areas, so it asks first.
     const backToBook = async (anchor) => !s.rdBookImg
       || askYes(anchor, 'Go back to the built-in book? Your picture is removed and the page areas reset.', 'Use Built-In Book', { danger: true });
     overlay.querySelector('#m_rd_clr').onclick = async function() { if (await backToBook(this)) setPic(''); };
@@ -3284,7 +3284,7 @@ await (async () => {
     for (const [name, anim] of [['USER_MESSAGE_RENDERED', true], ['MESSAGE_EDITED', false], ['MESSAGE_UPDATED', false], ['MESSAGE_DELETED', false]]) {
       if (event_types[name]) eventSource.on(event_types[name], () => { window.NTR.vn?.queue(anim); window.NTR.cast?.sync(); });
     }
-    // Your messages and system messages (/sys) can set off agents too; agents.js tells them apart.
+    // User messages and system messages (/sys) can set off agents too; agents.js tells them apart.
     if (event_types.USER_MESSAGE_RENDERED) eventSource.on(event_types.USER_MESSAGE_RENDERED, (id) => window.NTR.agents?.replied('sent', Number(id)));
     // A swipe to a new reply shows "..." until the reply arrives (see nodeSwiped in vn.js).
     if (event_types.MESSAGE_SWIPED) {
@@ -3369,5 +3369,5 @@ export async function onClean() {
 }
 
 // SillyTavern waits for this before it builds a reply's prompt (the manifest's generate_interceptor), so agents set off
-// by your message can get their answers into that reply.
+// by a user message can get their answers into that reply.
 globalThis.ntrBeforeReply = (_chat, _size, _abort, type) => window.NTR?.agents?.beforeReply(type);

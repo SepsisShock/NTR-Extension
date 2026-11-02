@@ -1,5 +1,5 @@
 (() => {
-  const MAP_VERSION = '2.86.39';
+  const MAP_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -148,7 +148,7 @@
     if (view.sel) { view.sel = null; prune(); render(); } else close();
   }
 
-  // Pins without a place or a map only make sense while you're setting them up.
+  // Pins without a place or a map only make sense during setup.
   function prune() {
     let gone = false;
     for (const m of maps()) {

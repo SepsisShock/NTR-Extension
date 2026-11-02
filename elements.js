@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.39';
+  const ELEMENTS_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -517,7 +517,7 @@
     return false;
   };
 
-  // Each detail's text for a message, or '' when it has none (a greeting has no reply time, your messages no model).
+  // Each detail's text for a message, or '' when it has none (a greeting has no reply time, user messages no model).
   function mdValue(id, mes, mesid, s) {
     const x = mes.extra || {};
     const secs = mes.gen_started && mes.gen_finished ? (new Date(mes.gen_finished) - new Date(mes.gen_started)) / 1000 : NaN;

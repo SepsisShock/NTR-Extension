@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.39';
+  const LAYOUT_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -66,7 +66,7 @@
     : it.pin ? document.querySelector(`#ntr_pin_layer > .ntr_pin[data-pin="${it.pin}"]`)
       : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_popf_${it.id}`));
 
-  // The part of a foreground image you can see: its box fills the whole side, with the picture at the bottom.
+  // The part of a foreground image that's visible: its box fills the whole side, with the picture at the bottom.
   function fgRect(el) {
     const r = el.getBoundingClientRect();
     const nw = el.naturalWidth, nh = el.naturalHeight, w = el.offsetWidth, h = el.offsetHeight;
@@ -611,7 +611,7 @@
       css += phone ? phonePanelCss(edge, bt) : deskPanelCss(edge, bt, up);
     }
 
-    // Send bar. Floating, it has its own place; its bottom edge stays put, so it grows upward as you type more lines.
+    // Send bar. Floating, it has its own place; its bottom edge stays put, so it grows upward as more lines are typed.
     if (v('Send') === 'free') {
       const w = n('SendW');
       css += cssRule('body #form_sheld', {
@@ -828,7 +828,7 @@
   }
 
   // ===== Pinned Blocks =====
-  // A block your regexes draw in the chat, like a tracker, shown in a box of its own on screen. NTR copies it from the
+  // A block the user's regexes draw in the chat, like a tracker, shown in a box of its own on screen. NTR copies it from the
   // newest message that has it, so SillyTavern's own message stays as it is, and can hide it in the messages. Pinned
   // Blocks are part of Layout, so Layout's switch counts. A block is remembered by the tag and classes of what was picked
   // in the chat, never as typed-in CSS, so a theme from someone else can't slip CSS in through it.
@@ -878,8 +878,8 @@
     }
     return m ? Number(m.getAttribute('mesid')) : null;
   }
-  // The message a block shows up to: the page you're on in Reader Mode, and with Where You're Reading, the message
-  // you're reading too. Null for the newest.
+  // The message a block shows up to: the current page in Reader Mode, and with Where You're Reading, the message
+  // being read too. Null for the newest.
   function pinUpTo(p) {
     const page = window.NTR.reader?.upTo() ?? null;
     const read = p.show === 'reading' ? pinRead : null;
@@ -1032,12 +1032,12 @@
       const body = box.querySelector('.ntr_pin_body');
       let src;
       if (p.from === 'agents') {
-        // In Reader Mode, the results up to the page you're on; with Where You're Reading, up to the message you're reading.
+        // In Reader Mode, the results up to the current page; with Where You're Reading, up to the message being read.
         // While a result is being edited in the box, the box stays on that result's message, so scrolling, turning the
         // page or a newer result coming in doesn't lose what's typed.
         const ed = body.querySelector('.ntr_agres_edit, .ntr_agf_input')?.closest('.ntr_agres');
         const upTo = ed && ed.dataset.mes !== '' ? Number(ed.dataset.mes) : pinUpTo(p);
-        // As of: the message you're reading, while it isn't the newest (pinRead stays null in Reader Mode and Visual
+        // As of: the message being read, while it isn't the newest (pinRead stays null in Reader Mode and Visual
         // Novel Mode, which pick the message themselves).
         src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, upTo, { pin: p.id, view: p.view, asOf: !ed && p.show === 'reading' ? pinRead : null });
         const key = src ? 'ag:' + src.key : '';
@@ -1236,7 +1236,7 @@
       changed();
       render();
     };
-    // A Dashboard: Agent Results docked right, with every agent, starting on the message you're reading. Past the
+    // A Dashboard: Agent Results docked right, with every agent, starting on the message being read. Past the
     // block's agent limit, agents that are on go in first.
     overlay.querySelector('#m_pin_dash').onclick = () => {
       if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Dashboard'); return; }
@@ -1288,7 +1288,7 @@
       const m = /^cbr_pin(place|show|frame|vn|from|height|view)-/.exec(t.name || '');
       if (!m || !t.checked) return;
       p[m[1]] = t.value;
-      // Each kind starts on its own Show: the message you're reading for a block, the newest for Agent Results.
+      // Each kind starts on its own Show: the message being read for a block, the newest for Agent Results.
       if (m[1] === 'from') p.show = t.value === 'agents' ? 'always' : 'reading';
       changed();
       if (m[1] === 'from' || m[1] === 'place') render();

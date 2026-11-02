@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.39';
+  const CAST_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -85,7 +85,7 @@
     return { left: [0, r.left], center: [r.left, r.width], right: [r.right, Math.max(0, W - r.right)] };
   }
   // Gives each speaker on stage a spot and keeps it while they stay. A spot from an Enter tag wins, and when two
-  // ask for the same one, the later Enter (later in `present`) gets it. Your persona prefers the right, everyone else the left.
+  // ask for the same one, the later Enter (later in `present`) gets it. The user's persona prefers the right, everyone else the left.
   function pickSpots(spots, present, wanted) {
     const persona = lc(ctx().name1);
     for (const k of [...spots.keys()]) if (!present.includes(k)) spots.delete(k);

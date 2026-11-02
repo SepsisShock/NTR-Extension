@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.39';
+  const AGENTS_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -12,7 +12,7 @@
     ['mistralai', 'Mistral'], ['xai', 'xAI'], ['groq', 'Groq'], ['cohere', 'Cohere'], ['perplexity', 'Perplexity'], ['nanogpt', 'NanoGPT'], ['chutes', 'Chutes'],
     ['electronhub', 'Electron Hub'], ['aimlapi', 'AI/ML API'], ['fireworks', 'Fireworks'], ['moonshot', 'Moonshot'], ['zai', 'Z.AI'], ['siliconflow', 'SiliconFlow'],
     ['custom', 'Custom (OpenAI-compatible)']];
-  // SillyTavern's Text Completion servers that run on your own computer. Some ask for a model name.
+  // SillyTavern's Text Completion servers that run on the user's own computer. Some ask for a model name.
   const TC = [['koboldcpp', 'KoboldCpp'], ['llamacpp', 'llama.cpp'], ['ollama', 'Ollama'], ['ooba', 'Text Generation WebUI (Oobabooga)'], ['tabby', 'TabbyAPI'],
     ['vllm', 'vLLM'], ['aphrodite', 'Aphrodite'], ['generic', 'Generic (OpenAI-compatible)']];
   const TC_MODEL = new Set(['ollama', 'tabby', 'vllm', 'aphrodite', 'generic']);
@@ -20,7 +20,7 @@
   const POST = [['', 'None'], ['merge', 'Merge consecutive roles (no tools)'], ['semi', 'Semi-strict (alternating roles; no tools)'],
     ['strict', 'Strict (user first, alternating roles; no tools)'], ['single', 'Single user message (no tools)'], ['merge_tools', 'Merge consecutive roles (with tools)'],
     ['semi_tools', 'Semi-strict (alternating roles; with tools)'], ['strict_tools', 'Strict (user first, alternating roles; with tools)']];
-  // The messages that can set off an agent after messages: AI replies, your messages, and system messages (/sys and
+  // The messages that can set off an agent after messages: AI replies, user messages, and system messages (/sys and
   // /narrator, which SillyTavern sends to the AI as system).
   const KINDS = [['ai', 'AI Replies'], ['user', 'Your Messages'], ['sys', 'System Messages']];
   // Samplers: the agent's field, its label, its range in NUM_RANGE, and its name in Chat Completion and Text Completion requests.
@@ -42,7 +42,7 @@
     send: false, sendWhere: 'chat', sendDepth: 1, sendRole: 'system', sendScan: false,
     answer: 'text', fields: [], reportsFrom: [],
   });
-  // Send to Main AI: where in your chat's prompt (SillyTavern's extension prompt places and roles).
+  // Send to Main AI: where in the chat's prompt (SillyTavern's extension prompt places and roles).
   const WHERE = [['chat', 'In Chat', 1], ['before', 'Before Main Prompt', 2], ['after', 'After Main Prompt', 0]];
   const ROLES = [['system', 'System', 0], ['user', 'User', 1], ['assistant', 'AI', 2]];
   // Margi, the example tracker: an ordinary agent, made by its button, to edit or delete like any other. Her button
@@ -372,7 +372,7 @@
     }
     return got;
   }
-  // One field's value from what was read. rules: Max Change applies (to the agent's answers, not to your own edits).
+  // One field's value from what was read. rules: Max Change applies (to the agent's answers, not to the user's own edits).
   function fieldValue(f, v, old, rules) {
     if (f.type === 'list') return v.map((x) => x.replace(/\s+/g, ' ').trim().slice(0, 200)).filter(Boolean).slice(0, f.cap);
     if (f.type === 'num') {
@@ -431,18 +431,18 @@
     return prev ? `${job}\n\nYour last result:\n${prev.text}` : job;
   }
 
-  // ----- Sent to your chat's prompt -----
+  // ----- Sent to the chat's prompt -----
   // Just before SillyTavern builds the prompt for a reply, each agent with Send to Main AI puts its current saved result
   // there, under its name. A swipe or Regenerate replaces the last reply, so the result sent is the one from before that
   // reply. At this point the reply is still in the chat (Regenerate removes it afterwards).
   const injKey = (id) => `ntr_agent_${id}`;
   const injected = new Set();
-  // An agent's own run with your chat's full prompt leaves its own result out, so it doesn't get it twice.
+  // An agent's own run with the chat's full prompt leaves its own result out, so it doesn't get it twice.
   let fullRun = null;
   // A run reads the agents it doesn't wait for as they were when it was asked for (o.snap: by agent id, the text, which
   // message it's on and that message's date, or null for none), so what it reads of an agent below it, or of one asked
   // for after it, doesn't depend on which run finishes first. snap is set while a run builds its own prompt; fullSnap
-  // while SillyTavern builds a full-prompt run's quiet request, and never counts for your own reply (chatBusy).
+  // while SillyTavern builds a full-prompt run's quiet request, and never counts for the chat's own reply (chatBusy).
   let snap = null;
   let fullSnap = null;
   function readingAs(o, build) {
@@ -492,14 +492,14 @@
   }
 
   // ----- Running -----
-  // Your chat's reply being written. Same as Chat, and a local server your chat also uses, wait for it to finish, except
+  // The chat's reply being written. Same as Chat, and a local server the chat also uses, wait for it to finish, except
   // runs that go first (see replied).
   let chatBusy = false;
-  // From the start of your reply until it's done waiting for the runs that go first (beforeReply), its request isn't
+  // From the start of the chat's reply until it's done waiting for the runs that go first (beforeReply), its request isn't
   // built yet.
   let holding = false;
   let waiters = [];
-  // Full-prompt agents set off by your message or a system message while the reply is being written: they run on the
+  // Full-prompt agents set off by a user message or a system message while the reply is being written: they run on the
   // reply once it's in, so the reply doesn't run them again.
   const onReply = new Set();
   const chatIdle = () => (chatBusy ? new Promise((r) => { const t = setTimeout(r, 300000); waiters.push(() => { clearTimeout(t); r(); }); }) : Promise.resolve());
@@ -511,7 +511,7 @@
   }
 
   // What the agent reads: its instructions, then the chat messages Messages Read picks (the most recent ones, or a range
-  // by message number), oldest first. In one block, or as separate messages (yours as user, the rest as AI), each with
+  // by message number), oldest first. In one block, or as separate messages (the user's as user, the rest as AI), each with
   // its speaker's name. Separate messages end with a user line: a chat ending on an AI message would otherwise be read
   // as the start of the agent's own answer. With {{messagesRead}} in the instructions, they go there instead, as text.
   const ROLE = { system: 'System', user: 'User', assistant: 'AI' };
@@ -573,7 +573,7 @@
       : a.readBy === 'since' && sinceFrom(a, end) != null ? 'The chat messages since your last result, oldest first:' : 'The latest chat messages, oldest first:';
     return [{ role: 'system', content: withLast(a, end) }, { role: 'user', content: `${head}\n\n${text}` }];
   }
-  // Your chat's full prompt: Same as Chat only, and never for Test Connection.
+  // The chat's full prompt: Same as Chat only, and never for Test Connection.
   const usesFull = (a, test) => a.kind === 'chat' && a.full && !test;
   function samplers(a, tc) {
     const o = {};
@@ -582,13 +582,13 @@
     if (tc && a.repOn) { o.repetition_penalty = a.rep; o.repeat_penalty = a.rep; }
     return o;
   }
-  // Same as Chat with its own samplers: your chat's APIs that SillyTavern lets extensions change a request for.
+  // Same as Chat with its own samplers: the chat's APIs that SillyTavern lets extensions change a request for.
   const OWN_SAMP_API = { openai: 'CHAT_COMPLETION_SETTINGS_READY', textgenerationwebui: 'TEXT_COMPLETION_SETTINGS_READY' };
-  // While a Same as Chat run builds its request, its ticked samplers replace your preset's in that one request. Only
-  // samplers SillyTavern already put in it are replaced, so one your chat's API doesn't take stays out. Reasoning
+  // While a Same as Chat run builds its request, its ticked samplers replace the chat preset's in that one request. Only
+  // samplers SillyTavern already put in it are replaced, so one the chat's API doesn't take stays out. Reasoning
   // Effort is different for each API (Auto leaves it out for some), so SillyTavern works it out: the agent's choice
-  // stands in your Chat Completion settings only while the request is built, and yours is back as soon as it's ready.
-  // A reply of yours started meanwhile keeps your preset's samplers. Returns the function that stops listening.
+  // stands in the Chat Completion settings only while the request is built, and the user's setting is back as soon as it's ready.
+  // A chat reply started meanwhile keeps the chat preset's samplers. Returns the function that stops listening.
   function ownSamplers(a, c) {
     const ev = OWN_SAMP_API[c.mainApi];
     if (!ev || !c.event_types?.[ev]) return () => {};
@@ -611,14 +611,14 @@
     return () => { c.eventSource.removeListener(name, hook); restore(); };
   }
 
-  // Stop ends a run right away, even while it waits for your reply or for an answer. The time limit starts once it runs.
+  // Stop ends a run right away, even while it waits for the chat's reply or for an answer. The time limit starts once it runs.
   const abortable = (p, signal) => new Promise((res, rej) => {
     if (signal.aborted) { rej(new Error('Stopped')); return; }
     const stop = () => rej(new Error('Stopped'));
     signal.addEventListener('abort', stop, { once: true });
     p.then(res, rej).finally(() => signal.removeEventListener('abort', stop));
   });
-  // After waiting for your reply, the page or the agent (for anything but Test Connection) may have been switched off
+  // After waiting for the chat's reply, the page or the agent (for anything but Test Connection) may have been switched off
   // meanwhile, or the agent deleted.
   const stillAllowed = (a, test) => {
     if (!byId(a.id)) throw new Error('Skipped: this agent was deleted');
@@ -626,10 +626,10 @@
     if (!test && !a.on) throw new Error('Skipped: this agent is off');
   };
 
-  // The chat is read only after any wait for your reply, so the agent sees that reply finished; a run that goes first
+  // The chat is read only after any wait for the chat's reply, so the agent sees that reply finished; a run that goes first
   // doesn't wait, and reads the chat up to the message that set it off, before the reply. That's also when the
   // message it runs on is noted (o.target), so its answer can be saved there. A run only reads the chat it was started
-  // in (o.chat), so one still waiting its turn when you switch chats is skipped. A run for a given message (o.at) checks
+  // in (o.chat), so one still waiting its turn when the user switches chats is skipped. A run for a given message (o.at) checks
   // it's still that message (o.date), in case a swipe or a deleted message moved things while it waited.
   function aim(o) {
     if (chatId() !== o.chat) throw new Error('Skipped: you switched chats before it could run.');
@@ -654,9 +654,9 @@
       signal.addEventListener('abort', cancel, { once: true });
       const unhook = ownSamplers(a, c);
       try {
-        // SillyTavern skips a full-prompt request without a word while your chat has no connection.
+        // SillyTavern skips a full-prompt request without a word while the chat has no connection.
         if (full && c.onlineStatus === 'no_connection') throw new Error('Your chat isn\'t connected to an API.');
-        // SillyTavern builds your chat's full prompt from the whole chat and adds the instructions at the end, so it can't
+        // SillyTavern builds the chat's full prompt from the whole chat and adds the instructions at the end, so it can't
         // stop at an older message. A run after a reply that newer messages overtook while it waited is skipped: the
         // newer reply runs it again.
         if (full) {
@@ -718,15 +718,15 @@
   // for each other. A run waits, in this order:
   // - for the runs before it in its lane: the agents in no department are one lane, each department another. A run set
   //   off by a message in a department also waits for that message's runs in no department. Test Connection has no lane.
-  // - for the same agent's earlier runs, and the earlier runs of the agents it gets reports from. With your chat's full
+  // - for the same agent's earlier runs, and the earlier runs of the agents it gets reports from. With the chat's full
   //   prompt, for every earlier run.
-  // - for its connection: Same as Chat and your chat's own server take turns, and so do agents on the same local server.
-  // - for your reply, if it uses your chat's connection.
-  // A run that goes first (see replied) never waits for a run that waits for your reply (late), as your reply waits for
+  // - for its connection: Same as Chat and the chat's own server take turns, and so do agents on the same local server.
+  // - for the chat's reply, if it uses the chat's connection.
+  // A run that goes first (see replied) never waits for a run that waits for the chat's reply (late), as the chat's reply waits for
   // it; it reads that one's answer as saved now. Same as Chat runs that go first take turns among themselves.
   // - last, for one of RUN_MAX places, so nothing waits on anything else while it holds one. Its time limit starts there.
   const RUN_MAX = 3;
-  // Each agent keeps its last 10 runs until you reload.
+  // Each agent keeps its last 10 runs until a reload.
   // fails: each agent's last failed run; its chat's Pinned Block shows it until the agent runs fine again.
   const runs = new Map();
   const fails = new Map();
@@ -752,7 +752,7 @@
   }
   const places = gate(RUN_MAX);
   const turns = new Map();
-  // The connection an agent takes turns on: your chat's (Same as Chat, or your chat's own server), a local server's, or
+  // The connection an agent takes turns on: the chat's (Same as Chat, or the chat's own server), a local server's, or
   // none (Chat Completion).
   const turnKey = (a) => (a.kind === 'chat' || sharesChatServer(a) ? 'chat' : a.kind === 'tc' ? `tc:${sameUrl(a.tcUrl)}` : '');
   const turnFor = (k) => turns.get(k) || turns.set(k, gate(1)).get(k);
@@ -1175,7 +1175,7 @@
       : '<div class="cb_hint" style="margin-bottom:0;">Uses your chat\'s API, model and key, and waits until a reply is finished.</div>';
     const past = runs.get(a.id) || [];
     const full = usesFull(a);
-    // Same as Chat's samplers only reach your chat's API on Chat Completion or Text Completion (see ownSamplers).
+    // Same as Chat's samplers only reach the chat's API on Chat Completion or Text Completion (see ownSamplers).
     const api = ctx().mainApi;
     const sampNote = a.kind !== 'chat' ? 'Unticked uses the API\'s default. Your Chat Completion presets are never used.'
       : OWN_SAMP_API[api] ? 'Unticked uses your chat preset\'s value. Your preset never changes.'
@@ -1238,7 +1238,7 @@
       </div>`;
   }
 
-  // What the agent sends on its next run, from the chat as it is now. With your chat's full prompt, only its instructions
+  // What the agent sends on its next run, from the chat as it is now. With the chat's full prompt, only its instructions
   // show: SillyTavern adds the rest. Keys and links are never part of it.
   function previewHtml(a) {
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
@@ -1275,7 +1275,7 @@
     box.innerHTML = open ? macListHtml() : '';
   }
   // Preview Prompt, under Reports: it shows what the agent sends, for every part of its settings. It stays open
-  // while you change them, until Collapse All or a reload.
+  // while its settings are changed, until Collapse All or a reload.
   let prevOpen = false;
   const prevBtn = () => `<i class="fa-solid ${prevOpen ? 'fa-eye-slash' : 'fa-eye'}"></i>${prevOpen ? 'Hide Preview' : 'Preview Prompt'}`;
   const prevRowHtml = (a) => `
@@ -1337,7 +1337,7 @@
     sub.classList.toggle('m_ag_rst', busy(x.id));
   }
 
-  // Your saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
+  // The user's saved keys for an API, by name, from SillyTavern. Only names and ids are read, never the keys.
   async function fillKeys(a) {
     const sel = root?.querySelector('#m_ag_key');
     if (!sel) return;
@@ -2012,10 +2012,10 @@
 
   // ----- In a Pinned Block (Agent Results) -----
   // Each picked agent's newest saved result up to message upTo (Reader Mode's page, or the last message). Free Text is
-  // formatted like a message: Markdown and your regexes, sanitized by SillyTavern. Fields is drawn as rows under its
+  // formatted like a message: Markdown and the user's regexes, sanitized by SillyTavern. Fields is drawn as rows under its
   // headings, with what changed since the agent's result on an earlier message marked, and a click on a number or text
   // value edits it (lists use Edit Saved Text). Run Again (on that message), Edit Saved Text and Undo sit next to its
-  // name. Stacked shows every agent, each folding open and closed; Tabs shows one. Folds and tabs are kept for each box until you reload.
+  // name. Stacked shows every agent, each folding open and closed; Tabs shows one. Folds and tabs are kept for each box until a reload.
   // editing: the saved text being edited; fieldEdit: the one value being edited. Both by agent, chat, message and swipe
   // date, so a redraw keeps them only on the result they were started on.
   let editing = null;
@@ -2221,13 +2221,13 @@
     version: AGENTS_VERSION,
     sectionHtml,
     bind,
-    // A message came in (index.js, message id): an AI reply (type is SillyTavern's), or your message or a system message
+    // A message came in (index.js, message id): an AI reply (type is SillyTavern's), or a user message or a system message
     // ('sent'). Agents set to After Messages run in roster order (see Runs side by side), if it's a kind they're ticked for, from a name in
     // Only From, once every Run Every of those messages, each on that message even if more come in before its turn. A
     // full-prompt run can only run on the newest message, so one set off while the AI's reply is being written runs on
     // that reply instead. A Continue only adds to a reply they already ran on, so it doesn't run them again (without
-    // streaming, SillyTavern marks it 'appendFinal'). Runs on your message or a system message with Send to Main AI go
-    // first: your reply waits for them (beforeReply).
+    // streaming, SillyTavern marks it 'appendFinal'). Runs on a user message or a system message with Send to Main AI go
+    // first: the chat's reply waits for them (beforeReply).
     replied: (type, id) => {
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;

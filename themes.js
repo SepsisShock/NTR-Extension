@@ -1,5 +1,5 @@
 (() => {
-  const THEMES_VERSION = '2.86.39';
+  const THEMES_VERSION = '2.86.40';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
@@ -225,7 +225,7 @@
       // Cleaned once for the preview. Adding cleans again, since the clash checks follow the settings, which can change meanwhile.
       const cleaned = Object.fromEntries(Object.keys(LOOK).map((k) => [k, cleanLookSection(k, j.sections[k])]));
       const secs = Object.keys(LOOK).filter((k) => Object.keys(cleaned[k]).length);
-      // Tag symbols that are fine one by one but clash together get left out (see cleanLookSection); say so, so it's clear why yours stay.
+      // Tag symbols that are fine one by one but clash together get left out (see cleanLookSection); say so, so it's clear why the user's own stay.
       const vnIn = isObj(j.sections.vn) ? j.sections.vn : {};
       const tagsOut = TAG_KEYS.some((k) => k in vnIn && validLookValue(k, vnIn[k])) && !TAG_KEYS.some((k) => k in cleaned.vn);
       if (!secs.length) {

@@ -2089,7 +2089,6 @@ await (async () => {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
-  // `base`, or "base (2)", "(3)" and so on, the first one `taken` says is free, cut to `max` characters with its number kept.
   // An askText check for a name no other item in `list` has, whatever the capitals. It's cut to 60 characters first, so
   // the name checked is the one saved.
   const uniqueName = (list, self, what) => (v) => {
@@ -2097,6 +2096,7 @@ await (async () => {
     return !name ? { error: 'Type a name first.' }
       : list.some((x) => x !== self && x.name.toLowerCase() === name.toLowerCase()) ? { error: `A ${what} with that name already exists.` } : { value: name };
   };
+  // `base`, or "base (2)", "(3)" and so on, the first one `taken` says is free, cut to `max` characters with its number kept.
   function freeName(base, taken, max = Infinity) {
     let name = base;
     for (let n = 2; taken(name); n++) name = `${base.slice(0, max - String(n).length - 3)} (${n})`;
@@ -3054,7 +3054,7 @@ await (async () => {
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
     LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
     unpackFiles, isObj, stColor,
-    // For themes.js and agents.js: their exported files, and names for what they import
+    // Exported files, and names for imported or new items
     downloadJson, freeName, uniqueName,
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),

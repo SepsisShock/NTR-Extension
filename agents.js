@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.41';
+  const AGENTS_VERSION = '2.86.42';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -1801,16 +1801,11 @@
     root.querySelector('#m_ag_crop').onclick = async () => {
       try { const f = await cropFile(FULL_PIC[a.pic] || media(a.pic)); if (f) setPic(await uploadImage(f, 'agent', { max: 128 })); } catch (e) { fail(e); }
     };
-    file.onchange = async () => {
-      const f = file.files[0];
-      file.value = '';
-      if (!f) return;
-      try {
-        // A GIF goes as it is, to keep its animation.
-        const out = f.type === 'image/gif' ? f : await cropFile(URL.createObjectURL(f), true);
-        if (out) setPic(await uploadImage(out, 'agent', { max: 128 }));
-      } catch (e) { fail(e); }
-    };
+    A.onFilePick(file, 'Agent picture', async (f) => {
+      // A GIF goes as it is, to keep its animation.
+      const out = f.type === 'image/gif' ? f : await cropFile(URL.createObjectURL(f), true);
+      if (out) setPic(await uploadImage(out, 'agent', { max: 128 }));
+    });
     onPills(root, 'agruns', (v) => { a.runs = v; changed(true); });
     onPills(root, 'agkind', (v) => { a.kind = v; changed(true); });
     onPills(root, 'agfull', (v) => { a.full = v === 'full'; changed(true); });

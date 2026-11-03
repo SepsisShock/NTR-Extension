@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.41';
+  const ELEMENTS_VERSION = '2.86.42';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -440,16 +440,7 @@
     mesObs = new MutationObserver((recs) => {
       const first = !mesQueued;
       mesQueued ??= new Set();
-      for (const r of recs) {
-        const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
-        const m = t && t.closest('.mes');
-        if (m) { mesQueued.add(m); continue; }
-        for (const a of r.addedNodes) {
-          if (a.nodeType !== 1) continue;
-          if (a.matches('.mes')) mesQueued.add(a);
-          a.querySelectorAll('.mes').forEach((e) => mesQueued.add(e));
-        }
-      }
+      A.changedEls(recs, '.mes', mesQueued);
       if (!first) return;
       requestAnimationFrame(() => {
         const mes = [...mesQueued].filter((m) => chat.contains(m));
@@ -926,21 +917,13 @@
       s.mbIcons[r.id].mode = v;
       save(); updateAvatarStyle(); render();
     }));
-    file.onchange = async () => {
-      const f = file.files[0];
+    A.onFilePick(file, 'ST Menu Bar Icons', async (f) => {
+      // The row is kept from before the upload: picking another icon meanwhile changes pending.
       const i = pending;
-      // Cleared now, so the same picture can be picked again while this one uploads.
-      file.value = '';
-      if (!f || i < 0) return;
-      try {
-        // The row is kept from before the upload: picking another icon meanwhile changes pending.
-        const url = await uploadImage(f, 'baricon', { max: 128 });
-        set(i, url, await hasClear(url) ? 'tint' : 'full');
-      } catch (e) {
-        console.error('[NTR menu bar icon upload]', e);
-        toastr.error(e.message || 'Upload failed', 'ST Menu Bar Icons');
-      }
-    };
+      if (i < 0) return;
+      const url = await uploadImage(f, 'baricon', { max: 128 });
+      set(i, url, await hasClear(url) ? 'tint' : 'full');
+    });
     render();
   }
 

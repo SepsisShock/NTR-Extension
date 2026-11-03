@@ -1,11 +1,11 @@
 (() => {
-  const OP_VERSION = '2.86.41';
+  const OP_VERSION = '2.86.42';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, media, pills, onPills, subHead } = A;
-  const { ovLabel } = A.look;
+  const { ovLabel, cssTag } = A.look;
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -32,13 +32,6 @@
     #ntr_open .ntr_op_small { cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.5); color: #fff; font-size: 13px; opacity: .8; }
     #ntr_open .ntr_op_small:hover { opacity: 1; }
   `;
-  function ensureStyle() {
-    if (document.getElementById('ntr_op_style')) return;
-    const el = document.createElement('style');
-    el.id = 'ntr_op_style';
-    el.textContent = CSS;
-    document.head.appendChild(el);
-  }
 
   // ----- Data (per character, inside the VN data) -----
   const ODEF = { src: 'off', yt: '', file: '', title: false, logo: 'upload', logoUrl: '', when: 'newchat' };
@@ -54,7 +47,6 @@
   // ----- When to play -----
   function markSeen(sig) {
     const s = settings();
-    if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     s.opSeen[sig] = Date.now();
     const keys = Object.keys(s.opSeen);
     if (keys.length > 300) keys.sort((a, b) => s.opSeen[a] - s.opSeen[b]).slice(0, keys.length - 300).forEach((k) => delete s.opSeen[k]);
@@ -74,7 +66,7 @@
     let go = false;
     if (o.when === 'vn') go = reason === 'vn';
     else if (o.when === 'open') go = reason === 'open';
-    else go = !!info.fresh && !!info.sig && !(s.opSeen || {})[info.sig];
+    else go = !!info.fresh && !!info.sig && !s.opSeen[info.sig];
     if (!go) return false;
     if (o.when === 'newchat') markSeen(info.sig);
     play(info.hooks || VN().openingHooks, { sig: info.sig });
@@ -100,7 +92,7 @@
     if (!hasSource(o)) return false;
     if (cur) abort();
     unpin();
-    ensureStyle();
+    cssTag('ntr_op_style', CSS);
     const s = settings();
     const st = {
       sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',
@@ -552,8 +544,8 @@
         <div class="cb_collapse_content"><div class="cb_hint">Open a character chat first. The opening is saved per character.</div></div>`;
     }
     const o = op();
-    // opening.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
-    const sl = (id, key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_op_${id}val" class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
+    // Not rangeSlider: opening.js keys keep their own slider ranges (see CLAUDE.md).
+    const sl = (key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
     const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
     return `
@@ -565,9 +557,9 @@
           </div>
           <div id="m_op_file" class="cb_row cb_cur_row" style="margin-top:8px;${o.src === 'file' ? '' : 'display:none;'}">
             <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fileName || '<span class="cb_hint">No video yet (MP4 or WebM)</span>'}</span>
-            <button type="button" id="m_op_up" class="menu_button" style="margin:0;" title="Upload video" aria-label="Upload video"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_vup" class="menu_button" style="margin:0;" title="Upload video" aria-label="Upload video"><i class="fa-solid fa-upload"></i></button>
             <button type="button" id="m_op_vurl" class="menu_button" style="margin:0;" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
-            <button type="button" id="m_op_clr" class="menu_button danger_button" style="margin:0;" title="Remove video" aria-label="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+            <button type="button" id="m_op_vclr" class="menu_button danger_button" style="margin:0;" title="Remove video" aria-label="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
         <div id="m_op_body" class="${hasSource(o) ? '' : 'cb_dim'}">
           <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title Screen First</span></label>
@@ -585,9 +577,9 @@
           <label class="checkbox_label"><input type="checkbox" id="m_op_mute" ${s.opMute ? 'checked' : ''}><span>Start Muted</span></label>
           <div class="cb_hint">The sound button during the video changes this too.</div>
           <div id="m_op_lbody" class="${o.logo === 'none' ? 'cb_dim' : ''}">
-            ${sl('lead', 'opLead', 'Logo Appears Before the End', ' s', 0, 15, 0.5, s.opLead)}
-            ${sl('fade', 'opFade', 'Logo Fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
-            ${sl('size', 'opSize', 'Logo Size', '%', 10, 100, 1, s.opSize)}
+            ${sl('opLead', 'Logo Appears Before the End', ' s', 0, 15, 0.5, s.opLead)}
+            ${sl('opFade', 'Logo Fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
+            ${sl('opSize', 'Logo Size', '%', 10, 100, 1, s.opSize)}
             ${ovLabel('Logo Position', pills('oppos', [['upper', 'Upper Third'], ['center', 'Center'], ['lower', 'Lower Third']], s.opPos))}
             ${ovLabel('Logo Exit', pills('opexit', [['stay', 'Stay'], ['fade', 'Fade Out'], ['rise', 'Rise to Top']], s.opExit || 'stay'))}
             <div class="cb_hint" style="margin-top:4px;">Rise to Top: the logo stays behind the characters until the chat changes. Skipping the video skips it.</div>
@@ -600,7 +592,7 @@
             <label class="checkbox_label"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade Over the Ending</span></label>
             <div class="cb_hint">The color covers the last seconds while the video still plays.</div>
           </div>
-          ${sl('trans', 'opTransMs', 'Transition Length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
+          ${sl('opTransMs', 'Transition Length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
           <div class="cb_hint" style="margin-top:4px;">Color Fade: the length applies to both fades. Crossfade blends the last frame into the story. Skipping always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
             <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play Now</button>
@@ -659,91 +651,40 @@
       col.onchange = save;
     }
     overlay.querySelectorAll('.m_op_sl').forEach((sl) => {
-      sl.oninput = function() {
-        const k = this.dataset.key;
-        s[k] = Number(this.value);
-        const out = overlay.querySelector(`#m_op_${this.dataset.id}val`);
-        if (out) out.textContent = k === 'opFade' || k === 'opTransMs' ? (s[k] / 1000).toFixed(1) : this.value;
-      };
+      sl.oninput = function() { s[this.dataset.key] = Number(this.value); };
       sl.onchange = save;
     });
 
-    // Video upload (sent as is, no re-encoding).
-    const vfile = q('#m_op_vfile');
-    const up = q('#m_op_up');
-    if (up) up.onclick = () => vfile.click();
-    if (vfile) vfile.onchange = async () => {
-      const f = vfile.files[0];
-      vfile.value = '';
-      if (!f) return;
-      try {
-        const path = await A.uploadHere(() => uploadVideo(f, 'vnop', 'Opening Video', up));
-        if (!path) return;
-        const old = op().file;
-        setOp('file', path);
-        A.deleteFileIfUnused(old);
-        toastr.success('Opening video uploaded.', 'Opening Video');
-      } catch (e) {
-        console.error('[NTR opening upload]', e);
-        toastr.error(e.message || 'Video upload failed', 'Opening Video');
-      }
-      A.openMenu();
+    // The video (sent as is, no re-encoding) and the logo. The menu is redrawn after each change, which also re-enables
+    // the Upload button a video upload disables.
+    const fileRow = ({ k, p, upload, askUrl, removeText, removeAnchor, done }) => {
+      const btn = (n) => q(`#m_op_${p}${n}`);
+      const put = (url) => { const old = op()[k]; setOp(k, url); A.deleteFileIfUnused(old); };
+      btn('up').onclick = () => btn('file').click();
+      A.onFilePick(btn('file'), 'Opening Video', async (f) => {
+        try {
+          const path = await upload(f, btn('up'));
+          if (path) { put(path); done?.(); }
+        } finally { A.openMenu(); }
+      });
+      btn('url').onclick = async () => {
+        const url = await askUrl(btn('url'));
+        if (url) { put(url); A.openMenu(); }
+      };
+      btn('clr').onclick = async () => {
+        if (!op()[k] || !(await A.askYes(removeAnchor || btn('clr'), removeText, 'Remove', { danger: true }))) return;
+        put('');
+        A.openMenu();
+      };
     };
-    const vurl = q('#m_op_vurl');
-    if (vurl && askVideoUrl) vurl.onclick = async () => {
-      const url = await askVideoUrl('Opening Video', vurl);
-      if (!url) return;
-      const old = op().file;
-      setOp('file', url);
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
-    const clr = q('#m_op_clr');
-    if (clr) clr.onclick = async () => {
-      const old = op().file;
-      if (!old || !(await A.askYes(clr, 'Remove the opening video?', 'Remove', { danger: true }))) return;
-      setOp('file', '');
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
-
-    // Logo upload
-    const lfile = q('#m_op_lfile');
-    const lup = q('#m_op_lup');
-    if (lup) lup.onclick = () => lfile.click();
-    const lurl = q('#m_op_lurl');
-    if (lurl) lurl.onclick = async () => {
-      const url = await askImageUrl('Logo', lurl);
-      if (!url) return;
-      const old = op().logoUrl;
-      setOp('logoUrl', url);
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
-    if (lfile) lfile.onchange = async () => {
-      const f = lfile.files[0];
-      lfile.value = '';
-      if (!f) return;
-      try {
-        const path = await A.uploadHere(() => uploadImage(f, 'vnlogo', { max: 1600 }));
-        if (!path) return;
-        const old = op().logoUrl;
-        setOp('logoUrl', path);
-        A.deleteFileIfUnused(old);
-      } catch (e) {
-        console.error('[NTR logo upload]', e);
-        toastr.error(e.message || 'Logo upload failed', 'Opening Video');
-      }
-      A.openMenu();
-    };
-    const lclr = q('#m_op_lclr');
-    if (lclr) lclr.onclick = async () => {
-      const old = op().logoUrl;
-      if (!old || !(await A.askYes(q('#m_op_lrow'), 'Remove the logo? Its file is deleted unless something else uses it.', 'Remove', { danger: true }))) return;
-      setOp('logoUrl', '');
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
+    fileRow({
+      k: 'file', p: 'v', upload: (f, up) => A.uploadHere(() => uploadVideo(f, 'vnop', 'Opening Video', up)), askUrl: (b) => askVideoUrl('Opening Video', b),
+      removeText: 'Remove the opening video?', done: () => toastr.success('Opening video uploaded.', 'Opening Video'),
+    });
+    fileRow({
+      k: 'logoUrl', p: 'l', upload: (f) => A.uploadHere(() => uploadImage(f, 'vnlogo', { max: 1600 })), askUrl: (b) => askImageUrl('Logo', b),
+      removeText: 'Remove the logo? Its file is deleted unless something else uses it.', removeAnchor: q('#m_op_lrow'),
+    });
 
     const pb = q('#m_op_play');
     if (pb) pb.onclick = () => {

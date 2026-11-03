@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.41';
+  const REGEX_VERSION = '2.86.42';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
@@ -315,12 +315,7 @@ try {
   const listHtml = () => SECS.filter(shown).map(secHtml).join('');
 
   function sectionHtml() {
-    if (!document.getElementById('ntr_rx_css')) {
-      const st = document.createElement('style');
-      st.id = 'ntr_rx_css';
-      st.textContent = CSS;
-      document.head.appendChild(st);
-    }
+    A.look.cssTag('ntr_rx_css', CSS);
     if (!ready()) {
       const why = E ? 'ST\'s Regex extension is off. Turn it on in Manage Extensions to use this page.'
         : 'Couldn\'t reach ST\'s Regex extension, so this page can\'t show your regexes.';
@@ -377,7 +372,7 @@ try {
     else refresh();
   }
 
-  function folderMenu(anchor, sec, f) {
+  function folderMenu(anchor) {
     A.popMenu(anchor, `
       <button data-act="frename"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
       <button data-act="fnew"><i class="fa-solid fa-plus fa-fw"></i>New Regex Here</button>
@@ -436,7 +431,7 @@ try {
       case 'fixorder': reorder(sec, view(sec).order); break;
       case 'edit': stClick(stRow(sec, id)?.querySelector('.edit_existing_regex')); break;
       case 'del': stClick(stRow(sec, id)?.querySelector('.delete_regex')); break;
-      case 'fmenu': folderMenu(b, sec, f); break;
+      case 'fmenu': folderMenu(b); break;
       case 'mvmenu': moveMenu(b, sec, id); break;
       case 'mvto': closePops(); moveRegex(sec, id, b.dataset.fid || null); break;
       case 'mvnew': {

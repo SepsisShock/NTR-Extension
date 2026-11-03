@@ -1,9 +1,9 @@
 (() => {
-  const VN_VERSION = '2.86.41';
+  const VN_VERSION = '2.86.42';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
-  const { ovLabel } = A.look;
+  const { ovLabel, cssTag } = A.look;
   const { TAG } = A;
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
@@ -204,11 +204,7 @@
   `;
 
   // Kept while the extension is off: the menu still opens then, and the other rules only style VN parts, which are hidden.
-  function applyStyle() {
-    let el = document.getElementById('ntr_vn_style');
-    if (!el) { el = document.createElement('style'); el.id = 'ntr_vn_style'; document.head.appendChild(el); }
-    el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
-  }
+  const applyStyle = () => cssTag('ntr_vn_style', VN_CSS + (vnOn() ? '\n      #chat .mes { display: none !important; }\n' : ''));
 
   // follow: on the newest message, so new ones are followed. shown: the chat message on screen, found again after earlier
   // ones are deleted. md: the chat data whose saved message was read (see keepPlace).
@@ -339,7 +335,7 @@
   function guideRows(s) {
     const v = V();
     const loc = (v.locations.find((l) => l.name) || {}).name || 'Place';
-    const cg = ((v.cgs || []).find((g) => g.name) || {}).name || 'Scene';
+    const cg = (v.cgs.find((g) => g.name) || {}).name || 'Scene';
     const L = A.emoSet();
     const emo = (L.emotions.find((e) => e.id !== L.emoDefault) || L.emotions[0] || {}).name || 'Happy';
     const spk = (C.speakers().find((x) => x.name !== ctx().name1) || {}).name || 'Name';
@@ -384,7 +380,7 @@
     const no = s.delimNarOpen, nc = s.delimNarClose;
     if (s.nodeChoices) p += ` When the user faces a decision, end with ${no}${s.choiceWord}: A ${s.choiceSep} B${nc}.`;
     if (s.nodeEffects) p += ` Optional: ${no}${s.effectWord}:${s.fxShake}${nc}, ${s.fxFlash} or ${s.fxFade} for impact; ${no}${s.weatherWord}:${s.wxRain}${nc}, ${s.wxSnow} or ${s.wxClear} (stays until changed).`;
-    const cgs = (v.cgs || []).filter((x) => x.name && x.url).map((x) => x.name);
+    const cgs = v.cgs.filter((x) => x.name && x.url).map((x) => x.name);
     if (s.nodeCG && cgs.length) p += ` Show an illustration with ${no}${s.cgWord}:Name${nc} using: ${cgs.join(', ')}.`;
     if (s.nodeSprites) p += ` Mark arrivals and departures with ${no}${s.enterWord}:Name${nc} and ${no}${s.exitWord}:Name${nc}.`;
     if (s.nodeUserMsgs) p += ' User messages follow the same format.';
@@ -439,8 +435,8 @@
 
   // Visual Novel's settings, in the Visual Novel part of the Reader Mode page (index.js puts them there).
   function nodeSectionHtml(s) {
-    // vn.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
-    const sl = (id, key, label, unit, min, max, step) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_n_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_n_${id}val" class="ntr_slval">${s[key]}</span>${unit}</span></div>`);
+    // Not rangeSlider: vn.js keys keep their own slider ranges (see CLAUDE.md).
+    const sl = (key, label, unit, min, max, step) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_n_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval">${s[key]}</span>${unit}</span></div>`);
     const dim = (id, on, inner) => `<div id="${id}" class="${on ? '' : 'cb_dim'}">${inner}</div>`;
     const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
@@ -465,28 +461,28 @@
               ${ck('m_n_split', s.nodeSplitUntagged, 'Play Untagged Messages')}
               <div class="cb_hint">Quotes become the character's lines; the rest is narration.</div>
               ${ck('m_n_tw', s.nodeTypewriter, 'Typewriter Effect')}
-              ${dim('m_n_spwrap', s.nodeTypewriter, sl('sp', 'nodeSpeed', 'Delay per Character', 'ms', 5, 80, 1))}
+              ${dim('m_n_spwrap', s.nodeTypewriter, sl('nodeSpeed', 'Delay per Character', 'ms', 5, 80, 1))}
               <div style="margin-top:8px;">${ck('m_n_auto', s.nodeAuto, 'Auto-Advance')}</div>
-              ${dim('m_n_adwrap', s.nodeAuto, sl('ad', 'nodeAutoDelay', 'Auto-Advance Wait', 'ms', 500, 8000, 250))}
+              ${dim('m_n_adwrap', s.nodeAuto, sl('nodeAutoDelay', 'Auto-Advance Wait', 'ms', 500, 8000, 250))}
             </div>
 
             ${subHead('vn_look', 'Look', 'fa-eye')}
             <div class="cb_collapse_content">
               <div class="cb_sub">Box</div>
-              ${sl('op', 'nodeOpacity', 'Box Opacity', '%', 30, 100, 1)}
-              ${sl('bw', 'nodeBoxWidth', 'Box Width', '%', 40, 100, 1)}
+              ${sl('nodeOpacity', 'Box Opacity', '%', 30, 100, 1)}
+              ${sl('nodeBoxWidth', 'Box Width', '%', 40, 100, 1)}
               <div class="cb_hint">Of the chat column's width.</div>
-              ${sl('bmin', 'nodeBoxMinH', 'Box Min Height', 'px', 40, 300, 5)}
-              ${sl('bmax', 'nodeBoxMaxH', 'Box Max Height', 'vh', 10, 70, 1)}
-              ${sl('lift', 'nodeBoxLift', 'Lift Above Send Bar', 'px', 0, 400, 2)}
-              ${sl('fs', 'nodeTextScale', 'Text Size', '%', 70, 180, 5)}
+              ${sl('nodeBoxMinH', 'Box Min Height', 'px', 40, 300, 5)}
+              ${sl('nodeBoxMaxH', 'Box Max Height', 'vh', 10, 70, 1)}
+              ${sl('nodeBoxLift', 'Lift Above Send Bar', 'px', 0, 400, 2)}
+              ${sl('nodeTextScale', 'Text Size', '%', 70, 180, 5)}
               <div class="cb_sub">Portrait</div>
               ${ck('m_n_pbox', s.nodePortraitBox, 'Show Portrait in Box')}
-              ${dim('m_n_pwrap', s.nodePortraitBox, sl('ps', 'nodePortrait', 'Portrait Size', 'px', 60, 240, 5)
+              ${dim('m_n_pwrap', s.nodePortraitBox, sl('nodePortrait', 'Portrait Size', 'px', 60, 240, 5)
                 + ovLabel('Portrait Shape', pills('nshape', [['rounded', 'Rounded'], ['round', 'Circle'], ['square', 'Square'], ['rect', 'Tall']], s.nodeShape)))}
               <div class="cb_sub">Sprites</div>
               ${ck('m_n_spr', s.nodeSprites, 'Show Sprites')}
-              ${dim('m_n_swrap', s.nodeSprites, sl('ss', 'nodeSpriteScale', 'Sprite Size', '%', 30, 200, 5))}
+              ${dim('m_n_swrap', s.nodeSprites, sl('nodeSpriteScale', 'Sprite Size', '%', 30, 200, 5))}
               <div class="cb_hint" style="margin-bottom:0;">Sprites are full bodies, else faces, else Default Art. Stage Keeps Main Face is on the Avatars page. The last three speakers stay; those not talking dim.</div>
             </div>
 
@@ -603,7 +599,6 @@
     overlay.querySelectorAll('.m_n_sl').forEach((sl) => {
       sl.oninput = function() {
         s[this.dataset.key] = Number(this.value);
-        overlay.querySelector(`#m_n_${this.dataset.id}val`).textContent = this.value;
         nodeApplyLook();
         placeNode();
         updateStage();
@@ -657,7 +652,7 @@
         box.querySelectorAll(`.m_${L.c}_del`).forEach((b) => {
           b.onclick = async () => {
             const x = find(b.dataset.id);
-            const pinned = L.key === 'locations' && (v.maps || []).some((mp) => (mp.pins || []).some((p) => p.loc === x?.id));
+            const pinned = L.key === 'locations' && v.maps.some((mp) => mp.pins.some((p) => p.loc === x?.id));
             if (!x || !(await A.askYes(b, `Delete the ${L.name} "${x.name}"${x.url ? ` and its ${L.picDel}` : ''}?${pinned ? ' Map pins linked to it are removed or unlinked.' : ''}`, 'Delete', { danger: true }))) return;
             v[L.key] = v[L.key].filter((y) => y !== x);
             if (L.onDelete) L.onDelete(v, x);
@@ -674,17 +669,12 @@
         save(); render(); refreshAll();
         A.deleteFileIfUnused(old);
       };
-      file.onchange = async () => {
-        if (!file.files.length || !pending) return;
-        try {
-          const id = pending, url = await A.uploadHere(() => uploadImage(file.files[0], L.prefix, { max: 2560 }));
-          if (url) setImage(id, url);
-        } catch (e) {
-          console.error(`[NTR vn ${L.name} upload]`, e);
-          toastr.error(e.message || L.fail, 'Visual Novel');
-        }
-        file.value = '';
-      };
+      A.onFilePick(file, 'Visual Novel', async (f) => {
+        const id = pending;
+        if (!id) return;
+        const url = await A.uploadHere(() => uploadImage(f, L.prefix, { max: 2560 }));
+        if (url) setImage(id, url);
+      });
       const add = () => {
         const inp = overlay.querySelector(`#m_${L.c}_new`);
         const nm = inp.value.trim();
@@ -741,16 +731,11 @@
         A.deleteFileIfUnused(old);
       };
     });
-    artFile.onchange = async () => {
-      if (!artFile.files.length || !artPending) return;
-      try {
-        setArtImage(artPending, await uploadImage(artFile.files[0], 'vnart', { max: artPending === 'artBgImg' ? 2560 : 1600 }));
-      } catch (e) {
-        console.error('[NTR vn art upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Visual Novel');
-      }
-      artFile.value = '';
-    };
+    A.onFilePick(artFile, 'Visual Novel', async (f) => {
+      const k = artPending;
+      if (!k) return;
+      setArtImage(k, await uploadImage(f, 'vnart', { max: k === 'artBgImg' ? 2560 : 1600 }));
+    });
 
     renderLoc(); renderCg(); renderArt(); refreshPrompt(); renderGuide();
     for (const name of ['map', 'opening']) {
@@ -767,12 +752,12 @@
   const cap = (x) => x[0].toUpperCase() + x.slice(1);
   const NAMED = {
     loc: {
-      c: 'l', key: 'locations', idp: 'loc', name: 'location', label: 'Location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc', fail: 'Background upload failed',
+      c: 'l', key: 'locations', idp: 'loc', name: 'location', label: 'Location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc',
       def: { key: 'locDefault', label: 'Default Background', hint: 'When nothing matches' },
       // Map pins lose the deleted place, and go if they don't open another map either.
-      onDelete: (v, l) => { for (const mp of v.maps || []) mp.pins = (mp.pins || []).filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p)); },
+      onDelete: (v, l) => { for (const mp of v.maps) mp.pins = mp.pins.filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p)); },
     },
-    cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', label: 'CG', names: 'CGs', pic: 'illustration', picDel: 'picture', prefix: 'vncg', fail: 'CG upload failed' },
+    cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', label: 'CG', names: 'CGs', pic: 'illustration', picDel: 'picture', prefix: 'vncg' },
   };
 
   function namedRowsHtml(L) {
@@ -1095,7 +1080,7 @@
   function cgUrl(name) {
     const n = normLoc(name);
     if (!n) return '';
-    const hit = (V().cgs || []).find((g) => normLoc(g.name) === n && g.url);
+    const hit = V().cgs.find((g) => normLoc(g.name) === n && g.url);
     return hit ? media(hit.url) : '';
   }
 

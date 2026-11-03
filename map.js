@@ -1,11 +1,11 @@
 (() => {
-  const MAP_VERSION = '2.86.41';
+  const MAP_VERSION = '2.86.42';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead } = A;
-  const { ovLabel } = A.look;
+  const { ovLabel, cssTag } = A.look;
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -40,24 +40,12 @@
     .ntr_map_pop .menu_button { margin: 0; padding: 4px 10px; }
     .ntr_map_pop .cb_pills { max-height: 140px; overflow-y: auto; }
   `;
-  function ensureStyle() {
-    if (document.getElementById('ntr_map_style')) return;
-    const el = document.createElement('style');
-    el.id = 'ntr_map_style';
-    el.textContent = CSS;
-    document.head.appendChild(el);
-  }
 
   // ----- Data (per character, inside the VN data) -----
   const D = () => VN().data();
-  function maps() {
-    const v = D();
-    if (!Array.isArray(v.maps)) v.maps = [];
-    for (const m of v.maps) if (!Array.isArray(m.pins)) m.pins = [];
-    return v.maps;
-  }
+  const maps = () => D().maps;
   const mapById = (id) => maps().find((m) => m.id === id) || null;
-  const locById = (id) => (D().locations || []).find((l) => l.id === id) || null;
+  const locById = (id) => D().locations.find((l) => l.id === id) || null;
   const rootMap = () => mapById(D().mapRoot) || maps()[0] || null;
   const norm = (x) => VN().normLoc(x);
   const pinName = (p) => {
@@ -115,7 +103,7 @@
     const all = maps();
     if (!all.length) { toastr.info('No maps yet. Add one on the Reader Mode page, under Visual Novel.', 'Maps'); return; }
     if (!opts.edit && !all.some((m) => m.url)) { toastr.info('Upload a map picture first.', 'Maps'); return; }
-    ensureStyle();
+    cssTag('ntr_map_style', CSS);
     close(true);
     if (opts.fromMenu) A.closeMenu();
     const start = opts.mapId && mapById(opts.mapId);
@@ -286,7 +274,7 @@
     pop.onclick = (e) => e.stopPropagation();
     pop.onpointerdown = (e) => e.stopPropagation();
     if (view.edit) {
-      const locs = D().locations || [];
+      const locs = D().locations;
       const others = maps().filter((x) => x.id !== m.id);
       pop.innerHTML = `
         <div class="ntr_pop_t">Pin</div>
@@ -425,17 +413,12 @@
       save(); render(); VN().refresh();
       A.deleteFileIfUnused(old);
     };
-    if (file) file.onchange = async () => {
-      if (!file.files.length || !pending) return;
-      try {
-        const id = pending, url = await A.uploadHere(() => uploadImage(file.files[0], 'vnmap', { max: 3072 }));
-        if (url) setMapImage(id, url);
-      } catch (e) {
-        console.error('[NTR map upload]', e);
-        toastr.error(e.message || 'Map upload failed', 'Maps');
-      }
-      file.value = '';
-    };
+    if (file) A.onFilePick(file, 'Maps', async (f) => {
+      const id = pending;
+      if (!id) return;
+      const url = await A.uploadHere(() => uploadImage(f, 'vnmap', { max: 3072 }));
+      if (url) setMapImage(id, url);
+    });
     const add = () => {
       const inp = overlay.querySelector('#m_m_new');
       const nm = inp.value.trim();

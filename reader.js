@@ -1,10 +1,11 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.41';
+  const READER_VERSION = '2.86.42';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
+  const { cssTag } = A.look;
 
   // How long a page flip takes (Book, see flip).
   const FLIP_MS = 450;
@@ -86,29 +87,22 @@
   // Hides every message that isn't on the page, and SillyTavern's "Show more messages" (turning back loads them). In the
   // book the page's messages are plain blocks, so their text can run from one page on to the next.
   function paint() {
-    let el = document.getElementById('ntr_rd_css');
     const on = live() && pages.length;
-    if (!on) { el?.remove(); shownMsg = null; return; }
-    if (!el) { el = document.createElement('style'); el.id = 'ntr_rd_css'; document.head.appendChild(el); }
+    if (!on) { cssTag('ntr_rd_css', ''); shownMsg = null; return; }
     const [a, b] = pages[cur];
     shownMsg = ctx().chat?.[a] || null;
     const ids = [];
     for (let i = a; i <= b; i++) ids.push(`[mesid="${i}"]`);
-    el.textContent = `
+    cssTag('ntr_rd_css', `
     #chat > .mes:not(${ids.join(', ')}) { display: none !important; }
     #chat > #show_more_messages { display: none !important; }
     body.ntr_book #chat > .mes:is(${ids.join(', ')}) { display: block !important; }
-    `;
+    `);
     watchText();
   }
 
   function syncBar() {
-    if (!document.getElementById('ntr_rd_style')) {
-      const st = document.createElement('style');
-      st.id = 'ntr_rd_style';
-      st.textContent = CSS;
-      document.head.appendChild(st);
-    }
+    cssTag('ntr_rd_style', CSS);
     let bar = document.getElementById('ntr_rd_bar');
     const form = document.getElementById('form_sheld');
     if (!live() || !form) { bar?.remove(); return; }
@@ -258,7 +252,6 @@
 
   // The book's size and place on screen, and its CSS. It is centered under SillyTavern's menu bar, as wide as Book Width
   // allows, and shorter when the screen is too short for the picture's shape. The page bar and the send box sit under it.
-  let bookCss = '';
   function layoutBook() {
     const on = bookNow();
     document.body.classList.toggle('ntr_book', on);
@@ -266,7 +259,7 @@
     if (!on) {
       geom = null;
       document.body.classList.remove('ntr_bk_edit');
-      if (bookCss) { document.getElementById('ntr_bk_css')?.remove(); bookCss = ''; }
+      cssTag('ntr_bk_css', '');
       return;
     }
     const s = settings();
@@ -341,11 +334,7 @@
     /* Chat Width is for Desktop: on Phone, the attached bars are as wide as the book. */
     ${pageFree && free ? '' : `@media (width <= 1000px) { ${B} :is(${[pageFree ? '' : '#ntr_rd_bar', free ? '' : '#form_sheld'].filter(Boolean).join(', ')}) { width: 100% !important; } }`}
     `;
-    if (css !== bookCss) {
-      let el = document.getElementById('ntr_bk_css');
-      if (!el) { el = document.createElement('style'); el.id = 'ntr_bk_css'; document.head.appendChild(el); }
-      el.textContent = bookCss = css;
-    }
+    cssTag('ntr_bk_css', css);
   }
 
   // How many spreads the page's messages fill: the column the last line of its last message sits in.

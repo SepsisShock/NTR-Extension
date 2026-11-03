@@ -1,9 +1,9 @@
 (() => {
-  const TEXT_VERSION = '2.86.47';
+  const TEXT_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
-  const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, save, subHead } = A;
-  const { COLOR_RE, FONT_NOTE, FX_PARTS, NAME_WEIGHT, bubblesOn, bubRight, cssReaders, cssRule, ntrAvatars,
+  const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, subHead } = A;
+  const { FONT_NOTE, FX_PARTS, NAME_WEIGHT, bubblesOn, bubRight, cssReaders, cssRule, ntrAvatars,
     restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel, ovPick } = A.look;
 
   // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
@@ -12,7 +12,7 @@
     if (!s[p + 'FxOn'] || PAINT.includes(s[p + 'Fx'])) return {};
     const n = rangeNum(s, p + 'FxStr');
     const fx = s[p + 'Fx'];
-    const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)';
+    const c = cssReaders(s).col(p + 'FxColor') || (fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)');
     if (fx === 'glow') return { 'text-shadow': `0 0 ${n * 2}px ${c}, 0 0 ${n}px ${c}` };
     if (fx === 'shadow') return { 'text-shadow': `${Math.ceil(n / 3)}px ${Math.ceil(n / 3)}px ${n}px ${c}` };
     return { '-webkit-text-stroke': `${(n * 0.2).toFixed(1)}px ${c}`, 'paint-order': 'stroke fill' };
@@ -59,7 +59,7 @@
   function paintOf(s, p, quote) {
     if (!s[p + 'FxOn'] || !PAINT.includes(s[p + 'Fx'])) return null;
     const n = rangeNum(s, p + 'FxStr');
-    const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : quote || 'var(--SmartThemeQuoteColor)';
+    const c = cssReaders(s).col(p + 'FxColor') || quote || 'var(--SmartThemeQuoteColor)';
     if (s[p + 'Fx'] === 'gradient') return { shimmer: false, image: `linear-gradient(90deg, currentColor, ${c} ${100 - (n - 1) * 8}%)` };
     // Three times the text's width keeps the widest band (30% of it) off the text at both ends of the sweep.
     return { shimmer: true, size: '300% 100%', image: `linear-gradient(90deg, currentColor ${50 - n * 1.5}%, ${c} 50%, currentColor ${50 + n * 1.5}%)` };
@@ -276,7 +276,7 @@
   }
 
   function bindTextFormatting(overlay, s) {
-    overlay.querySelector('#m_tf_enable').onchange = function() { s.tfEnabled = this.checked; save(); updateAvatarStyle(); };
+    A.bindCheck(overlay, '#m_tf_enable', s, 'tfEnabled', updateAvatarStyle);
     bindPicSlot(overlay, s, PLATE_PIC);
   }
 

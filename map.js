@@ -1,5 +1,5 @@
 (() => {
-  const MAP_VERSION = '2.86.47';
+  const MAP_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -339,7 +339,7 @@
     return `
       ${subHead('vn_map', 'Maps ' + TAG, 'fa-map')}
       <div class="cb_collapse_content">
-        <label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Show Maps</span></label>
+        ${A.checkBox('m_map_on', s.nodeMaps, 'Show Maps')}
         <div class="cb_hint">Adds a Map button to the dialogue box.</div>
         <div id="m_map_body" class="${s.nodeMaps ? '' : 'cb_dim'}">
           <div class="cb_hint">Use the pin button to place pins on a map, each linked to a location or another map. Tagged locations count as visited; the current one glows. The dot marks the start map.</div>

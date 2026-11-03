@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.47';
+  const AGENTS_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -1625,10 +1625,7 @@
     const folds = [...root.querySelectorAll('.m_ag_fold')];
     const allBtn = root.querySelector('#m_ag_all');
     const setFold = (h, open) => {
-      h.classList.toggle('ntr_open', open);
-      h.setAttribute('aria-expanded', String(open));
-      h.querySelector('.cb_chevron').className = `fa-solid ${open ? 'fa-chevron-down' : 'fa-chevron-right'} cb_chevron`;
-      h.nextElementSibling.style.display = open ? 'block' : 'none';
+      A.showFold(h, open);
       s.uiOpen[`ag_${h.dataset.ag}`] = open;
     };
     const syncAll = () => {
@@ -1639,7 +1636,7 @@
     };
     folds.forEach((h) => {
       h.onclick = () => { setFold(h, !h.classList.contains('ntr_open')); save(); syncAll(); };
-      h.onkeydown = (e) => { if (e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click(); } };
+      A.keyClick(h);
     });
     allBtn.onclick = () => {
       const open = !folds.every((h) => h.classList.contains('ntr_open'));
@@ -2000,7 +1997,7 @@
   function bind(overlay, s) {
     root = overlay.querySelector('#m_ag_root');
     // Switching the page off stops every run, waiting or in progress.
-    overlay.querySelector('#m_ag_enable').onchange = function() { s.agEnabled = this.checked; save(); if (!this.checked) stopRuns(); refreshBoxes(); };
+    A.bindCheck(overlay, '#m_ag_enable', s, 'agEnabled', () => { if (!s.agEnabled) stopRuns(); refreshBoxes(); });
     dragger = dragSort(root, { pick: dragPick, place: dragPlace, done: dragDone });
     render();
   }

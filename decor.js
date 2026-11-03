@@ -1,5 +1,5 @@
 (() => {
-  const DECOR_VERSION = '2.86.47';
+  const DECOR_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
@@ -276,7 +276,7 @@
   }
 
   function bindDisplay(overlay, s) {
-    overlay.querySelector('#m_ov_enable').onchange = function() { s.ovEnabled = this.checked; save(); updateAvatarStyle(); };
+    A.bindCheck(overlay, '#m_ov_enable', s, 'ovEnabled', updateAvatarStyle);
     // Bubble Style: picking one sets its values and redraws the menu. Any other change on the page may make it Custom.
     const page = overlay.querySelector('.ntr_page[data-page="display"]');
     const syncBubStyle = () => {

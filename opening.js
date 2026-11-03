@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.47';
+  const OP_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -348,9 +348,7 @@
   }
 
   function stopMedia(st) {
-    if (st.hello) clearInterval(st.hello);
-    if (st.video) { try { st.video.pause(); } catch (e) {} }
-    if (st.iframe) ytCmd('pauseVideo');
+    holdMedia(st);
     // Video to color uses the transition length too; a skip keeps the quick fade. If the fade already started
     // before the end, it just finishes.
     const early = !!st.cover && !st.skipped;
@@ -358,10 +356,9 @@
     st.mediaOutMs = ms;
     if (!early) fadeCover(st, ms);
     console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): ${early ? 'fade already running, done in' : `fading to ${settings().opTransColor} over`} ${Math.round(ms)} ms.`);
-    if (st.snd) st.snd.style.display = 'none';
     const m = st.media;
     setTimeout(() => {
-      if (st.video) { try { st.video.removeAttribute('src'); st.video.load(); } catch (e) {} }
+      unloadVideo(st);
       if (m) m.remove();
     }, ms + 100);
   }
@@ -570,7 +567,7 @@
             <button type="button" id="m_op_lclr" class="menu_button danger_button" style="margin:0;" title="Remove logo" aria-label="Remove logo" ${o.logoUrl ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
           <div class="cb_sub">For All Characters</div>
-          <label class="checkbox_label"><input type="checkbox" id="m_op_mute" ${s.opMute ? 'checked' : ''}><span>Start Muted</span></label>
+          ${A.checkBox('m_op_mute', s.opMute, 'Start Muted')}
           <div class="cb_hint">The sound button during the video changes this too.</div>
           <div id="m_op_lbody" class="${o.logo === 'none' ? 'cb_dim' : ''}">
             ${sl('opLead', 'Logo Appears Before the End')}
@@ -585,7 +582,7 @@
             <label for="m_op_color">Fade Color</label><input type="color" id="m_op_color" value="${s.opTransColor}">
           </div>
           <div id="m_op_erow" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}">
-            <label class="checkbox_label"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade Over the Ending</span></label>
+            ${A.checkBox('m_op_early', s.opEarly, 'Fade Over the Ending')}
             <div class="cb_hint">The color covers the last seconds while the video still plays.</div>
           </div>
           ${sl('opTransMs', 'Transition Length', 1000)}
@@ -621,8 +618,7 @@
       setOp('yt', v);
       syncBody();
     };
-    const mute = q('#m_op_mute');
-    if (mute) mute.onchange = () => { s.opMute = mute.checked; save(); };
+    A.bindCheck(overlay, '#m_op_mute', s, 'opMute');
     const ttl = q('#m_op_title');
     if (ttl) ttl.onchange = () => setOp('title', ttl.checked);
     onPills(overlay, 'opwhen', (v) => setOp('when', v));
@@ -639,8 +635,7 @@
       q('#m_op_crow').style.display = v === 'cross' ? 'none' : '';
       q('#m_op_erow').style.display = v === 'cross' ? 'none' : '';
     });
-    const early = q('#m_op_early');
-    if (early) early.onchange = () => { s.opEarly = early.checked; save(); };
+    A.bindCheck(overlay, '#m_op_early', s, 'opEarly');
     const col = q('#m_op_color');
     if (col) {
       col.oninput = () => { s.opTransColor = col.value; };

@@ -8,10 +8,10 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.47';
+  const REGEX_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId } = A;
+  const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson } = A;
 
   // SillyTavern runs Global first, then Preset, then Character, each from top to bottom.
   const SECS = [
@@ -188,14 +188,7 @@ try {
 
   function download(list, name) {
     if (!list.length) { toastr.info('Nothing to export.', 'Regexes'); return; }
-    const blob = new Blob([JSON.stringify(list, null, 4)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${name.replace(/[^\w\- ]+/g, '').trim() || 'regexes'}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    downloadJson(list, name, 'regexes', '.json');
   }
 
   // ===== The page =====

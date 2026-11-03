@@ -1,5 +1,5 @@
 (() => {
-  const AVATARS_VERSION = '2.86.47';
+  const AVATARS_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -730,10 +730,7 @@
 
   // The Avatar Management page's switch and both columns.
   function bindAvatars(overlay, s) {
-    overlay.querySelector('#m_a_enable').onchange = function() {
-      s.avatarEnabled = this.checked; save(); updateAvatarStyle();
-      window.NTR.cast?.refresh();
-    };
+    A.bindCheck(overlay, '#m_a_enable', s, 'avatarEnabled', () => { updateAvatarStyle(); window.NTR.cast?.refresh(); });
     // SillyTavern's own Hide Chat Avatars hides In Line and Backdrop. It may change while the menu is open.
     const syncStNote = () => { overlay.querySelector('#m_av_sthidden').hidden = !document.body.classList.contains('hideChatAvatars'); };
     overlay.querySelector('.ntr_navi[data-page="pfp"]').addEventListener('click', syncStNote);

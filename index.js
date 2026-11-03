@@ -2151,9 +2151,9 @@ await (async () => {
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg', 'rbBgImg', 'tfPlateImg', 'aiFrameImg', 'usFrameImg']);
-  // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
-  // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
-  // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
+  // Theme files come from other people, so each number is kept to the range of its slider in the menu. Pop-out and
+  // foreground offsets go wider because dragging the picture can take them past the slider.
+  // Entries, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   // A fifth and sixth number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
     agTemp: [0, 2, 0.05, ''], agTopP: [0, 1, 0.01, ''], agTopK: [0, 200, 1, ''], agMinP: [0, 1, 0.01, ''], agFreq: [-2, 2, 0.05, ''], agPres: [-2, 2, 0.05, ''], agRep: [1, 2, 0.01, ''],
@@ -2200,7 +2200,7 @@ await (async () => {
   // A number setting kept to its range, or its default if it isn't a number.
   const rangeNum = (s, k) => cNum(s[k], DEFAULTS[k], NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // A slider whose range, step and unit come from NUM_RANGE.
-  // cls other than m_o_sl skips bindRows, for a module that binds its own sliders. scale shows the number divided by it.
+  // cls other than m_o_sl skips bindRows, for a module that binds its own sliders.
   const rangeSlider = (s, k, cls = 'm_o_sl', scale = 0) => { const [min, max, step, unit, smin = min, smax = max] = NUM_RANGE[k]; return ovSlider(s, k, unit, smin, smax, step, cls, scale); };
   // The min, max and step of a slider written out by hand, from NUM_RANGE.
   const rangeAttrs = (k) => { const [min, max, step, , smin = min, smax = max] = NUM_RANGE[k]; return `min="${smin}" max="${smax}" step="${step}"`; };

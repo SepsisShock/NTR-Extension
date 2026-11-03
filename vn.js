@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.47';
+  const VN_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -409,7 +409,7 @@
     }
     const err = A.moduleError(name);
     const off = name === 'map' && !s.nodeMaps;
-    const toggle = name === 'map' ? `<label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Show Maps</span></label>` : '';
+    const toggle = name === 'map' ? A.checkBox('m_map_on', s.nodeMaps, 'Show Maps') : '';
     const msg = err ? `${SUB_LABEL[name]} failed to load: ${err}` : off ? 'Its settings appear here once it\'s switched on.' : 'Loading...';
     // The menu loads it itself, so its settings are there in any Reader Mode style, not only once Visual Novel plays.
     if (!err && !off && A.isOn()) loadSub(name);
@@ -435,7 +435,6 @@
   function nodeSectionHtml(s) {
     const sl = (key, label) => ovLabel(label, rangeSlider(s, key, 'm_n_sl'));
     const dim = (id, on, inner) => `<div id="${id}" class="${on ? '' : 'cb_dim'}">${inner}</div>`;
-    const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
     const artBtns = (k, id) => `<span id="${id}" class="cb_art_btns" style="display:flex;gap:4px;">
                   <button class="menu_button m_art_up" data-k="${k}" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
@@ -453,13 +452,13 @@
 
             ${subHead('vn_play', 'Playback', 'fa-forward-step')}
             <div class="cb_collapse_content">
-              ${ck('m_n_user', s.nodeUserMsgs, 'Include My Messages')}
+              ${A.checkBox('m_n_user', s.nodeUserMsgs, 'Include My Messages')}
               <div class="cb_hint">Yours plays when you send, then the reply takes over.</div>
-              ${ck('m_n_split', s.nodeSplitUntagged, 'Play Untagged Messages')}
+              ${A.checkBox('m_n_split', s.nodeSplitUntagged, 'Play Untagged Messages')}
               <div class="cb_hint">Quotes become the character's lines; the rest is narration.</div>
-              ${ck('m_n_tw', s.nodeTypewriter, 'Typewriter Effect')}
+              ${A.checkBox('m_n_tw', s.nodeTypewriter, 'Typewriter Effect')}
               ${dim('m_n_spwrap', s.nodeTypewriter, sl('nodeSpeed', 'Delay per Character'))}
-              <div style="margin-top:8px;">${ck('m_n_auto', s.nodeAuto, 'Auto-Advance')}</div>
+              <div style="margin-top:8px;">${A.checkBox('m_n_auto', s.nodeAuto, 'Auto-Advance')}</div>
               ${dim('m_n_adwrap', s.nodeAuto, sl('nodeAutoDelay', 'Auto-Advance Wait'))}
             </div>
 
@@ -474,11 +473,11 @@
               ${sl('nodeBoxLift', 'Lift Above Send Bar')}
               ${sl('nodeTextScale', 'Text Size')}
               <div class="cb_sub">Portrait</div>
-              ${ck('m_n_pbox', s.nodePortraitBox, 'Show Portrait in Box')}
+              ${A.checkBox('m_n_pbox', s.nodePortraitBox, 'Show Portrait in Box')}
               ${dim('m_n_pwrap', s.nodePortraitBox, sl('nodePortrait', 'Portrait Size')
                 + ovLabel('Portrait Shape', pills('nshape', [['rounded', 'Rounded'], ['round', 'Circle'], ['square', 'Square'], ['rect', 'Tall']], s.nodeShape)))}
               <div class="cb_sub">Sprites</div>
-              ${ck('m_n_spr', s.nodeSprites, 'Show Sprites')}
+              ${A.checkBox('m_n_spr', s.nodeSprites, 'Show Sprites')}
               ${dim('m_n_swrap', s.nodeSprites, sl('nodeSpriteScale', 'Sprite Size'))}
               <div class="cb_hint" style="margin-bottom:0;">Sprites are full bodies, else faces, else Default Art. Stage Keeps Main Face is on the Avatars page. The last three speakers stay; those not talking dim.</div>
             </div>
@@ -495,12 +494,12 @@
 
             ${subHead('vn_scene', 'Choices, Effects and Weather', 'fa-cloud-bolt')}
             <div class="cb_collapse_content">
-              ${ck('m_n_choices', s.nodeChoices, 'Choice Buttons')}
+              ${A.checkBox('m_n_choices', s.nodeChoices, 'Choice Buttons')}
               <div id="m_n_choices_body" class="${s.nodeChoices ? '' : 'cb_dim'}">
                 <div class="cb_hint">${tg(s.choiceWord, ` A ${s.choiceSep} B ${s.choiceSep} C`)} shows buttons above the box. Picking one puts it in the input box.</div>
-                ${ck('m_n_csend', s.choiceSend, 'Send Right Away')}
+                ${A.checkBox('m_n_csend', s.choiceSend, 'Send Right Away')}
               </div>
-              <div style="margin-top:8px;">${ck('m_n_fx', s.nodeEffects, 'Effects and Weather')}</div>
+              <div style="margin-top:8px;">${A.checkBox('m_n_fx', s.nodeEffects, 'Effects and Weather')}</div>
             </div>
 
             ${subHead('vn_loc', 'Locations ' + TAG, 'fa-mountain-sun')}
@@ -516,7 +515,7 @@
 
             ${subHead('vn_cg', 'CG Scenes ' + TAG, 'fa-image')}
             <div class="cb_collapse_content">
-              ${ck('m_n_cg', s.nodeCG, 'Show CG Scenes')}
+              ${A.checkBox('m_n_cg', s.nodeCG, 'Show CG Scenes')}
               <div id="m_c_body" class="${s.nodeCG ? '' : 'cb_dim'}">
                 <div class="cb_hint">${tg(s.cgWord, 'Name')} fills the screen until the next line. Names match like Locations.</div>
                 <div id="m_c_list"></div>
@@ -533,7 +532,7 @@
 
             ${subHead('vn_prompt', 'Prompt for the Model', 'fa-scroll')}
             <div class="cb_collapse_content">
-              ${ck('m_n_inj', s.nodeInject, 'Add to Every Request')}
+              ${A.checkBox('m_n_inj', s.nodeInject, 'Add to Every Request')}
               <div class="cb_hint">Sent with each message while Visual Novel Mode is on, with no extra calls. Built from your emotions, tags, this character's locations and CGs, and the scene features you have on.</div>
               <textarea id="m_p_text" class="text_pole" aria-label="Prompt" readonly rows="4" style="width:100%;resize:vertical;"></textarea>
               <button id="m_p_copy" class="menu_button" style="margin-top:6px;"><i class="fa-solid fa-copy"></i> Copy Prompt</button>
@@ -577,7 +576,7 @@
       };
     });
 
-    const chk = (id, key, after) => { const el = overlay.querySelector(id); if (el) el.onchange = function() { s[key] = this.checked; save(); if (after) after(); }; };
+    const chk = (sel, key, after) => A.bindCheck(overlay, sel, s, key, after);
     chk('#m_n_user', 'nodeUserMsgs', () => { refreshPrompt(); nodeLoad({ animate: false }); });
     const dimIf = (sel, on) => overlay.querySelector(sel)?.classList.toggle('cb_dim', !on);
     chk('#m_n_tw', 'nodeTypewriter', () => dimIf('#m_n_spwrap', s.nodeTypewriter));
@@ -1341,11 +1340,8 @@
   // ----- Auto-injected tag instructions (rides along with the normal request) -----
   const INJECT_KEY = 'ntr_vn_tags';
   function updateInjection() {
-    const c = ctx();
-    if (typeof c.setExtensionPrompt !== 'function') return;
     const s = settings();
-    const on = A.isOn() && s.nodeEnabled && s.nodeInject;
-    try { c.setExtensionPrompt(INJECT_KEY, on ? buildPrompt(s) : '', 1, 1, false, 0); } catch (e) { console.error('[NTR] Could not set the tag instructions', e); }
+    A.setInjection(INJECT_KEY, A.isOn() && s.nodeEnabled && s.nodeInject ? buildPrompt(s) : '', 'tag instructions');
   }
 
   function nodeGoMsg(d) {
@@ -1429,17 +1425,7 @@
     const opened = sig !== lastSig;
     lastSig = sig;
     if (opened) { node.waitId = null; node.cont = null; jump = null; safe(() => window.NTR.map?.close()); }
-    if (!s.nodeEnabled || !A.isOn()) {
-      watchLayout(false);
-      clearTimeout(nodeQ);
-      nodeStopTyping(); ov.style.display = 'none'; node.list = []; setLocation(null); clearScene(); updateStage();
-      node.held = false;
-      node.waitId = null;
-      node.cont = null;
-      safe(() => window.NTR.map?.close());
-      safe(() => window.NTR.opening?.abort());
-      return;
-    }
+    if (!s.nodeEnabled || !A.isOn()) { stopNode(ov); return; }
     watchLayout(true);
     if (opened) node.held = false; // opening.js stops a video that belongs to the previous chat
     if (opts.switchedOn) maybeOpening('vn');
@@ -1556,23 +1542,26 @@
     A.refreshFg();
   }
 
-  function teardown() {
-    applyStyle();
+  function stopNode(ov) {
     watchLayout(false);
     clearTimeout(nodeQ);
     nodeStopTyping();
-    const ov = document.getElementById('cb_node');
     if (ov) ov.style.display = 'none';
     node.list = [];
     node.held = false;
     node.waitId = null;
     node.cont = null;
-    node.contJump = null;
     setLocation(null);
     clearScene();
     safe(() => window.NTR.map?.close());
     safe(() => window.NTR.opening?.abort());
     updateStage();
+  }
+
+  function teardown() {
+    applyStyle();
+    stopNode(document.getElementById('cb_node'));
+    node.contJump = null;
     updateInjection();
     C.refresh();
     syncNodeToggle();

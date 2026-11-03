@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.47';
+  const CAST_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -432,11 +432,9 @@
   const INJECT_KEY = 'ntr_emo';
   const promptText = (s) => `End every reply with ${s.delimNarOpen}${s.emoWord}:Name${s.delimNarClose} for the emotion of the character speaking, using one of: ${E().emotions.map((e) => e.name).join(', ')}.`;
   function updateInjection() {
-    const c = ctx();
-    if (typeof c.setExtensionPrompt !== 'function') return;
     const s = settings();
     const on = A.isOn() && s.avatarEnabled && !s.nodeEnabled && s.emoInject && (s.emoFaces || s.emoStage);
-    try { c.setExtensionPrompt(INJECT_KEY, on ? promptText(s) : '', 1, 1, false, 0); } catch (e) { console.error('[NTR] Could not set the emotion instructions', e); }
+    A.setInjection(INJECT_KEY, on ? promptText(s) : '', 'emotion instructions');
   }
 
   // A new chat, NTR switched on, or Visual Novel Mode switched on or off. SillyTavern clears extension prompts when a
@@ -533,7 +531,6 @@
   // The emotion data stays editable with Avatar Management switched off (ntr_keepon), since Visual Novel Mode uses it too.
   // What In the Chat shows on SillyTavern's chat follows the page's switch (ntr_pagefx), like the rest of the page.
   function partHtml(s) {
-    const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const sl = (key, label) => {
       const [, , , unit] = A.numRange(key);
       const v = A.rangeNum(s, key);
@@ -551,18 +548,18 @@
         <div class="cb_collapse_content">
           <div class="ntr_pagefx">
             <div class="cb_hint">A message's emotion comes from <code>${tag}</code>, or a speaker tag with the writer's name. Without one, the main face shows.</div>
-            ${ck('m_emo_faces', s.emoFaces, 'Emotion Faces on Chat Avatars')}
-            ${ck('m_emo_stage', s.emoStage, 'Stage Behind the Chat')}
+            ${A.checkBox('m_emo_faces', s.emoFaces, 'Emotion Faces on Chat Avatars')}
+            ${A.checkBox('m_emo_stage', s.emoStage, 'Stage Behind the Chat')}
             <div class="cb_hint">The last three speakers, by full body or face.</div>
             <div id="m_emo_stagebody" class="${s.emoStage ? '' : 'cb_dim'}">
               ${sl('emoStageScale', 'Stage Size:')}
               ${sl('emoStageOpacity', 'Stage Opacity:')}
             </div>
-            ${ck('m_emo_inj', s.emoInject, 'Ask the Model for Emotion Tags')}
+            ${A.checkBox('m_emo_inj', s.emoInject, 'Ask the Model for Emotion Tags')}
             <div class="cb_hint">With Visual Novel Mode on, its own stage and instructions replace Stage and the Emotion tag request.</div>
           </div>
-          <div style="margin-top:8px;">${ck('m_emo_keepface', s.nodeSpriteBase, 'Stage Keeps Main Face')}</div>
-          ${ck('m_emo_hide', s.nodeHideEmo, 'Hide Emotion and Scene Tags')}
+          <div style="margin-top:8px;">${A.checkBox('m_emo_keepface', s.nodeSpriteBase, 'Stage Keeps Main Face')}</div>
+          ${A.checkBox('m_emo_hide', s.nodeHideEmo, 'Hide Emotion and Scene Tags')}
           <div class="cb_hint">Also in Visual Novel Mode.</div>
         </div>
         ${subHead('av_emo_list', 'Emotion List ' + TAG, 'fa-list-ul')}
@@ -582,7 +579,7 @@
         ${subHead('av_spk', 'Speakers ' + TAG, 'fa-users')}
         <div class="cb_collapse_content">
           <div class="cb_hint">On chat avatars, speakers without faces use their card or persona picture. The narrator never gets one.</div>
-          ${ck('m_spk_auto', s.nodeAutoSpk, 'Add Speakers Automatically')}
+          ${A.checkBox('m_spk_auto', s.nodeAutoSpk, 'Add Speakers Automatically')}
           <div class="cb_hint">From the card, your persona and speaker tags in the chat.</div>
           <div id="m_spk_list"></div>
           <div class="cb_row" style="margin-top:8px;">
@@ -732,7 +729,7 @@
       });
       spkBox.querySelectorAll('.m_spk_exp').forEach((b) => {
         b.onclick = () => { const k = b.dataset.key; if (spkOpen.has(k)) spkOpen.delete(k); else spkOpen.add(k); renderSpk(); };
-        b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
+        A.keyClick(b);
       });
       spkBox.querySelectorAll('.m_spk_rm').forEach((b) => {
         b.onclick = async () => {
@@ -799,10 +796,10 @@
     };
     overlay.querySelector('#m_spk_add').onclick = addSpk;
     overlay.querySelector('#m_spk_new').onkeydown = (e) => { if (e.key === 'Enter') addSpk(); };
-    overlay.querySelector('#m_spk_auto').onchange = function() { s.nodeAutoSpk = this.checked; save(); renderSpk(); changed(); };
+    A.bindCheck(overlay, '#m_spk_auto', s, 'nodeAutoSpk', () => { renderSpk(); changed(); });
 
     // In the Chat
-    const chk = (id, key, after) => { overlay.querySelector(id).onchange = function() { s[key] = this.checked; save(); after?.(); }; };
+    const chk = (sel, key, after) => A.bindCheck(overlay, sel, s, key, after);
     chk('#m_emo_faces', 'emoFaces', () => { updateInjection(); schedule(); });
     chk('#m_emo_stage', 'emoStage', () => { overlay.querySelector('#m_emo_stagebody').classList.toggle('cb_dim', !s.emoStage); updateInjection(); schedule(); });
     chk('#m_emo_keepface', 'nodeSpriteBase', changed);

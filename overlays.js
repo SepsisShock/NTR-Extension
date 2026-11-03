@@ -1,5 +1,5 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.47';
+  const OVERLAYS_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
@@ -544,7 +544,7 @@
               ${curImg ? sl('m_b_p', `Crop Position${btag}`, cardNum(curImg.pos, 'bannerPos', 45), 'bannerPos') : ''}`, 'fa-images')}
 
               ${card('Rotation' + (ownBanner ? ' ' + TAG : ''), `
-                <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate Pictures</span></label>
+                ${A.checkBox('m_b_rot', ro.rotate, 'Rotate Pictures')}
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
                   ${sl('m_b_rot_sec', 'Every', ro.rotateSec, 'bannerRotateSec')}
                   ${ovLabel('Transition', pills('brfx', [['fade', 'Crossfade'], ['swap', 'Instant']], ro.rotateFx))}
@@ -720,11 +720,9 @@
       vp.onchange = save;
     }
 
-    overlay.querySelector('#m_f_hidevn').onchange = function() { s.fgHideVN = this.checked; save(); ensureFg(); };
+    A.bindCheck(overlay, '#m_f_hidevn', s, 'fgHideVN', ensureFg);
     for (const pos of FG_POS) onPills(overlay, 'fgl' + pos, (val) => { F[pos + 'Layer'] = val; save(); ensureFg(); });
-    overlay.querySelector('#m_f_enable').onchange = function() {
-      s.fgEnabled = this.checked; save(); ensureFg();
-    };
+    A.bindCheck(overlay, '#m_f_enable', s, 'fgEnabled', ensureFg);
 
     const fo = overlay.querySelector('#m_f_o');
     fo.oninput = function() {

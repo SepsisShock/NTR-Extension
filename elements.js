@@ -1,10 +1,10 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.47';
+  const ELEMENTS_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
     pills, posGrid, onPills, pageHtml, pagePart, subHead, card, picSlotHtml, bindPicSlot, reducedMotion } = A;
-  const { COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
+  const { FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
     RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
     cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, bubblesOn, bubRight, restyle: updateAvatarStyle,
     rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal, ovLabel } = A.look;
@@ -13,8 +13,9 @@
   // and Chrome drops the -webkit- parts when it sees it, so Firefox gets it on its own.
   function scrollbarCss(s) {
     if (!s.ovScrollOn) return '';
-    const color = s.ovScrollColorOn && COLOR_RE.test(s.ovScrollColor) ? s.ovScrollColor : '';
-    const track = s.ovScrollTrackOn && COLOR_RE.test(s.ovScrollTrack) ? s.ovScrollTrack : '';
+    const { col } = cssReaders(s);
+    const color = col('ovScrollColor');
+    const track = col('ovScrollTrack');
     let css = '';
     if (track) css += `\n      ::-webkit-scrollbar-track { background-color: ${track}; }\n      ::-webkit-scrollbar-corner { background-color: ${track}; }`;
     if (color) css += `\n      ::-webkit-scrollbar-thumb:vertical, ::-webkit-scrollbar-thumb:horizontal { background-color: ${color}; }`;
@@ -27,19 +28,19 @@
   const qrBtn = (pseudo = '') => `#qr--bar > .qr--buttons .qr--button${pseudo}, #qr--popout > .qr--body > .qr--buttons .qr--button${pseudo}`;
   function qrCss(s) {
     if (!s.ovQrOn) return '';
-    const on = (k) => s[k + 'On'];
+    const { on, col } = cssReaders(s);
     const scroll = on('ovQrWrap') && s.ovQrWrap === 'scroll';
     let css = cssRule(qrBtn(), {
       'border-radius': on('ovQrShape') ? `${ovRadius(s, 'Qr')}px` : '',
       'background-color': !on('ovQrBg') ? '' : s.ovQrBg === 'clear' ? 'transparent' : ovColorVal(s, 'ovQrBgColor', 'ovQrBgOpacity'),
       border: on('ovQrBorder') ? ovBorderVal(s, 'Qr') : '',
-      color: on('ovQrText') && COLOR_RE.test(s.ovQrText) ? s.ovQrText : '',
+      color: col('ovQrText'),
       'font-size': on('ovQrSize') ? `${rangeNum(s, 'ovQrSize')}em` : '',
       // In one row a button keeps its width and its label stays on one line.
       ...(scroll ? { 'flex-shrink': '0', 'white-space': 'nowrap' } : {}),
     });
     // A Background would cover SillyTavern's hover gray too, so with one ticked the hover gets ST's gray back.
-    if (on('ovQrHover') || on('ovQrBg')) css += cssRule(qrBtn(':hover'), { 'background-color': on('ovQrHover') && COLOR_RE.test(s.ovQrHover) ? s.ovQrHover : DEFAULTS.ovQrHover });
+    if (on('ovQrHover') || on('ovQrBg')) css += cssRule(qrBtn(':hover'), { 'background-color': col('ovQrHover') || DEFAULTS.ovQrHover });
     css += cssRule('#qr--bar > .qr--buttons', {
       'flex-wrap': on('ovQrWrap') ? (scroll ? 'nowrap' : 'wrap') : '',
       gap: on('ovQrGap') ? `${rangeNum(s, 'ovQrGap')}px` : '',
@@ -460,12 +461,13 @@
     if (!s.mdOn) return '';
     const M = '#chat .mes';
     const k = s.mdSizeOn ? rangeNum(s, 'mdSize') : 1;
-    const pill = s.mdPillOn ? (COLOR_RE.test(s.mdPill) ? s.mdPill : 'var(--SmartThemeBlurTintColor)') : '';
+    const { col } = cssReaders(s);
+    const pill = s.mdPillOn ? s.mdPill || 'var(--SmartThemeBlurTintColor)' : '';
     // Size and opacity start at SillyTavern's for that spot.
     const look = (size, opacity) => ({
       'font-size': `calc(var(--mainFontSize) * ${+(size * k).toFixed(3)})`,
       opacity: s.mdOpacityOn ? rangeNum(s, 'mdOpacity') / 100 : opacity,
-      color: s.mdColorOn && COLOR_RE.test(s.mdColor) ? s.mdColor : '',
+      color: col('mdColor'),
       'font-family': 'var(--mainFontFamily)', 'font-style': 'normal', 'line-height': '1.4',
       'background-color': pill, 'border-radius': pill ? '999px' : '', padding: pill ? '.05em .6em' : '',
     });
@@ -570,7 +572,7 @@
   // bind* function when bindRows isn't enough.
   function bindElements(overlay, s) {
     for (const [id, key] of [['m_rb_enable', 'rbEnabled'], ['m_md_enable', 'mdOn'], ['m_scroll_enable', 'ovScrollOn'], ['m_cur_enable', 'ovCursorOn'], ['m_mb_enable', 'mbOn'], ['m_qr_enable', 'ovQrOn']]) {
-      overlay.querySelector('#' + id).onchange = function() { s[key] = this.checked; save(); updateAvatarStyle(); };
+      A.bindCheck(overlay, '#' + id, s, key, updateAvatarStyle);
     }
     bindReasoning(overlay, s);
     bindMessageDetails(overlay, s);
@@ -607,7 +609,7 @@
     // Fade: its rows dim while it's off, and a note shows while the box has nothing to fade.
     const fadeRows = overlay.querySelector('.m_rb_fade');
     const syncFade = () => {
-      const fill = (s.rbBoxColorOn && COLOR_RE.test(s.rbBoxColor)) || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
+      const fill = cssReaders(s).col('rbBoxColor') || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
       const pat = s.rbPat !== 'none' && (s.rbPat !== 'lines' || s.rbPatH || s.rbPatV || s.rbPatR || s.rbPatL);
       fadeRows.classList.toggle('cb_dim', !s.rbPatFadeOn);
       overlay.querySelector('.m_rb_fadeneed').hidden = !s.rbPatFadeOn || fill || pat || !!s.rbBgImg;

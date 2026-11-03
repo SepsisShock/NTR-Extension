@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.47';
+  const READER_VERSION = '2.86.48';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -283,8 +283,6 @@
     geom = g;
 
     const px = (v) => `${Math.round(v * 10) / 10}px`;
-    // Empty or broken ink falls back to the built-in book's (DEFAULTS).
-    const col = (k) => (A.look.COLOR_RE.test(s[k]) ? s[k] : A.DEFAULTS[k]);
     const font = s.rdBookFontOn ? A.cleanFont(s.rdBookFont) : '';
     const B = 'html body.ntr_book';
     const css = `
@@ -294,8 +292,8 @@
     ${B} #chat { flex: none !important; height: ${px(g.h)} !important; max-height: none !important; box-sizing: border-box !important; overflow: hidden !important;
       padding: ${px(g.pt)} ${px(g.po)} ${px(g.pb)} !important; background: ${cssUrl(s.rdBookImg, s)} center / 100% 100% no-repeat !important;
       border: none !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
-      text-shadow: none !important; scrollbar-width: none; will-change: auto !important; color: ${col('rdInk')};
-      --SmartThemeBodyColor: ${col('rdInk')}; --SmartThemeEmColor: ${col('rdInkEm')}; --SmartThemeQuoteColor: ${col('rdInkQuote')}; --SmartThemeUnderlineColor: ${col('rdInk')}; }
+      text-shadow: none !important; scrollbar-width: none; will-change: auto !important; color: ${s.rdInk};
+      --SmartThemeBodyColor: ${s.rdInk}; --SmartThemeEmColor: ${s.rdInkEm}; --SmartThemeQuoteColor: ${s.rdInkQuote}; --SmartThemeUnderlineColor: ${s.rdInk}; }
     ${B}:not(.ntr_bk_edit) #chat { display: block !important; column-count: 2; column-gap: ${px(g.gap)}; column-fill: auto; }
     ${B}:not(.ntr_bk_edit) #chat::after { content: ''; display: block; height: 1px; break-before: column; }
     ${B}.ntr_bk_edit #chat { display: block !important; overflow-y: auto !important; }
@@ -308,25 +306,25 @@
     ${B} #chat > .mes .ch_name { font-size: .8em; margin-bottom: .3em; break-after: avoid; }
     ${B} #chat > .mes .mes_buttons { opacity: .35; transition: opacity .15s; }
     ${B} #chat > .mes:hover .mes_buttons { opacity: 1; }
-    ${B} #chat .mes .name_text { color: ${col('rdInk')} !important; }
-    ${B} #chat .mes .mes_text { color: ${col('rdInk')} !important;${font ? ` font-family: "${font}", var(--mainFontFamily) !important;` : ''} }
-    ${B} #chat .mes .mes_text :is(i, em) { color: ${col('rdInkEm')} !important; }
-    ${B} #chat .mes .mes_text q { color: ${col('rdInkQuote')} !important; }
+    ${B} #chat .mes .name_text { color: ${s.rdInk} !important; }
+    ${B} #chat .mes .mes_text { color: ${s.rdInk} !important;${font ? ` font-family: "${font}", var(--mainFontFamily) !important;` : ''} }
+    ${B} #chat .mes .mes_text :is(i, em) { color: ${s.rdInkEm} !important; }
+    ${B} #chat .mes .mes_text q { color: ${s.rdInkQuote} !important; }
     ${B} #chat .mes .mes_text q :is(i, em) { color: inherit !important; }
-    ${B} #chat .mes .mes_text u { color: ${col('rdInk')} !important; }
+    ${B} #chat .mes .mes_text u { color: ${s.rdInk} !important; }
     ${B} #chat .mes :is(.mes_text, .mes_text *, .name_text) { text-shadow: none !important; -webkit-text-stroke: 0 !important; }
     /* The reasoning block in the book's ink, on the paper. It doesn't scroll, so a long one runs on to the next page. */
-    ${B} #chat .mes .mes_reasoning { --reasoning-body-color: ${col('rdInkEm')}; --reasoning-em-color: ${col('rdInkEm')}; color: ${col('rdInkEm')} !important;
+    ${B} #chat .mes .mes_reasoning { --reasoning-body-color: ${s.rdInkEm}; --reasoning-em-color: ${s.rdInkEm}; color: ${s.rdInkEm} !important;
       overflow: visible !important; max-height: none !important; background: none !important; box-shadow: none !important; }
-    ${B} #chat .mes .mes_reasoning :is(i, em) { color: ${col('rdInkEm')} !important; }
-    ${B} #chat .mes .mes_reasoning q { color: ${col('rdInkQuote')} !important; }
+    ${B} #chat .mes .mes_reasoning :is(i, em) { color: ${s.rdInkEm} !important; }
+    ${B} #chat .mes .mes_reasoning q { color: ${s.rdInkQuote} !important; }
     ${B} #chat .mes .mes_reasoning q :is(i, em) { color: inherit !important; }
     ${B} #chat .mes :is(.mes_reasoning, .mes_reasoning *) { text-shadow: none !important; -webkit-text-stroke: 0 !important; }
-    ${B} #chat .mes .mes_reasoning_header { background: rgba(60, 40, 20, .1) !important; color: ${col('rdInk')} !important; border: 1px solid rgba(60, 40, 20, .25) !important; box-shadow: none !important; }
+    ${B} #chat .mes .mes_reasoning_header { background: rgba(60, 40, 20, .1) !important; color: ${s.rdInk} !important; border: 1px solid rgba(60, 40, 20, .25) !important; box-shadow: none !important; }
     ${B} #chat .mes .mes_reasoning_arrow { color: inherit !important; }
     ${B} #chat .mes .mes_reasoning::before, ${B} #chat .mes .mes_reasoning::after { display: none !important; }
     ${B} #chat .mes :is(.mes_text, .mes_media_wrapper) img { max-width: 100%; max-height: ${px(g.h - g.pt - g.pb - 8)}; break-inside: avoid; }
-    ${B} #chat .mes :is(.swipe_left, .swipeRightBlock, .swipe_right, .swipes-counter) { color: ${col('rdInk')}; }
+    ${B} #chat .mes :is(.swipe_left, .swipeRightBlock, .swipe_right, .swipes-counter) { color: ${s.rdInk}; }
     ${B} #chat .mes .swipeRightBlock { position: fixed !important; left: ${px(g.x + g.w - g.po - 50)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
     ${B} #chat .mes .swipe_left { position: fixed !important; left: ${px(g.x + g.w - g.po - 90)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
     ${pageFree ? '' : `${B} #ntr_rd_bar { align-self: center; width: min(100%, var(--sheldWidth)); box-sizing: border-box; }`}

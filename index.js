@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.47';
+  const VERSION = '2.86.48';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -196,6 +196,12 @@ await (async () => {
   const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
 
   const ctx = () => SillyTavern.getContext();
+  // Sets an NTR prompt SillyTavern adds to each request; empty text clears it.
+  function setInjection(key, text, what) {
+    const c = ctx();
+    if (typeof c.setExtensionPrompt !== 'function') return;
+    try { c.setExtensionPrompt(key, text, 1, 1, false, 0); } catch (e) { console.error(`[NTR] Could not set the ${what}`, e); }
+  }
   const save = () => {
     ctx().saveSettingsDebounced();
     const k = currentKey();
@@ -709,9 +715,7 @@ await (async () => {
     const noScroll = (e) => { if (drag?.on) e.preventDefault(); };
     const noMenu = (e) => e.preventDefault();
     const end = (keep) => {
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      document.removeEventListener('pointercancel', onUp);
+      dragEnded(onMove, onUp);
       document.removeEventListener('keydown', onKey, true);
       document.removeEventListener('touchmove', noScroll, { passive: false });
       document.removeEventListener('contextmenu', noMenu, true);
@@ -748,9 +752,7 @@ await (async () => {
         document.addEventListener('touchmove', noScroll, { passive: false });
         document.addEventListener('contextmenu', noMenu, true);
       }
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-      document.addEventListener('pointercancel', onUp);
+      dragEnds(onMove, onUp);
       document.addEventListener('keydown', onKey, true);
     });
     return { busy: () => !!drag?.on };
@@ -1112,27 +1114,28 @@ await (async () => {
   function onPills(root, name, fn) {
     root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
   }
+  const keyClick = (el) => el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); } });
+  // Content is the header's next sibling.
+  function showFold(h, open) {
+    h.nextElementSibling.style.display = open ? 'block' : 'none';
+    h.classList.toggle('ntr_open', open);
+    h.setAttribute('aria-expanded', String(open));
+    const icon = h.querySelector('.cb_chevron');
+    icon.classList.toggle('fa-chevron-down', open);
+    icon.classList.toggle('fa-chevron-right', !open);
+  }
   function bindCollapses(overlay, s) {
     overlay.querySelectorAll('.cb_collapse_toggle[data-sec]').forEach((h) => {
       const sec = h.dataset.sec;
-      const content = h.nextElementSibling;
-      const icon = h.querySelector('.cb_chevron');
-      const apply = (open) => {
-        content.style.display = open ? 'block' : 'none';
-        h.classList.toggle('ntr_open', open);
-        h.setAttribute('aria-expanded', open ? 'true' : 'false');
-        icon.classList.toggle('fa-chevron-down', open);
-        icon.classList.toggle('fa-chevron-right', !open);
-      };
-      apply(!!s.uiOpen[sec]);
+      showFold(h, !!s.uiOpen[sec]);
       h.addEventListener('click', (e) => {
         if (e.target.closest('input')) return;
-        const open = content.style.display === 'none';
+        const open = !h.classList.contains('ntr_open');
         s.uiOpen[sec] = open;
         save();
-        apply(open);
+        showFold(h, open);
       });
-      h.addEventListener('keydown', (e) => { if (e.target === h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click(); } });
+      keyClick(h);
     });
   }
 
@@ -1209,7 +1212,7 @@ await (async () => {
   const seeThrough = (c, opacity) => (opacity < 100 ? `color-mix(in srgb, ${c} ${opacity}%, transparent)` : c);
 
   // Chat panel, messages and send box. Each setting is SillyTavern's own look while it's unticked.
-  const ovColorVal = (s, k, opacity) => seeThrough(COLOR_RE.test(s[k]) ? s[k] : `var(${COLOR_FROM[k]})`, rangeNum(s, opacity));
+  const ovColorVal = (s, k, opacity) => seeThrough(s[k] || `var(${COLOR_FROM[k]})`, rangeNum(s, opacity));
   const ovRadius = (s, p) => (s[`ov${p}Shape`] === 'square' ? 0 : rangeNum(s, `ov${p}Round`));
   const ovBorderVal = (s, p) => (s[`ov${p}Border`] === 'none' ? 'none' : `${rangeNum(s, `ov${p}BorderWidth`)}px solid ${ovColorVal(s, `ov${p}BorderColor`, `ov${p}BorderOpacity`)}`);
 
@@ -1326,6 +1329,10 @@ await (async () => {
     box.onblur = () => end(true);
     box.focus();
     box.select();
+  }
+  const checkBox = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
+  function bindCheck(root, sel, s, key, after) {
+    root.querySelector(sel).onchange = function() { s[key] = this.checked; save(); after?.(); };
   }
   function ovSlider(s, key, unit, min, max, step, cls, scale) {
     const v = rangeNum(s, key);
@@ -1507,7 +1514,7 @@ await (async () => {
     const on = (k) => s[k + 'On'];
     return {
       on,
-      col: (k) => (on(k) && COLOR_RE.test(s[k]) ? s[k] : ''),
+      col: (k) => (on(k) ? s[k] : ''),
       font: (k) => { const f = on(k) ? cleanFont(s[k]) : ''; return f ? `"${f}", var(--mainFontFamily)` : ''; },
       size: (k) => (on(k) ? rangeNum(s, k) : 0),
     };
@@ -2072,12 +2079,11 @@ await (async () => {
   };
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const readText = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f); });
-  // Saves `obj` as a JSON file for exported themes and agents: <name>.ntr-<kind>.json, named <kind> if `name` has no
-  // letters or numbers.
-  function downloadJson(obj, name, kind) {
+  // Saves `obj` as a JSON file: <name><ext>, named <kind> if `name` has no letters or numbers.
+  function downloadJson(obj, name, kind, ext = `.ntr-${kind}.json`) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
-    a.download = `${name.replace(/[^\w\- ]+/g, '').trim() || kind}.ntr-${kind}.json`;
+    a.download = `${name.replace(/[^\w\- ]+/g, '').trim() || kind}${ext}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -2720,7 +2726,7 @@ await (async () => {
   }
   // The page's switch is there whether regex.js loaded, failed or broke while drawing.
   function bindRegexPage(overlay, s) {
-    overlay.querySelector('#m_rx_enable').onchange = function() { s.rxEnabled = this.checked; save(); openCombinedModal(); };
+    bindCheck(overlay, '#m_rx_enable', s, 'rxEnabled', openCombinedModal);
     if (s.rxEnabled) callModule('regex', 'bind', overlay, s);
   }
 
@@ -2736,35 +2742,39 @@ await (async () => {
 
   const bindVNSection = (overlay, s) => { if (readerPart(s) === 'vn') callModule('vn', 'bind', overlay, s); };
 
+  // A mode's button in the send bar: pressed while its mode is on, hidden while the extension is off.
+  function syncSendBtn(id, on) {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.classList.toggle('cb_on', on);
+    b.setAttribute('aria-pressed', String(on));
+    b.style.display = isOn() ? '' : 'none';
+  }
+  function injectSendBtn(id, icon, title, label, onclick, sync) {
+    const lsf = document.getElementById('leftSendForm');
+    if (!lsf || document.getElementById(id)) return;
+    const b = document.createElement('div');
+    b.id = id;
+    b.className = `fa-solid ${icon} interactable`;
+    b.title = title;
+    b.setAttribute('role', 'button');
+    b.setAttribute('aria-label', label);
+    b.tabIndex = 0;
+    b.onclick = onclick;
+    lsf.appendChild(b);
+    sync();
+  }
+
   function syncVNToggle() {
     // Pinned Blocks can hide in Visual Novel Mode.
     callModule('layout', 'syncPins');
-    const b = document.getElementById('cb_node_toggle');
-    if (!b) return;
-    b.classList.toggle('cb_on', !!settings().nodeEnabled);
-    b.setAttribute('aria-pressed', String(!!settings().nodeEnabled));
-    b.style.display = isOn() ? '' : 'none';
+    syncSendBtn('cb_node_toggle', !!settings().nodeEnabled);
   }
 
   // The chat bubbles button: Reader Mode with the Visual Novel style, or Reader Mode off.
   async function toggleVN() {
     const on = !settings().nodeEnabled;
     await setReader(on, on);
-  }
-
-  function injectNodeToggle() {
-    const lsf = document.getElementById('leftSendForm');
-    if (!lsf || document.getElementById('cb_node_toggle')) return;
-    const b = document.createElement('div');
-    b.id = 'cb_node_toggle';
-    b.className = 'fa-solid fa-comments interactable';
-    b.title = 'Visual Novel Mode (turns Reader Mode on)';
-    b.setAttribute('role', 'button');
-    b.setAttribute('aria-label', 'Visual Novel Mode');
-    b.tabIndex = 0;
-    b.onclick = toggleVN;
-    lsf.appendChild(b);
-    syncVNToggle();
   }
 
   // ===== Reader Mode (the paging itself lives in reader.js) =====
@@ -2920,26 +2930,7 @@ await (async () => {
   }
 
   function syncReaderToggle() {
-    const b = document.getElementById('ntr_rd_toggle');
-    if (!b) return;
-    b.classList.toggle('cb_on', !!settings().rdEnabled);
-    b.setAttribute('aria-pressed', String(!!settings().rdEnabled));
-    b.style.display = isOn() ? '' : 'none';
-  }
-
-  function injectReaderToggle() {
-    const lsf = document.getElementById('leftSendForm');
-    if (!lsf || document.getElementById('ntr_rd_toggle')) return;
-    const b = document.createElement('div');
-    b.id = 'ntr_rd_toggle';
-    b.className = 'fa-solid fa-book-open interactable';
-    b.title = 'Reader Mode';
-    b.setAttribute('role', 'button');
-    b.setAttribute('aria-label', 'Reader Mode');
-    b.tabIndex = 0;
-    b.onclick = toggleReader;
-    lsf.appendChild(b);
-    syncReaderToggle();
+    syncSendBtn('ntr_rd_toggle', !!settings().rdEnabled);
   }
 
   // ===== Extensions page drawer + master power switch =====
@@ -3017,7 +3008,7 @@ await (async () => {
     b.title = 'Open the Nitwit Tavern Redesign menu';
     b.innerHTML = '<div class="extensionsMenuExtensionButton"><span class="ntr_icon"></span></div><span>Nitwit Tavern Redesign</span>';
     b.onclick = () => openCombinedModal();
-    b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } };
+    keyClick(b);
     menu.appendChild(b);
   }
 
@@ -3035,8 +3026,8 @@ await (async () => {
   function injectExtensionMenuButton() {
     const tick = () => {
       injectExtBar();
-      injectNodeToggle();
-      injectReaderToggle();
+      injectSendBtn('cb_node_toggle', 'fa-comments', 'Visual Novel Mode (turns Reader Mode on)', 'Visual Novel Mode', toggleVN, syncVNToggle);
+      injectSendBtn('ntr_rd_toggle', 'fa-book-open', 'Reader Mode', 'Reader Mode', toggleReader, syncReaderToggle);
       syncWandEntry();
       if (isOn()) window.NTR.cast?.ensure();
     };
@@ -3047,7 +3038,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, checkBox, bindCheck, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,
@@ -3080,7 +3071,7 @@ await (async () => {
     // lists their settings are checked against.
     look: {
       POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
-      COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel,
+      FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel,
       RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
       cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,

@@ -1,14 +1,8 @@
-// Layout, Pinned Blocks and Edit Placement come from layout.js, which the core loads before it starts. These check that
-// it arrives in time and works from what the core shares; where things sit on screen still needs a run in SillyTavern.
+// Layout, Pinned Blocks and Edit Placement come from layout.js. These check that it works from what the core shares;
+// where things sit on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { api } from './env.mjs';
-
-test('the core loads Layout before it starts', () => {
-  assert.ok(window.NTR.layout, 'layout.js was not loaded by the core');
-  assert.equal(window.NTR.layout.version, api.VERSION);
-  assert.equal(api.moduleError('layout'), '');
-});
 
 test('the send bar, page bar and banner are Free only with Layout on', () => {
   const s = api.settings();

@@ -2,10 +2,10 @@
 // Agents page or a Dashboard.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api, context, load } from './env.mjs';
+import { api, context, load, R } from './env.mjs';
 
 await load('agents');
-const R = new Proxy({}, { get: (_, k) => api.numRange(k) });
+const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
 
 test('agent fields are cleaned', () => {
   api.settings().agents = [{
@@ -59,7 +59,7 @@ test('departments are cleaned, and the agents list follows the roster', () => {
   assert.deepEqual([one.name, two.name], ['Department', 'Second']);
   assert.notEqual(one.id, two.id, 'a repeated id gets a new one');
   assert.deepEqual([one.ids, two.ids], [['ag_c'], ['ag_a']], 'unknown and repeated agents are dropped, and an agent stays where it is listed first');
-  assert.ok(!('was' in one) && !('was' in two), 'which agents were on is no longer kept');
+  assert.ok(!('was' in one) && !('was' in two), 'keys a department does not use are dropped');
   assert.deepEqual(s.agents.map((a) => a.id), ['ag_b', 'ag_d', 'ag_c', 'ag_a'], 'no department first, then each department');
 });
 
@@ -112,7 +112,6 @@ test('departments run side by side, and an agent waits for the agents above it t
       signal.addEventListener('abort', () => rej(new Error('Stopped')));
     }),
   };
-  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   const finish = async (x) => { live.get(x)({ content: 'ok' }); live.delete(x); await settle(); };
 
   window.NTR.agents.replied('normal', null);
@@ -162,7 +161,6 @@ test('a report from an agent below is its last answer, whichever finishes first'
       live.set(name, res);
     }),
   };
-  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   const finish = async (x, text) => { live.get(x)({ content: text }); live.delete(x); await settle(); };
   window.NTR.agents.replied('normal', null);
   await settle();
@@ -196,7 +194,6 @@ test('your reply sends agents\' newest results while a full-prompt agent runs', 
     window.NTR.agents.genStarted('quiet', false);
     return new Promise((res) => { answer = res; });
   };
-  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   window.NTR.agents.replied('normal', null); // F runs; P runs on the button only
   await settle();
   context.chat[0].extra.ntr_agents.ag_P = { text: 'NEW', date: 'd0', at: 2 };
@@ -222,7 +219,6 @@ test('your reply waits for agents that run on your message, and they skip runs t
   context.setExtensionPrompt = (k, v) => { sent[k] = v; };
   const live = new Map();
   context.generateRaw = ({ systemPrompt }) => new Promise((res) => { live.set(/^job (\w)/.exec(systemPrompt)[1], res); });
-  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   const ag = window.NTR.agents;
   ag.genStarted('normal', false); // chat reply starts
   ag.replied('normal', 0); // S waits for it
@@ -267,7 +263,6 @@ test('a run that goes first and is done before your reply waits still reaches it
   context.eventSource = { on: (_, f) => hooks.push(f), removeListener: (_, f) => hooks.splice(hooks.indexOf(f), 1), emit: () => {} };
   const request = { temperature: 1 };
   context.generateRaw = async () => { hooks.forEach((f) => f(request)); return 'NEW'; };
-  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   const ag = window.NTR.agents;
   ag.genStarted('normal', false);
   ag.replied('sent', 1);
@@ -295,7 +290,6 @@ test('run every counts ticked messages since the last result, and since its last
   context.ChatCompletionService = {
     processRequest: (data) => new Promise((res) => { sent.push(data.messages[1].content); live.push(res); }),
   };
-  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
   const add = (...l) => context.chat.push(...l.map(msg));
   window.NTR.agents.replied('normal', 2);
   await settle();

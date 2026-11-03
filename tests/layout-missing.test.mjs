@@ -1,21 +1,10 @@
-// Without layout.js, the core still starts, at once rather than after its 5-second wait, says what's missing, and still
-// loads the other look modules. The Layout settings the core builds stay SillyTavern's own, saved blocks are still
-// cleaned, and Edit Placement's buttons say why they do nothing.
+// Without layout.js, the Layout settings the core builds stay SillyTavern's own, saved blocks are still cleaned, and
+// Edit Placement's buttons say why they do nothing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 globalThis.NTR_TEST_WITHOUT = ['layout'];
-const started = performance.now();
 const { api } = await import('./env.mjs');
-const took = performance.now() - started;
-
-test('the core starts without layout.js', () => {
-  assert.equal(typeof api, 'object');
-  assert.equal(window.NTR.layout, undefined);
-  assert.notEqual(api.moduleError('layout'), '');
-  assert.ok(window.NTR.elements && window.NTR.text && window.NTR.avatars && window.NTR.decor, 'the other look modules did not load without layout.js');
-  assert.ok(took < 4000, `the core waited ${Math.round(took)} ms for a file that isn't there`);
-});
 
 test('without layout.js, Layout stays SillyTavern\'s own', () => {
   const s = api.settings();

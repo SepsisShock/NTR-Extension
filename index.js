@@ -1366,10 +1366,11 @@ await (async () => {
       <div class="cb_hint ntr_fmiss" hidden></div>`;
   }
 
-  // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick, ovWhen and customCssBox, bound
-  // once for the whole menu. It runs after the modules', Layout's and Reader Mode's binders and before UI Decor's, Text
-  // Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows earlier. Empty
-  // colors get SillyTavern's own (stColor). The font boxes' list comes after, from fonts.js, which only listens.
+  // The rows every page builds with ovRow, rangeSlider (its default class), ovColor, ovText, ovFont, ovPick, ovWhen and
+  // customCssBox, bound once for the whole menu. It runs after the modules', Layout's and Reader Mode's binders and before
+  // UI Decor's, Text Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows
+  // earlier. Empty colors get SillyTavern's own (stColor). The font boxes' list comes after, from fonts.js, which only
+  // listens.
   function bindRows(overlay, s) {
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
       c.onchange = () => {

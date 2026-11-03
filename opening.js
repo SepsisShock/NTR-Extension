@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.45';
+  const OP_VERSION = '2.86.46';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -84,7 +84,6 @@
   const RISE_MS = 3000;
   const PIN_Z = '2399'; // Over the background, behind the characters, weather, CG and dialogue box.
   const transMs = () => A.rangeNum(settings(), 'opTransMs');
-  const transColor = () => (/^#[0-9a-f]{6}$/i.test(settings().opTransColor || '') ? settings().opTransColor : '#000000');
 
   function play(opts) {
     const o = op();
@@ -96,15 +95,15 @@
       sig: opts.sig, hooks: VN().openingHooks, onEnd: opts.onEnd, o, phase: 'title',
       timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false, ytPlayed: false,
       // Rise to Top drifts up the screen, so Reduced Motion fades the logo out instead.
-      exit: s.opExit === 'rise' && A.reducedMotion() ? 'fade' : ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
+      exit: s.opExit === 'rise' && A.reducedMotion() ? 'fade' : s.opExit, skipped: false,
       cross: s.opTrans === 'cross',
-      muted: !!s.opMute,
+      muted: s.opMute,
     };
     cur = st;
     const root = document.createElement('div');
     root.id = 'ntr_open';
     root.tabIndex = -1;
-    root.style.background = transColor();
+    root.style.background = s.opTransColor;
     st.root = root;
     document.body.appendChild(root);
     try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) {}
@@ -332,7 +331,7 @@
       const left = (st.iframe ? dur - 0.15 : dur) - t;
       if (left * 1000 <= transMs()) {
         fadeCover(st, Math.max(0, left * 1000));
-        console.info(`[NTR opening] Fading out the ending: ${transColor()} over the last ${Math.round(left * 1000)} ms.`);
+        console.info(`[NTR opening] Fading out the ending: ${settings().opTransColor} over the last ${Math.round(left * 1000)} ms.`);
       }
     }
     if (!st.logo || st.logoShown) return;
@@ -358,7 +357,7 @@
     const ms = st.skipped ? 600 : early ? Math.max(0, st.coverDoneAt - performance.now()) : transMs();
     st.mediaOutMs = ms;
     if (!early) fadeCover(st, ms);
-    console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): ${early ? 'fade already running, done in' : `fading to ${transColor()} over`} ${Math.round(ms)} ms.`);
+    console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): ${early ? 'fade already running, done in' : `fading to ${settings().opTransColor} over`} ${Math.round(ms)} ms.`);
     if (st.snd) st.snd.style.display = 'none';
     const m = st.media;
     setTimeout(() => {
@@ -375,7 +374,7 @@
     if (!c) {
       c = document.createElement('div');
       c.className = 'ntr_op_cover';
-      c.style.background = transColor();
+      c.style.background = settings().opTransColor;
       st.media.after(c);
       st.cover = c;
       c.getBoundingClientRect(); // Start from opacity 0 so the change below animates.
@@ -578,12 +577,12 @@
             ${sl('opFade', 'Logo Fade', 1000)}
             ${sl('opSize', 'Logo Size')}
             ${ovLabel('Logo Position', pills('oppos', [['upper', 'Upper Third'], ['center', 'Center'], ['lower', 'Lower Third']], s.opPos))}
-            ${ovLabel('Logo Exit', pills('opexit', [['stay', 'Stay'], ['fade', 'Fade Out'], ['rise', 'Rise to Top']], s.opExit || 'stay'))}
+            ${ovLabel('Logo Exit', pills('opexit', [['stay', 'Stay'], ['fade', 'Fade Out'], ['rise', 'Rise to Top']], s.opExit))}
             <div class="cb_hint" style="margin-top:4px;">Rise to Top: the logo stays behind the characters until the chat changes. Skipping the video skips it.</div>
           </div>
-          ${ovLabel('Transition', pills('optrans', [['color', 'Color Fade'], ['cross', 'Crossfade']], s.opTrans === 'cross' ? 'cross' : 'color'))}
+          ${ovLabel('Transition', pills('optrans', [['color', 'Color Fade'], ['cross', 'Crossfade']], s.opTrans))}
           <div id="m_op_crow" class="cb_row" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}">
-            <label for="m_op_color">Fade Color</label><input type="color" id="m_op_color" value="${escapeHTML(transColor())}">
+            <label for="m_op_color">Fade Color</label><input type="color" id="m_op_color" value="${s.opTransColor}">
           </div>
           <div id="m_op_erow" style="margin-top:6px;${s.opTrans === 'cross' ? 'display:none;' : ''}">
             <label class="checkbox_label"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade Over the Ending</span></label>

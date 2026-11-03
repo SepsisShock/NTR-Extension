@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.45';
+  const VN_VERSION = '2.86.46';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -214,7 +214,6 @@
   // Scene tags inside the narrator delimiters: [[Location:X]], [[Choice: A | B]], [[Effect:X]], [[Weather:X]], [[CG:X]], [[Enter:X | left]], [[Exit:X]]
   function dirKind(word, s) {
     const w = lc(word);
-    if (!w) return null;
     if (w === lc(s.locWord)) return 'loc';
     if (w === lc(s.choiceWord)) return 'choice';
     if (w === lc(s.effectWord)) return 'fx';
@@ -244,7 +243,7 @@
   const wxKind = (name, s) => wordKind(name, [['clear', s.wxClear], ['rain', s.wxRain], ['snow', s.wxSnow]]);
   // A leading "/" would make SillyTavern run the choice as a slash command, so it's dropped.
   const noSlash = (x) => String(x).replace(/^[\s/]+/, '');
-  const splitChoices = (arg, s) => String(arg).split(s.choiceSep || '|').map((x) => noSlash(x).trim()).filter(Boolean).slice(0, 8);
+  const splitChoices = (arg, s) => String(arg).split(s.choiceSep).map((x) => noSlash(x).trim()).filter(Boolean).slice(0, 8);
 
   // No tags at all: quoted text is the speaker's line, everything else is narration.
   function splitUntagged(raw, name) {
@@ -1172,7 +1171,7 @@
     const s = settings();
     const chat = ctx().chat || [];
     const nc = reEsc(s.delimNarClose);
-    const words = [s.locWord, s.weatherWord].filter(Boolean).map(reEsc).join('|');
+    const words = [s.locWord, s.weatherWord].map(reEsc).join('|');
     const re = new RegExp(`${reEsc(s.delimNarOpen)}[ \\t]*(${words})[ \\t]*:[ \\t]*((?:(?!${nc})[^\\n]){1,200}?)[ \\t]*${nc}`, 'gi');
     const lw = lc(s.locWord);
     let loc = null, wx = null;

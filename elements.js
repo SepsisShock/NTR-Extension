@@ -1,12 +1,12 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.45';
+  const ELEMENTS_VERSION = '2.86.46';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
     pills, posGrid, onPills, pageHtml, pagePart, subHead, card, picSlotHtml, bindPicSlot, reducedMotion } = A;
   const { COLOR_RE, FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
-    RB_ANIM, RB_BORDERS, RB_BOX_BORDERS, RB_BOX_SHAPE, RB_FADE, RB_FX, RB_PATS, RB_SHAPE, RB_TURN,
-    cUrl, cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, bubblesOn, bubRight, restyle: updateAvatarStyle,
+    RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
+    cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, bubblesOn, bubRight, restyle: updateAvatarStyle,
     rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal, ovLabel } = A.look;
 
   // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color,
@@ -84,8 +84,7 @@
     const size = rangeNum(s, 'ovCursorSize');
     // The picture's top-left corner is the spot that clicks, except Text, which clicks in the middle like an I-beam.
     const one = (src, fallback, mid) => {
-      const u = cUrl(src);
-      const c = u && cursorImg(u, size);
+      const c = src && cursorImg(src, size);
       if (!c) return '';
       return `url("${c.url}")${mid ? ` ${Math.floor(c.w / 2)} ${Math.floor(c.h / 2)}` : ''}, ${fallback}`;
     };
@@ -126,10 +125,10 @@
   function menuBarIconCss(s) {
     if (!s.mbOn) return '';
     let css = '';
-    for (const [id, e] of Object.entries(s.mbIcons || {})) {
-      const u = cUrl(e?.img);
+    for (const [id, e] of Object.entries(s.mbIcons)) {
+      const u = e.img;
       // MB_ID keeps the id a plain CSS name, so it needs no escaping in the selector.
-      const st = MB_ID.test(id) && u ? mbReady(u) : false;
+      const st = MB_ID.test(id) && mbReady(u);
       if (!st) continue;
       const pic = `url("${u}") center / contain no-repeat`;
       css += `\n      #top-settings-holder > #${id} > :not(.drawer-content) .drawer-icon:not(.redOverlayGlow, .fa-plug-circle-exclamation)::before { content: '' !important; display: inline-block; width: 1em; height: 1em; vertical-align: middle; `
@@ -161,13 +160,12 @@
     row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
     footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],
   };
-  const mdList = (s, k) => (Array.isArray(s[k]) ? MD_ITEM_IDS.filter((i) => s[k].includes(i)) : []);
-  const mdPreset = (s) => Object.keys(MD_PRESETS).find((k) => Object.entries(MD_PRESETS[k][1]).every(([key, v]) => mdList(s, key).join() === v.join())) || 'custom';
+  const mdPreset = (s) => Object.keys(MD_PRESETS).find((k) => Object.entries(MD_PRESETS[k][1]).every(([key, v]) => s[key].join() === v.join())) || 'custom';
 
   // Background Pattern: layers drawn over the Box Color, in a shade of it or the Pattern Color. Sizes are in em, so
   // they scale with the text; ruled lines use 1lh, so they sit under each line of text.
   function boxPattern(s, col, base) {
-    const kind = RB_PATS.includes(s.rbPat) ? s.rbPat : 'none';
+    const kind = s.rbPat;
     if (kind === 'none') return [];
     const C = base || 'transparent';
     const own = s.rbPatColorOn && col('rbPatColor');
@@ -196,7 +194,7 @@
   function fadeLayer(s, c) {
     const reach = `min(${rangeNum(s, 'rbPatFadeReach')}lh, 100%)`;
     const clear = rangeNum(s, 'rbPatFadeSoft') < 100 ? `calc(${reach} * ${+(1 - rangeNum(s, 'rbPatFadeSoft') / 100).toFixed(2)})` : '0%';
-    const dir = RB_FADE[s.rbPatFade] ?? 'to bottom';
+    const dir = RB_FADE[s.rbPatFade];
     return `${dir ? `linear-gradient(${dir}` : 'radial-gradient(circle'}, transparent ${clear}, ${c} ${reach})`;
   }
 
@@ -204,7 +202,7 @@
   // and any drawn pattern on a second layer above it. That one copies the box's padding, so ruled lines still sit under
   // the text. Both layers stay under the text, and the Box Color stays on the box itself, under the picture. With Fade,
   // both layers fade like the Box Color, and a pattern gets the second layer even without a picture.
-  const bgPos = (v) => `${{ l: 'left', c: 'center', r: 'right' }[v[1]] || 'center'} ${{ t: 'top', c: 'center', b: 'bottom' }[v[0]] || 'center'}`;
+  const bgPos = (v) => `${{ l: 'left', c: 'center', r: 'right' }[v[1]]} ${{ t: 'top', c: 'center', b: 'bottom' }[v[0]]}`;
   function reasoningBgCss(s, img, pat, fade) {
     const mask = fade ? fadeLayer(s, '#000') : '';
     const layer = { content: '""', position: 'absolute', inset: '0', 'z-index': '-1', 'pointer-events': 'none', 'border-radius': 'inherit', '-webkit-mask-image': mask, 'mask-image': mask };
@@ -212,7 +210,7 @@
     let css = !img ? '' : cssRule('.mes_reasoning::before', {
       ...layer,
       background: s.rbBgFit === 'tile' ? `url("${img}") 0 0 / ${rangeNum(s, 'rbBgTile')}px auto repeat`
-        : `url("${img}") ${bgPos(String(s.rbBgPos))} / cover no-repeat`,
+        : `url("${img}") ${bgPos(s.rbBgPos)} / cover no-repeat`,
       opacity: op < 100 ? op / 100 : '',
     });
     // Readability Tint: black over light reasoning text, white over dark, from the color ST gives the reasoning text.
@@ -230,8 +228,8 @@
   const graphemes = (v) => { try { return [...new Intl.Segmenter().segment(v)].length; } catch (e) { return [...v].length; } };
   function reasoningArrowCss(s, col) {
     const A = '.mes_reasoning_details .mes_reasoning_arrow';
-    const sym = String(s.rbArrowSym || '').slice(0, 16).trim();
-    const img = cUrl(s.rbArrowImg);
+    const sym = s.rbArrowSym.trim();
+    const img = s.rbArrowImg;
     // A Symbol or Image left empty shows ST's arrow.
     const kind = s.rbArrow === 'none' ? 'none' : s.rbArrow === 'symbol' && sym ? 'symbol' : s.rbArrow === 'image' && img ? 'image' : 'default';
     if (kind === 'none') return cssRule(A, { display: 'none' }) + cssRule('.mes_reasoning_header', { 'padding-right': '14px' });
@@ -264,7 +262,7 @@
         'align-items': 'center',
       });
     }
-    const [open, closed] = RB_TURN[s.rbArrowTurn] || RB_TURN.flip;
+    const [open, closed] = RB_TURN[s.rbArrowTurn];
     css += `\n      #chat ${A} { transform: none; translate: 0 -50%; rotate: ${open}; }`;
     css += `\n      #chat .mes_reasoning_details:not([open]) .mes_reasoning_arrow { rotate: ${closed}; }`;
     // The turn and the thinking animation stop with ST's Reduced Motion, which ST also turns on for the device's own setting.
@@ -284,7 +282,7 @@
 
     // Border Effects: Glow in the border's color, or a black Shadow. The reasoning box's sits on its left edge.
     const edgeFx = (k, c, spread, left) => {
-      if (!RB_FX.includes(s[k]) || s[k] === 'none') return '';
+      if (s[k] === 'none') return '';
       const n = rangeNum(s, k + 'Size'), o = Math.ceil(n / 3);
       return s[k] === 'glow' ? `${left ? -o : 0}px 0 ${n}px ${spread} ${c}` : `${left ? -o : o}px ${o}px ${n}px ${spread} rgba(0, 0, 0, .6)`;
     };
@@ -295,14 +293,14 @@
     const allPat = boxPattern(s, col, boxBg);
     // With a Background Image or Fade, a drawn pattern moves to the layer above the picture (see reasoningBgCss), so
     // Fade can reach it through a mask. The Box Color fades on the box itself.
-    const img = cUrl(s.rbBgImg);
+    const img = s.rbBgImg;
     const fade = !!s.rbPatFadeOn;
     const layered = !!img || (fade && allPat.length > 0);
     const pat = layered ? [] : allPat;
     const bg = fade ? (boxBg ? [fadeLayer(s, boxBg)] : []) : pat.length ? [...pat, boxBg || 'transparent'] : [];
-    const bs = on('rbBorderStyle') && RB_BOX_BORDERS.includes(s.rbBorderStyle) ? s.rbBorderStyle : '';
+    const bs = on('rbBorderStyle') ? s.rbBorderStyle : '';
     css += cssRule('.mes_reasoning', {
-      'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] || '' : '',
+      'border-radius': on('rbBoxShape') ? RB_BOX_SHAPE[s.rbBoxShape] : '',
       'background-color': bg.length || fade ? '' : boxBg,
       background: bg.join(', '),
       position: layered ? 'relative' : '',
@@ -317,14 +315,14 @@
     });
     if (layered) css += reasoningBgCss(s, img, allPat, fade);
     // The Reasoning Button above it. ST's has no border and rounded corners.
-    const bb = on('rbBtnBorder') && RB_BORDERS.includes(s.rbBtnBorder) ? s.rbBtnBorder : '';
+    const bb = on('rbBtnBorder') ? s.rbBtnBorder : '';
     const bc = col('rbBtnBorderColor') || 'currentColor';
     const op = on('rbBtnAlpha') ? rangeNum(s, 'rbBtnOpacity') : 100;
     const fill = col('rbBtnColor') || (op < 100 ? 'var(--grey30)' : '');
     css += cssRule('.mes_reasoning_header', {
       'background-color': fill && seeThrough(fill, op),
       color: col('rbBtnText'),
-      'border-radius': s.rbBtnShape !== 'rounded' ? RB_SHAPE[s.rbBtnShape] || '' : '',
+      'border-radius': s.rbBtnShape !== 'rounded' ? RB_SHAPE[s.rbBtnShape] : '',
       border: bb ? `${bb === 'double' ? 3 : 1}px ${bb} ${bc}` : '',
       'box-shadow': edgeFx('rbBtnFx', bc, '0px', false),
     });
@@ -355,7 +353,7 @@
   }
   const rbState = (el) => { const d = el.dataset.duration; return d === undefined ? 'think' : d === 'unknown' ? 'some' : 'done'; };
   function rbLabelFor(el, s, state) {
-    const txt = String(s[RB_LABEL[state]] || '').slice(0, 100);
+    const txt = s[RB_LABEL[state]];
     if (!txt.trim()) return null;
     return state === 'done' ? txt.replace(/\{time\}/gi, rbTime(Number(el.dataset.duration) || 0)) : txt;
   }
@@ -528,8 +526,8 @@
   // One spot's text. Date and time next to each other read as one timestamp, so a space joins them. The Avatar spot
   // stacks its details, like SillyTavern's.
   function mdText(s, mes, mesid, key, spot) {
-    const parts = mdList(s, key).map((id) => [id, mdValue(id, mes, mesid, s)]).filter(([, v]) => v);
-    const sep = spot === 'av' ? '\n' : MD_SEP[s.mdSep] || MD_SEP.dot;
+    const parts = s[key].map((id) => [id, mdValue(id, mes, mesid, s)]).filter(([, v]) => v);
+    const sep = spot === 'av' ? '\n' : MD_SEP[s.mdSep];
     return parts.map(([id, v], i) => (i ? (id === 'time' && parts[i - 1][0] === 'date' && spot !== 'av' ? ' ' : sep) : '') + v).join('');
   }
   // Writes each spot's text on the given messages, or every one in the chat. Called when a message changes (see
@@ -545,7 +543,7 @@
       const vals = MD_SPOTS.map(([spot, key]) => (data ? mdText(s, data, id, key, spot) : ''));
       // Corner details on a message that doesn't end in text go to the end of Below.
       if (vals[2] && !mdEndsInText(m)) {
-        vals[3] = vals[3] ? vals[3] + (MD_SEP[s.mdSep] || MD_SEP.dot) + vals[2] : vals[2];
+        vals[3] = vals[3] ? vals[3] + MD_SEP[s.mdSep] + vals[2] : vals[2];
         vals[2] = '';
       }
       const sig = vals.join('\0');
@@ -732,15 +730,14 @@
   function bindMessageDetails(overlay, s) {
     const cells = [...overlay.querySelectorAll('.m_md_cell')];
     const sync = () => {
-      cells.forEach((c) => { c.checked = mdList(s, c.dataset.key).includes(c.dataset.item); });
+      cells.forEach((c) => { c.checked = s[c.dataset.key].includes(c.dataset.item); });
       const r = overlay.querySelector(`input[name="cbr_mdpreset"][value="${mdPreset(s)}"]`);
       if (r) r.checked = true;
     };
     const apply = () => { save(); updateAvatarStyle(); sync(); };
     cells.forEach((c) => {
       c.onchange = () => {
-        const list = mdList(s, c.dataset.key).filter((i) => i !== c.dataset.item);
-        s[c.dataset.key] = MD_ITEM_IDS.filter((i) => (i === c.dataset.item ? c.checked : list.includes(i)));
+        s[c.dataset.key] = MD_ITEM_IDS.filter((i) => (i === c.dataset.item ? c.checked : s[c.dataset.key].includes(i)));
         apply();
       };
     });
@@ -929,7 +926,7 @@
     const pickRow = (title, inner) => `<div class="cb_ovrow"><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
     // A tick for each detail in each spot. A detail can show in more than one.
     const grid = `<div class="ntr_mdgrid"><span></span>${MD_SPOTS.map(([, , label]) => `<span class="ntr_mdh">${label}</span>`).join('')}
-      ${MD_ITEMS.map(([id, label]) => `<span>${label}</span>${MD_SPOTS.map(([, key, spot]) => `<label title="${label}: ${spot}"><input type="checkbox" class="m_md_cell" data-key="${key}" data-item="${id}" ${mdList(s, key).includes(id) ? 'checked' : ''}></label>`).join('')}`).join('')}</div>`;
+      ${MD_ITEMS.map(([id, label]) => `<span>${label}</span>${MD_SPOTS.map(([, key, spot]) => `<label title="${label}: ${spot}"><input type="checkbox" class="m_md_cell" data-key="${key}" data-item="${id}" ${s[key].includes(id) ? 'checked' : ''}></label>`).join('')}`).join('')}</div>`;
     return pagePart('Message Details', ['m_md_enable', s.mdOn], 'el_md', `
           ${hint('Moves and restyles each message\'s details. While on, the ticks below replace ST\'s Message Timer, Timestamps, Message IDs and Message Token Count.')}
           ${pickRow('Style', pills('mdpreset', [...Object.entries(MD_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], mdPreset(s))

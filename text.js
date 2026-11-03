@@ -1,15 +1,15 @@
 (() => {
-  const TEXT_VERSION = '2.86.45';
+  const TEXT_VERSION = '2.86.46';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, save, subHead } = A;
-  const { COLOR_RE, FONT_NOTE, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, bubblesOn, bubRight, cUrl, cssReaders, cssRule, ntrAvatars,
+  const { COLOR_RE, FONT_NOTE, FX_PARTS, NAME_WEIGHT, bubblesOn, bubRight, cssReaders, cssRule, ntrAvatars,
     restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel, ovPick } = A.look;
 
   // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
   // Gradient and Shimmer are painted into the letters instead (see paintOf).
   function fxProps(s, p) {
-    if (!s[p + 'FxOn'] || !FX.includes(s[p + 'Fx']) || PAINT.includes(s[p + 'Fx'])) return {};
+    if (!s[p + 'FxOn'] || PAINT.includes(s[p + 'Fx'])) return {};
     const n = rangeNum(s, p + 'FxStr');
     const fx = s[p + 'Fx'];
     const c = s[p + 'FxColorOn'] && COLOR_RE.test(s[p + 'FxColor']) ? s[p + 'FxColor'] : fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)';
@@ -97,7 +97,7 @@
   // under it. It stays on one line (a long name ends in ...), so the room above the message is half its height. NTR
   // Avatars behind the message or popped out clip the message, so there, and in Reader Mode's Book, the name stays in its row.
   function nameplateCss(s, on, col, ns, freePlace) {
-    const img = cUrl(s.tfPlateImg);
+    const img = s.tfPlateImg;
     const border = on('tfPlateBorder') ? `${rangeNum(s, 'tfPlateBorderWidth')}px solid ${col('tfPlateBorder') || 'var(--SmartThemeBorderColor)'}` : '';
     const plate = {
       'background-color': col('tfPlateBg'),
@@ -161,7 +161,7 @@
     // Shimmer plays on the newest message's name, and on the Visual Novel name tag. Under it, a Nameplate picture's place
     // is set without !important, which would hold the band still.
     const namePaint = paintOf(s, 'tfName', '');
-    const img = cUrl(s.tfPlateImg);
+    const img = s.tfPlateImg;
     const freePlace = !!(namePaint && namePaint.shimmer && img);
     css += nameplateCss(s, on, col, ns, freePlace);
     if (namePaint) {
@@ -183,7 +183,7 @@
     }
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
-    const align = (p) => (on(p + 'Align') && TEXT_ALIGN.includes(s[p + 'Align']) ? s[p + 'Align'] : '');
+    const align = (p) => (on(p + 'Align') ? s[p + 'Align'] : '');
     const inked = bubblesOn(s) && s.ovBubInk !== 'auto';
     const fx = { tfUser: fxProps(s, 'tfUser'), tfAi: fxProps(s, 'tfAi') };
     const paint = { tfUser: paintOf(s, 'tfUser', col('tfUserQuote')), tfAi: paintOf(s, 'tfAi', col('tfAiQuote')) };

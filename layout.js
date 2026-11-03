@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.45';
+  const LAYOUT_VERSION = '2.86.46';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -550,7 +550,7 @@
     const v = (name) => s[lk(phone, name)];
     const n = (name) => rangeNum(s, lk(phone, name));
     const T = 'var(--topBarBlockSize)'; // SillyTavern's menu bar thickness, and the room each icon gets along it
-    const edge = LAY_EDGES.includes(v('BarEdge')) ? v('BarEdge') : 'top';
+    const edge = v('BarEdge');
     const up = barUpright(edge);
     // Standing on its side, the bar is as thick as its icons are wide.
     const root = { '--ntr-bt': up ? `max(${T}, var(--topBarIconSize) * 1.25 + 6px)` : T };

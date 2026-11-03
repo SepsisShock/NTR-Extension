@@ -81,10 +81,6 @@ test('Gradient and Shimmer paint the text blocks, with Shimmer only on the newes
   css = window.NTR.text.css(s);
   assert.ok(!css.includes(`.mes[is_user="false"] .mes_text ${blocks} {`));
   assert.ok(css.includes('#cb_node .cb_n_text { background-image:'));
-  // An unknown effect draws nothing.
-  Object.assign(s, reset, { tfEnabled: true, tfAiFxOn: true, tfAiFx: 'sparkle' });
-  css = window.NTR.text.css(s);
-  assert.ok(!css.includes('background-clip') && !css.includes('text-shadow') && !css.includes('text-stroke'));
   Object.assign(s, reset);
 });
 

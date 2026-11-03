@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.45';
+  const CAST_VERSION = '2.86.46';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -38,7 +38,7 @@
   }
   function splitTag(inner, s) {
     const sep = s.delimEmo;
-    const i = sep ? inner.indexOf(sep) : -1;
+    const i = inner.indexOf(sep);
     if (i < 0) return { name: inner.trim(), emo: '' };
     return { name: inner.slice(0, i).trim(), emo: inner.slice(i + sep.length).trim() };
   }
@@ -379,20 +379,19 @@
     const live = writing && document.querySelector('#chat .mes.last_mes .mes_text');
     // Only messages that hold a tag are worth a closer look. A reply being written also counts if it has an open
     // speaker tag, since its emotion part may be only half written.
-    const has = (t, d) => !!d && t.includes(d);
     const todo = [...(els || document.querySelectorAll('#chat .mes_text'))].filter((el) => {
       const t = el.textContent;
-      return has(t, s.delimEmo) || has(t, s.delimNarOpen) || (el === live && has(t, s.delimSpkOpen));
+      return t.includes(s.delimEmo) || t.includes(s.delimNarOpen) || (el === live && t.includes(s.delimSpkOpen));
     });
     if (!todo.length) return;
     const [so, sc, no, nc] = delimRes(s);
-    const emo = s.delimEmo ? reEsc(s.delimEmo) : '';
-    const emoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${emo}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g') : null;
-    const dirWords = [s.emoWord, s.locWord, s.effectWord, s.weatherWord, s.cgWord, s.enterWord, s.exitWord].filter(Boolean).map(reEsc).join('|');
+    const emo = reEsc(s.delimEmo);
+    const emoRe = new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*${emo}(?:(?!${sc})[^\\n]){0,60}?(${sc})`, 'g');
+    const dirWords = [s.emoWord, s.locWord, s.effectWord, s.weatherWord, s.cgWord, s.enterWord, s.exitWord].map(reEsc).join('|');
     const locRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}?[ \\t]*${nc}[ \\t]*`, 'gi');
     // ((Name%%Sa, ((Name% or [[Location:Fo at the end of a reply being written.
-    const emoStart = emo ? [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|') : '';
-    const openEmoRe = emo ? new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`) : null;
+    const emoStart = [...Array(s.delimEmo.length).keys()].map((i) => reEsc(s.delimEmo.slice(0, i + 1))).reverse().join('|');
+    const openEmoRe = new RegExp(`(${so}(?:(?!${sc})[^\\n]){0,60}?)[ \\t]*(?:${emo}(?:(?!${sc})[^\\n]){0,60}|${emoStart})$`);
     const openLocRe = new RegExp(`${no}[ \\t]*(?:${dirWords})[ \\t]*:[ \\t]*(?:(?!${nc})[^\\n]){0,200}[ \\t]*$`, 'i');
     for (const el of todo) {
       const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -401,13 +400,13 @@
         if (n.parentElement?.closest('textarea')) continue;
         if (n.nodeValue.trim()) last = n;
         let val = n.nodeValue;
-        if (emoRe && val.includes(s.delimEmo)) val = val.replace(emoRe, '$1$2');
+        if (val.includes(s.delimEmo)) val = val.replace(emoRe, '$1$2');
         if (val.includes(s.delimNarOpen)) val = val.replace(locRe, '');
         if (val !== n.nodeValue) { n.nodeValue = val; tagsHidden = true; }
       }
       if (el !== live || !last) continue;
       let val = last.nodeValue;
-      if (openEmoRe) val = val.replace(openEmoRe, '$1');
+      val = val.replace(openEmoRe, '$1');
       val = val.replace(openLocRe, '');
       if (val !== last.nodeValue) { last.nodeValue = val; tagsHidden = true; }
     }

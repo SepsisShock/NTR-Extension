@@ -1,5 +1,5 @@
 (() => {
-  const MAP_VERSION = '2.86.45';
+  const MAP_VERSION = '2.86.46';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -208,8 +208,8 @@
       b.type = 'button';
       b.className = 'ntr_pin' + (sub && !(p.loc && locById(p.loc)) ? ' ntr_sub' : '') + (here ? ' ntr_here' : '')
         + (!view.edit && !visited && !here ? ' ntr_unseen' : '') + (view.edit && !name ? ' ntr_bad' : '') + (view.sel === p.id ? ' ntr_sel' : '');
-      b.style.left = (clamp01(p.x) * 100) + '%';
-      b.style.top = (clamp01(p.y) * 100) + '%';
+      b.style.left = (p.x * 100) + '%';
+      b.style.top = (p.y * 100) + '%';
       b.innerHTML = `<i class="fa-solid ${sub && !(p.loc && locById(p.loc)) ? 'fa-map' : 'fa-location-dot'}"></i>${name ? `<span>${escapeHTML(name)}</span>` : ''}`;
       b.title = name || 'Unlinked pin';
       bindPin(b, p, m);
@@ -268,8 +268,8 @@
   function showPop(p, m) {
     const pop = view.el.querySelector('.ntr_map_pop');
     if (!pop) return;
-    pop.style.left = (Math.min(0.85, Math.max(0.15, clamp01(p.x))) * 100) + '%';
-    pop.style.top = (clamp01(p.y) * 100) + '%';
+    pop.style.left = (Math.min(0.85, Math.max(0.15, p.x)) * 100) + '%';
+    pop.style.top = (p.y * 100) + '%';
     pop.style.display = 'block';
     pop.onclick = (e) => e.stopPropagation();
     pop.onpointerdown = (e) => e.stopPropagation();
@@ -309,7 +309,7 @@
 
   // "*heads to the {place}*" without doubling "the" for places like "The Docks".
   function goText(place) {
-    const t = String(settings().mapGoText || '*heads to the {place}*');
+    const t = settings().mapGoText;
     let name = String(place).trim();
     if (/\bthe\s*\{place\}/i.test(t)) name = name.replace(/^the\s+/i, '');
     return t.includes('{place}') ? t.split('{place}').join(name) : `${t} ${name}`;

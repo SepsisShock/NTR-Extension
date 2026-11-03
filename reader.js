@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.52';
+  const READER_VERSION = '2.86.53';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -213,7 +213,7 @@
     if (!bar || !sheld || !form) return;
     let room = 0;
     if (A.sendFree() && !A.pageFree()) {
-      if (!formRo && window.ResizeObserver) (formRo = new ResizeObserver(() => { placeBar(); if (geom) layoutBook(); })).observe(form);
+      if (!formRo) (formRo = new ResizeObserver(() => { placeBar(); if (geom) layoutBook(); })).observe(form);
       room = Math.ceil(A.sendCover(sheld.getBoundingClientRect(), form));
     }
     const v = room ? room + 'px' : '';
@@ -466,7 +466,7 @@
     if (decoded.has(u)) return;
     const img = new Image();
     img.src = u;
-    img.decode?.().catch(() => {});
+    img.decode().catch(() => {});
     decoded.set(u, img);
   }
 
@@ -514,7 +514,7 @@
     } else if (chat) {
       document.addEventListener('click', checkEdit, true);
       document.addEventListener('keyup', checkEdit, true);
-      document.fonts?.addEventListener?.('loadingdone', recount);
+      document.fonts.addEventListener('loadingdone', recount);
     }
     if (chat) {
       chat.addEventListener('scroll', keepTop, { passive: true });
@@ -523,7 +523,7 @@
     } else {
       document.removeEventListener('click', checkEdit, true);
       document.removeEventListener('keyup', checkEdit, true);
-      document.fonts?.removeEventListener?.('loadingdone', recount);
+      document.fonts.removeEventListener('loadingdone', recount);
     }
     bookChat = chat;
   }

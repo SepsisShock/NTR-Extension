@@ -1,5 +1,5 @@
 (() => {
-  const TEXT_VERSION = '2.86.52';
+  const TEXT_VERSION = '2.86.53';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, subHead } = A;

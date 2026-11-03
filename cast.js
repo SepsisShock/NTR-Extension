@@ -416,28 +416,16 @@
   let chatObs = null, cleanT = null;
   function ensure() {
     const chat = document.getElementById('chat');
-    if (!chat || (chatObs && chatObs._el === chat)) return;
-    if (chatObs) chatObs.disconnect();
+    if (!chat || chatObs) return;
     // The messages that changed are cleaned right away, before the browser draws them, so a reply that streams in
     // never shows its tags. A full pass after the chat goes quiet catches anything else.
     chatObs = new MutationObserver((recs) => {
-      const els = new Set();
-      for (const r of recs) {
-        const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
-        const m = t && t.closest('.mes_text');
-        if (m) { els.add(m); continue; }
-        for (const a of r.addedNodes) {
-          if (a.nodeType !== 1) continue;
-          if (a.matches('.mes_text')) els.add(a);
-          a.querySelectorAll('.mes_text').forEach((e) => els.add(e));
-        }
-      }
+      const els = A.changedEls(recs, '.mes_text');
       if (els.size) cleanTags([...els].filter((e) => chat.contains(e)));
       clearTimeout(cleanT); cleanT = setTimeout(() => cleanTags(), 120);
       schedule();
     });
     chatObs.observe(chat, { childList: true, subtree: true, characterData: true });
-    chatObs._el = chat;
     cleanTags();
   }
 

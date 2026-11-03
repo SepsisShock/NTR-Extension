@@ -440,16 +440,7 @@
     mesObs = new MutationObserver((recs) => {
       const first = !mesQueued;
       mesQueued ??= new Set();
-      for (const r of recs) {
-        const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
-        const m = t && t.closest('.mes');
-        if (m) { mesQueued.add(m); continue; }
-        for (const a of r.addedNodes) {
-          if (a.nodeType !== 1) continue;
-          if (a.matches('.mes')) mesQueued.add(a);
-          a.querySelectorAll('.mes').forEach((e) => mesQueued.add(e));
-        }
-      }
+      A.changedEls(recs, '.mes', mesQueued);
       if (!first) return;
       requestAnimationFrame(() => {
         const mes = [...mesQueued].filter((m) => chat.contains(m));

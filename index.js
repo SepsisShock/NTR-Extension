@@ -869,6 +869,21 @@ await (async () => {
   // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
   // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
   // global settings.
+  // Adds to `into` the elements matching sel that MutationObserver records touched: the closest match around each changed
+  // node, or the matches inside added nodes.
+  function changedEls(recs, sel, into = new Set()) {
+    for (const r of recs) {
+      const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+      const m = t && t.closest(sel);
+      if (m) { into.add(m); continue; }
+      for (const a of r.addedNodes) {
+        if (a.nodeType !== 1) continue;
+        if (a.matches(sel)) into.add(a);
+        a.querySelectorAll(sel).forEach((e) => into.add(e));
+      }
+    }
+    return into;
+  }
   // Runs run(file) when a file is picked in input; a failure shows an error toast with this title. The input is
   // cleared first, so the same file can be picked again.
   function onFilePick(input, title, run) {
@@ -3053,7 +3068,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,

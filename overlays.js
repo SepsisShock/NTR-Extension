@@ -1,5 +1,5 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.46';
+  const OVERLAYS_VERSION = '2.86.47';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
@@ -397,14 +397,14 @@
     new MutationObserver(() => {
       const r = currentBannerRec();
       if (!banner || !r || !settings().bannerOn) return;
-      if (!r.locked && !A.banFree?.() && chat.firstElementChild !== banner) chat.prepend(banner);
+      if (!r.locked && !A.banFree() && chat.firstElementChild !== banner) chat.prepend(banner);
     }).observe(chat, { childList: true });
   }
 
   // Where the banner sits: locked above the chat, or at the top of the messages, overlapping them or not. A Floating
   // banner (Layout) has its own place, so it stays out of the messages and doesn't overlap them.
   function placeBanner(chat, r) {
-    const free = !!A.banFree?.();
+    const free = A.banFree();
     banner.classList.toggle('cb_overlap', !!r.overlap && !free);
     attachBanner(chat, r.locked || free);
     chat.style.paddingTop = r.overlap && !free ? cardNum(r.overlapOffset, 'bannerOffset', 0) + 'px' : '';
@@ -487,7 +487,7 @@
     const chat = document.getElementById('chat');
     const w = Math.round((banner && banner.offsetWidth) || (chat ? chat.getBoundingClientRect().width : 0));
     if (!w) return '';
-    const h = (A.banFree?.() && banner?.offsetHeight) || currentLook().height;
+    const h = (A.banFree() && banner?.offsetHeight) || currentLook().height;
     const ratio = (w / h).toFixed(1);
     return `Now ${w} × ${h} px (${ratio}:1). For a sharp banner use pictures at least ${w * 2} × ${Math.round(h * 2 * 1.3)} px; a little taller leaves room for Crop Position.`;
   }
@@ -512,7 +512,7 @@
 
   function sectionHtml(s) {
     const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
-    const free = A.banFree?.();
+    const free = A.banFree();
     // A slider for the NUM_RANGE key k; attrs are extra attributes for the input.
     const sl = (id, label, val, k, attrs = '', extra = '') => `
               <div class="cb_row" style="margin-top: 10px;"><label for="${id}">${label}</label><span><span class="ntr_slval">${val}</span>${numRange(k)[3]}</span></div>

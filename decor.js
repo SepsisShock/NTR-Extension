@@ -1,5 +1,5 @@
 (() => {
-  const DECOR_VERSION = '2.86.46';
+  const DECOR_VERSION = '2.86.47';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
@@ -201,7 +201,7 @@
     if (!chat) return;
     const s = settings();
     const grouped = bubblesOn(s) && s.ovBubGroup === 'group';
-    const page = window.NTR.reader?.page?.();
+    const page = window.NTR.reader?.page();
     const shown = (m) => !page || (Number(m.getAttribute('mesid')) >= page[0] && Number(m.getAttribute('mesid')) <= page[1]);
     let prev = null;
     for (const m of chat.querySelectorAll(':scope > .mes')) {

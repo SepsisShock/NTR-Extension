@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.46';
+  const LAYOUT_VERSION = '2.86.47';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -243,7 +243,7 @@
     const min = (name) => numRange(lk(phoneNow(), name))[0] / 100;
     const part = { chat: 'Chat', send: 'Send', page: 'Page', ban: 'Ban' }[d.it.lay];
     // The page bar is never narrower than its buttons (see the Page Bar's CSS).
-    const minW = Math.max(W * min(part + 'W'), part === 'Page' ? window.NTR.reader?.barMin?.() || 0 : 0);
+    const minW = Math.max(W * min(part + 'W'), part === 'Page' ? window.NTR.reader?.barMin() || 0 : 0);
     const [L, R, T, B] = dragBox(r, d.grip, dx, dy, W, H, minW, H * min(part === 'Ban' ? 'BanH' : 'ChatH'), g);
     if (part === 'Chat') placeSet(d.it, layNames({ ChatMoved: true, ChatX: pct(L, W), ChatY: pct(T, H), ChatW: pct(R - L, W), ChatH: pct(B - T, H) }));
     else if (part === 'Ban') placeSet(d.it, layNames({ BanX: pct(L, W), BanY: pct(T, H), BanW: pct(R - L, W), BanH: pct(B - T, H) }));
@@ -708,7 +708,7 @@
     layoutPop();
     window.NTR.overlays?.relayout();
     syncSendRoom();
-    window.NTR.vn?.relayout?.();
+    window.NTR.vn?.relayout();
     window.NTR.reader?.relayout();
   }
 

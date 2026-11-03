@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.46';
+  const VN_VERSION = '2.86.47';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -407,7 +407,7 @@
     if (m) {
       try { return m.sectionHtml(s); } catch (e) { console.error(`[NTR] ${name} menu crashed`, e); }
     }
-    const err = A.moduleError ? A.moduleError(name) : '';
+    const err = A.moduleError(name);
     const off = name === 'map' && !s.nodeMaps;
     const toggle = name === 'map' ? `<label class="checkbox_label"><input type="checkbox" id="m_map_on" ${s.nodeMaps ? 'checked' : ''}><span>Show Maps</span></label>` : '';
     const msg = err ? `${SUB_LABEL[name]} failed to load: ${err}` : off ? 'Its settings appear here once it\'s switched on.' : 'Loading...';
@@ -417,7 +417,6 @@
   }
 
   function loadSub(name, retry = false) {
-    if (!A.loadModule) return Promise.resolve(null);
     return A.loadModule(name, retry).then((m) => {
       // Only its part of an open menu is drawn again, heading included (see fillIn in index.js).
       if (m) A.fillIn(name, (s) => m.sectionHtml(s), m.bind, { head: true });
@@ -800,7 +799,7 @@
   // (Layout) can be anywhere, so the box sits at the bottom of the chat panel, or above the send bar where it
   // covers that bottom.
   function boxFloor(chat, form) {
-    if (!A.sendFree?.() || !chat) return form ? window.innerHeight - form.getBoundingClientRect().top : 82;
+    if (!A.sendFree() || !chat) return form ? window.innerHeight - form.getBoundingClientRect().top : 82;
     const c = chat.getBoundingClientRect();
     return Math.max(0, window.innerHeight - c.bottom + A.sendCover(c, form));
   }
@@ -1089,7 +1088,7 @@
     const form = document.getElementById('form_sheld');
     // It stops above the send bar. A Floating send bar (Layout) in the top half of the screen is covered instead.
     const top = form ? form.getBoundingClientRect().top : window.innerHeight;
-    L.style.bottom = (A.sendFree?.() && top < window.innerHeight / 2 ? 0 : Math.max(0, window.innerHeight - top)) + 'px';
+    L.style.bottom = (A.sendFree() && top < window.innerHeight / 2 ? 0 : Math.max(0, window.innerHeight - top)) + 'px';
   }
 
   let cgCur = '', cgT = null;
@@ -1364,7 +1363,7 @@
   // Clicking the counter turns the message number into a box to type one in, like Reader Mode's page number.
   function askMsg() {
     const cnt = document.querySelector('#cb_node .cb_n_count');
-    window.NTR.reader?.askNumber?.(cnt, node.pos, node.list.length, '', '/', 'Message number', (to) => {
+    window.NTR.reader?.askNumber(cnt, node.pos, node.list.length, '', '/', 'Message number', (to) => {
       cnt.textContent = countText();
       if (to != null) nodeGoMsg(to - node.pos);
     });
@@ -1379,8 +1378,8 @@
     node.follow = node.pos >= node.list.length - 1;
     node.shown = ctx().chat?.[idx] || null;
     const R = window.NTR.reader;
-    if (node.md && ctx().chatMetadata === node.md) R?.rememberMsg?.(idx, node.follow);
-    if (node.shown !== was) Promise.resolve(R?.drawTo?.(idx)).then(() => A.refreshPins?.());
+    if (node.md && ctx().chatMetadata === node.md) R?.rememberMsg(idx, node.follow);
+    if (node.shown !== was) Promise.resolve(R?.drawTo(idx)).then(() => A.refreshPins());
   }
 
   const syncNodeToggle = () => A.syncVNToggle();
@@ -1461,7 +1460,7 @@
     const md = c.chatMetadata;
     let pos = last;
     if (opened || opts.switchedOn || (R && md !== node.md)) {
-      const at = R?.savedMsg?.();
+      const at = R?.savedMsg();
       const i = at == null ? -1 : node.list.findIndex((x) => x >= at);
       if (i >= 0) pos = i;
       node.md = R ? md : null;
@@ -1554,7 +1553,7 @@
     updateInjection();
     // The stage behind the chat and the emotion prompt (cast.js) step aside while Visual Novel Mode is on.
     C.refresh();
-    if (A.refreshFg) A.refreshFg();
+    A.refreshFg();
   }
 
   function teardown() {
@@ -1577,7 +1576,7 @@
     updateInjection();
     C.refresh();
     syncNodeToggle();
-    if (A.refreshFg) A.refreshFg();
+    A.refreshFg();
   }
 
   window.NTR.vn = {
@@ -1607,6 +1606,6 @@
       if (c.groupId || !c.name2) return null;
       return C.baseFace(c.name2);
     },
-    sceneBg: () => locUrl(currentLoc()) || (A.bannerImage ? A.bannerImage() : ''),
+    sceneBg: () => locUrl(currentLoc()) || A.bannerImage(),
   };
 })();

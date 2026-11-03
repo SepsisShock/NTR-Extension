@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.46';
+  const READER_VERSION = '2.86.47';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -212,14 +212,14 @@
     const form = document.getElementById('form_sheld');
     if (!bar || !sheld || !form) return;
     let room = 0;
-    if (A.sendFree() && !A.pageFree?.()) {
+    if (A.sendFree() && !A.pageFree()) {
       if (!formRo && window.ResizeObserver) (formRo = new ResizeObserver(() => { placeBar(); if (geom) layoutBook(); })).observe(form);
       room = Math.ceil(A.sendCover(sheld.getBoundingClientRect(), form));
     }
     const v = room ? room + 'px' : '';
     if (bar.style.marginBottom !== v) bar.style.marginBottom = v;
     // The chat's own room for the send bar is measured again now that the page bar takes it.
-    A.syncSendRoom?.();
+    A.syncSendRoom();
   }
 
   // ----- Book -----
@@ -270,7 +270,7 @@
     const form = document.getElementById('form_sheld');
     const f = form?.getBoundingClientRect();
     if (free && f?.height && f.top > H / 2) bottom = Math.min(bottom, f.top);
-    const pageFree = !!A.pageFree?.();
+    const pageFree = A.pageFree();
     const below = (pageFree ? 0 : document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form?.offsetHeight || 0);
     const room = { w: right - left, h: bottom - top - below - 16 };
     const ratio = ratioOf(s.rdBookImg);
@@ -576,7 +576,7 @@
     paint();
     syncBar();
     scrollTo(at === 'force' ? 'bottom' : at);
-    A.refreshPins?.();
+    A.refreshPins();
     remember();
   }
 
@@ -647,7 +647,7 @@
     paint();
     if (booked()) showSpread(cur === was && !toLast ? spread : 0);
     else syncBar();
-    A.refreshPins?.();
+    A.refreshPins();
     if (!quiet) remember();
   }
 
@@ -742,7 +742,7 @@
       follow = true;
       paint();
       syncBar();
-      A.refreshPins?.();
+      A.refreshPins();
       const chat = chatEl();
       if (chat) chat.scrollLeft = 0;
       if (wasLive && first != null) document.querySelector(`#chat > .mes[mesid="${first}"]`)?.scrollIntoView({ block: 'start' });
@@ -775,7 +775,7 @@
     drawTo: (first) => loadUpTo(first, opened),
     // For Pinned Blocks: the last message on the current page, or the message Visual Novel shows, or null when Reader
     // Mode is off or on the newest.
-    upTo: () => (vnNow() ? window.NTR.vn?.shownMsg?.() ?? null : live() && pages.length ? pages[cur][1] : null),
+    upTo: () => (vnNow() ? window.NTR.vn?.shownMsg() ?? null : live() && pages.length ? pages[cur][1] : null),
     // For Speech Bubbles: the first and last message on the page on screen, or null when Reader Mode is off.
     page: () => (live() && pages.length ? pages[cur] : null),
   };

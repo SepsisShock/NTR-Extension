@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.46';
+  const OP_VERSION = '2.86.47';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -38,7 +38,7 @@
   const raw = () => A.vnData().opening;
   const op = () => ({ ...ODEF, ...raw() });
   const setOp = (k, val) => { raw()[k] = val; save(); };
-  const ytId = (o) => (o.yt && A.getYouTubeId ? A.getYouTubeId(o.yt) : '') || '';
+  const ytId = (o) => o.yt && A.getYouTubeId(o.yt);
   const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!media(o.file) : false);
   function logoSrc(o) {
     return o.logo === 'none' ? '' : media(o.logoUrl);
@@ -617,7 +617,7 @@
     const url = q('#m_op_url');
     if (url) url.onchange = () => {
       const v = url.value.trim();
-      if (v && !(A.getYouTubeId && A.getYouTubeId(v))) toastr.warning('That doesn\'t look like a YouTube link.', 'Opening Video');
+      if (v && !A.getYouTubeId(v)) toastr.warning('That doesn\'t look like a YouTube link.', 'Opening Video');
       setOp('yt', v);
       syncBody();
     };

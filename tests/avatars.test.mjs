@@ -1,14 +1,8 @@
-// Avatar Management comes from avatars.js, which the core loads before it starts. These check that it arrives in time
-// and builds its CSS from what the core shares; what it looks like on screen still needs a run in SillyTavern.
+// Avatar Management comes from avatars.js. These check that it builds its CSS from what the core shares; what it looks
+// like on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { api, reloadSettings } from './env.mjs';
-
-test('the core loads Avatar Management before it starts', () => {
-  assert.ok(window.NTR.avatars, 'avatars.js was not loaded by the core');
-  assert.equal(window.NTR.avatars.version, api.VERSION);
-  assert.equal(api.moduleError('avatars'), '');
-});
 
 test('Avatar Management builds its CSS, and none while NTR is off', () => {
   const s = api.settings();

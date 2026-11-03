@@ -2,10 +2,8 @@
 // api.store(), the same path the extension uses, so they also fail if card reads stop going through the cleaning.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api, context } from './env.mjs';
+import { api, context, R } from './env.mjs';
 
-// Limits come from NUM_RANGE in index.js, so the tests follow any change to a range.
-const R = new Proxy({}, { get: (_, k) => api.numRange(k) });
 let n = 0;
 // Opens a chat with a new character whose card holds `ntr`, and returns the cleaned data. Each call uses a fresh
 // character, since a card's data is only cleaned the first time it's read.

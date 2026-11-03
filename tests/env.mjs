@@ -1,6 +1,8 @@
 // Loads the real extension files in plain Node, with just enough of the browser and SillyTavern stubbed out for
 // them to start. Only the code that runs before SillyTavern is ready gets exercised: menus, styling and anything
 // drawn on screen still need a run in SillyTavern (see the run-ntr-extension skill).
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -33,7 +35,6 @@ export const context = {
 Object.assign(globalThis, {
   window: globalThis,
   document: any,
-  localStorage: any,
   matchMedia: () => any,
   addEventListener: noop,
   jQuery: noop,
@@ -41,7 +42,6 @@ Object.assign(globalThis, {
   toastr: { info: noop, success: noop, warning: noop, error: noop },
   ResizeObserver: Observer,
   MutationObserver: Observer,
-  IntersectionObserver: Observer,
   SillyTavern: { getContext: () => context },
   fetch: async () => ({ ok: true, json: async () => ({}), text: async () => '' }),
 });
@@ -56,13 +56,30 @@ mkdirSync(join(dir, 'regex'));
 writeFileSync(join(dir, 'regex', 'engine.js'), 'export {};\n');
 for (const name of ['index', ...MODULES]) cpSync(join(ROOT, `${name}.js`), join(ext, `${name}.mjs`));
 // The core loads the look modules itself, by their own names, so they're there under those names too. Plain scripts
-// like them run fine that way in Node. A test that lists some in NTR_TEST_WITHOUT first sees the core without them.
-for (const name of LOOK) if (!globalThis.NTR_TEST_WITHOUT?.includes(name)) cpSync(join(ROOT, `${name}.js`), join(ext, `${name}.js`));
+// like them run fine that way in Node. A test file that lists some in NTR_TEST_WITHOUT first sees the core without them.
+const without = globalThis.NTR_TEST_WITHOUT ?? [];
+for (const name of LOOK) if (!without.includes(name)) cpSync(join(ROOT, `${name}.js`), join(ext, `${name}.js`));
 
 export const load = (name) => import(pathToFileURL(join(ext, `${name}.mjs`)).href);
 
+const started = performance.now();
 await load('index');
+const took = performance.now() - started;
 export const api = window.NTR.api;
+
+// Without a look module, the core still starts, at once rather than after its 5-second wait, says what's missing, and
+// still loads the other look modules.
+for (const name of without) {
+  test(`the core starts without ${name}.js`, () => {
+    assert.equal(window.NTR[name], undefined);
+    assert.notEqual(api.moduleError(name), '');
+    assert.deepEqual(LOOK.filter((n) => !without.includes(n) && !window.NTR[n]), [], 'the other look modules did not load');
+    assert.ok(took < 4000, `the core waited ${Math.round(took)} ms for a file that isn't there`);
+  });
+}
+
+// Limits from NUM_RANGE in index.js: R.key is [min, max, step, ...].
+export const R = new Proxy({}, { get: (_, k) => api.numRange(k) });
 
 // Saved settings as SillyTavern hands them over when the page loads: a new object (here the current settings with
 // `saved` on top), which the core brings up to date the first time it's asked for it.

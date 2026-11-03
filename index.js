@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.43';
+  const VERSION = '2.86.44';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1388,9 +1388,7 @@ await (async () => {
       sl.onchange = save;
     });
     const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
-    for (const k of Object.keys(PICK_KEYS)) {
-      if (k.startsWith('ov')) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
-    }
+    for (const k of Object.keys(PICK_KEYS)) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
     syncWhen();
     overlay.querySelectorAll('.m_o_col').forEach((el) => {
       const k = el.dataset.key;

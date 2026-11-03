@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.46';
+  const VERSION = '2.86.47';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -251,12 +251,7 @@ await (async () => {
     for (const k of Object.keys(DEFAULTS)) {
       if (s[k] === undefined) s[k] = structuredClone(DEFAULTS[k]);
     }
-    if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
-    // Visual Novel Mode is Reader Mode's Visual Novel style, so it's only on while Reader Mode is.
-    if (s.nodeEnabled && !s.rdEnabled) s.rdEnabled = true;
-    if (s.uiOpen && !('rd_vn' in s.uiOpen)) openStyleGroup(s);
     for (const k of Object.keys(DEFAULTS.uiPanel)) if (s.uiPanel[k] === undefined) s.uiPanel[k] = DEFAULTS.uiPanel[k];
-    if (!Array.isArray(s.themes)) s.themes = [];
     if (!cleaned.has(s.bannerGlobal)) s.bannerGlobal = cleanGlobalBanner(s.bannerGlobal);
     if (!cleaned.has(s.mbIcons)) s.mbIcons = cleanMbIcons(s.mbIcons);
     // The template is copied into cards, which check a list like a theme's, so it keeps to the same limits.
@@ -902,10 +897,6 @@ await (async () => {
     cancelAsks(old);
     old?.remove();
     const s = settings();
-    // Reasoning Block Design is part of Elements now.
-    if (s.uiPage === 'reasoning') s.uiPage = 'elements';
-    // Visual Novel Mode's settings are part of Reader Mode's page now.
-    if (s.uiPage === 'vn') s.uiPage = 'reader';
     if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
 
     const overlay = document.createElement('div');
@@ -3141,16 +3132,16 @@ await (async () => {
     if (event_types.MESSAGE_SWIPED) {
       eventSource.on(event_types.MESSAGE_SWIPED, (id) => {
         window.NTR.cast?.sync();
-        return window.NTR.vn?.swiped ? window.NTR.vn.swiped(Number(id)) : window.NTR.vn?.queue(true);
+        return window.NTR.vn?.swiped(Number(id));
       });
     }
     if (event_types.CHARACTER_MESSAGE_RENDERED) {
       eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, (id, type) => {
         const vn = window.NTR.vn;
-        vn?.endWait?.();
+        vn?.endWait();
         // A Continue picks up where the old text ended instead of typing the whole message again.
         // Without streaming, SillyTavern marks a finished Continue as 'appendFinal'.
-        if ((type === 'continue' || type === 'appendFinal') && vn?.continued) vn.continued(Number(id));
+        if ((type === 'continue' || type === 'appendFinal') ) vn?.continued(Number(id));
         else vn?.queue(true);
         window.NTR.cast?.sync();
         window.NTR.agents?.replied(type, Number(id));
@@ -3158,7 +3149,7 @@ await (async () => {
     }
     if (event_types.GENERATION_STARTED) {
       eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => {
-        window.NTR.vn?.genStarted?.(type, dryRun);
+        window.NTR.vn?.genStarted(type, dryRun);
         window.NTR.cast?.genStarted(type, dryRun);
         window.NTR.reader?.genStarted(type, dryRun);
       });
@@ -3177,7 +3168,7 @@ await (async () => {
       eventSource.on(event_types.GENERATION_ENDED, () => {
         window.NTR.cast?.genEnded();
         window.NTR.agents?.genEnded();
-        if (isOn() && settings().nodeEnabled) setTimeout(() => { if (window.NTR.vn?.endWait?.()) window.NTR.vn.queue(false); }, 300);
+        if (isOn() && settings().nodeEnabled) setTimeout(() => { if (window.NTR.vn?.endWait()) window.NTR.vn.queue(false); }, 300);
       });
     }
     if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); window.NTR.cast?.refresh(); });

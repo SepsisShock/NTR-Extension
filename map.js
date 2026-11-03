@@ -1,5 +1,5 @@
 (() => {
-  const MAP_VERSION = '2.86.46';
+  const MAP_VERSION = '2.86.47';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;

@@ -963,8 +963,12 @@ await (async () => {
 
     document.body.appendChild(overlay);
     // SillyTavern checks every input event that reaches the page against its own handlers, which cost more than NTR's
-    // own work while a slider is dragged. None of them are for the menu, so its input events stop here.
-    overlay.addEventListener('input', (e) => e.stopPropagation());
+    // own work while a slider is dragged. None of them are for the menu, so its input events stop here, and the
+    // document's slider listener never sees them.
+    overlay.addEventListener('input', (e) => {
+      e.stopPropagation();
+      if (e.target.type === 'range') showSlider(e.target, e.target.value);
+    });
 
     bindCollapses(overlay, s);
     // The banner's rotation waits while the Overlays page is open (see overlays.js).
@@ -3117,6 +3121,7 @@ await (async () => {
     injectExtensionMenuButton();
     registerSlashCommand();
     document.addEventListener('click', typeSlider);
+    // Sliders outside the menu, like Edit Placement's grid size.
     document.addEventListener('input', (e) => { if (e.target.type === 'range') showSlider(e.target, e.target.value); });
     document.addEventListener('pointerover', (e) => {
       const el = e.target.closest?.('.ntr_slval');

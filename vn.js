@@ -1542,7 +1542,6 @@
     A.refreshFg();
   }
 
-  // The dialogue box (ov, if drawn) hides, and the scene, stage, map and opening video clear.
   function stopNode(ov) {
     watchLayout(false);
     clearTimeout(nodeQ);

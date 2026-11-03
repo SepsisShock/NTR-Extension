@@ -196,7 +196,7 @@ await (async () => {
   const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
 
   const ctx = () => SillyTavern.getContext();
-  // Sets or clears (text '') an NTR prompt SillyTavern adds to each request; `what` names it in the console on failure.
+  // Sets an NTR prompt SillyTavern adds to each request; empty text clears it.
   function setInjection(key, text, what) {
     const c = ctx();
     if (typeof c.setExtensionPrompt !== 'function') return;
@@ -1114,9 +1114,8 @@ await (async () => {
   function onPills(root, name, fn) {
     root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
   }
-  // Enter or Space on el clicks it.
   const keyClick = (el) => el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); } });
-  // A fold's header h shown open or closed, with its content (the next element).
+  // Content is the header's next sibling.
   function showFold(h, open) {
     h.nextElementSibling.style.display = open ? 'block' : 'none';
     h.classList.toggle('ntr_open', open);
@@ -1332,7 +1331,6 @@ await (async () => {
     box.select();
   }
   const checkBox = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
-  // The checkbox at `sel` saves its tick to s[key], then runs after().
   function bindCheck(root, sel, s, key, after) {
     root.querySelector(sel).onchange = function() { s[key] = this.checked; save(); after?.(); };
   }

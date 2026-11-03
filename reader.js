@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.49';
+  const READER_VERSION = '2.86.50';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -121,7 +121,7 @@
         const b = e.target.closest('button[data-go]');
         if (!b) { if (e.target.closest('.ntr_rd_num')) askPage(); return; }
         const k = b.dataset.go;
-        if (k === 'next' || k === 'prev') { turn(k === 'next' ? 1 : -1, 'top'); return; }
+        if (k === 'next' || k === 'prev') { turn(k === 'next' ? 1 : -1); return; }
         // First and Last go straight there, dropping a turn that hasn't happened yet.
         dropFlip();
         if (k === 'first') { if (cur === 0) showSpread(0); else go(0, 'top'); }
@@ -375,7 +375,7 @@
   const onToggle = () => recount();
 
   // Next and Previous: in the book, the next or previous two pages of the same messages first.
-  function turn(d, plainAt) {
+  function turn(d) {
     if (booked()) {
       // A flip still going finishes first, so this turn starts from where it lands.
       flipEnd?.();
@@ -387,7 +387,7 @@
       flip(d, () => (within ? showSpread(to) : go(to, d > 0 ? 'top' : 'bottom')));
       return;
     }
-    go(cur + d, plainAt);
+    go(cur + d, 'top');
   }
 
   // ----- Page flip -----
@@ -542,7 +542,7 @@
 
   function scrollTo(at) {
     const chat = chatEl();
-    if (!chat || at === 'keep') return;
+    if (!chat) return;
     if (booked()) { showSpread(at === 'top' ? 0 : Infinity); return; }
     chat.scrollTop = at === 'bottom' ? chat.scrollHeight : 0;
   }

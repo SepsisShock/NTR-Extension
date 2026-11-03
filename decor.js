@@ -1,5 +1,5 @@
 (() => {
-  const DECOR_VERSION = '2.86.49';
+  const DECOR_VERSION = '2.86.50';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
@@ -55,7 +55,7 @@
     const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : bgColor(s, p));
     const separate = sendSeparate(s);
 
-    // Chat panel. Transparent also clears the boxes around it, as Make Chat Panel Transparent did.
+    // Chat panel. Transparent also clears the boxes around it.
     if (on(s, 'ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...NO_BLUR, border: 'none', 'box-shadow': 'none' });
     else if (on(s, 'ovPanelBg')) css += cssRule('#chat', { 'background-color': fill('Panel') });
     // No line along the top, which stays flush with SillyTavern's top bar. The corners and the bottom line follow joinCss.

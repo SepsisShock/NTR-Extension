@@ -669,17 +669,12 @@
         save(); render(); refreshAll();
         A.deleteFileIfUnused(old);
       };
-      file.onchange = async () => {
-        if (!file.files.length || !pending) return;
-        try {
-          const id = pending, url = await A.uploadHere(() => uploadImage(file.files[0], L.prefix, { max: 2560 }));
-          if (url) setImage(id, url);
-        } catch (e) {
-          console.error(`[NTR vn ${L.name} upload]`, e);
-          toastr.error(e.message || L.fail, 'Visual Novel');
-        }
-        file.value = '';
-      };
+      A.onFilePick(file, 'Visual Novel', async (f) => {
+        const id = pending;
+        if (!id) return;
+        const url = await A.uploadHere(() => uploadImage(f, L.prefix, { max: 2560 }));
+        if (url) setImage(id, url);
+      });
       const add = () => {
         const inp = overlay.querySelector(`#m_${L.c}_new`);
         const nm = inp.value.trim();
@@ -736,16 +731,11 @@
         A.deleteFileIfUnused(old);
       };
     });
-    artFile.onchange = async () => {
-      if (!artFile.files.length || !artPending) return;
-      try {
-        setArtImage(artPending, await uploadImage(artFile.files[0], 'vnart', { max: artPending === 'artBgImg' ? 2560 : 1600 }));
-      } catch (e) {
-        console.error('[NTR vn art upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Visual Novel');
-      }
-      artFile.value = '';
-    };
+    A.onFilePick(artFile, 'Visual Novel', async (f) => {
+      const k = artPending;
+      if (!k) return;
+      setArtImage(k, await uploadImage(f, 'vnart', { max: k === 'artBgImg' ? 2560 : 1600 }));
+    });
 
     renderLoc(); renderCg(); renderArt(); refreshPrompt(); renderGuide();
     for (const name of ['map', 'opening']) {
@@ -762,12 +752,12 @@
   const cap = (x) => x[0].toUpperCase() + x.slice(1);
   const NAMED = {
     loc: {
-      c: 'l', key: 'locations', idp: 'loc', name: 'location', label: 'Location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc', fail: 'Background upload failed',
+      c: 'l', key: 'locations', idp: 'loc', name: 'location', label: 'Location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc',
       def: { key: 'locDefault', label: 'Default Background', hint: 'When nothing matches' },
       // Map pins lose the deleted place, and go if they don't open another map either.
       onDelete: (v, l) => { for (const mp of v.maps || []) mp.pins = (mp.pins || []).filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p)); },
     },
-    cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', label: 'CG', names: 'CGs', pic: 'illustration', picDel: 'picture', prefix: 'vncg', fail: 'CG upload failed' },
+    cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', label: 'CG', names: 'CGs', pic: 'illustration', picDel: 'picture', prefix: 'vncg' },
   };
 
   function namedRowsHtml(L) {

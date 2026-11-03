@@ -909,25 +909,18 @@
       bindLib();
       col.querySelector(`#m_${prefix}_frfit`).onclick = fit;
       // An upload goes in the open folder, named from its file, and this side uses it.
-      frFile.onchange = async () => {
-        const file = frFile.files[0];
-        frFile.value = '';
+      A.onFilePick(frFile, 'Frame', async (file) => {
         const own = s.frameLib.folders.find((f) => f.id === open);
-        if (!file || !own) return;
-        try {
-          const img = await uploadImage(file, 'avframe', { max: 1024 });
-          // The folder may have been deleted from the other column while the file uploaded.
-          if (!s.frameLib.folders.includes(own)) { deleteFileIfUnused(img); return; }
-          const fr = { id: newId('fr'), name: file.name.replace(/\.[^.]*$/, '').trim().slice(0, 60) || 'Frame', img };
-          own.frames.push(fr);
-          libChanged();
-          await pickFrame(fr.id);
-          drawLib();
-        } catch (e) {
-          console.error('[NTR frame upload]', e);
-          toastr.error(e.message || 'Upload failed', 'Frame');
-        }
-      };
+        if (!own) return;
+        const img = await uploadImage(file, 'avframe', { max: 1024 });
+        // The folder may have been deleted from the other column while the file uploaded.
+        if (!s.frameLib.folders.includes(own)) { deleteFileIfUnused(img); return; }
+        const fr = { id: newId('fr'), name: file.name.replace(/\.[^.]*$/, '').trim().slice(0, 60) || 'Frame', img };
+        own.frames.push(fr);
+        libChanged();
+        await pickFrame(fr.id);
+        drawLib();
+      });
       onPills(col, `${prefix}style`, (v) => {
         s[`${prefix}Style`] = v;
         save();

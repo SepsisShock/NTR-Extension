@@ -418,17 +418,12 @@
       save(); render(); VN().refresh();
       A.deleteFileIfUnused(old);
     };
-    if (file) file.onchange = async () => {
-      if (!file.files.length || !pending) return;
-      try {
-        const id = pending, url = await A.uploadHere(() => uploadImage(file.files[0], 'vnmap', { max: 3072 }));
-        if (url) setMapImage(id, url);
-      } catch (e) {
-        console.error('[NTR map upload]', e);
-        toastr.error(e.message || 'Map upload failed', 'Maps');
-      }
-      file.value = '';
-    };
+    if (file) A.onFilePick(file, 'Maps', async (f) => {
+      const id = pending;
+      if (!id) return;
+      const url = await A.uploadHere(() => uploadImage(f, 'vnmap', { max: 3072 }));
+      if (url) setMapImage(id, url);
+    });
     const add = () => {
       const inp = overlay.querySelector('#m_m_new');
       const nm = inp.value.trim();

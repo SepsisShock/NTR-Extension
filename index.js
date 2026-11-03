@@ -869,6 +869,19 @@ await (async () => {
   // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
   // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
   // global settings.
+  // Runs run(file) when a file is picked in input; a failure shows an error toast with this title. The input is
+  // cleared first, so the same file can be picked again.
+  function onFilePick(input, title, run) {
+    input.onchange = async () => {
+      const f = input.files[0];
+      input.value = '';
+      if (!f) return;
+      try { await run(f); } catch (e) {
+        console.error(`[NTR ${title} upload]`, e);
+        toastr.error(e.message || 'Upload failed', title);
+      }
+    };
+  }
   async function uploadHere(upload, perChat = true) {
     const st = store();
     const path = await upload();
@@ -1061,16 +1074,7 @@ await (async () => {
       if (url) setImg(url);
     };
     part('clr').onclick = () => setImg('');
-    file.onchange = async () => {
-      if (!file.files.length) return;
-      try {
-        setImg(await uploadImage(file.files[0], ...o.upload));
-      } catch (e) {
-        console.error(`[NTR ${o.title} upload]`, e);
-        toastr.error(e.message || 'Upload failed', o.title);
-      }
-      file.value = '';
-    };
+    onFilePick(file, o.title, async (f) => setImg(await uploadImage(f, ...o.upload)));
     render();
   }
   // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
@@ -2883,16 +2887,7 @@ await (async () => {
       s.rdBook = v;
       setPic('');
     });
-    file.onchange = async () => {
-      if (!file.files.length) return;
-      try {
-        setPic(await uploadImage(file.files[0], 'book', { max: 3000 }));
-      } catch (e) {
-        console.error('[NTR book upload]', e);
-        toastr.error(e.message || 'Upload failed', 'Book Picture');
-      }
-      file.value = '';
-    };
+    onFilePick(file, 'Book Picture', async (f) => setPic(await uploadImage(f, 'book', { max: 3000 })));
     renderPic();
   }
 
@@ -3058,7 +3053,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,

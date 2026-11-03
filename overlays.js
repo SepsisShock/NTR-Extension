@@ -695,21 +695,14 @@
     const vfile = overlay.querySelector('#m_b_vfile');
     const vup = overlay.querySelector('#m_b_vup');
     vup.onclick = () => vfile.click();
-    vfile.onchange = async () => {
-      const f = vfile.files[0];
-      vfile.value = '';
-      if (!f) return;
-      try {
-        const path = await uploadHere(() => uploadVideo(f, 'banner', 'Banner', vup), ownBanner);
-        if (!path) return;
-        toastr.success('Banner video uploaded.', 'Banner');
-        setVideo(path);
-      } catch (e) {
-        console.error('[NTR banner video]', e);
-        toastr.error(e.message || 'Video upload failed', 'Banner');
-        openMenu();
-      }
-    };
+    A.onFilePick(vfile, 'Banner', async (f) => {
+      let path = '';
+      // Without a new video the menu is drawn here (setVideo draws it otherwise), which gives back the Upload button.
+      try { path = await uploadHere(() => uploadVideo(f, 'banner', 'Banner', vup), ownBanner); } finally { if (!path) openMenu(); }
+      if (!path) return;
+      toastr.success('Banner video uploaded.', 'Banner');
+      setVideo(path);
+    });
     overlay.querySelector('#m_b_vurl').onclick = async () => {
       const url = await askVideoUrl('Banner video', overlay.querySelector('#m_b_vurl'), ownBanner);
       if (url) setVideo(url);
@@ -788,19 +781,12 @@
       btn.onclick = () => setFg(btn.dataset.pos, '');
     });
 
-    fgFile.onchange = async () => {
-      if (!fgFile.files.length || !pendingFgPos) return;
-      const f = fgFile.files[0];
-      fgFile.value = ''; // so the same file can be picked again after a failed upload
+    A.onFilePick(fgFile, 'Foreground', async (f) => {
       const pos = pendingFgPos;
-      try {
-        const url = await uploadHere(() => uploadImage(f, `fg_${pos.toLowerCase()}`));
-        if (url) setFg(pos, url);
-      } catch (e) {
-        console.error('[NTR fg upload]', e);
-        toastr.error(e.message || 'Foreground upload failed', 'Foreground');
-      }
-    };
+      if (!pos) return;
+      const url = await uploadHere(() => uploadImage(f, `fg_${pos.toLowerCase()}`));
+      if (url) setFg(pos, url);
+    });
 
     if (key) {
       overlay.querySelector('#m_b_lock').onchange = function() { r.locked = this.checked; save(); render(); };

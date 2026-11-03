@@ -558,9 +558,9 @@
           </div>
           <div id="m_op_file" class="cb_row cb_cur_row" style="margin-top:8px;${o.src === 'file' ? '' : 'display:none;'}">
             <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fileName || '<span class="cb_hint">No video yet (MP4 or WebM)</span>'}</span>
-            <button type="button" id="m_op_up" class="menu_button" style="margin:0;" title="Upload video" aria-label="Upload video"><i class="fa-solid fa-upload"></i></button>
+            <button type="button" id="m_op_vup" class="menu_button" style="margin:0;" title="Upload video" aria-label="Upload video"><i class="fa-solid fa-upload"></i></button>
             <button type="button" id="m_op_vurl" class="menu_button" style="margin:0;" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
-            <button type="button" id="m_op_clr" class="menu_button danger_button" style="margin:0;" title="Remove video" aria-label="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
+            <button type="button" id="m_op_vclr" class="menu_button danger_button" style="margin:0;" title="Remove video" aria-label="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
         <div id="m_op_body" class="${hasSource(o) ? '' : 'cb_dim'}">
           <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title Screen First</span></label>
@@ -656,82 +656,36 @@
       sl.onchange = save;
     });
 
-    // Video upload (sent as is, no re-encoding).
-    const vfile = q('#m_op_vfile');
-    const up = q('#m_op_up');
-    if (up) up.onclick = () => vfile.click();
-    if (vfile) vfile.onchange = async () => {
-      const f = vfile.files[0];
-      vfile.value = '';
-      if (!f) return;
-      try {
-        const path = await A.uploadHere(() => uploadVideo(f, 'vnop', 'Opening Video', up));
-        if (!path) return;
-        const old = op().file;
-        setOp('file', path);
-        A.deleteFileIfUnused(old);
-        toastr.success('Opening video uploaded.', 'Opening Video');
-      } catch (e) {
-        console.error('[NTR opening upload]', e);
-        toastr.error(e.message || 'Video upload failed', 'Opening Video');
-      }
-      A.openMenu();
+    // The video (sent as is, no re-encoding) and the logo: Upload, Link and Remove for key k of the opening.
+    // The menu is drawn again after an upload, which also gives back the Upload button a video upload disables.
+    const fileRow = ({ k, p, upload, askUrl, removeText, removeAnchor, done }) => {
+      const btn = (n) => q(`#m_op_${p}${n}`);
+      const put = (url) => { const old = op()[k]; setOp(k, url); A.deleteFileIfUnused(old); };
+      btn('up').onclick = () => btn('file').click();
+      A.onFilePick(btn('file'), 'Opening Video', async (f) => {
+        try {
+          const path = await upload(f, btn('up'));
+          if (path) { put(path); done?.(); }
+        } finally { A.openMenu(); }
+      });
+      btn('url').onclick = async () => {
+        const url = await askUrl(btn('url'));
+        if (url) { put(url); A.openMenu(); }
+      };
+      btn('clr').onclick = async () => {
+        if (!op()[k] || !(await A.askYes(removeAnchor || btn('clr'), removeText, 'Remove', { danger: true }))) return;
+        put('');
+        A.openMenu();
+      };
     };
-    const vurl = q('#m_op_vurl');
-    if (vurl && askVideoUrl) vurl.onclick = async () => {
-      const url = await askVideoUrl('Opening Video', vurl);
-      if (!url) return;
-      const old = op().file;
-      setOp('file', url);
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
-    const clr = q('#m_op_clr');
-    if (clr) clr.onclick = async () => {
-      const old = op().file;
-      if (!old || !(await A.askYes(clr, 'Remove the opening video?', 'Remove', { danger: true }))) return;
-      setOp('file', '');
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
-
-    // Logo upload
-    const lfile = q('#m_op_lfile');
-    const lup = q('#m_op_lup');
-    if (lup) lup.onclick = () => lfile.click();
-    const lurl = q('#m_op_lurl');
-    if (lurl) lurl.onclick = async () => {
-      const url = await askImageUrl('Logo', lurl);
-      if (!url) return;
-      const old = op().logoUrl;
-      setOp('logoUrl', url);
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
-    if (lfile) lfile.onchange = async () => {
-      const f = lfile.files[0];
-      lfile.value = '';
-      if (!f) return;
-      try {
-        const path = await A.uploadHere(() => uploadImage(f, 'vnlogo', { max: 1600 }));
-        if (!path) return;
-        const old = op().logoUrl;
-        setOp('logoUrl', path);
-        A.deleteFileIfUnused(old);
-      } catch (e) {
-        console.error('[NTR logo upload]', e);
-        toastr.error(e.message || 'Logo upload failed', 'Opening Video');
-      }
-      A.openMenu();
-    };
-    const lclr = q('#m_op_lclr');
-    if (lclr) lclr.onclick = async () => {
-      const old = op().logoUrl;
-      if (!old || !(await A.askYes(q('#m_op_lrow'), 'Remove the logo? Its file is deleted unless something else uses it.', 'Remove', { danger: true }))) return;
-      setOp('logoUrl', '');
-      A.deleteFileIfUnused(old);
-      A.openMenu();
-    };
+    fileRow({
+      k: 'file', p: 'v', upload: (f, up) => A.uploadHere(() => uploadVideo(f, 'vnop', 'Opening Video', up)), askUrl: (b) => askVideoUrl('Opening Video', b),
+      removeText: 'Remove the opening video?', done: () => toastr.success('Opening video uploaded.', 'Opening Video'),
+    });
+    fileRow({
+      k: 'logoUrl', p: 'l', upload: (f) => A.uploadHere(() => uploadImage(f, 'vnlogo', { max: 1600 })), askUrl: (b) => askImageUrl('Logo', b),
+      removeText: 'Remove the logo? Its file is deleted unless something else uses it.', removeAnchor: q('#m_op_lrow'),
+    });
 
     const pb = q('#m_op_play');
     if (pb) pb.onclick = () => {

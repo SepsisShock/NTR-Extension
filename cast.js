@@ -790,17 +790,12 @@
       save(); renderSpk(); changed();
       A.deleteFileIfUnused(old);
     };
-    sFile.onchange = async () => {
-      if (!sFile.files.length || !pending) return;
-      try {
-        const p = pending, url = await A.uploadHere(() => uploadImage(sFile.files[0], 'vnpfp', { max: p.full ? 2048 : 768 }));
-        if (url) setSpkImage(p, url);
-      } catch (e) {
-        console.error('[NTR cast picture upload]', e);
-        toastr.error(e.message || 'Picture upload failed', 'Emotions');
-      }
-      sFile.value = '';
-    };
+    A.onFilePick(sFile, 'Emotions', async (f) => {
+      const p = pending;
+      if (!p) return;
+      const url = await A.uploadHere(() => uploadImage(f, 'vnpfp', { max: p.full ? 2048 : 768 }));
+      if (url) setSpkImage(p, url);
+    });
     const addSpk = () => {
       const inp = overlay.querySelector('#m_spk_new');
       const nm = inp.value.trim();

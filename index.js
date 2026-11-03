@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.48';
+  const VERSION = '2.86.49';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2089,6 +2089,13 @@ await (async () => {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
+  // An askText check for a name no other item in `list` has, whatever the capitals. It's cut to 60 characters first, so
+  // the name checked is the one saved.
+  const uniqueName = (list, self, what) => (v) => {
+    const name = v.slice(0, 60).trim();
+    return !name ? { error: 'Type a name first.' }
+      : list.some((x) => x !== self && x.name.toLowerCase() === name.toLowerCase()) ? { error: `A ${what} with that name already exists.` } : { value: name };
+  };
   // `base`, or "base (2)", "(3)" and so on, the first one `taken` says is free, cut to `max` characters with its number kept.
   function freeName(base, taken, max = Infinity) {
     let name = base;
@@ -3047,8 +3054,8 @@ await (async () => {
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
     LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
     unpackFiles, isObj, stColor,
-    // For themes.js and agents.js: their exported files, and names for what they import
-    downloadJson, freeName,
+    // Exported files, and names for imported or new items
+    downloadJson, freeName, uniqueName,
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For cast.js: Pop Out catches up after a face changes

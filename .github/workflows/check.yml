@@ -1,5 +1,6 @@
 # Runs on every PR and every push to main.
-# Checks that each .js file parses, runs the tests in tests/, checks that the version matches everywhere
+# Checks that each .js file parses, lints for undefined and unused names (eslint.config.mjs), looks for copied code
+# in the extension's .js files (jscpd), runs the tests in tests/, checks that the version matches everywhere
 # (scripts/version.cjs), and (on PRs) that the version was bumped when a .js or .css file changed.
 # On PRs it also warns when index.js grows by more than 100 lines (see CLAUDE.md on where new code goes).
 name: Check
@@ -29,6 +30,16 @@ jobs:
             if node --check "$RUNNER_TEMP/$f.mjs"; then echo "$f parses"; else echo "::error file=$f::$f has a syntax error and won't load."; failed=1; fi
           done
           exit $failed
+
+      - name: Install checkers
+        run: npm install --no-save --no-package-lock --no-audit --no-fund eslint@9.15.0 globals@15.12.0 jscpd@4.0.5
+
+      - name: Lint
+        run: npx eslint .
+
+      # Blocks of 5+ lines and 50+ tokens that appear twice. Every file is scanned, whatever its size.
+      - name: Copied code
+        run: npx jscpd --max-size 5mb --max-lines 100000 --min-tokens 50 --min-lines 5 --threshold 0 --reporters console --format javascript --pattern "*.js" .
 
       - name: Tests
         run: node --test tests/*.test.mjs

@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.48';
+  const VN_VERSION = '2.86.49';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -8,7 +8,7 @@
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
   if (!C) { console.error('[NTR] vn.js loaded without cast.js.'); return; }
-  const { tagRe, splitTag, castNew, castStep, spotBoxes, pickSpots } = C;
+  const { tagRe, splitTag, castNew, castStep, drawSpots, pickSpots } = C;
 
   // Per-character Visual Novel data (speakers, portraits, locations). Lives in the card, or per group.
   const V = () => A.vnData();
@@ -1152,14 +1152,11 @@
   // Until a chat uses an Enter or Exit tag, `explicit` stays false and the stage keeps following recent speakers.
   // Who is on stage: castNew and castStep (cast.js) keep the list. A snapshot goes on each line.
   const castSnap = (st) => ({ explicit: st.explicit, list: st.list.map((x) => ({ ...x })) });
+  // The chat's messages before idx that have text, without system messages.
+  const before = (idx) => (ctx().chat || []).slice(0, idx).filter((m) => m && !m.is_system && m.mes);
   function castAt(idx) {
     const st = castNew();
-    const chat = ctx().chat || [];
-    for (let i = 0; i < Math.min(idx, chat.length); i++) {
-      const m = chat[i];
-      if (!m || m.is_system || !m.mes) continue;
-      for (const seg of parseMsg(m)) castStep(st, seg);
-    }
+    for (const m of before(idx)) for (const seg of parseMsg(m)) castStep(st, seg);
     return st;
   }
 
@@ -1167,15 +1164,12 @@
   // Pass a Set as `visited` to also collect every location named along the way.
   function stickyAt(idx, visited) {
     const s = settings();
-    const chat = ctx().chat || [];
     const nc = reEsc(s.delimNarClose);
     const words = [s.locWord, s.weatherWord].map(reEsc).join('|');
     const re = new RegExp(`${reEsc(s.delimNarOpen)}[ \\t]*(${words})[ \\t]*:[ \\t]*((?:(?!${nc})[^\\n]){1,200}?)[ \\t]*${nc}`, 'gi');
     const lw = lc(s.locWord);
     let loc = null, wx = null;
-    for (let i = 0; i < Math.min(idx, chat.length); i++) {
-      const m = chat[i];
-      if (!m || m.is_system || !m.mes) continue;
+    for (const m of before(idx)) {
       re.lastIndex = 0;
       let mm;
       while ((mm = re.exec(m.mes))) {
@@ -1321,20 +1315,8 @@
       present = cast.list.map((c) => [c.key, info.get(c.key)]).filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
     } else present = [...info.entries()].filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
     pickSpots(stageSpots, present.map(([k]) => k), wanted);
-    const boxes = spotBoxes();
-    const scale = A.rangeNum(s, 'nodeSpriteScale') / 100;
-    st.querySelectorAll('img').forEach((img) => {
-      const spot = img.dataset.spot;
-      const who = [...stageSpots.entries()].find(([, v]) => v === spot);
-      const p = who ? info.get(who[0]) : null;
-      const src = p ? spriteSrc(p.name, p.emo) : null;
-      if (!src) { img.style.display = 'none'; return; }
-      if (img.getAttribute('src') !== src) img.src = src;
-      const [x, w] = boxes[spot];
-      Object.assign(img.style, { display: 'block', left: x + 'px', width: w + 'px', transform: `scale(${scale})` });
-      const active = cur && cur.kind === 'char' && cur.name.toLowerCase() === who[0];
-      img.classList.toggle('ntr_dim', !active);
-    });
+    const active = (k) => cur && cur.kind === 'char' && cur.name.toLowerCase() === k;
+    drawSpots(st, stageSpots, info, spriteSrc, A.rangeNum(s, 'nodeSpriteScale') / 100, (k) => !active(k));
   }
 
   // ----- Auto-injected tag instructions (rides along with the normal request) -----

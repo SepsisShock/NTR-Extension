@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.48';
+  const CAST_VERSION = '2.86.49';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -83,6 +83,21 @@
     const r = chat ? chat.getBoundingClientRect() : null;
     if (!r || r.left < 150) return { left: [0, W / 3], center: [W / 3, W / 3], right: [(2 * W) / 3, W / 3] };
     return { left: [0, r.left], center: [r.left, r.width], right: [r.right, Math.max(0, W - r.right)] };
+  }
+  // Each spot's picture in root, from src(name, emo) for whoever stands there (spots: key to spot), or hidden.
+  function drawSpots(root, spots, info, src, scale, dim) {
+    const boxes = spotBoxes();
+    root.querySelectorAll('img').forEach((img) => {
+      const spot = img.dataset.spot;
+      const who = [...spots.entries()].find(([, v]) => v === spot);
+      const p = who ? info.get(who[0]) : null;
+      const url = p ? src(p.name, p.emo) : null;
+      if (!url) { img.style.display = 'none'; return; }
+      if (img.getAttribute('src') !== url) img.src = url;
+      const [x, w] = boxes[spot];
+      Object.assign(img.style, { display: 'block', left: x + 'px', width: w + 'px', transform: `scale(${scale})` });
+      img.classList.toggle('ntr_dim', dim(who[0]));
+    });
   }
   // Gives each speaker on stage a spot and keeps it while they stay. A spot from an Enter tag wins, and when two
   // ask for the same one, the later Enter (later in `present`) gets it. The user's persona prefers the right, everyone else the left.
@@ -334,21 +349,10 @@
     present = present.filter((k) => bodySrc(info.get(k).name, info.get(k).emo)).slice(-3);
     pickSpots(spots, present, wanted);
     const last = recent.length ? lc(recent[recent.length - 1].name) : '';
-    const boxes = spotBoxes();
     const scale = A.rangeNum(s, 'emoStageScale') / 100;
     el.style.opacity = String(A.rangeNum(s, 'emoStageOpacity') / 100);
     el.style.display = 'block';
-    el.querySelectorAll('img').forEach((img) => {
-      const spot = img.dataset.spot;
-      const who = [...spots.entries()].find(([, v]) => v === spot);
-      const p = who ? info.get(who[0]) : null;
-      const src = p ? bodySrc(p.name, p.emo) : null;
-      if (!src) { img.style.display = 'none'; return; }
-      if (img.getAttribute('src') !== src) img.src = src;
-      const [x, w] = boxes[spot];
-      Object.assign(img.style, { display: 'block', left: x + 'px', width: w + 'px', transform: `scale(${scale})` });
-      img.classList.toggle('ntr_dim', who[0] !== last);
-    });
+    drawSpots(el, spots, info, bodySrc, scale, (k) => k !== last);
   }
 
   // Many changes in a row (a reply streaming in) draw once, before the next frame.
@@ -864,7 +868,7 @@
     stripEmo,
     castNew,
     castStep,
-    spotBoxes,
+    drawSpots,
     pickSpots,
     speakers,
     baseFace,

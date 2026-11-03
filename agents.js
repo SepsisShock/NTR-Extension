@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.48';
+  const AGENTS_VERSION = '2.86.49';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -1380,16 +1380,7 @@
     setTimeout(() => { el.textContent = text; }, 60);
   }
   const deptSel = (d, part) => `.m_ag_dept[data-dept="${d.id}"] ${part}`;
-  // A department's name: required, and not one another department already has (whatever the capitals). It's cut to
-  // its length first, so the name checked is the one saved.
-  const askDeptName = (anchor, value, ok, self = null) => askText(anchor, {
-    label: 'Department name', value, ok,
-    check: (v) => {
-      const name = v.slice(0, 60).trim();
-      return !name ? { error: 'Type a name first.' }
-        : depts().some((x) => x !== self && x.name.toLowerCase() === name.toLowerCase()) ? { error: 'A department with that name already exists.' } : { value: name };
-    },
-  });
+  const askDeptName = (anchor, value, ok, self = null) => askText(anchor, { label: 'Department name', value, ok, check: A.uniqueName(depts(), self, 'department') });
   // The header's menu hangs under the header, which stays put while the page scrolls, so in a short menu panel the
   // page can't be scrolled to reach the menu's end. It gets the room left below it instead, and scrolls inside.
   function fitPop(pop) {

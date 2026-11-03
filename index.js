@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.42';
+  const VERSION = '2.86.43';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1346,10 +1346,10 @@ await (async () => {
     box.focus();
     box.select();
   }
-  function ovSlider(s, key, unit, min, max, step) {
+  function ovSlider(s, key, unit, min, max, step, cls, scale) {
     const v = rangeNum(s, key);
     return `
-      <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval">${v}</span>${unit}</span></div>`;
+      <div class="cb_row"><input type="range" class="${cls}" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${scale ? ` data-scale="${scale}"` : ''}>${scale ? (v / scale).toFixed(1) : v}</span>${unit}</span></div>`;
   }
   function ovColor(s, key) {
     return customElements.get('toolcool-color-picker')
@@ -1366,10 +1366,11 @@ await (async () => {
       <div class="cb_hint ntr_fmiss" hidden></div>`;
   }
 
-  // The rows every page builds with ovRow, rangeSlider, ovColor, ovText, ovFont, ovPick, ovWhen and customCssBox, bound
-  // once for the whole menu. It runs after the modules', Layout's and Reader Mode's binders and before UI Decor's, Text
-  // Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows earlier. Empty
-  // colors get SillyTavern's own (stColor). The font boxes' list comes after, from fonts.js, which only listens.
+  // The rows every page builds with ovRow, rangeSlider (its default class), ovColor, ovText, ovFont, ovPick, ovWhen and
+  // customCssBox, bound once for the whole menu. It runs after the modules', Layout's and Reader Mode's binders and before
+  // UI Decor's, Text Formatting's, Elements' and Avatar Management's, so these handlers replace any set on the same rows
+  // earlier. Empty colors get SillyTavern's own (stColor). The font boxes' list comes after, from fonts.js, which only
+  // listens.
   function bindRows(overlay, s) {
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
       c.onchange = () => {
@@ -2151,9 +2152,9 @@ await (async () => {
 
   const NONEMPTY_KEYS = new Set([...TAG_KEYS, 'mapGoText']);
   const IMG_KEYS = new Set(['artBgImg', 'artSpriteImg', 'ovCursorImg', 'ovCursorPtrImg', 'ovCursorTextImg', 'ovCursorDownImg', 'rdBookImg', 'rbArrowImg', 'rbBgImg', 'tfPlateImg', 'aiFrameImg', 'usFrameImg']);
-  // Theme files come from other people, so each number is kept to the range of its slider in the menu (keep these in step
-  // with the sliders). Pop-out and foreground offsets go wider because dragging the picture can take them past the slider.
-  // Entries with a step and unit, [min, max, step, unit], are the only copy: their sliders and code read them from here.
+  // Theme files come from other people, so each number is kept to the range of its slider in the menu. Pop-out and
+  // foreground offsets go wider because dragging the picture can take them past the slider.
+  // Entries, [min, max, step, unit], are the only copy: their sliders and code read them from here.
   // A fifth and sixth number, [..., sliderMin, sliderMax], narrow the slider only (the pop-out and foreground offsets).
   const NUM_RANGE = {
     agTemp: [0, 2, 0.05, ''], agTopP: [0, 1, 0.01, ''], agTopK: [0, 200, 1, ''], agMinP: [0, 1, 0.01, ''], agFreq: [-2, 2, 0.05, ''], agPres: [-2, 2, 0.05, ''], agRep: [1, 2, 0.01, ''],
@@ -2166,10 +2167,11 @@ await (async () => {
     ovRound: [1, 30, 1, 'px'], ovMesGap: [0, 40, 1, 'px'], ovSendGap: [0, 40, 1, 'px'], ovBubWidth: [40, 100, 1, '%'],
     ovQrSize: [0.5, 2, 0.05, 'x'], ovQrGap: [0, 20, 1, 'px'], ovQrOpacity: [10, 100, 1, '%'],
     mdSize: [0.5, 2, 0.05, 'x'], mdOpacity: [10, 100, 5, '%'],
-    nodeSpeed: [5, 80], nodeAutoDelay: [500, 8000], nodeOpacity: [30, 100], nodePortrait: [60, 240], nodeBoxWidth: [40, 100],
-    nodeBoxMinH: [40, 300], nodeBoxMaxH: [10, 70], nodeBoxLift: [0, 400], nodeTextScale: [70, 180], nodeSpriteScale: [30, 200],
+    nodeSpeed: [5, 80, 1, 'ms'], nodeAutoDelay: [500, 8000, 250, 'ms'], nodeOpacity: [30, 100, 1, '%'], nodePortrait: [60, 240, 5, 'px'],
+    nodeBoxWidth: [40, 100, 1, '%'], nodeBoxMinH: [40, 300, 5, 'px'], nodeBoxMaxH: [10, 70, 1, 'vh'], nodeBoxLift: [0, 400, 2, 'px'],
+    nodeTextScale: [70, 180, 5, '%'], nodeSpriteScale: [30, 200, 5, '%'],
     emoStageScale: [30, 200, 5, '%'], emoStageOpacity: [10, 100, 5, '%'],
-    opLead: [0, 15], opFade: [100, 4000], opSize: [10, 100], opTransMs: [100, 10000],
+    opLead: [0, 15, 0.5, ' s'], opFade: [100, 4000, 100, ' s'], opSize: [10, 100, 1, '%'], opTransMs: [100, 10000, 100, ' s'],
     // Saved in card data (and the shared Global banner), not as settings keys (see cardNum).
     // Pinned Blocks' places, kept in each block (see cleanPins).
     pinX: [0, 100, 0.01, '%'], pinY: [0, 100, 0.01, '%'], pinW: [5, 100, 0.01, '%'], pinH: [5, 100, 0.01, '%'],
@@ -2199,7 +2201,8 @@ await (async () => {
   // A number setting kept to its range, or its default if it isn't a number.
   const rangeNum = (s, k) => cNum(s[k], DEFAULTS[k], NUM_RANGE[k][0], NUM_RANGE[k][1]);
   // A slider whose range, step and unit come from NUM_RANGE.
-  const rangeSlider = (s, k) => { const [min, max, step, unit, smin = min, smax = max] = NUM_RANGE[k]; return ovSlider(s, k, unit, smin, smax, step); };
+  // cls other than m_o_sl skips bindRows, for a module that binds its own sliders.
+  const rangeSlider = (s, k, cls = 'm_o_sl', scale = 0) => { const [min, max, step, unit, smin = min, smax = max] = NUM_RANGE[k]; return ovSlider(s, k, unit, smin, smax, step, cls, scale); };
   // The min, max and step of a slider written out by hand, from NUM_RANGE.
   const rangeAttrs = (k) => { const [min, max, step, , smin = min, smax = max] = NUM_RANGE[k]; return `min="${smin}" max="${smax}" step="${step}"`; };
   // A number from card data kept to its NUM_RANGE entry, or the fallback if it isn't a number.

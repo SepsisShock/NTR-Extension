@@ -41,12 +41,6 @@ Split each avatar column's color choices into Hue, Filter and Texture. Hue gets 
 - [ ] Sideways scrollbars (like in wide code blocks) turn it to run top to bottom, so it still goes across the bar.
 - [ ] Firefox can show only one flat color, so it keeps the first color.
 
-### Visual Novel Mode and opening video sliders read `NUM_RANGE`
-Every slider in `index.js` reads its range, step and unit from `NUM_RANGE`. The ones in `vn.js` and `opening.js` still have their own numbers. Users would see no difference, so this waits until those files are worked on anyway.
-
-- [ ] Have these sliders and the code that applies them use the ranges already shared through `window.NTR`, keeping setting names, defaults and the menu layout the same.
-- [ ] Fix two harmless mismatches at the same time: `opening.js` applies the logo size with a 5% minimum while the slider and theme limit say 10%, and keeps the logo fade and lead time above 0 with no upper limit while the sliders stop at 4 s and 15 s. Only a hand-edited settings file can reach these values.
-
 ### Visual Novel's Maps and Opening Video parts when they break
 If either part loads but throws while drawing, it says "Loading..." until the menu is closed.
 

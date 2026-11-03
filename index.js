@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.49';
+  const VERSION = '2.86.50';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -17,7 +17,7 @@ await (async () => {
     bannerBackdrop: 'wallpaper',
     bannerVideoSound: false,
     bannerGlobal: { images: [], idx: 0, youtubeUrl: '', video: '', videoPos: 50 },
-    chars: {},
+    chars: {}, charData: {}, groupData: {},
     avatarEnabled: true,
     // The Frame library: the user's own folders of uploaded frames, the hidden built-in folders, and each side's fit
     // (Frame Size, Left/Right, Up/Down) for each frame it has used.
@@ -42,6 +42,7 @@ await (async () => {
     // Foreground Settings
     fgEnabled: false,
     fgOpacity: 100,
+    fgHideVN: false,
 
     // Edit Placement (dragging pop-outs and foreground images): editor choices, not part of themes
     placeSnap: false, placeGrid: 20,
@@ -77,6 +78,9 @@ await (async () => {
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
     nodeAuto: false, nodeAutoDelay: 2500, nodeOpacity: 88, nodePortrait: 120,
     nodeUserMsgs: true, nodeHideEmo: true, nodeShape: 'rounded',
+    nodeBoxWidth: 100, nodeBoxMinH: 96, nodeBoxMaxH: 28, nodeBoxLift: 8, nodeTextScale: 100,
+    nodeSprites: true, nodePortraitBox: true, nodeSpriteScale: 100, nodeSpriteBase: false, nodeInject: true,
+    locWord: 'Location',
     emotions: [
       { id: 'emo_neutral', name: 'Neutral' }, { id: 'emo_happy', name: 'Happy' },
       { id: 'emo_sad', name: 'Sad' }, { id: 'emo_angry', name: 'Angry' },
@@ -161,12 +165,8 @@ await (async () => {
 
     // Master switch + themes
     masterEnabled: true,
-    fgHideVN: false,
-    groupData: {},
-    charData: {},
-    nodeBoxWidth: 100, nodeBoxMinH: 96, nodeBoxMaxH: 28, nodeBoxLift: 8, nodeTextScale: 100,
-    nodeSprites: true, nodePortraitBox: true, nodeSpriteScale: 100, nodeSpriteBase: false, nodeInject: true,
-    locWord: 'Location',
+    themes: [],
+    themeActive: null,
 
     // Visual Novel scene tags, art kit, opening video, maps
     nodeSplitUntagged: true,
@@ -177,9 +177,7 @@ await (async () => {
     enterWord: 'Enter', exitWord: 'Exit',
     artBg: 'dusk', artBgImg: '', artSprite: 'builtin', artSpriteImg: '',
     opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opExit: 'stay', opTrans: 'color', opTransColor: '#000000', opTransMs: 400, opEarly: false, opMute: false, opSeen: {},
-    nodeMaps: true, mapGoText: '*heads to the {place}*',
-    themes: [],
-    themeActive: null
+    nodeMaps: true, mapGoText: '*heads to the {place}*'
   };
   // AI Message, User Message and Send Box each have their own Shape, Background and Border.
   const OV_PARTS = ['Ai', 'Us', 'Send'];
@@ -548,7 +546,7 @@ await (async () => {
   }
 
   // Theme files can carry their images inline (base64), so they work on another install.
-  async function uploadDataUrl(dataUrl, prefix = 'ntr') {
+  async function uploadDataUrl(dataUrl, prefix) {
     const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(String(dataUrl || ''));
     if (!m || !MIME_EXT[m[1]]) throw new Error('Unsupported embedded file');
     return uploadBase64(m[2], MIME_EXT[m[1]], prefix);
@@ -2158,9 +2156,9 @@ await (async () => {
     nodeTextScale: [70, 180, 5, '%'], nodeSpriteScale: [30, 200, 5, '%'],
     emoStageScale: [30, 200, 5, '%'], emoStageOpacity: [10, 100, 5, '%'],
     opLead: [0, 15, 0.5, ' s'], opFade: [100, 4000, 100, ' s'], opSize: [10, 100, 1, '%'], opTransMs: [100, 10000, 100, ' s'],
-    // Saved in card data (and the shared Global banner), not as settings keys (see cardNum).
     // Pinned Blocks' places, kept in each block (see cleanPins).
     pinX: [0, 100, 0.01, '%'], pinY: [0, 100, 0.01, '%'], pinW: [5, 100, 0.01, '%'], pinH: [5, 100, 0.01, '%'],
+    // Saved in card data (and the shared Global banner), not as settings keys (see cardNum).
     fgScale: [10, 300, 5, '%'], fgX: [-10000, 10000, 5, 'px', -1500, 1500], fgY: [-10000, 10000, 5, 'px', -1500, 1500], bannerPos: [0, 100, 1, '%'], bannerVideoPos: [0, 100, 1, '%'], bannerOffset: [0, 300, 5, 'px'],
   };
   for (const p of FX_PARTS) NUM_RANGE[p + 'FxStr'] = [1, 10, 1, ''];

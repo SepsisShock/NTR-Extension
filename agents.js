@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.49';
+  const AGENTS_VERSION = '2.86.50';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -164,7 +164,7 @@
     return s.agDepts;
   }
   const deptOf = (id) => depts().find((d) => d.ids.includes(id)) || null;
-  const deptOpen = (d) => settings().uiOpen?.[`agd_${d.id}`] !== false;
+  const deptOpen = (d) => settings().uiOpen[`agd_${d.id}`] !== false;
   // The agents in no department, in order.
   function loose() {
     const inDept = new Set(depts().flatMap((d) => d.ids));
@@ -905,7 +905,7 @@
 
   // The roster: the agents in no department, then Departments, a card per department with its agents. A row per agent:
   // its switch, then its picture, name and title picking it. A department's header: its name opening and folding it,
-  // and More (Rename, Move Up, Move Down, Delete). Rows and headers drag from anywhere but their switch and More. The order is the run order (sortAgents). While an agent has
+  // and More. Rows and headers drag from anywhere but their switch and More. The order is the run order (sortAgents). While an agent has
   // runs, what they're doing takes the place of its row's second line.
   const rowSub = (a) => { const st = runState(a.id); return st ? `<i class="fa-solid fa-fw ${st[0]}"></i> ${esc(st[1])}` : esc(status(a)); };
   function rowHtml(a, s) {
@@ -956,7 +956,7 @@
         <div class="ntr_glab"><i class="fa-solid fa-fw fa-id-badge ntr_glab_icon"></i>Agent Roster</div>
         <div class="ntr_card m_ag_loose"${dl.length ? ' role="group" aria-label="No department"' : ''}>${top}</div>
         ${dl.length ? `<div class="ntr_glab"><i class="fa-solid fa-fw fa-building ntr_glab_icon"></i>Departments</div>
-        <div class="m_ag_depts" role="group" aria-label="Departments">${dl.map((d) => deptHtml(d, s)).join('')}</div>` : ''}
+        <div role="group" aria-label="Departments">${dl.map((d) => deptHtml(d, s)).join('')}</div>` : ''}
       </div>
       ${l.length + dl.length >= 2 ? `<div class="cb_hint" style="margin:6px 4px 0;">${l.length >= 2 ? `${dl.length ? 'Agents in no department run first, top to bottom. Then departments run side by side; agents in a department run top to bottom.' : 'Agents run one at a time, top to bottom.'} An agent that gets reports from an agent below it gets that agent's last answer. ` : ''}Drag a row to change the order. On a touch screen, press and hold it first.</div>` : ''}`;
   }
@@ -998,8 +998,8 @@
   }
 
   // The picked agent's header: its picture (a click shows its buttons), name and job title typed in place, when it
-  // runs and on what, and Run Now, Expand All or Collapse All, and More (Duplicate, Move Up, Move Down, Move to
-  // Department, Delete). Its switch is in the roster. The title shows here, in the roster and on a Dashboard set to Tabs.
+  // runs and on what, and Run Now, Expand All or Collapse All, and More.
+  // Its switch is in the roster. The title shows here, in the roster and on a Dashboard set to Tabs.
   function headHtml(a, allOpen) {
     const going = busy(a.id);
     return `<div class="m_ag_head">
@@ -1085,7 +1085,7 @@
 
   // A folded part of the agent's settings. Which parts are open is the same for every agent; the first time, only
   // Instructions is.
-  const isOpen = (k) => { const o = settings().uiOpen || {}; return `ag_${k}` in o ? !!o[`ag_${k}`] : k === 'ins'; };
+  const isOpen = (k) => { const o = settings().uiOpen; return `ag_${k}` in o ? !!o[`ag_${k}`] : k === 'ins'; };
   const FOLD_ICON = { ins: 'fa-scroll', ans: 'fa-clipboard-list', runs: 'fa-stopwatch', main: 'fa-share-from-square', conn: 'fa-plug',
     samp: 'fa-temperature-half', reads: 'fa-book-open-reader', rep: 'fa-briefcase', test: 'fa-vial' };
   function foldHtml(k, title, sum, body) {
@@ -1173,7 +1173,6 @@
       <div class="cb_hint">Only the format is used, not your other settings. A saved key for this server type is used if needed.</div>
       ${sharesChatServer(a) ? '<div class="cb_hint" style="margin-bottom:0;"><i class="fa-solid fa-circle-info"></i> This is your chat\'s server, which answers one request at a time, so this agent waits until your reply is done.</div>' : ''}`
       : '<div class="cb_hint" style="margin-bottom:0;">Uses your chat\'s API, model and key, and waits until a reply is finished.</div>';
-    const past = runs.get(a.id) || [];
     const full = usesFull(a);
     // Same as Chat's samplers only reach the chat's API on Chat Completion or Text Completion (see ownSamplers).
     const api = ctx().mainApi;
@@ -1229,7 +1228,7 @@
       ['rep', 'Reports', '<div id="m_ag_rep"></div>'],
       ['test', 'Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
-        <div id="m_ag_act">${activityHtml(a, past)}</div>`],
+        <div id="m_ag_act">${activityHtml(a)}</div>`],
     ];
     const sum = sums(a);
     return `<div class="m_ag_frame">
@@ -1363,7 +1362,7 @@
     if (s.agPick && !byId(s.agPick)) s.agPick = '';
     if (!s.agPick && list().length) s.agPick = list()[0].id;
     const a = byId(s.agPick);
-    root.innerHTML = listHtml(s) + `<div id="m_ag_edit">${editorHtml(a)}</div>`;
+    root.innerHTML = listHtml(s) + editorHtml(a);
     bindAll(s, a);
     renderActivity();
     syncLinks(a);
@@ -1705,8 +1704,8 @@
         if (!b || b.disabled) return;
         const act = b.dataset.act;
         if (act === 'to' && depts().length) {
-          pop.innerHTML = depts().map((d) => `<button type="button" data-act="dept" data-dept="${d.id}"${d === cur ? ' class="ntr_here" disabled' : ''}><i class="fa-solid fa-door-closed fa-fw"></i>${esc(d.name)}</button>`).join('')
-            + `<button type="button" data-act="none"${cur ? '' : ' class="ntr_here" disabled'}><i class="fa-solid fa-inbox fa-fw"></i>No Department</button>`
+          pop.innerHTML = depts().map((d) => `<button type="button" data-act="dept" data-dept="${d.id}"${d === cur ? ' disabled' : ''}><i class="fa-solid fa-door-closed fa-fw"></i>${esc(d.name)}</button>`).join('')
+            + `<button type="button" data-act="none"${cur ? '' : ' disabled'}><i class="fa-solid fa-inbox fa-fw"></i>No Department</button>`
             + '<button type="button" data-act="new"><i class="fa-solid fa-building-shield fa-fw"></i>New Department…</button>';
           pop.querySelector('button:not(:disabled)')?.focus();
           return;
@@ -2067,9 +2066,9 @@
       if (!sec.id) return rows;
       const key = `${pin}:${a.id}:${sec.id}`;
       const open = !folds.has(key);
-      return `<div class="ntr_agf_sec"><button type="button" class="ntr_agf_sechead" data-act="fold" data-fold="${esc(key)}" aria-expanded="${open}"><i class="fa-solid fa-fw fa-chevron-${open ? 'down' : 'right'}"></i><span>${esc(sec.name)}</span>${!open && ch ? DOT + sr(', changed') : ''}</button>${open ? `<div class="ntr_agf_secbody">${rows}</div>` : ''}</div>`;
+      return `<button type="button" class="ntr_agf_sechead" data-act="fold" data-fold="${esc(key)}" aria-expanded="${open}"><i class="fa-solid fa-fw fa-chevron-${open ? 'down' : 'right'}"></i><span>${esc(sec.name)}</span>${!open && ch ? DOT + sr(', changed') : ''}</button>${open ? `<div class="ntr_agf_secbody">${rows}</div>` : ''}`;
     }).join('');
-    return { changed, html: `<div class="ntr_agf">${html}</div>` };
+    return { changed, html };
   }
   function pinPart(x, last, pin, isTabs) {
     const { a, r, run, fail, edit, fv } = x;
@@ -2083,7 +2082,7 @@
     const body = !a.on ? '<div class="ntr_agres_note">On Vacation</div>'
       : edit ? `${usesFields(a) ? '<div class="ntr_agres_note">Saved as plain text, in the same format the agent answers in. Lists are edited here.</div>' : ''}<textarea class="text_pole ntr_agres_edit" rows="8" data-for="${esc(edit)}">${esc(r.text)}</textarea>
       <div class="ntr_agres_editbtns"><button type="button" class="menu_button" data-act="save"><i class="fa-solid fa-check"></i> Save</button><button type="button" class="menu_button" data-act="cancel">Cancel</button></div>`
-      : fv ? fv.html : r ? `<div class="ntr_agres_text">${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
+      : fv ? fv.html : r ? `<div>${formatted(a, r)}</div>` : '<div class="ntr_agres_note">No result yet.</div>';
     return `<div class="ntr_agres" data-ag="${esc(a.id)}" data-mes="${r ? r.mes : ''}">
       <div class="ntr_agres_head">${head}<span class="ntr_agres_btns">${btns}</span></div>
       ${open ? body : ''}

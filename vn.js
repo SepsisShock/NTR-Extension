@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.49';
+  const VN_VERSION = '2.86.50';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -436,7 +436,7 @@
     const sl = (key, label) => ovLabel(label, rangeSlider(s, key, 'm_n_sl'));
     const dim = (id, on, inner) => `<div id="${id}" class="${on ? '' : 'cb_dim'}">${inner}</div>`;
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
-    const artBtns = (k, id) => `<span id="${id}" class="cb_art_btns" style="display:flex;gap:4px;">
+    const artBtns = (k, id) => `<span id="${id}" style="display:flex;gap:4px;">
                   <button class="menu_button m_art_up" data-k="${k}" title="Upload" aria-label="Upload"><i class="fa-solid fa-upload"></i></button>
                   <button class="menu_button m_art_url" data-k="${k}" title="Use a link" aria-label="Use a link"><i class="fa-solid fa-link"></i></button>
                   <button class="menu_button m_art_clr" data-k="${k}" title="Remove picture" aria-label="Remove picture"><i class="fa-solid fa-rotate-left"></i></button></span>`;
@@ -1148,8 +1148,6 @@
     return m.is_user ? parseSegments(m.mes, m.name || c.name1, true) : parseSegments(m.mes, m.name || c.name2, false);
   }
 
-  // Who is on stage. Speaking adds a character; Enter/Exit tags add or remove one explicitly.
-  // Until a chat uses an Enter or Exit tag, `explicit` stays false and the stage keeps following recent speakers.
   // Who is on stage: castNew and castStep (cast.js) keep the list. A snapshot goes on each line.
   const castSnap = (st) => ({ explicit: st.explicit, list: st.list.map((x) => ({ ...x })) });
   // The chat's messages before idx that have text, without system messages.
@@ -1517,8 +1515,6 @@
     applyStyle();
     loadSubs();
     nodeLoad({ animate: false, switchedOn: !!opts.switchedOn });
-    syncNodeToggle();
-    updateInjection();
     // The stage behind the chat and the emotion prompt (cast.js) step aside while Visual Novel Mode is on.
     C.refresh();
     A.refreshFg();

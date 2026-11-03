@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.49';
+  const OP_VERSION = '2.86.50';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -18,8 +18,7 @@
     #ntr_open .ntr_op_name { font-size: clamp(28px, 6vw, 64px); font-weight: bold; letter-spacing: .04em; text-shadow: 0 3px 18px rgba(0,0,0,.9); }
     #ntr_open .ntr_op_btn { cursor: pointer; padding: 10px 34px; border-radius: 999px; border: 2px solid #fff; background: rgba(0,0,0,.45); color: #fff; font-size: 18px; letter-spacing: .12em; transition: background .2s, color .2s; }
     #ntr_open .ntr_op_btn:hover, #ntr_open .ntr_op_btn:focus-visible { background: #fff; color: #000; outline: none; }
-    #ntr_open .ntr_op_media { position: absolute; inset: 0; overflow: hidden; transition: opacity .6s ease; }
-    #ntr_open .ntr_op_media.ntr_gone { opacity: 0; }
+    #ntr_open .ntr_op_media { position: absolute; inset: 0; overflow: hidden; }
     #ntr_open .ntr_op_cover { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
     #ntr_open .ntr_op_media video { width: 100%; height: 100%; object-fit: cover; display: block; }
     #ntr_open .ntr_op_media iframe { position: absolute; left: 50%; top: 50%; width: max(100vw, 177.78vh); height: max(100vh, 56.25vw); transform: translate(-50%, -50%); border: 0; pointer-events: none; }

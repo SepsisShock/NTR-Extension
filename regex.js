@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.49';
+  const REGEX_VERSION = '2.86.50';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson } = A;
@@ -338,7 +338,7 @@ try {
   // Move to folder: the section's folders, No Folder, and New folder to make one and move the regex into it.
   function moveMenu(anchor, sec, id) {
     const cur = folders(sec).find((f) => f.ids.includes(id)) || null;
-    const item = (fid, icon, label, here) => `<button data-act="mvto" data-fid="${esc(fid)}"${here ? ' class="ntr_here" disabled' : ''}><i class="fa-solid ${icon} fa-fw"></i>${esc(label)}</button>`;
+    const item = (fid, icon, label, here) => `<button data-act="mvto" data-fid="${esc(fid)}"${here ? ' disabled' : ''}><i class="fa-solid ${icon} fa-fw"></i>${esc(label)}</button>`;
     A.popMenu(anchor, folders(sec).map((f) => item(f.id, 'fa-folder', f.name, f === cur)).join('')
       + item('', 'fa-inbox', 'No Folder', !cur)
       + '<button data-act="mvnew"><i class="fa-solid fa-folder-plus fa-fw"></i>New Folder…</button>');

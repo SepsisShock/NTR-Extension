@@ -144,9 +144,9 @@ test('per-chat uploads go through uploadHere', () => {
   assert.deepEqual(stale, [], `GLOBAL_UPLOADS lists ${stale.join(', ')}, which no longer exist; remove them`);
 });
 
-// Inputs allowed to write their own min and max: ovSlider (rangeSlider's backend), vn.js and opening.js until
-// NUM_RANGE is shared (see ROADMAP.md), and the Book's page number, which isn't a setting.
-const OWN_LIMITS = [['index.js', 'class="m_o_sl"'], ['vn.js', ''], ['opening.js', ''], ['reader.js', 'max="${n}"']];
+// Inputs allowed to write their own min and max: ovSlider (rangeSlider's backend), and the Book's page number, which
+// isn't a setting.
+const OWN_LIMITS = [['index.js', 'class="${cls}"'], ['reader.js', 'max="${n}"']];
 
 test('sliders and number boxes take their limits from NUM_RANGE', () => {
   const tags = Object.entries(SRC).flatMap(([file, src]) => [...src.matchAll(/<input\b[^>]*\btype="(?:range|number)"[^>]*>/g)].map((m) => [file, m[0]]));
@@ -166,14 +166,12 @@ test('NUM_RANGE entries have the right shape, and every key used has one', () =>
   assert.ok(used.length > 0, 'found no range calls');
   const missing = used.filter(([, , k]) => !api.numRange(k)).map(([file, name, k]) => `${file}: ${name}('${k}')`);
   assert.deepEqual(missing, [], `no NUM_RANGE entry for ${missing.join(', ')}`);
-  const noStep = used.filter(([, name, k]) => /^range(?:Attrs|Slider)$/.test(name) && api.numRange(k).length < 4).map(([file, name, k]) => `${file}: ${name}('${k}')`);
-  assert.deepEqual(noStep, [], `${noStep.join(', ')} would get step="undefined": give the entry a step and unit`);
   const keys = new Set([...Object.keys(api.DEFAULTS).filter((k) => api.numRange(k)), ...used.map(([, , k]) => k)]);
   const bad = [...keys].filter((k) => {
     const [min, max, step, , smin = min, smax = max] = api.numRange(k), n = api.numRange(k).length;
-    return ![2, 4, 6].includes(n) || !(min <= max) || (n > 2 && !(step > 0)) || !(min <= smin && smin <= smax && smax <= max);
+    return ![4, 6].includes(n) || !(min <= max) || !(step > 0) || !(min <= smin && smin <= smax && smax <= max);
   });
-  assert.deepEqual(bad, [], `NUM_RANGE entries ${bad.join(', ')} aren't [min, max], [min, max, step, unit] or [min, max, step, unit, sliderMin, sliderMax] with min <= sliderMin <= sliderMax <= max`);
+  assert.deepEqual(bad, [], `NUM_RANGE entries ${bad.join(', ')} aren't [min, max, step, unit] or [min, max, step, unit, sliderMin, sliderMax] with min <= sliderMin <= sliderMax <= max`);
 });
 
 test('modules don\'t import other NTR files', () => {

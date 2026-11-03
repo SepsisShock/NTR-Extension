@@ -1,9 +1,9 @@
 (() => {
-  const VN_VERSION = '2.86.42';
+  const VN_VERSION = '2.86.43';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
-  const { ovLabel, cssTag } = A.look;
+  const { ovLabel, cssTag, rangeSlider } = A.look;
   const { TAG } = A;
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
@@ -435,8 +435,7 @@
 
   // Visual Novel's settings, in the Visual Novel part of the Reader Mode page (index.js puts them there).
   function nodeSectionHtml(s) {
-    // Not rangeSlider: vn.js keys keep their own slider ranges (see CLAUDE.md).
-    const sl = (key, label, unit, min, max, step) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_n_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval">${s[key]}</span>${unit}</span></div>`);
+    const sl = (key, label) => ovLabel(label, rangeSlider(s, key, 'm_n_sl'));
     const dim = (id, on, inner) => `<div id="${id}" class="${on ? '' : 'cb_dim'}">${inner}</div>`;
     const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
@@ -461,28 +460,28 @@
               ${ck('m_n_split', s.nodeSplitUntagged, 'Play Untagged Messages')}
               <div class="cb_hint">Quotes become the character's lines; the rest is narration.</div>
               ${ck('m_n_tw', s.nodeTypewriter, 'Typewriter Effect')}
-              ${dim('m_n_spwrap', s.nodeTypewriter, sl('nodeSpeed', 'Delay per Character', 'ms', 5, 80, 1))}
+              ${dim('m_n_spwrap', s.nodeTypewriter, sl('nodeSpeed', 'Delay per Character'))}
               <div style="margin-top:8px;">${ck('m_n_auto', s.nodeAuto, 'Auto-Advance')}</div>
-              ${dim('m_n_adwrap', s.nodeAuto, sl('nodeAutoDelay', 'Auto-Advance Wait', 'ms', 500, 8000, 250))}
+              ${dim('m_n_adwrap', s.nodeAuto, sl('nodeAutoDelay', 'Auto-Advance Wait'))}
             </div>
 
             ${subHead('vn_look', 'Look', 'fa-eye')}
             <div class="cb_collapse_content">
               <div class="cb_sub">Box</div>
-              ${sl('nodeOpacity', 'Box Opacity', '%', 30, 100, 1)}
-              ${sl('nodeBoxWidth', 'Box Width', '%', 40, 100, 1)}
+              ${sl('nodeOpacity', 'Box Opacity')}
+              ${sl('nodeBoxWidth', 'Box Width')}
               <div class="cb_hint">Of the chat column's width.</div>
-              ${sl('nodeBoxMinH', 'Box Min Height', 'px', 40, 300, 5)}
-              ${sl('nodeBoxMaxH', 'Box Max Height', 'vh', 10, 70, 1)}
-              ${sl('nodeBoxLift', 'Lift Above Send Bar', 'px', 0, 400, 2)}
-              ${sl('nodeTextScale', 'Text Size', '%', 70, 180, 5)}
+              ${sl('nodeBoxMinH', 'Box Min Height')}
+              ${sl('nodeBoxMaxH', 'Box Max Height')}
+              ${sl('nodeBoxLift', 'Lift Above Send Bar')}
+              ${sl('nodeTextScale', 'Text Size')}
               <div class="cb_sub">Portrait</div>
               ${ck('m_n_pbox', s.nodePortraitBox, 'Show Portrait in Box')}
-              ${dim('m_n_pwrap', s.nodePortraitBox, sl('nodePortrait', 'Portrait Size', 'px', 60, 240, 5)
+              ${dim('m_n_pwrap', s.nodePortraitBox, sl('nodePortrait', 'Portrait Size')
                 + ovLabel('Portrait Shape', pills('nshape', [['rounded', 'Rounded'], ['round', 'Circle'], ['square', 'Square'], ['rect', 'Tall']], s.nodeShape)))}
               <div class="cb_sub">Sprites</div>
               ${ck('m_n_spr', s.nodeSprites, 'Show Sprites')}
-              ${dim('m_n_swrap', s.nodeSprites, sl('nodeSpriteScale', 'Sprite Size', '%', 30, 200, 5))}
+              ${dim('m_n_swrap', s.nodeSprites, sl('nodeSpriteScale', 'Sprite Size'))}
               <div class="cb_hint" style="margin-bottom:0;">Sprites are full bodies, else faces, else Default Art. Stage Keeps Main Face is on the Avatars page. The last three speakers stay; those not talking dim.</div>
             </div>
 
@@ -790,11 +789,11 @@
     const s = settings();
     if (chat) {
       const r = chat.getBoundingClientRect();
-      const w = r.width * (s.nodeBoxWidth / 100);
+      const w = r.width * (A.rangeNum(s, 'nodeBoxWidth') / 100);
       ov.style.left = (r.left + (r.width - w) / 2) + 'px';
       ov.style.width = w + 'px';
     }
-    ov.style.bottom = (boxFloor(chat, form) + s.nodeBoxLift) + 'px';
+    ov.style.bottom = (boxFloor(chat, form) + A.rangeNum(s, 'nodeBoxLift')) + 'px';
     placeCG();
   }
 
@@ -818,11 +817,12 @@
     const ov = document.getElementById('cb_node');
     if (!ov) return;
     const s = settings();
-    ov.style.setProperty('--cbn-op', s.nodeOpacity / 100);
-    ov.style.setProperty('--cbn-ps', s.nodePortrait + 'px');
-    ov.style.setProperty('--cbn-minh', s.nodeBoxMinH + 'px');
-    ov.style.setProperty('--cbn-maxh', s.nodeBoxMaxH + 'vh');
-    ov.style.setProperty('--cbn-fs', s.nodeTextScale / 100);
+    const n = (k) => A.rangeNum(s, k);
+    ov.style.setProperty('--cbn-op', n('nodeOpacity') / 100);
+    ov.style.setProperty('--cbn-ps', n('nodePortrait') + 'px');
+    ov.style.setProperty('--cbn-minh', n('nodeBoxMinH') + 'px');
+    ov.style.setProperty('--cbn-maxh', n('nodeBoxMaxH') + 'vh');
+    ov.style.setProperty('--cbn-fs', n('nodeTextScale') / 100);
     for (const sh of ['round', 'square', 'rect']) ov.classList.toggle('cb_shape_' + sh, s.nodeShape === sh);
   }
 
@@ -982,9 +982,9 @@
       justShown(text);
       arrow.textContent = more ? '\u25BC' : '';
       renderChoices(seg);
-      if (s.nodeAuto && more && !waits && !node.held) node.auto = setTimeout(() => nodeStep(1), s.nodeAutoDelay);
+      if (s.nodeAuto && more && !waits && !node.held) node.auto = setTimeout(() => nodeStep(1), A.rangeNum(s, 'nodeAutoDelay'));
     };
-    if (animate && s.nodeTypewriter && s.nodeSpeed > 0) typeInto(text, html, s.nodeSpeed, done, shown);
+    if (animate && s.nodeTypewriter) typeInto(text, html, A.rangeNum(s, 'nodeSpeed'), done, shown);
     else { text.innerHTML = html; done(); }
     placeNode();
     setLocation(seg.loc);
@@ -1325,7 +1325,7 @@
     } else present = [...info.entries()].filter(([, p]) => spriteSrc(p.name, p.emo)).slice(-3);
     pickSpots(stageSpots, present.map(([k]) => k), wanted);
     const boxes = spotBoxes();
-    const scale = (s.nodeSpriteScale || 100) / 100;
+    const scale = A.rangeNum(s, 'nodeSpriteScale') / 100;
     st.querySelectorAll('img').forEach((img) => {
       const spot = img.dataset.spot;
       const who = [...stageSpots.entries()].find(([, v]) => v === spot);

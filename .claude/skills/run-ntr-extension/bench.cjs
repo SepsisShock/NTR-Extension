@@ -111,7 +111,8 @@ async function drag(page, cdp, opts, saves, { first, id, grip = '', axis, amp, s
   const T = opts.cpu;
   const saved = () => page.evaluate(() => JSON.stringify(Object.entries(NTR.api.settings()).filter(([k]) => k.startsWith('lay'))));
   const before = await saved();
-  if (!(await page.evaluate((f) => NTR.api.startPlacement(f), first))) throw new Error(`Edit Layout didn't open for ${id}`);
+  const opened = await page.evaluate((f) => { NTR.api.startPlacement(f); return document.body.classList.contains('ntr_placing'); }, first);
+  if (!opened) throw new Error(`Edit Layout didn't open for ${id}`);
   await sleep(500 * T);
   const at = await page.evaluate(({ id, grip }) => {
     const box = document.querySelector('#cb_place_layer .cb_place_box.cb_sel');

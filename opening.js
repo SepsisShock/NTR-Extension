@@ -1,11 +1,11 @@
 (() => {
-  const OP_VERSION = '2.86.42';
+  const OP_VERSION = '2.86.43';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, media, pills, onPills, subHead } = A;
-  const { ovLabel, cssTag } = A.look;
+  const { ovLabel, cssTag, rangeSlider } = A.look;
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -84,7 +84,7 @@
   }
   const RISE_MS = 3000;
   const PIN_Z = '2399'; // Over the background, behind the characters, weather, CG and dialogue box.
-  const transMs = () => Math.max(100, Math.min(10000, Number(settings().opTransMs) || 400));
+  const transMs = () => A.rangeNum(settings(), 'opTransMs');
   const transColor = () => (/^#[0-9a-f]{6}$/i.test(settings().opTransColor || '') ? settings().opTransColor : '#000000');
 
   function play(hooks, opts = {}) {
@@ -118,9 +118,9 @@
       img.className = 'ntr_op_logo';
       img.alt = '';
       img.src = lsrc;
-      img.style.width = Math.max(5, Math.min(100, Number(s.opSize) || 50)) + 'vw';
+      img.style.width = A.rangeNum(s, 'opSize') + 'vw';
       img.style.top = s.opPos === 'upper' ? '33.3%' : s.opPos === 'lower' ? '66.7%' : '50%';
-      const ms = Math.max(0, Number(s.opFade) || 0);
+      const ms = A.rangeNum(s, 'opFade');
       img.style.transition = `opacity ${ms}ms ease, transform ${ms}ms ease`;
       st.logo = img;
       if (st.exit === 'rise') {
@@ -339,7 +339,7 @@
       }
     }
     if (!st.logo || st.logoShown) return;
-    const lead = Math.max(0, Number(settings().opLead) || 0);
+    const lead = A.rangeNum(settings(), 'opLead');
     if (dur > 0 && isFinite(dur) && lead > 0 && t >= dur - lead) showLogo();
   }
 
@@ -444,7 +444,7 @@
     // Without a logo, the story fade waits until the video has faded to the color.
     const wait = st.cross || st.skipped ? 0 : st.mediaOutMs || 0;
     if (!st.logo) { if (wait) later(finish, wait); else finish(); return; }
-    const fade = Math.max(0, Number(settings().opFade) || 0);
+    const fade = A.rangeNum(settings(), 'opFade');
     const was = st.logoShown;
     showLogo();
     const left = was ? Math.max(0, fade - (Date.now() - st.logoAt)) : fade;
@@ -480,7 +480,7 @@
       st.phase = 'out';
       if (st.bar) st.bar.remove();
       st.logo.style.opacity = '0';
-      later(close, Math.max(0, Number(settings().opFade) || 0) + 100);
+      later(close, A.rangeNum(settings(), 'opFade') + 100);
       return;
     }
     close();
@@ -544,8 +544,8 @@
         <div class="cb_collapse_content"><div class="cb_hint">Open a character chat first. The opening is saved per character.</div></div>`;
     }
     const o = op();
-    // Not rangeSlider: opening.js keys keep their own slider ranges (see CLAUDE.md).
-    const sl = (key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
+    // opFade and opTransMs are saved in ms and shown in seconds.
+    const sl = (key, label, scale) => ovLabel(label, rangeSlider(s, key, 'm_op_sl', scale));
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
     const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
     return `
@@ -577,9 +577,9 @@
           <label class="checkbox_label"><input type="checkbox" id="m_op_mute" ${s.opMute ? 'checked' : ''}><span>Start Muted</span></label>
           <div class="cb_hint">The sound button during the video changes this too.</div>
           <div id="m_op_lbody" class="${o.logo === 'none' ? 'cb_dim' : ''}">
-            ${sl('opLead', 'Logo Appears Before the End', ' s', 0, 15, 0.5, s.opLead)}
-            ${sl('opFade', 'Logo Fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
-            ${sl('opSize', 'Logo Size', '%', 10, 100, 1, s.opSize)}
+            ${sl('opLead', 'Logo Appears Before the End')}
+            ${sl('opFade', 'Logo Fade', 1000)}
+            ${sl('opSize', 'Logo Size')}
             ${ovLabel('Logo Position', pills('oppos', [['upper', 'Upper Third'], ['center', 'Center'], ['lower', 'Lower Third']], s.opPos))}
             ${ovLabel('Logo Exit', pills('opexit', [['stay', 'Stay'], ['fade', 'Fade Out'], ['rise', 'Rise to Top']], s.opExit || 'stay'))}
             <div class="cb_hint" style="margin-top:4px;">Rise to Top: the logo stays behind the characters until the chat changes. Skipping the video skips it.</div>
@@ -592,7 +592,7 @@
             <label class="checkbox_label"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade Over the Ending</span></label>
             <div class="cb_hint">The color covers the last seconds while the video still plays.</div>
           </div>
-          ${sl('opTransMs', 'Transition Length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
+          ${sl('opTransMs', 'Transition Length', 1000)}
           <div class="cb_hint" style="margin-top:4px;">Color Fade: the length applies to both fades. Crossfade blends the last frame into the story. Skipping always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
             <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play Now</button>

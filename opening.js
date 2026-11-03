@@ -545,7 +545,7 @@
         <div class="cb_collapse_content"><div class="cb_hint">Open a character chat first. The opening is saved per character.</div></div>`;
     }
     const o = op();
-    // opening.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
+    // Not rangeSlider: opening.js keys keep their own slider ranges (see CLAUDE.md).
     const sl = (id, key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
     const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
@@ -656,8 +656,8 @@
       sl.onchange = save;
     });
 
-    // The video (sent as is, no re-encoding) and the logo: Upload, Link and Remove for key k of the opening.
-    // The menu is drawn again after an upload, which also gives back the Upload button a video upload disables.
+    // The video (sent as is, no re-encoding) and the logo. The menu is redrawn after each change, which also re-enables
+    // the Upload button a video upload disables.
     const fileRow = ({ k, p, upload, askUrl, removeText, removeAnchor, done }) => {
       const btn = (n) => q(`#m_op_${p}${n}`);
       const put = (url) => { const old = op()[k]; setOp(k, url); A.deleteFileIfUnused(old); };

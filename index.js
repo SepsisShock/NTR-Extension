@@ -1302,14 +1302,13 @@ await (async () => {
     const el = (prev?.matches('.cb_row') ? prev : sl.closest('.cb_row, .cb_place_gridset'))?.querySelector('.ntr_slval');
     return el && slFor(el) === sl ? el : null;
   }
-  // Shows v as a slider's number. A value set from code can be past the slider's ends (an offset dragged further), so
-  // the number shows v, not the slider's own value.
   function showSlider(sl, v) {
     const el = slNum(sl);
     if (!el) return;
     const scale = Number(el.dataset.scale);
     el.textContent = scale ? (v / scale).toFixed(1) : v;
   }
+  // Shows v even when the slider clamps it: a value set from code can be past the slider's ends.
   function setSlider(sl, v) {
     sl.value = v;
     showSlider(sl, v);

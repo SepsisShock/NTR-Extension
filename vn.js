@@ -435,7 +435,7 @@
 
   // Visual Novel's settings, in the Visual Novel part of the Reader Mode page (index.js puts them there).
   function nodeSectionHtml(s) {
-    // vn.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
+    // Not rangeSlider: vn.js keys keep their own slider ranges (see CLAUDE.md).
     const sl = (id, key, label, unit, min, max, step) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_n_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval">${s[key]}</span>${unit}</span></div>`);
     const dim = (id, on, inner) => `<div id="${id}" class="${on ? '' : 'cb_dim'}">${inner}</div>`;
     const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;

@@ -689,9 +689,8 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .ntr_cast_spr { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; transform-origin: center bottom; display: none; transition: filter .25s, opacity .25s; }
 .ntr_cast_spr.ntr_dim { filter: brightness(.6); opacity: .9; }
 
-/* The menu and NTR's screen layers. */
 /* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) left fixed
-   boxes with no height. The top of this file gives the page root its height back, and this workaround stays. */
+   boxes with no height. */
 #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
 #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
 #cb_pop_layer .cb_popf { position: absolute; display: none; pointer-events: none; overflow: hidden; container-type: size; }
@@ -742,9 +741,8 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .cb_pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
 .cb_pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 999px; border: 1px solid var(--SmartThemeBorderColor, #555); background: var(--ntr-well); cursor: pointer; user-select: none; font-size: .9em; transition: background .15s, border-color .15s; }
 .cb_pill input, .cb_posgrid input, .cb_defdot input { margin: 0; cursor: pointer; accent-color: var(--SmartThemeQuoteColor, #6cf); }
-/* The Enable switches are sliders that still click on and off: every page and part switch (ntr_pswitch), and the
-   avatar switches. They're styled through an id because a class alone would rank below SillyTavern's own checkbox
-   styles, which would turn them back into square checkboxes. */
+/* The Enable switches are sliders that still click on and off. Each selector needs an id: a class alone ranks below
+   SillyTavern's checkbox styles, which would make them square again. */
 #cb_modal_overlay .ntr_pswitch, #m_ai_on, #m_us_on {
   appearance: none; -webkit-appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0 6px 0 0;
   border: 1px solid var(--SmartThemeBorderColor, #888); border-radius: 999px; background: var(--ntr-well-deep); cursor: pointer;
@@ -800,7 +798,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .cb_cur_prev i { opacity: .35; }
 .cb_cur_prev.ntr_rd_pic { width: 72px; height: 48px; }
 .cb_cur_prev.ntr_rd_pic img { max-width: 68px; max-height: 44px; }
-/* Speakers and their faces (cast.js), and Visual Novel's lists, which use the same rows. */
+/* Rows shared by cast.js and vn.js. */
 .cb_defdot { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; cursor: pointer; }
 .cb_spk { border-radius: 8px; background: var(--ntr-well); padding: 6px; }
 .cb_spk + .cb_spk { margin-top: 6px; }

@@ -1,10 +1,10 @@
 (() => {
-  const TEXT_VERSION = '2.86.43';
+  const TEXT_VERSION = '2.86.44';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
-  const { bindPicSlot, card, onPills, pageHtml, picSlotHtml, pills, rangeNum, save, subHead } = A;
+  const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, save, subHead } = A;
   const { COLOR_RE, FONT_NOTE, FX, FX_PARTS, NAME_WEIGHT, TEXT_ALIGN, bubblesOn, bubRight, cUrl, cssReaders, cssRule, ntrAvatars,
-    restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel } = A.look;
+    restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel, ovPick } = A.look;
 
   // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
   // Gradient and Shimmer are painted into the letters instead (see paintOf).
@@ -222,7 +222,7 @@
   function ovFx(s, p) {
     const hint = p === 'tfName' ? 'Shimmer sweeps twice over the newest name when it appears'
       : 'Gradient and Shimmer keep italics, quotes, underlines and links in their own colors. Shimmer sweeps twice over the newest message when it appears';
-    return pills(p.toLowerCase() + 'fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline'], ['gradient', 'Gradient'], ['shimmer', 'Shimmer']], s[p + 'Fx'])
+    return ovPick(s, p + 'Fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline'], ['gradient', 'Gradient'], ['shimmer', 'Shimmer']])
       + ovLabel('Strength', rangeSlider(s, p + 'FxStr'))
       + `<div class="cb_hint">${hint}. Off with Reduced Motion, ST's or the device's.</div>`;
   }
@@ -240,7 +240,7 @@
     const part = (p) => `
           ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
           ${ovRow(s, p + 'SizeOn', 'Size', rangeSlider(s, p + 'Size'))}
-          ${ovRow(s, p + 'AlignOn', 'Alignment', pills(p.toLowerCase() + 'align', [['left', 'Left', 'ST\'s default'], ['right', 'Right'], ['center', 'Center'], ['justify', 'Justify']], s[p + 'Align'])
+          ${ovRow(s, p + 'AlignOn', 'Alignment', ovPick(s, p + 'Align', [['left', 'Left', 'ST\'s default'], ['right', 'Right'], ['center', 'Center'], ['justify', 'Justify']])
             + '<div class="cb_hint">Lists, tables and code blocks keep ST\'s alignment.</div>')}
           ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
@@ -253,7 +253,7 @@
           <div class="cb_collapse_content">
             ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
             ${ovRow(s, 'tfNameSizeOn', 'Size', rangeSlider(s, 'tfNameSize'))}
-            ${ovRow(s, 'tfNameWeightOn', 'Weight', pills('tfnweight', [['normal', 'Normal'], ['bold', 'Bold', 'ST\'s default'], ['extra', 'Extra Bold']], s.tfNameWeight))}
+            ${ovRow(s, 'tfNameWeightOn', 'Weight', ovPick(s, 'tfNameWeight', [['normal', 'Normal'], ['bold', 'Bold', 'ST\'s default'], ['extra', 'Extra Bold']]))}
             ${ovRow(s, 'tfNameColorOn', 'Color', ovColor(s, 'tfNameColor'))}${fxRows(s, 'tfName')}
           </div>
           ${subHead('tf_plate', 'Nameplate', 'fa-id-badge')}
@@ -263,7 +263,7 @@
             ${picSlotHtml(PLATE_PIC)}
             ${ovRow(s, 'tfPlateBorderOn', 'Border', ovColor(s, 'tfPlateBorder') + ovLabel('Width', rangeSlider(s, 'tfPlateBorderWidth')))}
             ${ovRow(s, 'tfPlateRoundOn', 'Roundness', rangeSlider(s, 'tfPlateRound'))}
-            ${ovRow(s, 'tfPlatePosOn', 'Position', pills('tfplatepos', [['row', 'Name Row', 'ST\'s default'], ['edge', 'On the Top Edge']], s.tfPlatePos)
+            ${ovRow(s, 'tfPlatePosOn', 'Position', ovPick(s, 'tfPlatePos', [['row', 'Name Row', 'ST\'s default'], ['edge', 'On the Top Edge']])
               + '<div class="cb_hint">On the Top Edge adds room above each message and cuts a long name short. With NTR Avatars behind or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
           </div>
           ${subHead('tf_user', 'User Text', 'fa-user-pen')}
@@ -277,11 +277,7 @@
 
   function bindTextFormatting(overlay, s) {
     overlay.querySelector('#m_tf_enable').onchange = function() { s.tfEnabled = this.checked; save(); updateAvatarStyle(); };
-    onPills(overlay, 'tfnweight', (v) => { s.tfNameWeight = v; save(); updateAvatarStyle(); });
-    for (const p of ['tfUser', 'tfAi']) onPills(overlay, p.toLowerCase() + 'align', (v) => { s[p + 'Align'] = v; save(); updateAvatarStyle(); });
-    onPills(overlay, 'tfplatepos', (v) => { s.tfPlatePos = v; save(); updateAvatarStyle(); });
     bindPicSlot(overlay, s, PLATE_PIC);
-    for (const p of FX_PARTS) onPills(overlay, p.toLowerCase() + 'fx', (v) => { s[p + 'Fx'] = v; save(); updateAvatarStyle(); });
   }
 
   window.NTR.text = {

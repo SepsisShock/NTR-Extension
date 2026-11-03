@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.43';
+  const ELEMENTS_VERSION = '2.86.44';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -582,15 +582,12 @@
 
   function bindReasoning(overlay, s) {
     onPills(overlay, 'rbtyping', (v) => { s.rbTyping = v; save(); syncReasoningLabels(); });
-    onPills(overlay, 'rbbtnshape', (v) => { s.rbBtnShape = v; save(); updateAvatarStyle(); });
-    onPills(overlay, 'rbbtnborder', (v) => { s.rbBtnBorder = v; save(); updateAvatarStyle(); });
     for (const [name, k] of [['rbbtnfx', 'rbBtnFx'], ['rbedgefx', 'rbEdgeFx']]) {
       onPills(overlay, name, (v) => {
         s[k] = v; save(); updateAvatarStyle();
         overlay.querySelector(`.m_rb_fxsize[data-for="${k}"]`).classList.toggle('cb_dim', v === 'none');
       });
     }
-    onPills(overlay, 'rbboxshape', (v) => { s.rbBoxShape = v; save(); updateAvatarStyle(); });
     // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
     const syncPatRows = () => {
       const p = s.rbPat;
@@ -620,7 +617,6 @@
     const part = fadeRows.closest('.ntr_part');
     for (const ev of ['input', 'change', 'click']) part.addEventListener(ev, () => setTimeout(syncFade), true);
     syncFade();
-    onPills(overlay, 'rbbstyle', (v) => { s.rbBorderStyle = v; save(); updateAvatarStyle(); });
     bindReasoningArrow(overlay, s);
     bindReasoningBg(overlay, s, syncFade);
   }
@@ -671,8 +667,8 @@
           ${card('Reasoning Button', `
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
           ${ovRow(s, 'rbBtnAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBtnOpacity'))}
-          ${pickRow('Button Shape', pills('rbbtnshape', [['square', 'Square'], ['rounded', 'Rounded', 'ST\'s default'], ['pill', 'Pill']], s.rbBtnShape))}
-          ${ovRow(s, 'rbBtnBorderOn', 'Border Style', pills('rbbtnborder', borders, s.rbBtnBorder))}
+          ${pickRow('Button Shape', ovPick(s, 'rbBtnShape', [['square', 'Square'], ['rounded', 'Rounded', 'ST\'s default'], ['pill', 'Pill']]))}
+          ${ovRow(s, 'rbBtnBorderOn', 'Border Style', ovPick(s, 'rbBtnBorder', borders))}
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor'))}
           ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}`)}
           ${card('Reasoning Box', `
@@ -680,8 +676,8 @@
           ${ovRow(s, 'rbBoxAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBoxOpacity'))}
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + `<div class="cb_hint">${FONT_NOTE}</div>`)}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">ST\'s is 50%. 0% is grey.</div>')}
-          ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', pills('rbboxshape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']], s.rbBoxShape))}
-          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', pills('rbbstyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')], s.rbBorderStyle))}
+          ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', ovPick(s, 'rbBoxShape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']]))}
+          ${ovRow(s, 'rbBorderStyleOn', 'Border Style', ovPick(s, 'rbBorderStyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')]))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder'))}
           ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}
           ${subHead('rb_bgimg', 'Background Picture')}

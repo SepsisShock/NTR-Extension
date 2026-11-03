@@ -10,14 +10,9 @@
 //   node .claude/skills/run-ntr-extension/bench.cjs table <name> [name...]
 const fs = require('fs');
 const path = require('path');
-const { loadPlaywright, contextOptions } = require('./browser.cjs');
+const { launch, contextOptions, NOISE, sleep, watchPage, openST } = require('./browser.cjs');
 
-const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const OUT = process.env.NTR_BENCH || '/tmp/ntr-bench';
-// Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's. A failed load
-// only counts as noise by its address, so a missing NTR image still shows up.
-const NOISE = /Internal S.*not valid JSON|\/api\/horde\/|favicon/i;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function metrics(cdp) {
   const { metrics } = await cdp.send('Performance.getMetrics');
@@ -180,20 +175,11 @@ async function drag(page, cdp, opts, saves, { first, id, grip = '', axis, amp, s
   return r;
 }
 
-async function once(chromium, opts) {
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+async function once(opts) {
+  const browser = await launch('chromium');
   const context = await browser.newContext(contextOptions(browser, opts.phone ? 'phone' : 'desktop'));
   const page = await context.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => { if (!NOISE.test(e.message)) errors.push('pageerror: ' + e.message); });
-  page.on('console', (m) => {
-    if (m.type() !== 'error') return;
-    // "Failed to load resource" doesn't say which one; the address comes with the message.
-    const url = m.text().startsWith('Failed to load resource') ? m.location()?.url : '';
-    const e = 'console: ' + m.text() + (url ? ' (' + url + ')' : '');
-    if (!NOISE.test(e)) errors.push(e);
-  });
-  page.on('dialog', (d) => d.accept());
+  const errors = watchPage(page);
   // SillyTavern's settings saves, so the run can wait for the last one before it ends.
   const saves = { open: 0, started: [], since: (t) => saves.started.some((x) => x >= t) };
   page.on('request', (q) => { if (q.url().includes('/api/settings/save')) { saves.open++; saves.started.push(Date.now()); } });
@@ -209,8 +195,7 @@ async function once(chromium, opts) {
   const r = { cpu: T };
 
   let t = Date.now();
-  await page.goto(ST_URL);
-  await page.waitForFunction(() => window.SillyTavern?.getContext && SillyTavern.getContext().characters.length > 0, null, { timeout: 60000 * T });
+  await openST(page, 60000 * T);
   r.loadMs = Date.now() - t;
   await sleep(2500 * T); // extensions finish their first render
   r.ntr = await page.evaluate(() => window.NTR?.api?.VERSION || null);
@@ -313,16 +298,15 @@ async function once(chromium, opts) {
       : { first: 'lay', id: 'layChat', axis: 'x', amp: 120, sway: true });
     if (r.pinShows != null) r.dragPin = await drag(page, cdp, opts, saves, { first: 'pin_pin_read', id: 'pin_pin_read', axis: 'x', amp: opts.phone ? 50 : 120, sway: true });
   }
-  r.errors = errors;
+  r.errors = errors.filter((e) => !NOISE.test(e));
   await browser.close();
   return r;
 }
 
-async function warmUp(chromium) {
-  const browser = await chromium.launch({ args: ['--no-sandbox'] });
+async function warmUp() {
+  const browser = await launch('chromium');
   const page = await browser.newPage();
-  await page.goto(ST_URL);
-  await page.waitForFunction(() => window.SillyTavern?.getContext && SillyTavern.getContext().characters.length > 0, null, { timeout: 60000 });
+  await openST(page);
   await sleep(5000);
   await browser.close();
 }
@@ -337,14 +321,13 @@ async function run(args) {
   const cpu = c >= 0 ? Number(args[c + 1]) : 1;
   if (!(cpu >= 1)) throw new Error(`--cpu needs a number of 1 or more, not ${args[c + 1]}`);
   const opts = { phone: args.includes('--phone'), vn: args.includes('--vn'), cpu, ntr: v >= 0 ? args[v + 1] : '' };
-  const { chromium } = loadPlaywright();
   fs.mkdirSync(OUT, { recursive: true });
   // The first page load after the server starts makes SillyTavern do first-time work (about 2 s more before it's
   // ready), so one load that isn't measured goes first.
-  await warmUp(chromium);
+  await warmUp();
   const results = [];
   for (let n = 1; n <= runs; n++) {
-    const r = await once(chromium, { ...opts, shot: n === 1 ? path.join(OUT, name + '.png') : '' });
+    const r = await once({ ...opts, shot: n === 1 ? path.join(OUT, name + '.png') : '' });
     results.push(r);
     console.log(`${name} run ${n}/${runs}: streaming busy ${r.stream.busy} ms, restyling ${r.stream.style} ms, idle busy ${r.idle.busy} ms`);
   }

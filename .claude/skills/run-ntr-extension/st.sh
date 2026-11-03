@@ -58,14 +58,14 @@ stop() {
   echo "SillyTavern stopped"
 }
 
-# The extension's files: manifest.json, every top-level .js, .css and .svg, and the assets folder.
+# The extension's files: manifest.json, every top-level .js and .css, and the assets folder. A git ref also brings
+# top-level .svg files, which versions up to 2.69 had.
 install_ext() {
   local ref="${1:-}"
   rm -rf "$EXT_DIR" && mkdir -p "$EXT_DIR"
   if [ -z "$ref" ]; then
     cp "$REPO"/manifest.json "$REPO"/*.js "$REPO"/*.css "$EXT_DIR"/
-    for f in "$REPO"/*.svg; do if [ -e "$f" ]; then cp "$f" "$EXT_DIR"/; fi; done
-    if [ -d "$REPO/assets" ]; then cp -r "$REPO/assets" "$EXT_DIR"/; fi
+    cp -r "$REPO/assets" "$EXT_DIR"/
     echo "installed the extension from the working tree"
   else
     git -C "$REPO" ls-tree -r --name-only "$ref" | grep -E '^(manifest\.json|[^/]+\.(js|css|svg)|assets/.+)$' | while read -r f; do

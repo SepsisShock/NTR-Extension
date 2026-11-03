@@ -1,5 +1,5 @@
-// Saved agents are cleaned before anything reads them, Fields included, so a hand-edited settings file can't break the
-// Agents page or a Dashboard.
+// Agents are cleaned before anything reads them, Fields included: an imported one comes from another user, and one
+// saved by an older version lacks newer settings.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { api, context, load, R } from './env.mjs';

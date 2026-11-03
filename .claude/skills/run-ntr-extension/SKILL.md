@@ -3,7 +3,7 @@ name: run-ntr-extension
 description: Run, test and screenshot the Nitwit Tavern Redesign (NTR) extension inside a real local SillyTavern. Sets up SillyTavern, installs this repo as an extension (the working tree or any git ref, for before/after comparisons), starts and stops the server, and drives the UI headlessly with a Playwright command driver (open a chat, the NTR menu, Visual Novel Mode, uploads, page evaluation, screenshots). Also has a speed test (streaming, adding messages, scrolling, idle CPU) for comparing NTR against plain SillyTavern or another git ref. Use when asked to run, start, test, verify, reproduce a bug in, screenshot or speed test the extension, or to confirm a change works in SillyTavern.
 ---
 
-NTR is a SillyTavern extension, so running it means running SillyTavern with this repo installed as an extension. `.claude/skills/run-ntr-extension/st.sh` manages a local SillyTavern, and `.claude/skills/run-ntr-extension/driver.cjs` drives it in headless Chromium from commands piped on stdin. All paths are relative to the repo root.
+NTR is a SillyTavern extension, so running it means running SillyTavern with this repo installed as an extension. `.claude/skills/run-ntr-extension/st.sh` manages a local SillyTavern, and `.claude/skills/run-ntr-extension/driver.cjs` drives it in headless Chromium (or Firefox or WebKit; see Other browsers) from commands piped on stdin. All paths are relative to the repo root.
 
 ## Prerequisites
 

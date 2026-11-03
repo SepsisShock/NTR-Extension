@@ -1,10 +1,10 @@
 (() => {
-  const MAP_VERSION = '2.86.44';
+  const MAP_VERSION = '2.86.45';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead } = A;
+  const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead, vnData, newId } = A;
   const { ovLabel, cssTag } = A.look;
   const TAG = A.TAG || '';
 
@@ -42,7 +42,7 @@
   `;
 
   // ----- Data (per character, inside the VN data) -----
-  const D = () => VN().data();
+  const D = vnData;
   const maps = () => D().maps;
   const mapById = (id) => maps().find((m) => m.id === id) || null;
   const locById = (id) => D().locations.find((l) => l.id === id) || null;
@@ -182,7 +182,7 @@
       if (!view.edit) { hidePop(); return; }
       const r = img.getBoundingClientRect();
       if (!r.width || !r.height) return;
-      const p = { id: VN().newId('pin'), x: clamp01((e.clientX - r.left) / r.width), y: clamp01((e.clientY - r.top) / r.height), loc: '', map: '' };
+      const p = { id: newId('pin'), x: clamp01((e.clientX - r.left) / r.width), y: clamp01((e.clientY - r.top) / r.height), loc: '', map: '' };
       m.pins.push(p);
       view.sel = p.id;
       save();
@@ -424,7 +424,7 @@
       const nm = inp.value.trim();
       if (!nm) { toastr.info('Type a name first.', 'Maps'); inp.focus(); return; }
       if (!A.store()) { toastr.warning('Open a character chat first. Maps are saved per character.', 'Maps'); return; }
-      const m = { id: VN().newId('map'), name: nm, url: '', pins: [] };
+      const m = { id: newId('map'), name: nm, url: '', pins: [] };
       maps().push(m);
       if (!D().mapRoot) D().mapRoot = m.id;
       inp.value = '';
@@ -437,5 +437,5 @@
     render();
   }
 
-  window.NTR.map = { version: MAP_VERSION, open, close: () => close(true), sectionHtml, bind, goText };
+  window.NTR.map = { version: MAP_VERSION, open, close: () => close(true), sectionHtml, bind };
 })();

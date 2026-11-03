@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.44';
+  const VERSION = '2.86.45';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -76,7 +76,7 @@ await (async () => {
     // Visual Novel Mode
     nodeEnabled: false, nodeTypewriter: true, nodeSpeed: 20,
     nodeAuto: false, nodeAutoDelay: 2500, nodeOpacity: 88, nodePortrait: 120,
-    nodeUserMsgs: true, nodePicker: true, nodeHideEmo: true, nodeShape: 'rounded',
+    nodeUserMsgs: true, nodeHideEmo: true, nodeShape: 'rounded',
     emotions: [
       { id: 'emo_neutral', name: 'Neutral' }, { id: 'emo_happy', name: 'Happy' },
       { id: 'emo_sad', name: 'Sad' }, { id: 'emo_angry', name: 'Angry' },
@@ -176,7 +176,7 @@ await (async () => {
     nodeCG: true, cgWord: 'CG', nodeAutoSpk: true,
     enterWord: 'Enter', exitWord: 'Exit',
     artBg: 'dusk', artBgImg: '', artSprite: 'builtin', artSpriteImg: '',
-    opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opHold: true, opExit: 'stay', opTrans: 'color', opTransColor: '#000000', opTransMs: 400, opEarly: false, opMute: false, opSeen: {},
+    opLead: 3, opFade: 1000, opSize: 50, opPos: 'center', opExit: 'stay', opTrans: 'color', opTransColor: '#000000', opTransMs: 400, opEarly: false, opMute: false, opSeen: {},
     nodeMaps: true, mapGoText: '*heads to the {place}*',
     themes: [],
     themeActive: null
@@ -499,20 +499,10 @@ await (async () => {
   }
 
   const peek = (key) => {
-    const s = settings();
     const d = cardData(key);
-    let r;
-    if (d) {
-      if (!d.banner) {
-        if (s.chars[key]) { d.banner = structuredClone(s.chars[key]); cleanBanner(d.banner); legacyMoved.add(key); scheduleCardFlush(key); }
-        else d.banner = defaultBanner();
-      }
-      r = d.banner;
-    } else {
-      if (!s.chars[key]) s.chars[key] = defaultBanner();
-      r = s.chars[key];
-      if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
-    }
+    if (d) return d.banner ||= defaultBanner();
+    const r = settings().chars[key] ||= defaultBanner();
+    if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
     return r;
   };
 
@@ -1596,7 +1586,6 @@ await (async () => {
   // ===== Per-character storage (kept inside the character card) =====
   const cardSnap = new Map();
   const cardTimers = new Map();
-  const legacyMoved = new Set();
   // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see flushCard.
   const cardFix = new Set();
   const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null });
@@ -1917,7 +1906,7 @@ await (async () => {
     const json = JSON.stringify(d);
     const before = cardSnap.get(key) ?? '';
     if (json === before) return;
-    if (before === '' && !legacyMoved.has(key) && cardIsEmpty(d)) return;
+    if (before === '' && cardIsEmpty(d)) return;
     try {
       // Merging into NTR data that isn't an object drops the save. So a broken card's old value is cleared first,
       // through the bulk save. Clearing also drops it from memory, so it's put straight back.
@@ -1937,11 +1926,6 @@ await (async () => {
       if (!res.ok) throw new Error(`The server said ${res.status} ${res.statusText}`);
       cardSnap.set(key, json);
       cardSaveWarned = false;
-      if (legacyMoved.has(key)) {
-        legacyMoved.delete(key);
-        delete settings().chars[key];
-        c.saveSettingsDebounced();
-      }
       // Like writeExtensionField: the card's JSON copy (and the open character editor's) gets the same data, so saving
       // the character in its editor doesn't bring old NTR data back. The editor is checked now, after the save, in case
       // another character was opened meanwhile.
@@ -2090,10 +2074,10 @@ await (async () => {
     bannerGlobal: { label: 'Global Banner (Pictures, YouTube Link, Video)', keys: ['bannerGlobal'] },
     fg: { label: 'Foreground Look (Opacity, Hide in Visual Novel)', keys: ['fgOpacity', 'fgHideVN'] },
     reader: { label: 'Reader Mode Look (Style, Book, Page Areas, Ink, Font, Page Flip)', keys: ['rdStyle', 'rdBook', 'rdBookImg', 'rdBookW', 'rdBookTop', 'rdBookBottom', 'rdBookOuter', 'rdBookSpine', ...INK_KEYS, 'rdBookFontOn', 'rdBookFont', 'rdFlip'] },
-    vn: { label: 'Visual Novel (Box, Playback, Emotions, Tags, Default Art, Logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodePicker', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
+    vn: { label: 'Visual Novel (Box, Playback, Emotions, Tags, Default Art, Logo)', keys: ['nodeBoxWidth', 'nodeBoxMinH', 'nodeBoxMaxH', 'nodeBoxLift', 'nodeTextScale', 'nodeSprites', 'nodePortraitBox', 'nodeSpriteScale', 'nodeSpriteBase', 'nodeInject', 'locWord', 'nodeTypewriter', 'nodeSpeed', 'nodeAuto', 'nodeAutoDelay', 'nodeOpacity', 'nodePortrait', 'nodeShape', 'nodeUserMsgs', 'nodeHideEmo', 'emotions', 'emoDefault', 'delimSpkOpen', 'delimSpkClose', 'delimNarOpen', 'delimNarClose', 'delimEmo', 'narratorWord', 'emoWord',
       'nodeSplitUntagged', 'nodeChoices', 'choiceSend', 'choiceWord', 'choiceSep', 'nodeEffects', 'effectWord', 'fxShake', 'fxFlash', 'fxFade',
       'weatherWord', 'wxRain', 'wxSnow', 'wxClear', 'nodeCG', 'nodeAutoSpk', 'cgWord', 'enterWord', 'exitWord', 'artBg', 'artBgImg', 'artSprite', 'artSpriteImg',
-      'opLead', 'opFade', 'opSize', 'opPos', 'opHold', 'opExit', 'opTrans', 'opTransColor', 'opTransMs', 'opEarly', 'nodeMaps', 'mapGoText'] },
+      'opLead', 'opFade', 'opSize', 'opPos', 'opExit', 'opTrans', 'opTransColor', 'opTransMs', 'opEarly', 'nodeMaps', 'mapGoText'] },
   };
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const readText = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f); });

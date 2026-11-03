@@ -3,13 +3,16 @@
 // drawn on screen still need a run in SillyTavern (see the run-ntr-extension skill).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
-export const MODULES = ['cast', 'vn', 'map', 'opening', 'overlays', 'regex', 'reader', 'agents', 'elements', 'text', 'avatars', 'decor', 'layout', 'fonts', 'themes'];
+// Every top-level .js file but the core. The ones others need come first, in the order the core loads them: vn.js
+// needs cast.js, and map.js and opening.js need vn.js.
+const FIRST = ['cast', 'vn'];
+export const MODULES = [...FIRST, ...readdirSync(ROOT).filter((f) => f.endsWith('.js')).map((f) => f.slice(0, -3)).filter((n) => n !== 'index' && !FIRST.includes(n))];
 // The look modules, which the core loads itself before it starts (LOOK_MODULES in index.js).
 export const LOOK = ['elements', 'text', 'avatars', 'decor', 'layout'];
 

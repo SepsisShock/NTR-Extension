@@ -1,6 +1,6 @@
 # Runs on every PR and every push to main.
-# Checks that each .js file parses, lints for undefined and unused names (eslint.config.mjs), looks for copied code
-# in the extension's .js files (jscpd), runs the tests in tests/, checks that the version matches everywhere
+# Lints for syntax errors and undefined and unused names (eslint.config.mjs), looks for copied code in the extension,
+# scripts, tests and skill scripts (jscpd), runs the tests in tests/, checks that the version matches everywhere
 # (scripts/version.cjs), and (on PRs) that the version was bumped when a .js or .css file changed.
 # On PRs it also warns when index.js grows by more than 100 lines (see CLAUDE.md on where new code goes).
 name: Check
@@ -22,15 +22,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Files parse
-        run: |
-          failed=0
-          for f in *.js; do
-            cp "$f" "$RUNNER_TEMP/$f.mjs"
-            if node --check "$RUNNER_TEMP/$f.mjs"; then echo "$f parses"; else echo "::error file=$f::$f has a syntax error and won't load."; failed=1; fi
-          done
-          exit $failed
-
       - name: Install checkers
         run: npm install --no-save --no-package-lock --no-audit --no-fund eslint@9.15.0 globals@15.12.0 jscpd@4.0.5
 
@@ -39,7 +30,7 @@ jobs:
 
       # Blocks of 5+ lines and 50+ tokens that appear twice. Every file is scanned, whatever its size.
       - name: Copied code
-        run: npx jscpd --max-size 5mb --max-lines 100000 --min-tokens 50 --min-lines 5 --threshold 0 --reporters console --format javascript --pattern "*.js" .
+        run: npx jscpd --max-size 5mb --max-lines 100000 --min-tokens 50 --min-lines 5 --threshold 0 --reporters console --format javascript --pattern "{*.js,scripts/*.cjs,tests/*.mjs,.claude/skills/**/*.cjs}" .
 
       - name: Tests
         run: node --test tests/*.test.mjs
@@ -53,7 +44,7 @@ jobs:
           grew=$(git diff --numstat HEAD^1 HEAD -- index.js | awk '{print $1-$2}')
           echo "index.js grew by ${grew:-0} lines."
           if [ "${grew:-0}" -gt 100 ]; then
-            msg="index.js grew by $grew lines. The PR summary should say why this stays in core (see CLAUDE.md)."
+            msg="index.js grew by $grew lines. The PR summary should say why this stays in core (see docs/pr-checklist.md)."
             echo "::warning file=index.js,title=Core growth::$msg"
             echo "$msg" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -64,16 +55,4 @@ jobs:
           changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^[^/]+\.(js|css)$' || true)
           if [ -z "$changed" ]; then echo "No .js or .css changes, so no bump needed."; exit 0; fi
           echo "Changed files:"; echo "$changed"
-          git show HEAD^1:manifest.json > "$RUNNER_TEMP/main-manifest.json"
-          node -e '
-            const fs = require("fs");
-            const base = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).version;
-            const head = JSON.parse(fs.readFileSync("manifest.json", "utf8")).version;
-            console.log(`main: ${base}, this PR: ${head}`);
-            const a = base.split(".").map(Number), b = head.split(".").map(Number);
-            const diff = [0, 1, 2].map(i => (b[i] || 0) - (a[i] || 0)).find(d => d !== 0) || 0;
-            if (diff <= 0) {
-              console.log(`::error::A .js or .css file changed, but the version was not bumped. It is ${head}; main has ${base}. Merge main in, then bump with node scripts/version.cjs bump patch (fixes) or minor (features).`);
-              process.exit(1);
-            }
-          ' "$RUNNER_TEMP/main-manifest.json"
+          node scripts/version.cjs bumped HEAD^1

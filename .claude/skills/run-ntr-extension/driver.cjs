@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Drives the Nitwit Tavern Redesign extension inside a running SillyTavern with headless Chromium.
+// Drives the Nitwit Tavern Redesign extension inside a running SillyTavern in a headless browser (see browser.cjs).
 // Pipe one command per line on stdin (a heredoc). Results print as they go, screenshots land in $NTR_SHOTS
 // (default /tmp/ntr-shots), and the exit code is 1 if any command failed. Commands are listed in SKILL.md.
 //
@@ -11,15 +11,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const { launch, contextOptions, MODE } = require('./browser.cjs');
+const { launch, contextOptions, MODE, ST_URL, NOISE, sleep, watchPage, openST } = require('./browser.cjs');
 
-const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
 const SHOTS = process.env.NTR_SHOTS || '/tmp/ntr-shots';
-// Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's. A failed load
-// only counts as noise by its address, so a missing NTR image still shows up. Firefox and WebKit word the Horde error
-// differently, so theirs is told apart by horde.js in its stack. WebKit also warns about SillyTavern's viewport tag.
-const NOISE = /Internal S.*not valid JSON|\(horde\.js\)$|\/api\/horde\/|favicon|Viewport argument key "interactive-widget"/i;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : [s.slice(0, i).trim(), s.slice(i + 3).trim()]; };
 
 (async () => {
@@ -27,21 +21,11 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await launch();
   const page = await (await browser.newContext(contextOptions(browser))).newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + (/\/horde\.js:/.test(e.stack || '') ? ' (horde.js)' : '')));
-  page.on('console', (m) => {
-    if (m.type() !== 'error') return;
-    // "Failed to load resource" doesn't say which one; the address comes with the message.
-    const url = m.text().startsWith('Failed to load resource') ? m.location()?.url : '';
-    errors.push('console: ' + m.text() + (url ? ' (' + url + ')' : ''));
-  });
-  // NTR asks its questions in the menu (see `ok`, `cancel` and `answer`). A browser dialog from anywhere else is accepted.
-  page.on('dialog', (d) => d.accept());
+  const errors = watchPage(page);
 
   const ready = async () => {
-    await page.goto(ST_URL);
-    await page.waitForFunction(() => window.SillyTavern?.getContext && window.NTR?.api && document.getElementById('cb_node_toggle')
-      && SillyTavern.getContext().characters.length > 0, null, { timeout: 60000 });
+    await openST(page);
+    await page.waitForFunction(() => window.NTR?.api && document.getElementById('cb_node_toggle'), null, { timeout: 60000 });
     await sleep(1500); // the extension finishes its first render
   };
   const has = (sel) => page.evaluate((sel) => !!document.querySelector(sel), sel);
@@ -71,7 +55,7 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       return `chat open (character index ${i})`;
     },
     // Open the NTR menu, go to a page by its icon (`menu fg`) and open folded parts by their data-sec name
-    // (`menu reader rd_vn vn_guide`). Menus from before the icon column (2.7 and older) expand sections the same way.
+    // (`menu reader rd_vn vn_guide`).
     async menu(rest) {
       await page.evaluate(() => { window.toastr?.clear(); window.NTR.api.openMenu(); });
       // A page or part from a file that loads when the menu opens fills in a moment later, so each gets up to 5 seconds.

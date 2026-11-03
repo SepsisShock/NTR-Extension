@@ -866,9 +866,6 @@ await (async () => {
   const askVideoUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
     'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
 
-  // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
-  // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
-  // global settings.
   // Adds to `into` the elements matching sel that MutationObserver records touched: the closest match around each changed
   // node, or the matches inside added nodes.
   function changedEls(recs, sel, into = new Set()) {
@@ -897,6 +894,9 @@ await (async () => {
       }
     };
   }
+  // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
+  // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
+  // global settings.
   async function uploadHere(upload, perChat = true) {
     const st = store();
     const path = await upload();

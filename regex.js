@@ -372,7 +372,7 @@ try {
     else refresh();
   }
 
-  function folderMenu(anchor, sec, f) {
+  function folderMenu(anchor) {
     A.popMenu(anchor, `
       <button data-act="frename"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
       <button data-act="fnew"><i class="fa-solid fa-plus fa-fw"></i>New Regex Here</button>
@@ -431,7 +431,7 @@ try {
       case 'fixorder': reorder(sec, view(sec).order); break;
       case 'edit': stClick(stRow(sec, id)?.querySelector('.edit_existing_regex')); break;
       case 'del': stClick(stRow(sec, id)?.querySelector('.delete_regex')); break;
-      case 'fmenu': folderMenu(b, sec, f); break;
+      case 'fmenu': folderMenu(b); break;
       case 'mvmenu': moveMenu(b, sec, id); break;
       case 'mvto': closePops(); moveRegex(sec, id, b.dataset.fid || null); break;
       case 'mvnew': {

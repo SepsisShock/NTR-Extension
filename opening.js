@@ -47,7 +47,6 @@
   // ----- When to play -----
   function markSeen(sig) {
     const s = settings();
-    if (!s.opSeen || typeof s.opSeen !== 'object') s.opSeen = {};
     s.opSeen[sig] = Date.now();
     const keys = Object.keys(s.opSeen);
     if (keys.length > 300) keys.sort((a, b) => s.opSeen[a] - s.opSeen[b]).slice(0, keys.length - 300).forEach((k) => delete s.opSeen[k]);
@@ -67,7 +66,7 @@
     let go = false;
     if (o.when === 'vn') go = reason === 'vn';
     else if (o.when === 'open') go = reason === 'open';
-    else go = !!info.fresh && !!info.sig && !(s.opSeen || {})[info.sig];
+    else go = !!info.fresh && !!info.sig && !s.opSeen[info.sig];
     if (!go) return false;
     if (o.when === 'newchat') markSeen(info.sig);
     play(info.hooks || VN().openingHooks, { sig: info.sig });
@@ -546,7 +545,7 @@
     }
     const o = op();
     // Not rangeSlider: opening.js keys keep their own slider ranges (see CLAUDE.md).
-    const sl = (id, key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
+    const sl = (key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
     const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
     return `
@@ -578,9 +577,9 @@
           <label class="checkbox_label"><input type="checkbox" id="m_op_mute" ${s.opMute ? 'checked' : ''}><span>Start Muted</span></label>
           <div class="cb_hint">The sound button during the video changes this too.</div>
           <div id="m_op_lbody" class="${o.logo === 'none' ? 'cb_dim' : ''}">
-            ${sl('lead', 'opLead', 'Logo Appears Before the End', ' s', 0, 15, 0.5, s.opLead)}
-            ${sl('fade', 'opFade', 'Logo Fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
-            ${sl('size', 'opSize', 'Logo Size', '%', 10, 100, 1, s.opSize)}
+            ${sl('opLead', 'Logo Appears Before the End', ' s', 0, 15, 0.5, s.opLead)}
+            ${sl('opFade', 'Logo Fade', ' s', 100, 4000, 100, (s.opFade / 1000).toFixed(1))}
+            ${sl('opSize', 'Logo Size', '%', 10, 100, 1, s.opSize)}
             ${ovLabel('Logo Position', pills('oppos', [['upper', 'Upper Third'], ['center', 'Center'], ['lower', 'Lower Third']], s.opPos))}
             ${ovLabel('Logo Exit', pills('opexit', [['stay', 'Stay'], ['fade', 'Fade Out'], ['rise', 'Rise to Top']], s.opExit || 'stay'))}
             <div class="cb_hint" style="margin-top:4px;">Rise to Top: the logo stays behind the characters until the chat changes. Skipping the video skips it.</div>
@@ -593,7 +592,7 @@
             <label class="checkbox_label"><input type="checkbox" id="m_op_early" ${s.opEarly ? 'checked' : ''}><span>Fade Over the Ending</span></label>
             <div class="cb_hint">The color covers the last seconds while the video still plays.</div>
           </div>
-          ${sl('trans', 'opTransMs', 'Transition Length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
+          ${sl('opTransMs', 'Transition Length', ' s', 100, 10000, 100, (transMs() / 1000).toFixed(1))}
           <div class="cb_hint" style="margin-top:4px;">Color Fade: the length applies to both fades. Crossfade blends the last frame into the story. Skipping always uses a quick color fade.</div>
           <div class="cb_actions" style="margin-top:10px;">
             <button type="button" id="m_op_play" class="menu_button" ${hasSource(o) ? '' : 'disabled'}><i class="fa-solid fa-play"></i> Play Now</button>

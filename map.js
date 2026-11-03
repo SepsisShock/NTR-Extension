@@ -43,14 +43,9 @@
 
   // ----- Data (per character, inside the VN data) -----
   const D = () => VN().data();
-  function maps() {
-    const v = D();
-    if (!Array.isArray(v.maps)) v.maps = [];
-    for (const m of v.maps) if (!Array.isArray(m.pins)) m.pins = [];
-    return v.maps;
-  }
+  const maps = () => D().maps;
   const mapById = (id) => maps().find((m) => m.id === id) || null;
-  const locById = (id) => (D().locations || []).find((l) => l.id === id) || null;
+  const locById = (id) => D().locations.find((l) => l.id === id) || null;
   const rootMap = () => mapById(D().mapRoot) || maps()[0] || null;
   const norm = (x) => VN().normLoc(x);
   const pinName = (p) => {
@@ -279,7 +274,7 @@
     pop.onclick = (e) => e.stopPropagation();
     pop.onpointerdown = (e) => e.stopPropagation();
     if (view.edit) {
-      const locs = D().locations || [];
+      const locs = D().locations;
       const others = maps().filter((x) => x.id !== m.id);
       pop.innerHTML = `
         <div class="ntr_pop_t">Pin</div>

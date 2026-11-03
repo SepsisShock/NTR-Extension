@@ -1,5 +1,5 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.52';
+  const OVERLAYS_VERSION = '2.86.53';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
@@ -66,7 +66,7 @@
       `;
       document.body.appendChild(layer);
       const chat = document.getElementById('chat');
-      if (chat && window.ResizeObserver) new ResizeObserver(() => layoutFg()).observe(chat);
+      if (chat) new ResizeObserver(() => layoutFg()).observe(chat);
     }
     let front = document.getElementById('cb_fg_front');
     if (!front) {
@@ -142,7 +142,7 @@
     img.addEventListener('error', () => {
       if (img.getAttribute('src')) toastr.error(`Banner picture failed to load: ${img.getAttribute('src')}`, 'Banner');
     });
-    if (window.ResizeObserver) new ResizeObserver(() => syncWallpaper()).observe(banner);
+    new ResizeObserver(() => syncWallpaper()).observe(banner);
   }
 
   // The Global or Char choice is saved per character: Char uses the character's own banner (saved in its card), Global the
@@ -188,8 +188,7 @@
     const want = !!currentLook().videoSound;
     v.muted = !want;
     setSndIcon(!want);
-    const p = v.play();
-    if (p && p.catch) p.catch(() => {
+    v.play().catch(() => {
       if (!want || v.muted) return;
       v.muted = true;
       setSndIcon(true);

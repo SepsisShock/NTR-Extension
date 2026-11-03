@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.52';
+  const REGEX_VERSION = '2.86.53';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson } = A;

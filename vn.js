@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.52';
+  const VN_VERSION = '2.86.53';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -868,13 +868,11 @@
   function watchLayout(on) {
     if (on && !layoutRo) {
       window.addEventListener('resize', relayout);
-      if (window.ResizeObserver) {
-        layoutRo = new ResizeObserver(() => { if (vnOn()) placeNode(); });
-        for (const id of ['chat', 'form_sheld']) { const el = document.getElementById(id); if (el) layoutRo.observe(el); }
-      } else layoutRo = true;
+      layoutRo = new ResizeObserver(() => { if (vnOn()) placeNode(); });
+      for (const id of ['chat', 'form_sheld']) { const el = document.getElementById(id); if (el) layoutRo.observe(el); }
     } else if (!on && layoutRo) {
       window.removeEventListener('resize', relayout);
-      layoutRo.disconnect?.();
+      layoutRo.disconnect();
       layoutRo = null;
     }
   }

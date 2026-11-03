@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.52';
+  const VERSION = '2.86.53';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -207,7 +207,7 @@ await (async () => {
   };
   const isOn = () => settings().masterEnabled !== false;
   // ST's own Reduced Motion (User Settings) or the device's setting.
-  const reducedMotion = () => !!ctx().powerUserSettings?.reduced_motion || !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const reducedMotion = () => !!ctx().powerUserSettings?.reduced_motion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const popMsg = { ai: '', us: '' };
 
   const escapeHTML = (str) => {
@@ -284,7 +284,7 @@ await (async () => {
     layer.innerHTML = ['ai', 'us'].map((p) => `<div id="cb_popf_${p}" class="cb_popf"><img id="cb_pop_${p}" alt="" draggable="false"></div><div id="cb_popr_${p}" class="cb_popr"></div>`).join('');
     document.body.appendChild(layer);
     const chat = document.getElementById('chat');
-    if (chat && window.ResizeObserver) new ResizeObserver(() => { layoutPop(); callModule('layout', 'pinCheckRead'); }).observe(chat);
+    if (chat) new ResizeObserver(() => { layoutPop(); callModule('layout', 'pinCheckRead'); }).observe(chat);
     layoutPop();
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
@@ -1338,9 +1338,7 @@ await (async () => {
       <div class="cb_row"><input type="range" class="${cls}" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${scale ? ` data-scale="${scale}"` : ''}>${scale ? (v / scale).toFixed(1) : v}</span>${unit}</span></div>`;
   }
   function ovColor(s, key) {
-    return customElements.get('toolcool-color-picker')
-      ? `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`
-      : `<input type="color" class="m_o_col" data-key="${key}" value="${toHex(s[key])}">`;
+    return `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`;
   }
   function ovText(s, key, placeholder = '') {
     return `<input type="text" class="text_pole m_o_lbl" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="${strMax(key)}" placeholder="${escapeHTML(placeholder)}" style="width:100%;">`;
@@ -1380,7 +1378,7 @@ await (async () => {
       const k = el.dataset.key;
       if (!COLOR_RE.test(s[k])) {
         s[k] = stColor(k);
-        if (el.tagName === 'INPUT') el.value = toHex(s[k]); else el.setAttribute('color', s[k]);
+        el.setAttribute('color', s[k]);
       }
       const set = (v) => {
         if (!COLOR_RE.test(v) || v === s[k]) return;
@@ -1388,8 +1386,7 @@ await (async () => {
         save();
         updateAvatarStyle();
       };
-      if (el.tagName === 'INPUT') el.oninput = () => set(el.value);
-      else el.addEventListener('change', (e) => set(e.detail && e.detail.rgba));
+      el.addEventListener('change', (e) => set(e.detail.rgba));
     });
     overlay.querySelectorAll('.m_o_txt').forEach((el) => {
       el.onchange = () => {
@@ -1500,11 +1497,6 @@ await (async () => {
   function stColor(key) {
     const v = getComputedStyle(document.documentElement).getPropertyValue(COLOR_FROM[key]).trim();
     return COLOR_RE.test(v) ? v : 'rgba(220, 220, 210, 1)';
-  }
-  function toHex(c) {
-    if (/^#[0-9a-f]{6}$/i.test(c)) return c;
-    const m = /rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(String(c || ''));
-    return m ? '#' + [m[1], m[2], m[3]].map((n) => Math.min(255, Math.round(Number(n))).toString(16).padStart(2, '0')).join('') : '#dcdcd2';
   }
 
   // What the Reasoning Block and Text Formatting CSS read from a setting: its tick, and its color, font or size while ticked.
@@ -2558,21 +2550,19 @@ await (async () => {
     });
 
     // Closing, hiding or a smaller window also changes the panel's size; only the user's own resize is saved.
-    if (window.ResizeObserver) {
-      let t = null;
-      const ro = new ResizeObserver(() => {
-        if (!content.isConnected) { ro.disconnect(); clearTimeout(t); return; }
-        syncCompact(content);
-        if (P.dock !== 'float' || !content.classList.contains('ntr_float')) return;
-        if (content.style.width + 'x' + content.style.height === content.ntrSetSize) return;
-        clearTimeout(t);
-        t = setTimeout(() => {
-          if (!content.isConnected || !content.offsetWidth) return;
-          P.fw = Math.round(content.offsetWidth); P.fh = Math.round(content.offsetHeight); save();
-        }, 300);
-      });
-      ro.observe(content);
-    }
+    let t = null;
+    const ro = new ResizeObserver(() => {
+      if (!content.isConnected) { ro.disconnect(); clearTimeout(t); return; }
+      syncCompact(content);
+      if (P.dock !== 'float' || !content.classList.contains('ntr_float')) return;
+      if (content.style.width + 'x' + content.style.height === content.ntrSetSize) return;
+      clearTimeout(t);
+      t = setTimeout(() => {
+        if (!content.isConnected || !content.offsetWidth) return;
+        P.fw = Math.round(content.offsetWidth); P.fh = Math.round(content.offsetHeight); save();
+      }, 300);
+    });
+    ro.observe(content);
   }
 
   // ===== Module loader + the Visual Novel toggle button =====

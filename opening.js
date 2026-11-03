@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.52';
+  const OP_VERSION = '2.86.53';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -247,15 +247,11 @@
       toastr.warning('The opening video could not be played.', 'Opening Video');
       end();
     });
-    let p;
-    try { p = v.play(); } catch (e) { p = Promise.reject(e); }
-    if (p && p.catch) p.catch(() => {
+    v.play().catch(() => {
       if (cur !== st || st.phase !== 'video') return;
       // Autoplay with sound was blocked: play muted and offer a sound button.
       v.muted = true;
-      let p2;
-      try { p2 = v.play(); } catch (e) { p2 = Promise.reject(e); }
-      if (p2 && p2.catch) p2.catch(() => {});
+      v.play().catch(() => {});
       setSnd(st, true); // Muted for now only; the saved choice stays as it is.
     });
   }
@@ -396,7 +392,6 @@
   function rise(st) {
     if (st.rising || !st.logo || !st.pin || !st.pin.isConnected) return;
     const img = st.logo;
-    if (!img.animate) return;
     st.rising = true;
     const dy = Math.min(0, 12 - (img.offsetTop - img.offsetHeight / 2));
     st.riseKf = [{ transform: 'translate(-50%, -50%) scale(1)' }, { transform: `translate(-50%, calc(-50% + ${dy}px)) scale(1)` }];

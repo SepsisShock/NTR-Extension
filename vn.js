@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.44';
+  const VN_VERSION = '2.86.45';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -1403,7 +1403,7 @@
     onDone: () => { node.held = false; if (A.isOn() && settings().nodeEnabled) nodeShow(true); },
   };
   function maybeOpening(reason) {
-    const info = { sig: chatSig(), fresh: chatIsFresh(), hooks: opHooks };
+    const info = { sig: chatSig(), fresh: chatIsFresh() };
     const run = (m) => {
       if (!m) return;
       try { m.maybePlay(reason, info); } catch (e) { console.error('[NTR] Opening video crashed', e); node.held = false; }
@@ -1598,14 +1598,11 @@
     // For Pinned Blocks (through Reader Mode): the message on screen, or null on the newest.
     shownMsg: () => (A.isOn() && settings().nodeEnabled && node.list.length && !node.follow ? node.list[node.pos] : null),
     // For map.js and opening.js
-    data: V,
     normLoc,
-    newId,
     putInInput,
     currentLoc,
     visitedLocs,
     openingHooks: opHooks,
-    titleName: () => A.chatName(),
     titleArt: () => {
       const c = ctx();
       if (c.groupId || !c.name2) return null;

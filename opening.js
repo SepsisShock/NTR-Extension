@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.44';
+  const OP_VERSION = '2.86.45';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -35,7 +35,7 @@
 
   // ----- Data (per character, inside the VN data) -----
   const ODEF = { src: 'off', yt: '', file: '', title: false, logo: 'upload', logoUrl: '', when: 'newchat' };
-  const raw = () => VN().data().opening;
+  const raw = () => A.vnData().opening;
   const op = () => ({ ...ODEF, ...raw() });
   const setOp = (k, val) => { raw()[k] = val; save(); };
   const ytId = (o) => (o.yt && A.getYouTubeId ? A.getYouTubeId(o.yt) : '') || '';
@@ -53,24 +53,23 @@
     save();
   }
 
-  function maybePlay(reason, info = {}) {
+  function maybePlay(reason, info) {
     if (cur) {
-      if (cur.sig && cur.sig === info.sig) return false;
+      if (cur.sig && cur.sig === info.sig) return;
       abort();
     }
     if (pinned && pinned.sig !== info.sig) unpin();
     const s = settings();
-    if (!A.isOn() || !s.nodeEnabled || !A.store()) return false;
+    if (!A.isOn() || !s.nodeEnabled || !A.store()) return;
     const o = op();
-    if (!hasSource(o)) return false;
+    if (!hasSource(o)) return;
     let go = false;
     if (o.when === 'vn') go = reason === 'vn';
     else if (o.when === 'open') go = reason === 'open';
-    else go = !!info.fresh && !!info.sig && !s.opSeen[info.sig];
-    if (!go) return false;
+    else go = info.fresh && !s.opSeen[info.sig];
+    if (!go) return;
     if (o.when === 'newchat') markSeen(info.sig);
-    play(info.hooks || VN().openingHooks, { sig: info.sig });
-    return true;
+    play({ sig: info.sig });
   }
 
   // ----- Player -----
@@ -87,15 +86,14 @@
   const transMs = () => A.rangeNum(settings(), 'opTransMs');
   const transColor = () => (/^#[0-9a-f]{6}$/i.test(settings().opTransColor || '') ? settings().opTransColor : '#000000');
 
-  function play(hooks, opts = {}) {
+  function play(opts) {
     const o = op();
-    if (!hasSource(o)) return false;
     if (cur) abort();
     unpin();
     cssTag('ntr_op_style', CSS);
     const s = settings();
     const st = {
-      sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',
+      sig: opts.sig, hooks: VN().openingHooks, onEnd: opts.onEnd, o, phase: 'title',
       timers: [], logoShown: false, phaseAt: Date.now(), ytState: null, ytReady: false, ytPlayed: false,
       // Rise to Top drifts up the screen, so Reduced Motion fades the logo out instead.
       exit: s.opExit === 'rise' && A.reducedMotion() ? 'fade' : ['fade', 'rise'].includes(s.opExit) ? s.opExit : 'stay', skipped: false,
@@ -146,13 +144,12 @@
     };
     document.addEventListener('keydown', st.onKey, true);
 
-    try { st.hooks.onStart && st.hooks.onStart(); } catch (e) { console.error('[NTR opening]', e); }
+    try { st.hooks.onStart(); } catch (e) { console.error('[NTR opening]', e); }
     requestAnimationFrame(() => root.classList.add('ntr_in'));
 
     if (o.title) showTitle();
     else if (!st.muted && needsClick()) showTitle(true);
     else startVideo();
-    return true;
   }
 
   // Browsers only allow sound after a click on the page. Right after a refresh SillyTavern reopens the chat
@@ -169,7 +166,7 @@
     box.className = 'ntr_op_title';
     const bg = gate ? '' : safeCall(() => VN().sceneBg()) || '';
     const art = gate ? '' : safeCall(() => VN().titleArt()) || '';
-    const name = gate ? '' : safeCall(() => VN().titleName()) || '';
+    const name = gate ? '' : A.chatName();
     box.innerHTML = `
       ${bg ? '<div class="ntr_op_bg"></div>' : ''}
       ${art ? `<img class="ntr_op_art" alt="" src="${escapeHTML(art)}">` : ''}
@@ -518,7 +515,7 @@
     // The story starts once the transition has finished, not underneath it.
     setTimeout(() => {
       if (cur) return; // Another opening took over in the meantime.
-      try { st.hooks.onDone && st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
+      try { st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
       if (st.onEnd) { try { st.onEnd(); } catch (e) { console.error('[NTR opening]', e); } }
     }, st.outMs);
   }
@@ -690,16 +687,14 @@
     if (pb) pb.onclick = () => {
       if (!hasSource(op())) return;
       A.closeMenu();
-      play(VN().openingHooks, { sig: '', onEnd: () => A.openMenu() });
+      play({ sig: '', onEnd: () => A.openMenu() });
     };
   }
 
   window.NTR.opening = {
     version: OP_VERSION,
     maybePlay,
-    play: (hooks, opts) => play(hooks || VN().openingHooks, opts),
     abort,
-    playing: () => !!cur,
     sectionHtml,
     bind,
   };

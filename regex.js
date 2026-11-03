@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.48';
+  const REGEX_VERSION = '2.86.49';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson } = A;
@@ -381,11 +381,16 @@ try {
       <button data-act="exp"><i class="fa-solid fa-file-export fa-fw"></i>Export All ${sec.name} Regexes</button>`);
   }
 
-  const nameCheck = (sec, self) => (v) => {
-    if (!v) return { error: 'Type a name.' };
-    if (folders(sec).some((x) => x !== self && x.name.toLowerCase() === v.toLowerCase())) return { error: 'A folder with that name already exists.' };
-    return { value: v.slice(0, 60) };
-  };
+  const nameCheck = (sec, self) => A.uniqueName(folders(sec), self, 'folder');
+  // Asks for a name under anchor and adds the folder, open; null on Cancel.
+  async function newFolder(sec, anchor) {
+    const name = await askText(anchor, { label: 'Folder Name', ok: 'Add', check: nameCheck(sec, null) });
+    if (!name) return null;
+    const nf = { id: newId('rxf'), name, ids: [], was: null };
+    folders(sec, true).push(nf);
+    settings().uiOpen[openKey(nf)] = true;
+    return nf;
+  }
 
   async function onClick(e) {
     if (!e.target.closest('.ntr_menu')) closePops();
@@ -410,16 +415,9 @@ try {
       case 'smenu': sectionMenu(b, sec); break;
       case 'imp': closePops(); importTo(sec); break;
       case 'new': stClick(document.getElementById(sec.add)); break;
-      case 'newf': {
-        const name = await askText(b, { label: 'Folder Name', ok: 'Add', check: nameCheck(sec, null) });
-        if (!name) return;
-        const nf = { id: newId('rxf'), name, ids: [], was: null };
-        folders(sec, true).push(nf);
-        settings().uiOpen[openKey(nf)] = true;
-        save();
-        refresh();
+      case 'newf':
+        if (await newFolder(sec, b)) { save(); refresh(); }
         break;
-      }
       case 'exp': closePops(); download(scripts(sec), `regexes-${sec.name}`); break;
       case 'fixorder': reorder(sec, view(sec).order); break;
       case 'edit': stClick(stRow(sec, id)?.querySelector('.edit_existing_regex')); break;
@@ -430,12 +428,8 @@ try {
       case 'mvnew': {
         const row = b.closest('.rx_row');
         closePops();
-        const name = await askText(row, { label: 'Folder Name', ok: 'Add', check: nameCheck(sec, null) });
-        if (!name) return;
-        const nf = { id: newId('rxf'), name, ids: [], was: null };
-        folders(sec, true).push(nf);
-        settings().uiOpen[openKey(nf)] = true;
-        moveRegex(sec, id, nf.id);
+        const nf = await newFolder(sec, row);
+        if (nf) moveRegex(sec, id, nf.id);
         break;
       }
       case 'frename': {

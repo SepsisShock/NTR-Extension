@@ -1,5 +1,5 @@
 (() => {
-  const AVATARS_VERSION = '2.86.48';
+  const AVATARS_VERSION = '2.86.49';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
@@ -828,11 +828,7 @@
       // After a change to the library, both columns show it.
       const libChanged = () => { save(); updateAvatarStyle(); redraws.forEach((fn) => fn()); };
       // The user's folder names are kept different from each other and from the built-in ones.
-      const nameCheck = (self) => (v) => {
-        if (!v) return { error: 'Type a name.' };
-        if ([...FRAME_SERIES, ...s.frameLib.folders].some((x) => x !== self && x.name.toLowerCase() === v.toLowerCase())) return { error: 'A folder with that name already exists.' };
-        return { value: v.slice(0, 60) };
-      };
+      const nameCheck = (self) => A.uniqueName([...FRAME_SERIES, ...s.frameLib.folders], self, 'folder');
       // After frames are taken out of the library: any side using one goes back to no frame, their remembered fits
       // go, the change is saved, and each picture's file is deleted unless something else, like a saved theme, still
       // uses it.

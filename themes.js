@@ -1,5 +1,5 @@
 (() => {
-  const THEMES_VERSION = '2.86.48';
+  const THEMES_VERSION = '2.86.49';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
@@ -69,6 +69,13 @@
     const panel = overlay.querySelector('#m_t_panel');
     const list = page.querySelector('.ntr_tlist');
     const nameTaken = (name, self) => s.themes.some((t) => t !== self && t.name.toLowerCase() === name.toLowerCase());
+    // The ticked sections, or null with a warning when none is.
+    const chosenSecs = () => {
+      const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
+      if (chosen.length) return chosen;
+      toastr.warning('Tick at least one section.', 'Themes');
+      return null;
+    };
     const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
     // Export and Import open their options under the row or bar they came from.
     const showPanel = (after, html) => { after.after(panel); panel.innerHTML = html; };
@@ -199,8 +206,8 @@
         </div>`);
       panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
       panel.querySelector('#m_t_dl').onclick = async () => {
-        const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
-        if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
+        const chosen = chosenSecs();
+        if (!chosen) return;
         let sections = Object.fromEntries(chosen.map((k) => [k, data[k]]));
         if (panel.querySelector('#m_t_img')?.checked && collectFileRefs(sections).size) {
           const r = await embedFiles(sections);
@@ -251,8 +258,8 @@
         </div>`);
       panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
       panel.querySelector('#m_t_add').onclick = async () => {
-        const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
-        if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
+        const chosen = chosenSecs();
+        if (!chosen) return;
         const name = freeName(panel.querySelector('#m_t_iname').value.trim() || 'Imported Theme', nameTaken);
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [sec, keys] of CSS_PARTS) for (const k of keys) if (data[sec] && (data[sec][k] || '').trim()) data[sec][k + 'On'] = false;

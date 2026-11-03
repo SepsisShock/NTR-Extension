@@ -351,9 +351,7 @@ await (async () => {
     const s = settings();
     for (const [id, key] of [['ox', 'PopX'], ['oy', 'PopY']]) {
       const el = document.getElementById(`m_${prefix}_${id}`);
-      const lab = document.getElementById(`m_${prefix}_${id}val`);
-      if (el) el.value = s[`${prefix}${key}`];
-      if (lab) lab.textContent = s[`${prefix}${key}`];
+      if (el) setSlider(el, s[`${prefix}${key}`]);
     }
   }
 
@@ -1275,6 +1273,24 @@ await (async () => {
     const next = row?.nextElementSibling;
     return row?.querySelector('input[type="range"]') || (next?.matches('input[type="range"]') ? next : null);
   }
+  // A slider's number: the reverse of slFor.
+  function slNum(sl) {
+    const prev = sl.previousElementSibling;
+    const el = (prev?.matches('.cb_row') ? prev : sl.closest('.cb_row, .cb_place_gridset'))?.querySelector('.ntr_slval');
+    return el && slFor(el) === sl ? el : null;
+  }
+  // Shows v as a slider's number. A value set from code can be past the slider's ends (an offset dragged further), so
+  // the number shows v, not the slider's own value.
+  function showSlider(sl, v) {
+    const el = slNum(sl);
+    if (!el) return;
+    const scale = Number(el.dataset.scale);
+    el.textContent = scale ? (v / scale).toFixed(1) : v;
+  }
+  function setSlider(sl, v) {
+    sl.value = v;
+    showSlider(sl, v);
+  }
   function typeSlider(e) {
     const el = e.target.closest?.('.ntr_slval');
     const sl = el && slFor(el);
@@ -1311,7 +1327,7 @@ await (async () => {
   function ovSlider(s, key, unit, min, max, step) {
     const v = rangeNum(s, key);
     return `
-      <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_o_${key}val" class="ntr_slval">${v}</span>${unit}</span></div>`;
+      <div class="cb_row"><input type="range" class="m_o_sl" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval">${v}</span>${unit}</span></div>`;
   }
   function ovColor(s, key) {
     return customElements.get('toolcool-color-picker')
@@ -1344,7 +1360,6 @@ await (async () => {
     overlay.querySelectorAll('.m_o_sl').forEach((sl) => {
       sl.oninput = () => {
         s[sl.dataset.key] = Number(sl.value);
-        overlay.querySelector(`#m_o_${sl.dataset.key}val`).textContent = sl.value;
         updateAvatarStyle();
       };
       sl.onchange = save;
@@ -3081,7 +3096,7 @@ await (async () => {
       cUrl, cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
-      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, layoutPop, syncPopSliders, fgOwner, decorOn, clamp,
+      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, layoutPop, setSlider, syncPopSliders, fgOwner, decorOn, clamp,
     },
   };
 
@@ -3092,6 +3107,7 @@ await (async () => {
     injectExtensionMenuButton();
     registerSlashCommand();
     document.addEventListener('click', typeSlider);
+    document.addEventListener('input', (e) => { if (e.target.type === 'range') showSlider(e.target, e.target.value); });
     document.addEventListener('pointerover', (e) => {
       const el = e.target.closest?.('.ntr_slval');
       if (el && !el.title) el.title = 'Click to type a value';

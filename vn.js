@@ -436,7 +436,7 @@
   // Visual Novel's settings, in the Visual Novel part of the Reader Mode page (index.js puts them there).
   function nodeSectionHtml(s) {
     // vn.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
-    const sl = (id, key, label, unit, min, max, step) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_n_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_n_${id}val" class="ntr_slval">${s[key]}</span>${unit}</span></div>`);
+    const sl = (id, key, label, unit, min, max, step) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_n_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval">${s[key]}</span>${unit}</span></div>`);
     const dim = (id, on, inner) => `<div id="${id}" class="${on ? '' : 'cb_dim'}">${inner}</div>`;
     const ck = (id, on, label) => `<label class="checkbox_label"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span>${label}</span></label>`;
     const tg = (word, arg) => escapeHTML(`${s.delimNarOpen}${word}:${arg}${s.delimNarClose}`);
@@ -599,7 +599,6 @@
     overlay.querySelectorAll('.m_n_sl').forEach((sl) => {
       sl.oninput = function() {
         s[this.dataset.key] = Number(this.value);
-        overlay.querySelector(`#m_n_${this.dataset.id}val`).textContent = this.value;
         nodeApplyLook();
         placeNode();
         updateStage();

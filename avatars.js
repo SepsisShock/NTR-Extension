@@ -5,7 +5,7 @@
   const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
     openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
   const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
-    restyle: updateAvatarStyle, svgMask } = A.look;
+    restyle: updateAvatarStyle, setSlider, svgMask } = A.look;
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
   const FADE_PARTS = {
@@ -629,7 +629,7 @@
     const show = (on) => (on ? '' : ' style="display: none;"');
 
     const slider = (id, key, label) => `
-      <div class="cb_row"><label>${label}</label><span><span id="m_${prefix}_${id}val" class="ntr_slval">${rangeNum(s, prefix + key)}</span>${numRange(prefix + key)[3]}</span></div>
+      <div class="cb_row"><label>${label}</label><span><span class="ntr_slval">${rangeNum(s, prefix + key)}</span>${numRange(prefix + key)[3]}</span></div>
       <input type="range" id="m_${prefix}_${id}" ${rangeAttrs(prefix + key)} value="${rangeNum(s, prefix + key)}">`;
     // A group shows for the styles it lists (data-only, space-separated).
     const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${only.split(' ').includes(style) ? 'flex' : 'none'};">${inner}</div>`;
@@ -672,7 +672,7 @@
 
         ${grp('inline backdrop', `<div class="cb_sub">Fades</div>`
           + fadeGrid(prefix, s, fadeCur)
-          + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade Length:</label><span><span id="m_${prefix}_fadeval" class="ntr_slval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
+          + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade Length:</label><span><span class="ntr_slval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
           <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">
           <div id="m_${prefix}_fswrap" class="${anyFade(s, prefix) ? '' : 'cb_dim'}">${slider('fs', 'FadeStr', 'Fade Strength:')}</div>
           <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
@@ -774,8 +774,7 @@
       };
       const frameSliders = () => {
         for (const [id, key] of [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']]) {
-          col.querySelector(`#m_${prefix}_${id}`).value = rangeNum(s, prefix + key);
-          col.querySelector(`#m_${prefix}_${id}val`).textContent = rangeNum(s, prefix + key);
+          setSlider(col.querySelector(`#m_${prefix}_${id}`), rangeNum(s, prefix + key));
         }
       };
       // The fit is remembered for this side and frame, so picking the frame again puts it back.
@@ -964,14 +963,11 @@
       let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`).value;
       onPills(col, `${prefix}fade`, (v) => {
         fadeAt = v;
-        const val = rangeNum(s, prefix + FADE_PARTS[v][0]);
-        fadeSl.value = val;
-        col.querySelector(`#m_${prefix}_fadeval`).textContent = val;
+        setSlider(fadeSl, rangeNum(s, prefix + FADE_PARTS[v][0]));
         col.querySelector(`#m_${prefix}_fadelab`).textContent = `${FADE_PARTS[v][1]} Fade Length:`;
       });
       fadeSl.oninput = function() {
         s[prefix + FADE_PARTS[fadeAt][0]] = Number(this.value);
-        col.querySelector(`#m_${prefix}_fadeval`).textContent = this.value;
         col.querySelector(`input[name="cbr_${prefix}fade"][value="${fadeAt}"]`).closest('label').classList.toggle('cb_fon', Number(this.value) > 0);
         syncScale();
         updateAvatarStyle();
@@ -981,8 +977,7 @@
         if (!(await askYes(this, `Set all eight ${label} avatar fades to 0?`, 'Clear'))) return;
         for (const [key] of Object.values(FADE_PARTS)) s[prefix + key] = 0;
         save();
-        fadeSl.value = 0;
-        col.querySelector(`#m_${prefix}_fadeval`).textContent = 0;
+        setSlider(fadeSl, 0);
         col.querySelectorAll(`input[name="cbr_${prefix}fade"]`).forEach((r) => r.closest('label').classList.remove('cb_fon'));
         syncScale();
         updateAvatarStyle();
@@ -1020,7 +1015,6 @@
         el.oninput = function() {
           if (key === 'Rotate' && this.dataset.drag && Math.abs(Number(this.value)) <= 3) this.value = 0;
           s[`${prefix}${key}`] = Number(this.value);
-          overlay.querySelector(`#m_${prefix}_${id}val`).textContent = this.value;
           if (key === 'Zoom' || key === 'Rotate') syncScale();
           else drawFrame();
           updateAvatarStyle();

@@ -550,7 +550,7 @@
     const sl = (key, label) => {
       const [, , , unit] = A.numRange(key);
       const v = A.rangeNum(s, key);
-      return `<div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span id="m_emo_${key}val" class="ntr_slval">${v}</span>${unit}</span></div>
+      return `<div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span class="ntr_slval">${v}</span>${unit}</span></div>
           <input type="range" class="m_emo_sl" data-key="${key}" ${A.rangeAttrs(key)} value="${v}">`;
     };
     const df = (key, label) => `<label class="cb_dfield"><span>${label}</span><input type="text" class="text_pole m_d_in" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="16"></label>`;
@@ -832,7 +832,6 @@
     overlay.querySelectorAll('.m_emo_sl').forEach((sl) => {
       sl.oninput = function() {
         s[this.dataset.key] = Number(this.value);
-        overlay.querySelector(`#m_emo_${this.dataset.key}val`).textContent = this.value;
         schedule();
       };
       sl.onchange = save;

@@ -515,8 +515,8 @@
     const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
     const free = A.banFree?.();
     // A slider for the NUM_RANGE key k; attrs are extra attributes for the input.
-    const sl = (id, label, valId, val, k, attrs = '', extra = '') => `
-              <div class="cb_row" style="margin-top: 10px;"><label for="${id}">${label}</label><span><span id="${valId}" class="ntr_slval">${val}</span>${numRange(k)[3]}</span></div>
+    const sl = (id, label, val, k, attrs = '', extra = '') => `
+              <div class="cb_row" style="margin-top: 10px;"><label for="${id}">${label}</label><span><span class="ntr_slval">${val}</span>${numRange(k)[3]}</span></div>
               <input type="range" id="${id}" ${attrs}${attrs ? ' ' : ''}${rangeAttrs(k)} value="${val}"${extra}>`;
     return pageHtml('fg', `
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
@@ -542,12 +542,12 @@
               </div>
               <div class="cb_thumbs">${src.images.map((im, i) => `<button type="button" class="cb_thumbbtn" data-i="${i}" aria-label="Picture ${i + 1}"${i === picked ? ' aria-current="true"' : ''}><img class="cb_thumb${i === picked ? ' active' : ''}" src="${escapeHTML(media(im.url))}" alt=""></button>`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No pictures yet</div>`}
 
-              ${curImg ? sl('m_b_p', `Crop Position${btag}`, 'm_b_pval', cardNum(curImg.pos, 'bannerPos', 45), 'bannerPos') : ''}`, 'fa-images')}
+              ${curImg ? sl('m_b_p', `Crop Position${btag}`, cardNum(curImg.pos, 'bannerPos', 45), 'bannerPos') : ''}`, 'fa-images')}
 
               ${card('Rotation' + (ownBanner ? ' ' + TAG : ''), `
                 <label class="checkbox_label"><input type="checkbox" id="m_b_rot" ${ro.rotate ? 'checked' : ''}><span>Rotate Pictures</span></label>
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
-                  ${sl('m_b_rot_sec', 'Every', 'm_b_rot_val', ro.rotateSec, 'bannerRotateSec')}
+                  ${sl('m_b_rot_sec', 'Every', ro.rotateSec, 'bannerRotateSec')}
                   ${ovLabel('Transition', pills('brfx', [['fade', 'Crossfade'], ['swap', 'Instant']], ro.rotateFx))}
                   ${ovLabel('Order', pills('brord', [['order', 'In Order'], ['shuffle', 'Shuffled']], ro.rotateOrder))}
                 </div>
@@ -568,7 +568,7 @@
                 <button id="m_b_vdel" class="menu_button danger_button" style="margin:0;" title="Remove the video" aria-label="Remove the video" ${!src.video ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
               </div>
               <input type="file" id="m_b_vfile" accept="video/mp4,video/webm,.mp4,.webm" hidden>
-              ${src.video ? sl('m_b_vp', `Crop Position${btag}`, 'm_b_vpval', cardNum(src.videoPos, 'bannerVideoPos', 50), 'bannerVideoPos') : ''}
+              ${src.video ? sl('m_b_vp', `Crop Position${btag}`, cardNum(src.videoPos, 'bannerVideoPos', 50), 'bannerVideoPos') : ''}
               <div class="cb_hint" style="margin-bottom: 0;">Loops with no controls. The banner's speaker button turns sound on or off and remembers it. Browsers may keep it muted until you click the page.</div>`, 'fa-film')}
             </div>
 
@@ -583,15 +583,15 @@
                 <input type="checkbox" id="m_b_overlap" ${r.overlap ? 'checked' : ''}${key ? '' : ' disabled'}><span>Overlap Messages ${TAG}</span>
               </label>
 
-            ${sl('m_b_h', `Height${btag}`, 'm_b_hval', bl.height, 'bannerHeight')}
+            ${sl('m_b_h', `Height${btag}`, bl.height, 'bannerHeight')}
             <div id="m_b_guide" class="cb_hint" style="margin-top: 4px;">${escapeHTML(bannerGuideText())}</div>
 
             <div id="m_b_gap_wrapper" class="${r.overlap ? 'cb_dim' : ''}">
-              ${sl('m_b_gap', `Gap Below${btag}`, 'm_b_gapval', bl.gap, 'bannerGap')}
+              ${sl('m_b_gap', `Gap Below${btag}`, bl.gap, 'bannerGap')}
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
-              ${sl('m_b_offset', `Push Messages Down ${TAG}`, 'm_b_oval', cardNum(r.overlapOffset, 'bannerOffset', 0), 'bannerOffset', '', !key ? ' disabled' : '')}
+              ${sl('m_b_offset', `Push Messages Down ${TAG}`, cardNum(r.overlapOffset, 'bannerOffset', 0), 'bannerOffset', '', !key ? ' disabled' : '')}
             </div>
             </div>
 
@@ -600,7 +600,7 @@
 
           ${pagePart('Foreground Pictures', ['m_f_enable', s.fgEnabled], 'fg_fore', `
             ${card('', `
-            ${sl('m_f_o', 'Opacity', 'm_f_oval', rangeNum(s, 'fgOpacity'), 'fgOpacity')}
+            ${sl('m_f_o', 'Opacity', rangeNum(s, 'fgOpacity'), 'fgOpacity')}
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide in Visual Novel Mode</span></label>
             <button type="button" id="m_f_place" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
             <div class="cb_hint" style="margin-bottom: 0;">Hides the menu while you drag the pictures. Each stays tied to its side.</div>`)}
@@ -621,8 +621,8 @@
                     <button class="menu_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Remove picture" aria-label="Remove ${pos} picture" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-rotate-left"></i></button>
                   </div>
                   <div style="width:100%; text-align:left;">
-                  ${sl(`m_f_s_${pos}`, 'Size', `m_f_s_${pos}val`, cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_scale" data-pos="${pos}"`, ' style="width:100%;"')}
-                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, `m_f_${ax}_${pos}val`, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_move" data-pos="${pos}" data-ax="${ax}"`, ' style="width:100%;"')).join('')}
+                  ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_scale" data-pos="${pos}"`, ' style="width:100%;"')}
+                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_move" data-pos="${pos}" data-ax="${ax}"`, ' style="width:100%;"')).join('')}
                   ${ovLabel('In Visual Novel Mode', pills('fgl' + pos, [['behind', 'Behind Sprites'], ['front', 'In Front']], F[pos + 'Layer']))}
                   </div>
                 </div>
@@ -672,7 +672,6 @@
       overlay.querySelector('#m_b_rot_body').classList.toggle('cb_dim', !this.checked);
     };
     const rotSec = overlay.querySelector('#m_b_rot_sec');
-    rotSec.oninput = function() { overlay.querySelector('#m_b_rot_val').textContent = this.value; };
     rotSec.onchange = function() { rotSet('rotateSec', Number(this.value)); };
     onPills(overlay, 'brfx', (v) => rotSet('rotateFx', v));
     onPills(overlay, 'brord', (v) => rotSet('rotateOrder', v));
@@ -723,7 +722,6 @@
     if (vp) {
       vp.oninput = function() {
         src.videoPos = Number(this.value);
-        overlay.querySelector('#m_b_vpval').textContent = this.value;
         const v = banner?.querySelector('.cb_vid');
         if (v) v.style.objectPosition = `50% ${this.value}%`;
       };
@@ -739,7 +737,6 @@
     const fo = overlay.querySelector('#m_f_o');
     fo.oninput = function() {
       s.fgOpacity = Number(this.value);
-      overlay.querySelector('#m_f_oval').textContent = this.value;
       document.documentElement.style.setProperty('--cb-fg-op', this.value / 100);
     };
     fo.onchange = save;
@@ -749,7 +746,6 @@
       sl.oninput = function() {
         const { pos, ax } = this.dataset;
         F[pos + ax] = Number(this.value);
-        overlay.querySelector(`#m_f_${ax}_${pos}val`).textContent = this.value;
         ensureFg();
       };
       sl.onchange = save;
@@ -759,7 +755,6 @@
       sl.oninput = function() {
         const pos = this.dataset.pos;
         F[pos + 'Scale'] = Number(this.value);
-        overlay.querySelector(`#m_f_s_${pos}val`).textContent = this.value;
         ensureFg();
       };
       sl.onchange = save;
@@ -822,7 +817,6 @@
       if (bo) {
         bo.oninput = function() {
           r.overlapOffset = Number(this.value);
-          overlay.querySelector('#m_b_oval').textContent = r.overlapOffset;
           const chat = document.getElementById('chat');
           if (chat && r.overlap) chat.style.paddingTop = r.overlapOffset + 'px';
         };
@@ -852,7 +846,7 @@
     }
     if (curImg) {
       const bp = overlay.querySelector('#m_b_p');
-      bp.oninput = function() { overlay.querySelector('#m_b_pval').textContent = this.value; const img = banner?.querySelector('.cb_img'); if (img) img.style.objectPosition = `50% ${this.value}%`; };
+      bp.oninput = function() { const img = banner?.querySelector('.cb_img'); if (img) img.style.objectPosition = `50% ${this.value}%`; };
       bp.onchange = function() { curImg.pos = Number(this.value); save(); };
     }
     const ytUrl = overlay.querySelector('#m_b_yt_url');
@@ -860,10 +854,10 @@
     ytUrl.onchange = function() { save(); updateBanner(); };
     const lookSet = (k, v) => { if (ownBanner) r[k] = v; else s[BANNER_LOOK_KEYS[k]] = v; };
     const bh = overlay.querySelector('#m_b_h');
-    bh.oninput = function() { lookSet('height', Number(this.value)); overlay.querySelector('#m_b_hval').textContent = this.value; applyBannerSize(); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
+    bh.oninput = function() { lookSet('height', Number(this.value)); applyBannerSize(); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
     bh.onchange = save;
     const bgap = overlay.querySelector('#m_b_gap');
-    bgap.oninput = function() { lookSet('gap', Number(this.value)); overlay.querySelector('#m_b_gapval').textContent = this.value; applyBannerSize(); };
+    bgap.oninput = function() { lookSet('gap', Number(this.value)); applyBannerSize(); };
     bgap.onchange = save;
     onPills(overlay, 'bbd', (v) => { lookSet('backdrop', v); save(); syncWallpaper(); });
   }

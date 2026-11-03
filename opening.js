@@ -546,7 +546,7 @@
     }
     const o = op();
     // opening.js keeps its own slider numbers (see CLAUDE.md); the row is laid out like ovSlider's.
-    const sl = (id, key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span id="m_op_${id}val" class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
+    const sl = (id, key, label, unit, min, max, step, shown) => ovLabel(label, `<div class="cb_row"><input type="range" class="m_op_sl" data-key="${key}" data-id="${id}" min="${min}" max="${max}" step="${step}" value="${s[key]}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${key === 'opFade' || key === 'opTransMs' ? ' data-scale="1000"' : ''}>${shown}</span>${unit}</span></div>`);
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
     const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
     return `
@@ -652,12 +652,7 @@
       col.onchange = save;
     }
     overlay.querySelectorAll('.m_op_sl').forEach((sl) => {
-      sl.oninput = function() {
-        const k = this.dataset.key;
-        s[k] = Number(this.value);
-        const out = overlay.querySelector(`#m_op_${this.dataset.id}val`);
-        if (out) out.textContent = k === 'opFade' || k === 'opTransMs' ? (s[k] / 1000).toFixed(1) : this.value;
-      };
+      sl.oninput = function() { s[this.dataset.key] = Number(this.value); };
       sl.onchange = save;
     });
 

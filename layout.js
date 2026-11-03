@@ -5,7 +5,7 @@
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
   const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, fgOwner, joinCss, layoutPop, lk, ovLabel, ovPick,
-    ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, syncPopSliders } = A.look;
+    ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, setSlider, syncPopSliders } = A.look;
 
   // ===== Edit Placement =====
   // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar, page bar and banner can be dragged on
@@ -56,9 +56,7 @@
     for (const ax of ['X', 'Y']) {
       const v = cardNum(F[pos + ax], 'fg' + ax, 0);
       const el = document.getElementById(`m_f_${ax}_${pos}`);
-      const lab = document.getElementById(`m_f_${ax}_${pos}val`);
-      if (el) el.value = v;
-      if (lab) lab.textContent = v;
+      if (el) setSlider(el, v);
     }
   }
 
@@ -266,7 +264,7 @@
       + `<div id="cb_place_pill">
           <span class="cb_place_name"></span>
           <label class="cb_place_snap" title="Hold Alt while dragging to move freely for one move"><input type="checkbox" id="cb_place_snap"><span>Snap to Grid</span></label>
-          <span class="cb_place_gridset"><input type="range" id="cb_place_grid" ${rangeAttrs('placeGrid')} value="${rangeNum(s, 'placeGrid')}" title="Grid spacing"><span><span id="cb_place_gridval" class="ntr_slval">${rangeNum(s, 'placeGrid')}</span>${numRange('placeGrid')[3]}</span></span>
+          <span class="cb_place_gridset"><input type="range" id="cb_place_grid" ${rangeAttrs('placeGrid')} value="${rangeNum(s, 'placeGrid')}" title="Grid spacing"><span><span class="ntr_slval">${rangeNum(s, 'placeGrid')}</span>${numRange('placeGrid')[3]}</span></span>
           <button type="button" id="cb_place_undo" title="Undo the last move"><i class="fa-solid fa-rotate-left"></i> Undo</button>
           <button type="button" id="cb_place_reset" title="Put the picked item back where it starts">Reset</button>
           <button type="button" id="cb_place_done" class="cb_place_main">Done</button>
@@ -277,7 +275,6 @@
     q('#cb_place_snap').onchange = function() { settings().placeSnap = this.checked; save(); drawPlace(); };
     q('#cb_place_grid').oninput = function() {
       settings().placeGrid = Number(this.value);
-      q('#cb_place_gridval').textContent = this.value;
       drawPlace();
     };
     q('#cb_place_grid').onchange = save;

@@ -5,7 +5,7 @@
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead } = A;
-  const { ovLabel } = A.look;
+  const { ovLabel, cssTag } = A.look;
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -40,13 +40,6 @@
     .ntr_map_pop .menu_button { margin: 0; padding: 4px 10px; }
     .ntr_map_pop .cb_pills { max-height: 140px; overflow-y: auto; }
   `;
-  function ensureStyle() {
-    if (document.getElementById('ntr_map_style')) return;
-    const el = document.createElement('style');
-    el.id = 'ntr_map_style';
-    el.textContent = CSS;
-    document.head.appendChild(el);
-  }
 
   // ----- Data (per character, inside the VN data) -----
   const D = () => VN().data();
@@ -115,7 +108,7 @@
     const all = maps();
     if (!all.length) { toastr.info('No maps yet. Add one on the Reader Mode page, under Visual Novel.', 'Maps'); return; }
     if (!opts.edit && !all.some((m) => m.url)) { toastr.info('Upload a map picture first.', 'Maps'); return; }
-    ensureStyle();
+    cssTag('ntr_map_style', CSS);
     close(true);
     if (opts.fromMenu) A.closeMenu();
     const start = opts.mapId && mapById(opts.mapId);

@@ -5,7 +5,7 @@
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
   const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, media, pills, onPills, subHead } = A;
-  const { ovLabel } = A.look;
+  const { ovLabel, cssTag } = A.look;
   const TAG = A.TAG || '';
 
   const CSS = `
@@ -32,13 +32,6 @@
     #ntr_open .ntr_op_small { cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.6); background: rgba(0,0,0,.5); color: #fff; font-size: 13px; opacity: .8; }
     #ntr_open .ntr_op_small:hover { opacity: 1; }
   `;
-  function ensureStyle() {
-    if (document.getElementById('ntr_op_style')) return;
-    const el = document.createElement('style');
-    el.id = 'ntr_op_style';
-    el.textContent = CSS;
-    document.head.appendChild(el);
-  }
 
   // ----- Data (per character, inside the VN data) -----
   const ODEF = { src: 'off', yt: '', file: '', title: false, logo: 'upload', logoUrl: '', when: 'newchat' };
@@ -100,7 +93,7 @@
     if (!hasSource(o)) return false;
     if (cur) abort();
     unpin();
-    ensureStyle();
+    cssTag('ntr_op_style', CSS);
     const s = settings();
     const st = {
       sig: opts.sig || '', hooks: hooks || {}, onEnd: opts.onEnd || null, o, phase: 'title',

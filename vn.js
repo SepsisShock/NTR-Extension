@@ -3,7 +3,7 @@
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
-  const { ovLabel } = A.look;
+  const { ovLabel, cssTag } = A.look;
   const { TAG } = A;
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
   const C = window.NTR.cast;
@@ -204,11 +204,7 @@
   `;
 
   // Kept while the extension is off: the menu still opens then, and the other rules only style VN parts, which are hidden.
-  function applyStyle() {
-    let el = document.getElementById('ntr_vn_style');
-    if (!el) { el = document.createElement('style'); el.id = 'ntr_vn_style'; document.head.appendChild(el); }
-    el.textContent = VN_CSS + (A.isOn() && settings().nodeEnabled ? '\n      #chat .mes { display: none !important; }\n' : '');
-  }
+  const applyStyle = () => cssTag('ntr_vn_style', VN_CSS + (vnOn() ? '\n      #chat .mes { display: none !important; }\n' : ''));
 
   // follow: on the newest message, so new ones are followed. shown: the chat message on screen, found again after earlier
   // ones are deleted. md: the chat data whose saved message was read (see keepPlace).

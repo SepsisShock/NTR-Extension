@@ -315,12 +315,7 @@ try {
   const listHtml = () => SECS.filter(shown).map(secHtml).join('');
 
   function sectionHtml() {
-    if (!document.getElementById('ntr_rx_css')) {
-      const st = document.createElement('style');
-      st.id = 'ntr_rx_css';
-      st.textContent = CSS;
-      document.head.appendChild(st);
-    }
+    A.look.cssTag('ntr_rx_css', CSS);
     if (!ready()) {
       const why = E ? 'ST\'s Regex extension is off. Turn it on in Manage Extensions to use this page.'
         : 'Couldn\'t reach ST\'s Regex extension, so this page can\'t show your regexes.';

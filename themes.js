@@ -19,7 +19,6 @@
   ];
 
   const applyLook = (data) => setLook((s) => { for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data && data[sec])); });
-  // The default look, with no theme picked.
   const resetLook = () => setLook((s) => {
     for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
     s.themeActive = null;

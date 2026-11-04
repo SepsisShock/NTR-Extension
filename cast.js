@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.55';
+  const CAST_VERSION = '2.86.56';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -312,7 +312,7 @@
       }
     });
     // Pop Out copies the newest avatar, which only happens when messages are added; a changed face is caught up here.
-    if (swapped) A.syncPopouts();
+    if (swapped) window.NTR.avatars?.syncPopouts();
   }
 
   // The stage behind the chat: full bodies (or faces) of the last speakers, left, center and right, between the

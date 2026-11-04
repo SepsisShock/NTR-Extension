@@ -1,10 +1,10 @@
 (() => {
-  const AVATARS_VERSION = '2.86.55';
+  const AVATARS_VERSION = '2.86.56';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askText, askYes, closePops, deleteFileIfUnused, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills, popMenu, posGrid,
-    openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
-  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow, popMsg,
+  const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills,
+    popMenu, posGrid, openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
+  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow,
     restyle: updateAvatarStyle, setSlider, svgMask } = A.look;
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
@@ -460,11 +460,95 @@
     fullAvatar(img);
     colSyncs[sideOf(img)]?.();
   }
-  // And a pop-out picture that just loaded: it starts loading only after a switch to Pop Out has redrawn them.
-  document.addEventListener('load', (e) => {
-    const m = /^cb_pop_(ai|us)$/.exec(e.target.id);
-    if (m) colSyncs[m[1]]?.();
-  }, true);
+
+  // ===== Pop Out =====
+  const popMsg = { ai: '', us: '' };
+  function setPopStatus(prefix, msg) {
+    popMsg[prefix] = msg;
+    const el = document.getElementById(`m_${prefix}_pstat`);
+    if (el) el.textContent = msg;
+  }
+
+  function ensurePopLayer() {
+    let layer = document.getElementById('cb_pop_layer');
+    if (layer) return layer;
+    layer = document.createElement('div');
+    layer.id = 'cb_pop_layer';
+    // Each picture sits in a frame, which takes its place, size, shape and turn (see getAvatarCss). The Frame picture
+    // goes on its own layer after it, outside the shape that cuts the picture.
+    layer.innerHTML = ['ai', 'us'].map((p) => `<div id="cb_popf_${p}" class="cb_popf"><img id="cb_pop_${p}" alt="" draggable="false"></div><div id="cb_popr_${p}" class="cb_popr"></div>`).join('');
+    document.body.appendChild(layer);
+    new ResizeObserver(layoutPop).observe(document.getElementById('chat'));
+    window.addEventListener('resize', layoutPop);
+    layoutPop();
+    for (const prefix of ['ai', 'us']) {
+      const el = layer.querySelector(`#cb_pop_${prefix}`);
+      el.onerror = () => {
+        if (el.dataset.thumb && el.getAttribute('src') !== el.dataset.thumb) {
+          setPopStatus(prefix, 'Full-size picture didn\'t load. Using the thumbnail.');
+          el.src = el.dataset.thumb;
+        } else {
+          setPopStatus(prefix, 'Picture failed to load: ' + (el.getAttribute('src') || 'no source'));
+          console.warn(`[NTR pop out] (${prefix}) ${popMsg[prefix]}`);
+        }
+      };
+      el.onload = () => {
+        const fell = el.dataset.want !== el.dataset.thumb && el.getAttribute('src') === el.dataset.thumb;
+        setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} picture${fell ? ' (thumbnail)' : ''}`);
+        if (el.naturalWidth && el.naturalHeight) {
+          for (const box of [el.parentElement, layer.querySelector(`#cb_popr_${prefix}`)]) box.style.setProperty('--cb-ar', (el.naturalWidth / el.naturalHeight).toFixed(4));
+        }
+        // The menu's rows were drawn before the picture loaded (see picAspect).
+        colSyncs[prefix]?.();
+        drawPlace();
+      };
+    }
+    return layer;
+  }
+
+  // Pop-outs are placed on the chat panel, so the layer keeps the panel's place on screen.
+  function layoutPop() {
+    const layer = document.getElementById('cb_pop_layer');
+    const chat = document.getElementById('chat');
+    if (!layer) return;
+    const r = chat.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    for (const [k, v] of [['cl', r.left], ['ct', r.top], ['cw', r.width], ['ch', r.height]]) layer.style.setProperty(`--cb-${k}`, Math.round(v) + 'px');
+    drawPlace();
+  }
+
+  function syncPopouts() {
+    const s = settings();
+    const layer = ensurePopLayer();
+    layoutPop();
+    for (const prefix of ['ai', 'us']) {
+      const el = layer.querySelector(`#cb_pop_${prefix}`);
+      const show = (v) => { el.parentElement.style.display = v; layer.querySelector(`#cb_popr_${prefix}`).style.display = v; };
+      const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
+      const key = on && prefix === 'ai' ? currentKey() : null;
+      const src = (on && sidePic(prefix)) || (key ? `/characters/${encodeURIComponent(key)}` : null);
+      if (!src) {
+        show('none');
+        if (on && popMsg[prefix] !== 'No avatar found in this chat yet.') setPopStatus(prefix, 'No avatar found in this chat yet.');
+        continue;
+      }
+      const full = fullResUrl(src);
+      if (el.dataset.want !== full) {
+        el.dataset.want = full;
+        el.dataset.thumb = src;
+        setPopStatus(prefix, 'Loading image...');
+        el.src = full;
+      }
+      show('block');
+    }
+  }
+
+  function setSliders(root, s, prefix, pairs) {
+    for (const [id, key] of pairs) {
+      const el = root.querySelector(`#m_${prefix}_${id}`);
+      if (el) setSlider(el, rangeNum(s, prefix + key));
+    }
+  }
 
   // NTR Avatars on each side. A side that's switched off keeps SillyTavern's own avatar.
   function avatarsCss(s) {
@@ -769,11 +853,7 @@
         col.querySelector(`#m_${prefix}_frdel`).style.display = frameNow(s, prefix)?.folder?.own ? '' : 'none';
         col.querySelector(`#m_${prefix}_frrows`).classList.toggle('cb_dim', !on);
       };
-      const frameSliders = () => {
-        for (const [id, key] of [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']]) {
-          setSlider(col.querySelector(`#m_${prefix}_${id}`), rangeNum(s, prefix + key));
-        }
-      };
+      const frameSliders = () => setSliders(col, s, prefix, [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']]);
       // The fit is remembered for this side and frame, so picking the frame again puts it back.
       const keepFit = () => {
         const k = fitKey(s, prefix);
@@ -1031,5 +1111,8 @@
     css: avatarsCss,
     sync: syncAvatarImgs,
     imgLoaded: avatarImgLoaded,
+    syncPopouts,
+    layoutPop,
+    syncPopSliders: (prefix) => setSliders(document, settings(), prefix, [['ox', 'PopX'], ['oy', 'PopY']]),
   };
 })();

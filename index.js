@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.55';
+  const VERSION = '2.86.56';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -204,7 +204,6 @@ await (async () => {
   const isOn = () => settings().masterEnabled !== false;
   // ST's own Reduced Motion (User Settings) or the device's setting.
   const reducedMotion = () => !!ctx().powerUserSettings.reduced_motion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const popMsg = { ai: '', us: '' };
 
   const escapeHTML = (str) => {
     return String(str).replace(/[&<>'"]/g, match => ({
@@ -263,59 +262,7 @@ await (async () => {
     if (!cleaned.has(s.layPins)) s.layPins = cleanPins(s.layPins);
   }
 
-  // ===== Pop-out pictures and foreground images =====
-  function setPopStatus(prefix, msg) {
-    popMsg[prefix] = msg;
-    const el = document.getElementById(`m_${prefix}_pstat`);
-    if (el) el.textContent = msg;
-  }
-
-  function ensurePopLayer() {
-    let layer = document.getElementById('cb_pop_layer');
-    if (layer) return layer;
-    layer = document.createElement('div');
-    layer.id = 'cb_pop_layer';
-    // Each picture sits in a frame, which takes its place, size, shape and turn (see getAvatarCss in avatars.js). The
-    // Frame picture goes on its own layer after it, outside the shape that cuts the picture.
-    layer.innerHTML = ['ai', 'us'].map((p) => `<div id="cb_popf_${p}" class="cb_popf"><img id="cb_pop_${p}" alt="" draggable="false"></div><div id="cb_popr_${p}" class="cb_popr"></div>`).join('');
-    document.body.appendChild(layer);
-    const chat = document.getElementById('chat');
-    if (chat) new ResizeObserver(() => { layoutPop(); callModule('layout', 'pinCheckRead'); }).observe(chat);
-    layoutPop();
-    for (const prefix of ['ai', 'us']) {
-      const el = layer.querySelector(`#cb_pop_${prefix}`);
-      el.onerror = () => {
-        if (el.dataset.thumb && el.getAttribute('src') !== el.dataset.thumb) {
-          setPopStatus(prefix, 'Full-size picture didn\'t load. Using the thumbnail.');
-          el.src = el.dataset.thumb;
-        } else {
-          setPopStatus(prefix, 'Picture failed to load: ' + (el.getAttribute('src') || 'no source'));
-          console.warn(`[NTR pop out] (${prefix}) ${popMsg[prefix]}`);
-        }
-      };
-      el.onload = () => {
-        const fell = el.dataset.want !== el.dataset.thumb && el.getAttribute('src') === el.dataset.thumb;
-        setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} picture${fell ? ' (thumbnail)' : ''}`);
-        if (el.naturalWidth && el.naturalHeight) {
-          for (const box of [el.parentElement, layer.querySelector(`#cb_popr_${prefix}`)]) box.style.setProperty('--cb-ar', (el.naturalWidth / el.naturalHeight).toFixed(4));
-        }
-        callModule('layout', 'drawPlace');
-      };
-    }
-    return layer;
-  }
-
-  // Pop-outs are placed on the chat panel, so the layer keeps the panel's place on screen.
-  function layoutPop() {
-    const layer = document.getElementById('cb_pop_layer');
-    const chat = document.getElementById('chat');
-    if (!layer || !chat) return;
-    const r = chat.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    for (const [k, v] of [['cl', r.left], ['ct', r.top], ['cw', r.width], ['ch', r.height]]) layer.style.setProperty(`--cb-${k}`, Math.round(v) + 'px');
-    callModule('layout', 'drawPlace');
-  }
-
+  // ===== Foreground image placement and full-size avatars =====
   // Foreground images keep their side; Move Horizontal and Vertical (or dragging them) shift them from there.
   function fgTransform(el, pos, F) {
     const sc = cardNum(F[pos + 'Scale'], 'fgScale', 100) / 100;
@@ -334,51 +281,6 @@ await (async () => {
       }
     } catch (e) {}
     return src;
-  }
-
-  function popSrcFor(isUserStr) {
-    const imgs = document.querySelectorAll(`#chat .mes[is_user="${isUserStr}"] .avatar img`);
-    const last = imgs[imgs.length - 1];
-    return last ? last.getAttribute('src') : null;
-  }
-
-  function syncPopSliders(prefix) {
-    const s = settings();
-    for (const [id, key] of [['ox', 'PopX'], ['oy', 'PopY']]) {
-      const el = document.getElementById(`m_${prefix}_${id}`);
-      if (el) setSlider(el, s[`${prefix}${key}`]);
-    }
-  }
-
-  function syncPopouts() {
-    const s = settings();
-    const layer = ensurePopLayer();
-    layoutPop();
-    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-      const el = layer.querySelector(`#cb_pop_${prefix}`);
-      const show = (v) => { el.parentElement.style.display = v; layer.querySelector(`#cb_popr_${prefix}`).style.display = v; };
-      const on = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'popout';
-      let src = on ? popSrcFor(flag) : null;
-      if (!src && on && prefix === 'ai') {
-        const c = ctx();
-        const ch = c.groupId ? null : c.characters?.[c.characterId];
-        if (ch?.avatar) src = `/characters/${encodeURIComponent(ch.avatar)}`;
-      }
-      if (!src) {
-        show('none');
-        if (on && popMsg[prefix] !== 'No avatar found in this chat yet.') setPopStatus(prefix, 'No avatar found in this chat yet.');
-        continue;
-      }
-      const full = fullResUrl(src);
-      if (el.dataset.want !== full) {
-        el.dataset.want = full;
-        el.dataset.thumb = src;
-        setPopStatus(prefix, 'Loading image...');
-        el.src = full;
-      }
-      show('block');
-    }
-    callModule('layout', 'drawPlace');
   }
 
   // ===== Layout, Pinned Blocks and Edit Placement (layout.js) =====
@@ -463,7 +365,7 @@ await (async () => {
     callModule('avatars', 'sync');
     syncGoogleFonts();
     callModule('elements', 'sync');
-    syncPopouts();
+    callModule('avatars', 'syncPopouts');
     callModule('layout', 'syncPins');
     callModule('decor', 'sync');
     window.NTR.reader?.relayout();
@@ -954,7 +856,7 @@ await (async () => {
 
     setupPanel(overlay, prevScroll);
 
-    const close = () => { cancelAsks(overlay); overlay.remove(); syncPopouts(); rotRestart(); };
+    const close = () => { cancelAsks(overlay); overlay.remove(); callModule('avatars', 'syncPopouts'); rotRestart(); };
     overlay.querySelector('.cb_close_btn').onclick = close;
 
     callModule('overlays', 'bind', overlay, s);
@@ -3039,8 +2941,6 @@ await (async () => {
     downloadJson, freeName, uniqueName,
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
-    // For cast.js: Pop Out catches up after a face changes
-    syncPopouts: () => syncPopouts(),
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
     peek, bannerSrc, startChar, ROT_KEYS, BANNER_LOOK_KEYS, fgData, FG_POS, fgTransform, cardNum, card, pagePart,
     // Edit Placement (layout.js), for avatars.js and overlays.js. Without layout.js, the pictures keep their place and
@@ -3058,13 +2958,13 @@ await (async () => {
     // What elements.js, text.js, avatars.js, decor.js and layout.js build from: the row builders, CSS helpers, and the
     // lists their settings are checked against.
     look: {
-      POS_GRID, SHAPE_OPTS, castPartHtml, popMsg, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
+      POS_GRID, SHAPE_OPTS, castPartHtml, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
       FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel,
       RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
       cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
-      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, layoutPop, setSlider, syncPopSliders, fgOwner, decorOn, clamp,
+      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, fgOwner, decorOn, clamp,
     },
   };
 
@@ -3086,7 +2986,6 @@ await (async () => {
       callModule('avatars', 'imgLoaded', e.target);
     }, true);
     window.addEventListener('resize', () => {
-      layoutPop();
       window.NTR.cast?.sync();
       callModule('layout', 'syncSendRoom');
       const ov = document.getElementById('cb_modal_overlay');
@@ -3150,7 +3049,7 @@ await (async () => {
 
     const chat = document.getElementById('chat');
     if (chat) {
-      new MutationObserver(() => { syncPopouts(); callModule('decor', 'sync'); }).observe(chat, { childList: true });
+      new MutationObserver(() => { callModule('avatars', 'syncPopouts'); callModule('decor', 'sync'); }).observe(chat, { childList: true });
     }
     renderAll();
     const s0 = settings();

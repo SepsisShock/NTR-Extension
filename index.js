@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.53';
+  const VERSION = '2.86.54';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -195,11 +195,7 @@ await (async () => {
 
   const ctx = () => SillyTavern.getContext();
   // Sets an NTR prompt SillyTavern adds to each request; empty text clears it.
-  function setInjection(key, text, what) {
-    const c = ctx();
-    if (typeof c.setExtensionPrompt !== 'function') return;
-    try { c.setExtensionPrompt(key, text, 1, 1, false, 0); } catch (e) { console.error(`[NTR] Could not set the ${what}`, e); }
-  }
+  const setInjection = (key, text) => ctx().setExtensionPrompt(key, text, 1, 1, false, 0);
   const save = () => {
     ctx().saveSettingsDebounced();
     const k = currentKey();
@@ -207,7 +203,7 @@ await (async () => {
   };
   const isOn = () => settings().masterEnabled !== false;
   // ST's own Reduced Motion (User Settings) or the device's setting.
-  const reducedMotion = () => !!ctx().powerUserSettings?.reduced_motion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = () => !!ctx().powerUserSettings.reduced_motion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const popMsg = { ai: '', us: '' };
 
   const escapeHTML = (str) => {
@@ -1774,7 +1770,7 @@ await (async () => {
 
   function cardData(key) {
     const c = ctx();
-    if (!key || typeof c.writeExtensionField !== 'function') return null;
+    if (!key) return null;
     const i = charIndexByAvatar(key);
     const ch = i >= 0 ? c.characters[i] : null;
     if (!ch || !ch.data) return null;
@@ -1898,8 +1894,8 @@ await (async () => {
     try {
       // Merging into NTR data that isn't an object drops the save. So a broken card's old value is cleared first,
       // through the bulk save. Clearing also drops it from memory, so it's put straight back.
-      const unset = c.constants?.unset;
-      if (cardFix.has(key) && unset && typeof c.writeExtensionFieldBulk === 'function') {
+      const unset = c.constants.unset;
+      if (cardFix.has(key)) {
         const r = await c.writeExtensionFieldBulk([key], 'ntr', unset);
         ch.data.extensions.ntr = d;
         if (![...(r?.updated || []), ...(r?.skipped || [])].includes(key)) throw new Error('Could not clear the old NTR data in the card');
@@ -1907,7 +1903,7 @@ await (async () => {
       }
       // Saved here rather than with writeExtensionField, which doesn't say when the server turns a save down. Until a
       // save works, nothing counts as saved, so the next one sends it all again.
-      const ntr = unset && before ? withUnsets(JSON.parse(before), d, unset) : d;
+      const ntr = before ? withUnsets(JSON.parse(before), d, unset) : d;
       const res = await fetch('/api/characters/merge-attributes', {
         method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ avatar: key, data: { extensions: { ntr } } }),
       });
@@ -1972,7 +1968,7 @@ await (async () => {
   // Files a removal couldn't delete. Kept in SillyTavern's account storage, which outlives NTR's settings, so the
   // next removal tries them again.
   const LEFTOVER = 'ntr_leftover_files';
-  const leftovers = () => { try { const v = JSON.parse(ctx().accountStorage?.getItem(LEFTOVER) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
+  const leftovers = () => { try { const v = JSON.parse(ctx().accountStorage.getItem(LEFTOVER) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch { return []; } };
   async function removeData(opts) {
     wiping = true;
     for (const tm of cardTimers.values()) clearTimeout(tm);
@@ -1996,22 +1992,19 @@ await (async () => {
     let left = [];
     if (chars) {
       for (let i = 0; i < c.characters.length; i++) {
-        if (c.characters[i]?.shallow && typeof c.unshallowCharacter === 'function') await c.unshallowCharacter(i);
+        if (c.characters[i]?.shallow) await c.unshallowCharacter(i);
       }
-      const unset = c.constants?.unset;
       const withData = c.characters.filter((ch) => ch?.data?.extensions?.ntr);
       for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
-      if (typeof c.writeExtensionFieldBulk === 'function' && unset) {
-        // A failed save doesn't throw; the card is in neither `updated` nor `skipped` (no NTR data on file, nothing to remove).
-        const r = await c.writeExtensionFieldBulk(null, 'ntr', unset);
-        const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
-        const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
-        if (missed) {
-          throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so removal didn't finish. Check the SillyTavern console.`);
-        }
-        // SillyTavern clears memory only for `updated`; unsaved data on a `skipped` card would put its files in `keep` below.
-        for (const ch of withData) delete ch.data.extensions.ntr;
-      } else for (const ch of withData) await c.writeExtensionField(c.characters.indexOf(ch), 'ntr', unset ?? {});
+      // A failed save doesn't throw; the card is in neither `updated` nor `skipped` (no NTR data on file, nothing to remove).
+      const r = await c.writeExtensionFieldBulk(null, 'ntr', c.constants.unset);
+      const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
+      const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
+      if (missed) {
+        throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so removal didn't finish. Check the SillyTavern console.`);
+      }
+      // SillyTavern clears memory only for `updated`; unsaved data on a `skipped` card would put its files in `keep` below.
+      for (const ch of withData) delete ch.data.extensions.ntr;
       for (const k of CHAR_SETTINGS) {
         collectFileRefs(s[k], gone);
         s[k] = structuredClone(DEFAULTS[k]);
@@ -2028,8 +2021,8 @@ await (async () => {
       const todo = [...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p));
       const ok = await Promise.all(todo.map(deleteFile));
       left = todo.filter((_, i) => !ok[i]);
-      if (left.length) c.accountStorage?.setItem(LEFTOVER, JSON.stringify(left));
-      else c.accountStorage?.removeItem(LEFTOVER);
+      if (left.length) c.accountStorage.setItem(LEFTOVER, JSON.stringify(left));
+      else c.accountStorage.removeItem(LEFTOVER);
     }
     c.saveSettingsDebounced(); // the page reloads next, so `wiping` stays on until then
     return left.length;
@@ -3110,65 +3103,50 @@ await (async () => {
     });
 
     for (const [name, anim] of [['USER_MESSAGE_RENDERED', true], ['MESSAGE_EDITED', false], ['MESSAGE_UPDATED', false], ['MESSAGE_DELETED', false]]) {
-      if (event_types[name]) eventSource.on(event_types[name], () => { window.NTR.vn?.queue(anim); window.NTR.cast?.sync(); });
+      eventSource.on(event_types[name], () => { window.NTR.vn?.queue(anim); window.NTR.cast?.sync(); });
     }
     // User messages and system messages (/sys) can set off agents too; agents.js tells them apart.
-    if (event_types.USER_MESSAGE_RENDERED) eventSource.on(event_types.USER_MESSAGE_RENDERED, (id) => window.NTR.agents?.replied('sent', Number(id)));
+    eventSource.on(event_types.USER_MESSAGE_RENDERED, (id) => window.NTR.agents?.replied('sent', Number(id)));
     // A swipe to a new reply shows "..." until the reply arrives (see nodeSwiped in vn.js).
-    if (event_types.MESSAGE_SWIPED) {
-      eventSource.on(event_types.MESSAGE_SWIPED, (id) => {
-        window.NTR.cast?.sync();
-        return window.NTR.vn?.swiped(Number(id));
-      });
-    }
-    if (event_types.CHARACTER_MESSAGE_RENDERED) {
-      eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, (id, type) => {
-        const vn = window.NTR.vn;
-        vn?.endWait();
-        // A Continue picks up where the old text ended instead of typing the whole message again.
-        // Without streaming, SillyTavern marks a finished Continue as 'appendFinal'.
-        if ((type === 'continue' || type === 'appendFinal') ) vn?.continued(Number(id));
-        else vn?.queue(true);
-        window.NTR.cast?.sync();
-        window.NTR.agents?.replied(type, Number(id));
-      });
-    }
-    if (event_types.GENERATION_STARTED) {
-      eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => {
-        window.NTR.vn?.genStarted(type, dryRun);
-        window.NTR.cast?.genStarted(type, dryRun);
-        window.NTR.reader?.genStarted(type, dryRun);
-      });
-    }
+    eventSource.on(event_types.MESSAGE_SWIPED, (id) => {
+      window.NTR.cast?.sync();
+      return window.NTR.vn?.swiped(Number(id));
+    });
+    eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, (id, type) => {
+      const vn = window.NTR.vn;
+      vn?.endWait();
+      // A Continue picks up where the old text ended instead of typing the whole message again.
+      // Without streaming, SillyTavern marks a finished Continue as 'appendFinal'.
+      if (type === 'continue' || type === 'appendFinal') vn?.continued(Number(id));
+      else vn?.queue(true);
+      window.NTR.cast?.sync();
+      window.NTR.agents?.replied(type, Number(id));
+    });
+    eventSource.on(event_types.GENERATION_STARTED, (type, _opts, dryRun) => {
+      window.NTR.vn?.genStarted(type, dryRun);
+      window.NTR.cast?.genStarted(type, dryRun);
+      window.NTR.reader?.genStarted(type, dryRun);
+    });
     // Agents wait for a reply being written. A send with only slash commands (like /ntr typed in the box) writes none
     // and never sends "generation ended", so agents only count a reply once SillyTavern has run the commands.
-    const replyGoes = event_types.GENERATION_AFTER_COMMANDS || event_types.GENERATION_STARTED;
-    if (replyGoes) {
-      eventSource.on(replyGoes, (type, _opts, dryRun) => {
-        window.NTR.agents?.genStarted(type, dryRun);
-      });
-    }
+    eventSource.on(event_types.GENERATION_AFTER_COMMANDS, (type, _opts, dryRun) => window.NTR.agents?.genStarted(type, dryRun));
     // Stopped or failed before a reply arrived: SillyTavern puts the old reply back, shown without typing it again.
     // The short delay lets a reply that did arrive go first, so it still gets typed.
-    if (event_types.GENERATION_ENDED) {
-      eventSource.on(event_types.GENERATION_ENDED, () => {
-        window.NTR.cast?.genEnded();
-        window.NTR.agents?.genEnded();
-        if (isOn() && settings().nodeEnabled) setTimeout(() => { if (window.NTR.vn?.endWait()) window.NTR.vn.queue(false); }, 300);
-      });
-    }
-    if (event_types.APP_READY) eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); window.NTR.cast?.refresh(); });
+    eventSource.on(event_types.GENERATION_ENDED, () => {
+      window.NTR.cast?.genEnded();
+      window.NTR.agents?.genEnded();
+      if (isOn() && settings().nodeEnabled) setTimeout(() => { if (window.NTR.vn?.endWait()) window.NTR.vn.queue(false); }, 300);
+    });
+    eventSource.on(event_types.APP_READY, () => { renderAll(); window.NTR.vn?.queue(false); window.NTR.cast?.refresh(); });
     // A renamed preset keeps its regex folders (Regexes page, regex.js), which are saved by preset name.
-    if (event_types.PRESET_RENAMED) {
-      eventSource.on(event_types.PRESET_RENAMED, ({ apiId, oldName, newName } = {}) => {
-        const all = settings().regexPresetFolders;
-        const from = `${apiId}|${oldName}`, to = `${apiId}|${newName}`;
-        if (from === to || !Array.isArray(all[from])) return;
-        all[to] = [...(Array.isArray(all[to]) ? all[to] : []), ...all[from]];
-        delete all[from];
-        save();
-      });
-    }
+    eventSource.on(event_types.PRESET_RENAMED, ({ apiId, oldName, newName }) => {
+      const all = settings().regexPresetFolders;
+      const from = `${apiId}|${oldName}`, to = `${apiId}|${newName}`;
+      if (from === to || !Array.isArray(all[from])) return;
+      all[to] = [...(Array.isArray(all[to]) ? all[to] : []), ...all[from]];
+      delete all[from];
+      save();
+    });
 
     const chat = document.getElementById('chat');
     if (chat) {

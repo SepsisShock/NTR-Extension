@@ -31,7 +31,9 @@ export const context = {
   characters: [],
   characterId: 0,
   saveSettingsDebounced: noop,
-  writeExtensionField: async () => {},
+  writeExtensionFieldBulk: async () => ({ updated: [], skipped: [] }),
+  constants: { unset: '__@@UNSET@@__' },
+  accountStorage: { getItem: () => null, setItem: noop, removeItem: noop },
   getRequestHeaders: () => ({}),
 };
 

@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.53';
+  const REGEX_VERSION = '2.86.54';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson } = A;
@@ -23,17 +23,15 @@ try {
   const stList = (sec) => document.getElementById(sec.list);
   const stRow = (sec, id) => [...(stList(sec)?.children || [])].find((el) => el.id === id) || null;
   const ready = () => !!E && !!stList(SECS[0]);
-  const scripts = (sec) => { try { return E.getScriptsByType(E.SCRIPT_TYPES[sec.type]) || []; } catch (e) { return []; } };
-  const presetName = () => { try { return E.getCurrentPresetName() || ''; } catch (e) { return ''; } };
-  const presetKey = () => { try { const n = E.getCurrentPresetName(); return n ? `${E.getCurrentPresetAPI()}|${n}` : ''; } catch (e) { return ''; } };
+  const scripts = (sec) => E.getScriptsByType(E.SCRIPT_TYPES[sec.type]);
+  const presetName = () => E.getCurrentPresetName() || '';
+  const presetKey = () => { const n = presetName(); return n ? `${E.getCurrentPresetAPI()}|${n}` : ''; };
   const character = () => { const c = ctx(); return c.groupId ? null : c.characters?.[c.characterId] || null; };
   // SillyTavern has no Character regexes in group chats.
   const shown = (sec) => !!stList(sec) && (sec.k !== 'scoped' || !!character());
   function allowed(sec) {
-    try {
-      if (sec.k === 'preset') return E.isPresetScriptsAllowed(E.getCurrentPresetAPI(), E.getCurrentPresetName());
-      if (sec.k === 'scoped') return E.isScopedScriptsAllowed(character());
-    } catch (e) { /* older SillyTavern: treat as allowed */ }
+    if (sec.k === 'preset') return E.isPresetScriptsAllowed(E.getCurrentPresetAPI(), E.getCurrentPresetName());
+    if (sec.k === 'scoped') return E.isScopedScriptsAllowed(character());
     return true;
   }
   const secName = (sec) => (sec.k === 'preset' ? presetName() || 'none' : sec.k === 'scoped' ? character()?.name || '' : '');

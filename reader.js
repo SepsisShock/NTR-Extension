@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.53';
+  const READER_VERSION = '2.86.54';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -593,17 +593,16 @@
   // last page with last.
   function rememberMsg(at, last) {
     const md = ctx().chatMetadata;
-    if (!md) return;
     const v = last ? { last: true } : { at, date: ctx().chat?.[at]?.send_date ?? null };
     const old = md[SAVED];
     if (old && old.last === v.last && old.at === v.at && old.date === v.date) return;
     md[SAVED] = v;
-    ctx().saveMetadataDebounced?.();
+    ctx().saveMetadataDebounced();
   }
 
   // The first message of the page this chat was left on, or null for the last page.
   function savedMsg() {
-    const v = ctx().chatMetadata?.[SAVED];
+    const v = ctx().chatMetadata[SAVED];
     if (!v || typeof v !== 'object' || v.last || !Number.isInteger(v.at) || v.at < 0) return null;
     const chat = ctx().chat || [];
     if (v.date == null || chat[v.at]?.send_date === v.date) return v.at;

@@ -368,7 +368,7 @@ await (async () => {
     window.NTR.reader?.relayout();
   }
 
-  // ===== The open character =====
+  // ===== The open character and its banner data =====
   function currentKey() {
     const c = ctx();
     if (c.groupId) return null;

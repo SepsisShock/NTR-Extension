@@ -110,9 +110,8 @@ try {
     });
   }
 
-  // The regex ids a folder switch changes: f is { ids, was }, items the regexes. Off remembers which were on, in was.
-  // Back on turns those on again: all of them for a folder never switched off here, none if the remembered ones have
-  // left it.
+  // Returns the ids a folder switch changes. f is { ids, was }, items its regexes. Off stores the enabled ones in was.
+  // On restores those of was still in the folder, or all of f.ids when was is unset.
   function folderFlip(f, items, on) {
     if (!on) { f.was = items.filter((x) => !x.disabled).map((x) => x.id); return f.was; }
     const ids = Array.isArray(f.was) ? f.was.filter((id) => f.ids.includes(id)) : f.ids;

@@ -208,9 +208,9 @@
     if (!v.muted) v.play().catch(() => {});
   }
 
-  // ===== Banner image rotation =====
-  // Banner rotation, and its height, gap, transparent areas and video sound, follow the Global / Char switch: Char uses
-  // the character's own copy, Global these settings.
+  // ===== Banner rotation and look (Global / Char) =====
+  // Rotation, height, gap, transparent areas and video sound follow the Global / Char switch: Char uses the character's
+  // own copy, Global uses these settings.
   const ROT_KEYS = { rotate: 'bannerRotate', rotateSec: 'bannerRotateSec', rotateFx: 'bannerRotateFx', rotateOrder: 'bannerRotateOrder' };
   const BANNER_LOOK_KEYS = { height: 'bannerHeight', gap: 'bannerGap', backdrop: 'bannerBackdrop', videoSound: 'bannerVideoSound' };
   // A character switched to Char starts on the Global kind, rotation and look settings.

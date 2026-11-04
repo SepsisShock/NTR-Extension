@@ -25,8 +25,8 @@
   const UI_INNER_TOP = ['#cb_modal_overlay .ntr_fold.ntr_open', '#cb_modal_overlay .rx_open .ntr_fold.rx_fhead', '#cb_modal_overlay .ntr_fold.rx_uhead'];
   const UI_INNER_BOTTOM = ['#cb_modal_overlay .ntr_fold + .cb_collapse_content', '#cb_modal_overlay .ntr_page .ntr_card.rx_fbody', '#cb_modal_overlay .ntr_page .ntr_card.rx_loose'];
   // Small controls go square only inside these, so the send box, Quick Replies and the chat keep theirs. In a pinned block
-  // only Agent Results count, since other blocks show copies of the chat. NTR's switches stay round: the :not() list matches
-  // the Enable switch selectors in style.css.
+  // only Agent Results count, since other blocks show copies of the chat. NTR's switches stay round: keep the :not() list the
+  // same as the Enable switch selectors in style.css, minus their #cb_modal_overlay prefix.
   const UI_HOLDERS = ':is(#top-settings-holder, #character_popup, .popup, #dialogue_popup, #movingDivs, #cb_modal_overlay, #ntr_pin_layer .ntr_agres, #ntr_map)';
   const UI_CONTROLS = `:is(.menu_button, .text_pole, textarea, select, input[type="checkbox"]:not(.ntr_pswitch, #m_ai_on, #m_us_on),
     .select2-selection, .range-block-counter input, .neo-range-input, .neo-range-slider, input[type="range"], .ui-slider, .ui-slider-handle,

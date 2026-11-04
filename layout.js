@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.53';
+  const LAYOUT_VERSION = '2.86.54';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -581,9 +581,9 @@
     css += cssRule('body #sheld', { left: 'var(--ntr-cx)', top: 'var(--ntr-cy)', width: 'var(--ntr-cw)', height: 'var(--ntr-ch)', 'max-height': 'var(--ntr-ch)', right: 'auto', bottom: 'auto', margin: '0', resize: 'none' });
     css += cssRule('body #sheld > #sheldheader', { display: 'none' });
     css += cssRule('body #chat', { 'max-height': 'none' });
-    // Fixed parts are placed in the page's root, which SillyTavern's phone look leaves with no height; anything held by
-    // the bottom of the screen would end up above it. style.css now gives the root its height on screens up to 1000px
-    // wide, and this workaround stays.
+    // Fixed parts are placed in the page's root (html rule in style.css). On phones its 100% height may differ from 100dvh
+    // while the address bar moves, leaving bottom-held parts short of the screen. Headless tests can't show it; only a
+    // phone test can show this rule isn't needed.
     if (phone) css += cssRule('html', { 'min-height': '100dvh' });
 
     // Menu bar: the icons and the strip behind them. It stays SillyTavern's own while it sits unmoved on the top edge

@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.53';
+  const CAST_VERSION = '2.86.54';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -375,7 +375,7 @@
   function restoreTags() {
     if (!tagsHidden || hideOn(settings())) return;
     tagsHidden = false;
-    if (typeof ctx().reloadCurrentChat === 'function') ctx().reloadCurrentChat();
+    ctx().reloadCurrentChat();
   }
   function cleanTags(els) {
     const s = settings();
@@ -438,7 +438,7 @@
   function updateInjection() {
     const s = settings();
     const on = A.isOn() && s.avatarEnabled && !s.nodeEnabled && s.emoInject && (s.emoFaces || s.emoStage);
-    A.setInjection(INJECT_KEY, on ? promptText(s) : '', 'emotion instructions');
+    A.setInjection(INJECT_KEY, on ? promptText(s) : '');
   }
 
   // A new chat, NTR switched on, or Visual Novel Mode switched on or off. SillyTavern clears extension prompts when a

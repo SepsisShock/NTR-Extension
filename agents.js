@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.53';
+  const AGENTS_VERSION = '2.86.54';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -474,7 +474,6 @@
   function inject(type) {
     const at = upToFor(type);
     const c = ctx();
-    if (typeof c.setExtensionPrompt !== 'function') return;
     const sent = new Set();
     if (pageOn()) {
       for (const a of list()) {
@@ -486,7 +485,7 @@
         try { c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${text}`, where, a.sendDepth, a.sendScan, role); sent.add(a.id); } catch (e) { console.error('[NTR] Could not send an agent result', e); }
       }
     }
-    for (const id of injected) if (!sent.has(id)) { try { c.setExtensionPrompt(injKey(id), '', 1, 0); } catch (e) { /* gone */ } }
+    for (const id of injected) if (!sent.has(id)) { c.setExtensionPrompt(injKey(id), '', 1, 0); }
     injected.clear();
     sent.forEach((id) => injected.add(id));
   }
@@ -591,7 +590,7 @@
   // A chat reply started meanwhile keeps the chat preset's samplers. Returns the function that stops listening.
   function ownSamplers(a, c) {
     const ev = OWN_SAMP_API[c.mainApi];
-    if (!ev || !c.event_types?.[ev]) return () => {};
+    if (!ev) return () => {};
     const own = samplers(a, c.mainApi === 'textgenerationwebui');
     const set = c.mainApi === 'openai' && a.effOn ? c.chatCompletionSettings : null;
     if (!set && !Object.keys(own).length) return () => {};
@@ -1452,21 +1451,17 @@
   }
 
   // SillyTavern's crop box, square, on the picture at src. Returns the cropped part as a PNG file (transparency kept), or
-  // null on Cancel. Without the crop box (an older SillyTavern), the whole picture. A picture from another site that
-  // doesn't allow reading it can't be cropped.
+  // null on Cancel. A picture from another site that doesn't allow reading it can't be cropped.
   async function cropFile(src, revoke = false) {
     try {
       const img = new Image();
       if (!src.startsWith('blob:')) img.crossOrigin = 'anonymous';
       await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.')); img.src = src; });
       const c = ctx();
-      let box = { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
-      if (typeof c.Popup === 'function' && c.POPUP_TYPE?.CROP != null) {
-        const p = new c.Popup('', c.POPUP_TYPE.CROP, '', { cropImage: src, cropAspect: 1, okButton: 'Crop' });
-        // On Crop it answers with its own JPEG of the crop (no transparency), on Cancel with null: only its box is used.
-        if (!(await p.show()) || !p.cropData) return null;
-        box = p.cropData;
-      }
+      const p = new c.Popup('', c.POPUP_TYPE.CROP, '', { cropImage: src, cropAspect: 1, okButton: 'Crop' });
+      // On Crop it answers with its own JPEG of the crop (no transparency), on Cancel with null: only its box is used.
+      if (!(await p.show()) || !p.cropData) return null;
+      const box = p.cropData;
       const w = Math.max(1, Math.round(box.width)), h = Math.max(1, Math.round(box.height));
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;

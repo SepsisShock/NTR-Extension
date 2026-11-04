@@ -18,10 +18,10 @@ test('a card save already sent finishes before NTR data is removed', async () =>
       land = () => { server.ntr = JSON.parse(opts.body).data.extensions.ntr; steps.push('save landed'); res({ ok: true }); };
     });
   };
-  context.writeExtensionField = async (i, key, value) => {
+  context.writeExtensionFieldBulk = async (avatars, key, value) => {
     steps.push('removed');
-    server.ntr = value;
-    delete context.characters[i].data.extensions[key];
+    if (value === context.constants.unset) delete server[key];
+    return { updated: [ch.avatar], skipped: [] };
   };
 
   // An edit, saved to the card 0.7 seconds later.
@@ -35,5 +35,5 @@ test('a card save already sent finishes before NTR data is removed', async () =>
   land();
   await removing;
   assert.deepEqual(steps, ['save sent', 'save landed', 'removed']);
-  assert.deepEqual(server.ntr, {});
+  assert.equal(server.ntr, undefined);
 });

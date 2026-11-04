@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.53';
+  const ELEMENTS_VERSION = '2.86.54';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -346,11 +346,7 @@
   const RB_LABEL = { think: 'rbThink', done: 'rbDone', some: 'rbSome' };
   const RB_ST_LABEL = { rbThink: 'Thinking...', rbDone: 'Thought for {time}', rbSome: 'Thought for some time' };
   function rbTime(sec) {
-    const m = window.moment;
-    if (m && m.duration) {
-      try { return m.duration(sec * 1000).locale(ctx().getCurrentLocale?.() || 'en').humanize({ s: 50, ss: 3 }); } catch (e) {}
-    }
-    return `${Math.round(sec)} seconds`;
+    return window.moment.duration(sec * 1000).locale(ctx().getCurrentLocale()).humanize({ s: 50, ss: 3 });
   }
   const rbState = (el) => { const d = el.dataset.duration; return d === undefined ? 'think' : d === 'unknown' ? 'some' : 'done'; };
   function rbLabelFor(el, s, state) {
@@ -512,7 +508,7 @@
   function mdValue(id, mes, mesid, s) {
     const x = mes.extra || {};
     const secs = mes.gen_started && mes.gen_finished ? (new Date(mes.gen_finished) - new Date(mes.gen_started)) / 1000 : NaN;
-    const when = () => { try { const m = ctx().timestampToMoment?.(mes.send_date); return m && m.isValid() ? m : null; } catch (e) { return null; } };
+    const when = () => { try { const m = ctx().timestampToMoment(mes.send_date); return m && m.isValid() ? m : null; } catch (e) { return null; } };
     switch (id) {
       case 'num': return `#${mesid}`;
       case 'date': { const m = when(); return m ? m.format(s.mdDate === 'short' ? 'L' : 'LL') : ''; }

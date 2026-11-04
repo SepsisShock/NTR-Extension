@@ -131,6 +131,9 @@ Keep the open-world feel, and let a card optionally have endings.
 
 Start this work only when the repository owner, SepsisShock, says release is approaching.
 
+### Minimum SillyTavern version
+- [ ] Set `minimum_client_version` in `manifest.json` to the SillyTavern release that's current at launch (1.19.0 was set before release, while there were no other users). After launch, raise it only when NTR starts using something older releases don't have.
+
 ### Settings upgrades for other users
 - [ ] Update CLAUDE.md's Storage & Migration rule: once others use NTR, keep `loadSettings` and theme upgrades instead of removing them after my setup has loaded them, and add one for every renamed or removed settings key. Put "`loadSettings` upgrades" back on the Dead Code & Guards "Always keep" list. First check that this is still how settings and themes are upgraded, since files, functions or CLAUDE.md sections may have been renamed or moved.
 
@@ -146,7 +149,7 @@ Test on phones and fix what breaks. Android and iOS both need checking: every iO
 - [ ] Android (Chrome).
 - [ ] iOS (Safari).
 - [ ] NTR menu as a full-screen sheet.
-- [ ] Screen height changes when the address bar shows or hides.
+- [ ] Screen height changes when the address bar shows or hides. If the screen-height rules turn out unneeded, remove them: `style.css` (`.cb_popup_overlay`, the screen layers) and `layout.js` (the `html` min-height).
 - [ ] Notch and home bar areas on iPhone.
 - [ ] Dragging popup characters by touch.
 - [ ] Visual Novel Mode: dialogue box, sprites, choices, CGs.

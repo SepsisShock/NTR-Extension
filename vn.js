@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.53';
+  const VN_VERSION = '2.86.54';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -1319,7 +1319,7 @@
   const INJECT_KEY = 'ntr_vn_tags';
   function updateInjection() {
     const s = settings();
-    A.setInjection(INJECT_KEY, A.isOn() && s.nodeEnabled && s.nodeInject ? buildPrompt(s) : '', 'tag instructions');
+    A.setInjection(INJECT_KEY, A.isOn() && s.nodeEnabled && s.nodeInject ? buildPrompt(s) : '');
   }
 
   function nodeGoMsg(d) {
@@ -1362,9 +1362,7 @@
   let lastSig = null;
   function chatSig() {
     const c = ctx();
-    let id = '';
-    try { id = typeof c.getCurrentChatId === 'function' ? c.getCurrentChatId() : c.chatId; } catch (e) {}
-    return `${c.groupId || c.characterId}|${id || ''}`;
+    return `${c.groupId || c.characterId}|${c.getCurrentChatId() || ''}`;
   }
   function chatIsFresh() {
     const chat = (ctx().chat || []).filter((m) => m && !m.is_system);

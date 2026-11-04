@@ -34,7 +34,8 @@
 }
 
 /* Menu: a floating panel. No dark backdrop, and SillyTavern stays clickable behind it. */
-/* Its height comes from the screen, a workaround kept from before the page root got its height back (the html rule above). */
+/* Sized to the screen (100dvh), not the page root (html rule above): on phones they may differ while the address bar
+   moves. Headless tests can't show it; only a phone test can show this rule isn't needed. */
 .cb_popup_overlay {
   position: fixed;
   inset: 0;
@@ -689,8 +690,8 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .ntr_cast_spr { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; transform-origin: center bottom; display: none; transition: filter .25s, opacity .25s; }
 .ntr_cast_spr.ntr_dim { filter: brightness(.6); opacity: .9; }
 
-/* The screen layers get a set size, not inset: 0: SillyTavern's phone layout (screens up to 1000px wide) left fixed
-   boxes with no height. */
+/* The screen layers are sized to the screen (100dvh), not to the page root through inset: 0, for the same reason as the
+   menu's height above. */
 #cb_pop_layer, #cb_fg_layer, #cb_fg_front, #cb_place_layer { left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; }
 #cb_pop_layer { position: fixed; z-index: 2500; pointer-events: none; overflow: hidden; }
 #cb_pop_layer .cb_popf { position: absolute; display: none; pointer-events: none; overflow: hidden; container-type: size; }

@@ -1,10 +1,10 @@
 (() => {
-  const THEMES_VERSION = '2.86.56';
+  const THEMES_VERSION = '2.86.57';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
-    lookSnapshot, applyLook, resetLook, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
-    unpackFiles, isObj, stColor, downloadJson, freeName, openMenu } = A;
+    lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, readDataURL, normFile, uploadDataUrl,
+    isObj, stColor, downloadJson, freeName, openMenu } = A;
   const { COLOR_FROM, rbCssText, RB_CSS } = A.look;
 
   // The parts with Custom CSS: their theme section, keys, name, where they're set, and the CSS shown on import (by
@@ -17,6 +17,54 @@
     ['pfp', ['aiCss'], 'the AI avatar', 'Avatars, AI Avatar'],
     ['pfp', ['usCss'], 'the User avatar', 'Avatars, User Avatar'],
   ];
+
+  const applyLook = (data) => setLook((s) => { for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data && data[sec])); });
+  // The default look, with no theme picked.
+  const resetLook = () => setLook((s) => {
+    for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
+    s.themeActive = null;
+  });
+
+  async function mapStrings(obj, fn) {
+    const out = structuredClone(obj);
+    const walk = async (o) => {
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        if (typeof v === 'string') o[k] = await fn(v);
+        else if (v && typeof v === 'object') await walk(v);
+      }
+    };
+    await walk(out);
+    return out;
+  }
+
+  async function embedFiles(obj) {
+    const cache = new Map();
+    let fails = 0;
+    const data = await mapStrings(obj, async (v) => {
+      const p = normFile(v);
+      if (!p) return v;
+      if (!cache.has(p)) {
+        try {
+          const r = await fetch('/' + p);
+          if (!r.ok) throw new Error(String(r.status));
+          cache.set(p, await readDataURL(await r.blob()));
+        } catch (e) { cache.set(p, null); fails++; }
+      }
+      return cache.get(p) || v;
+    });
+    return { data, fails };
+  }
+
+  const hasEmbedded = (obj) => JSON.stringify(obj || {}).includes(';base64,');
+  async function unpackFiles(obj) {
+    let fails = 0;
+    const data = await mapStrings(obj, async (v) => {
+      if (!/^data:[\w/+.-]+;base64,/.test(v)) return v;
+      try { return await uploadDataUrl(v, 'theme'); } catch (e) { fails++; return ''; }
+    });
+    return { data, fails };
+  }
 
   function lookMatches(data) {
     const s = settings();
@@ -277,5 +325,5 @@
     };
   }
 
-  window.NTR.themes = { version: THEMES_VERSION, sectionHtml: themesSectionHtml, bind: bindThemes };
+  window.NTR.themes = { version: THEMES_VERSION, sectionHtml: themesSectionHtml, bind: bindThemes, resetLook };
 })();

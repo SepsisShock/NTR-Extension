@@ -1,9 +1,9 @@
 (() => {
-  const DECOR_VERSION = '2.86.56';
+  const DECOR_VERSION = '2.86.57';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
-  const { BUB_INK_OPTS, BUB_TAIL_OPTS, COLOR_FROM, SWITCHES, bubRight, bubblesOn, cssRule, joinCss, ntrAvatars, ovBgRow, ovBorderRow, ovBorderVal,
+  const { BUB_INK_OPTS, BUB_TAIL_OPTS, COLOR_FROM, bubRight, bubblesOn, cssRule, joinCss, ntrAvatars, ovBgRow, ovBorderRow, ovBorderVal,
     ovColorVal, ovLabel, ovPick, ovRadius, ovRow, ovShapeRow, ovWhen, rangeSlider, restyle: updateAvatarStyle, sendSeparate, svgMask } = A.look;
 
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
@@ -25,9 +25,10 @@
   const UI_INNER_TOP = ['#cb_modal_overlay .ntr_fold.ntr_open', '#cb_modal_overlay .rx_open .ntr_fold.rx_fhead', '#cb_modal_overlay .ntr_fold.rx_uhead'];
   const UI_INNER_BOTTOM = ['#cb_modal_overlay .ntr_fold + .cb_collapse_content', '#cb_modal_overlay .ntr_page .ntr_card.rx_fbody', '#cb_modal_overlay .ntr_page .ntr_card.rx_loose'];
   // Small controls go square only inside these, so the send box, Quick Replies and the chat keep theirs. In a pinned block
-  // only Agent Results count, since other blocks show copies of the chat. NTR's switches stay round.
+  // only Agent Results count, since other blocks show copies of the chat. NTR's switches stay round: the :not() list matches
+  // the Enable switch selectors in style.css.
   const UI_HOLDERS = ':is(#top-settings-holder, #character_popup, .popup, #dialogue_popup, #movingDivs, #cb_modal_overlay, #ntr_pin_layer .ntr_agres, #ntr_map)';
-  const UI_CONTROLS = `:is(.menu_button, .text_pole, textarea, select, input[type="checkbox"]:not(${SWITCHES.map((x) => x.split(' ').pop()).join(', ')}),
+  const UI_CONTROLS = `:is(.menu_button, .text_pole, textarea, select, input[type="checkbox"]:not(.ntr_pswitch, #m_ai_on, #m_us_on),
     .select2-selection, .range-block-counter input, .neo-range-input, .neo-range-slider, input[type="range"], .ui-slider, .ui-slider-handle,
     .cb_hbtn, .cb_close_btn, .ntr_map_hb, .ntr_agres_btn, .cb_pill, .ntr_tile_face, .ntr_pop button, .ntr_fopt)`;
 

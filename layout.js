@@ -1,10 +1,10 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.56';
+  const LAYOUT_VERSION = '2.86.57';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
-  const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
-  const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, fgOwner, joinCss, lk, ovLabel, ovPick,
+  const { askYes, card, cardNum, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
+  const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, joinCss, lk, ovLabel, ovPick,
     ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, setSlider } = A.look;
 
   // ===== Edit Placement =====
@@ -22,6 +22,8 @@
   // Everything that can move right now: the parts above, then each Pinned Block that has something picked.
   const placeItems = () => [...PLACE, ...settings().layPins.filter(pinHas).map((p) => ({ id: 'pin_' + p.id, pin: p.id, label: p.name }))];
   const pinOf = (it) => settings().layPins.find((p) => p.id === it.pin);
+  // Whose foreground pictures are showing: the group's in a group chat, otherwise the character's.
+  const fgOwner = () => (ctx().groupId ? 'group:' + ctx().groupId : currentKey());
   // Each Layout part's element, its settings, and SillyTavern's own place for it (what Reset puts back). The setting
   // names are without their layout's start (see lk and layNames).
   const LAY_PART = {

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.56';
+  const VERSION = '2.86.57';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -332,9 +332,6 @@ await (async () => {
   }
 
   // ===== NTR's main stylesheet (aw_dynamic_style) =====
-  // The selectors style.css gives the Enable switches; decor.js keeps its control styles off them. Keep both lists the same.
-  const SWITCHES = ['#cb_modal_overlay .ntr_pswitch', '#m_ai_on', '#m_us_on'];
-
   function updateAvatarStyle() {
     let styleEl = document.getElementById('aw_dynamic_style');
     if (!styleEl) {
@@ -371,23 +368,7 @@ await (async () => {
     window.NTR.reader?.relayout();
   }
 
-  // ===== Banner settings and the open character =====
-  // Banner rotation, and its height, gap, transparent areas and video sound, follow the Global / Char switch: Char uses
-  // the character's own copy, Global these settings.
-  const ROT_KEYS = { rotate: 'bannerRotate', rotateSec: 'bannerRotateSec', rotateFx: 'bannerRotateFx', rotateOrder: 'bannerRotateOrder' };
-  const BANNER_LOOK_KEYS = { height: 'bannerHeight', gap: 'bannerGap', backdrop: 'bannerBackdrop', videoSound: 'bannerVideoSound' };
-  // A character switched to Char starts on the Global kind, rotation and look settings.
-  function startChar(r) {
-    const s = settings();
-    r.mode = s.bannerMode;
-    for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
-    for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
-    r.scope = 'char';
-  }
-
-  // Whose foreground pictures are showing: the group's in a group chat, otherwise the character's.
-  const fgOwner = () => (ctx().groupId ? 'group:' + ctx().groupId : currentKey());
-
+  // ===== The open character =====
   function currentKey() {
     const c = ctx();
     if (c.groupId) return null;
@@ -512,16 +493,6 @@ await (async () => {
   }
   function closePops(scope = document) {
     scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
-  }
-
-  // A switch for a group of rows, like a regex folder: g is { ids, was }, items its rows (with an id), isOn(x) whether
-  // a row is on. Gives back the ids to switch. Off remembers which were on, in was. Back on turns those on again: all
-  // of them for a group never switched off here, none if the remembered ones have left it.
-  function groupFlip(g, items, on, isOn) {
-    if (!on) { g.was = items.filter(isOn).map((x) => x.id); return g.was; }
-    const ids = Array.isArray(g.was) ? g.was.filter((id) => g.ids.includes(id)) : g.ids;
-    g.was = null;
-    return ids;
   }
 
   // Dragging a row, with a mouse or a finger, on the Regexes and Agents pages. A mouse starts the drag once it moves a
@@ -2170,53 +2141,6 @@ await (async () => {
     refreshVisuals();
     before.forEach((p) => deleteFileIfUnused(p));
   }
-  const applyLook = (data) => setLook((s) => { for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data && data[sec])); });
-  // The default look, with no theme picked.
-  const resetLook = () => setLook((s) => {
-    for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
-    s.themeActive = null;
-  });
-
-  async function mapStrings(obj, fn) {
-    const out = structuredClone(obj);
-    const walk = async (o) => {
-      for (const k of Object.keys(o)) {
-        const v = o[k];
-        if (typeof v === 'string') o[k] = await fn(v);
-        else if (v && typeof v === 'object') await walk(v);
-      }
-    };
-    await walk(out);
-    return out;
-  }
-
-  async function embedFiles(obj) {
-    const cache = new Map();
-    let fails = 0;
-    const data = await mapStrings(obj, async (v) => {
-      const p = normFile(v);
-      if (!p) return v;
-      if (!cache.has(p)) {
-        try {
-          const r = await fetch('/' + p);
-          if (!r.ok) throw new Error(String(r.status));
-          cache.set(p, await readDataURL(await r.blob()));
-        } catch (e) { cache.set(p, null); fails++; }
-      }
-      return cache.get(p) || v;
-    });
-    return { data, fails };
-  }
-
-  const hasEmbedded = (obj) => JSON.stringify(obj || {}).includes(';base64,');
-  async function unpackFiles(obj) {
-    let fails = 0;
-    const data = await mapStrings(obj, async (v) => {
-      if (!/^data:[\w/+.-]+;base64,/.test(v)) return v;
-      try { return await uploadDataUrl(v, 'theme'); } catch (e) { fails++; return ''; }
-    });
-    return { data, fails };
-  }
 
   // The Themes page comes from themes.js, loaded at start.
   const themesSectionHtml = (s) => modulePageHtml(s, 'themes', 'themes', themesSectionHtml, 'Loading your themes.');
@@ -2935,19 +2859,18 @@ await (async () => {
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
     refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v), fontName: (v) => fontName(v),
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
-    LOOK, TAG_KEYS, lookSnapshot, applyLook, resetLook, cleanLookSection, validLookValue, collectFileRefs, readText, embedFiles, hasEmbedded,
-    unpackFiles, isObj, stColor,
+    LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, normFile, uploadDataUrl, isObj, stColor,
     // Exported files, and names for imported or new items
     downloadJson, freeName, uniqueName,
     // For agents.js: its sliders' ranges
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
-    peek, bannerSrc, startChar, ROT_KEYS, BANNER_LOOK_KEYS, fgData, FG_POS, fgTransform, cardNum, card, pagePart,
+    peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, card, pagePart,
     // Edit Placement (layout.js), for avatars.js and overlays.js. Without layout.js, the pictures keep their place and
     // sliders, and the buttons say why they do nothing.
     startPlacement: (first) => (window.NTR.layout ? callModule('layout', 'startPlacement', first) : toastr.info('Layout didn\'t load, so Edit Placement isn\'t available.', 'Edit Placement')),
     drawPlace: () => callModule('layout', 'drawPlace'),
-    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, groupFlip, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
+    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';
@@ -2958,13 +2881,13 @@ await (async () => {
     // What elements.js, text.js, avatars.js, decor.js and layout.js build from: the row builders, CSS helpers, and the
     // lists their settings are checked against.
     look: {
-      POS_GRID, SHAPE_OPTS, castPartHtml, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, SWITCHES, joinCss, ovWhen, sendSeparate,
+      POS_GRID, SHAPE_OPTS, castPartHtml, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, joinCss, ovWhen, sendSeparate,
       FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel,
       RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
       cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
-      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, fgOwner, decorOn, clamp,
+      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, decorOn, clamp,
     },
   };
 

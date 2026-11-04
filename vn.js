@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.56';
+  const VN_VERSION = '2.86.57';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;

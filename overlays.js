@@ -1,10 +1,10 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.56';
+  const OVERLAYS_VERSION = '2.86.57';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
     media, escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
-    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, ROT_KEYS, BANNER_LOOK_KEYS, startChar, openMenu } = A;
+    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, openMenu } = A;
   const { ovLabel, cssTag } = A.look;
 
   const CSS = `
@@ -209,7 +209,19 @@
   }
 
   // ===== Banner image rotation =====
-  // Follows the same Global / Char switch as the kind: Char uses the character's own copy (ROT_KEYS in index.js).
+  // Banner rotation, and its height, gap, transparent areas and video sound, follow the Global / Char switch: Char uses
+  // the character's own copy, Global these settings.
+  const ROT_KEYS = { rotate: 'bannerRotate', rotateSec: 'bannerRotateSec', rotateFx: 'bannerRotateFx', rotateOrder: 'bannerRotateOrder' };
+  const BANNER_LOOK_KEYS = { height: 'bannerHeight', gap: 'bannerGap', backdrop: 'bannerBackdrop', videoSound: 'bannerVideoSound' };
+  // A character switched to Char starts on the Global kind, rotation and look settings.
+  function startChar(r) {
+    const s = settings();
+    r.mode = s.bannerMode;
+    for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
+    for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
+    r.scope = 'char';
+  }
+
   function rotation(r) {
     const s = settings();
     const own = !!r && r.scope === 'char';
@@ -219,7 +231,6 @@
     return o;
   }
 
-  // Banner height, gap, transparent areas and video sound follow the same switch (BANNER_LOOK_KEYS in index.js).
   // Per-character look values fall back to global values when unset.
   function bannerLook(r) {
     const s = settings();

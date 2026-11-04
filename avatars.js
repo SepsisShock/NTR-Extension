@@ -543,7 +543,6 @@
     }
   }
 
-  // A side's sliders in the open menu, set to what's saved.
   function setSliders(root, s, prefix, pairs) {
     for (const [id, key] of pairs) {
       const el = root.querySelector(`#m_${prefix}_${id}`);

@@ -34,8 +34,8 @@
 }
 
 /* Menu: a floating panel. No dark backdrop, and SillyTavern stays clickable behind it. */
-/* Its height is the screen's (100dvh), not the page root's (the html rule above): on phones they may differ while the address
-   bar moves. Headless tests can't show this, so only a test on a phone can show this rule isn't needed. */
+/* Sized to the screen (100dvh), not the page root (html rule above): on phones they may differ while the address bar
+   moves. Headless tests can't show it; only a phone test can show this rule isn't needed. */
 .cb_popup_overlay {
   position: fixed;
   inset: 0;

@@ -581,9 +581,9 @@
     css += cssRule('body #sheld', { left: 'var(--ntr-cx)', top: 'var(--ntr-cy)', width: 'var(--ntr-cw)', height: 'var(--ntr-ch)', 'max-height': 'var(--ntr-ch)', right: 'auto', bottom: 'auto', margin: '0', resize: 'none' });
     css += cssRule('body #sheld > #sheldheader', { display: 'none' });
     css += cssRule('body #chat', { 'max-height': 'none' });
-    // Fixed parts are placed in the page's root (see the html rule in style.css). On phones its 100% height may differ
-    // from the screen's (100dvh) while the address bar moves, leaving parts held by the bottom of the screen short of
-    // it. Headless tests can't show this, so only a test on a phone can show this rule isn't needed.
+    // Fixed parts are placed in the page's root (html rule in style.css). On phones its 100% height may differ from 100dvh
+    // while the address bar moves, leaving bottom-held parts short of the screen. Headless tests can't show it; only a
+    // phone test can show this rule isn't needed.
     if (phone) css += cssRule('html', { 'min-height': '100dvh' });
 
     // Menu bar: the icons and the strip behind them. It stays SillyTavern's own while it sits unmoved on the top edge

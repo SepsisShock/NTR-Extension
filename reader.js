@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.54';
+  const READER_VERSION = '2.86.55';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -29,7 +29,7 @@
     #ntr_flip .ntr_flip_half { position: absolute; top: 0; width: 50%; height: 100%; }
     #ntr_flip .ntr_flip_sheet { transform-style: preserve-3d; animation: ntr_flip_next ${FLIP_MS}ms ease-in-out forwards; }
     #ntr_flip .ntr_flip_sheet.ntr_flip_prev { animation-name: ntr_flip_prev; }
-    #ntr_flip .ntr_flip_face { position: absolute; inset: 0; background-repeat: no-repeat; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    #ntr_flip .ntr_flip_face { position: absolute; inset: 0; background-repeat: no-repeat; backface-visibility: hidden; }
     #ntr_flip .ntr_flip_back { transform: rotateY(180deg); }
     #ntr_flip .ntr_flip_sheet .ntr_flip_face::after { content: ''; position: absolute; inset: 0; background: #000; opacity: 0; animation: ntr_flip_shade ${FLIP_MS}ms ease-in-out; }
     @keyframes ntr_flip_next { to { transform: rotateY(-180deg); } }

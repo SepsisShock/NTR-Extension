@@ -20,7 +20,7 @@ test('the Themes page lists the saved themes A to Z after Default Look, with the
 test('Default Look puts the look settings back and picks no theme', () => {
   const s = api.settings();
   Object.assign(s, { ovFontOn: !api.DEFAULTS.ovFontOn, themes: [{ id: 'th_a', name: 'A', data: {} }], themeActive: 'th_a' });
-  api.resetLook();
+  window.NTR.themes.resetLook();
   assert.equal(s.ovFontOn, api.DEFAULTS.ovFontOn);
   assert.equal(s.themeActive, null);
   s.themes = [];

@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.56';
+  const REGEX_VERSION = '2.86.57';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson } = A;
@@ -110,8 +110,14 @@ try {
     });
   }
 
-  // The regexes a folder switch changes (groupFlip in index.js).
-  const folderFlip = (f, items, on) => A.groupFlip(f, items, on, (x) => !x.disabled);
+  // Returns the ids a folder switch changes. f is { ids, was }, items its regexes. Off stores the enabled ones in was.
+  // On restores those of was still in the folder, or all of f.ids when was is unset.
+  function folderFlip(f, items, on) {
+    if (!on) { f.was = items.filter((x) => !x.disabled).map((x) => x.id); return f.was; }
+    const ids = Array.isArray(f.was) ? f.was.filter((id) => f.ids.includes(id)) : f.ids;
+    f.was = null;
+    return ids;
+  }
 
   // Puts SillyTavern's rows in this order and saves through its own drag-to-reorder, which also reloads the chat.
   async function reorder(sec, ids) {

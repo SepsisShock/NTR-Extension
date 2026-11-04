@@ -1,11 +1,11 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.55';
+  const LAYOUT_VERSION = '2.86.56';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
-  const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, fgOwner, joinCss, layoutPop, lk, ovLabel, ovPick,
-    ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, setSlider, syncPopSliders } = A.look;
+  const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, fgOwner, joinCss, lk, ovLabel, ovPick,
+    ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, setSlider } = A.look;
 
   // ===== Edit Placement =====
   // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar, page bar and banner can be dragged on
@@ -144,7 +144,7 @@
       // Kept to the saved limit, which goes wider than the sliders.
       for (const k of ['PopX', 'PopY']) s[it.id + k] = rangeNum(s, it.id + k);
       updateAvatarStyle();
-      syncPopSliders(it.id);
+      window.NTR.avatars.syncPopSliders(it.id);
     } else {
       const F = fgData();
       F[it.pos + 'X'] = cardNum(Math.round(v.x), 'fgX', 0);
@@ -481,6 +481,7 @@
     window.addEventListener('touchmove', onPlaceTouchMove, { passive: false, capture: true });
     // A block still in its message moves with the chat, so the outlines follow any scroll, like Page Down in Reader Mode.
     document.addEventListener('scroll', drawPlace, true);
+    window.addEventListener('resize', drawPlace);
     drawPlaceNow();
   }
 
@@ -505,6 +506,7 @@
     if (layer) layer.style.display = 'none';
     window.removeEventListener('touchmove', onPlaceTouchMove, true);
     document.removeEventListener('scroll', drawPlace, true);
+    window.removeEventListener('resize', drawPlace);
     document.body.classList.remove('ntr_placing');
     syncPins();
     const ov = document.getElementById('cb_modal_overlay');
@@ -705,7 +707,7 @@
 
   // What NTR places by the chat panel or the send bar follows them when they move.
   function relayoutAll() {
-    layoutPop();
+    window.NTR.avatars?.layoutPop();
     window.NTR.overlays?.relayout();
     syncSendRoom();
     window.NTR.vn?.relayout();
@@ -954,8 +956,7 @@
   let pinObs = null, pinTimer = null;
   // The message being read, while a box uses Where You're Reading (see pinReadAt). Scrolling only works it out again; the
   // boxes redraw when it changes.
-  let pinRead = null, pinReadOn = false, pinReadFrame = 0;
-  // The chat changing size (a phone's keyboard, a resized window) can bring another message to the line without a scroll.
+  let pinRead = null, pinReadOn = false, pinReadFrame = 0, pinReadRo = null;
   function onPinScroll(e) {
     if (e.target.id === 'chat') pinCheckRead();
   }
@@ -971,6 +972,9 @@
     if (on === pinReadOn) return;
     pinReadOn = on;
     document[on ? 'addEventListener' : 'removeEventListener']('scroll', onPinScroll, { capture: true, passive: true });
+    // The chat changing size (a phone's keyboard, a resized window) can bring another message to the line without a scroll.
+    if (on) (pinReadRo = new ResizeObserver(pinCheckRead)).observe(document.getElementById('chat'));
+    else { pinReadRo.disconnect(); pinReadRo = null; }
   }
   function queuePins() {
     if (pinTimer) return;
@@ -1298,7 +1302,6 @@
     bind: bindLayout,
     apply: applyLayout,
     syncPins,
-    pinCheckRead,
     syncSendRoom,
     sendFree,
     pageFree,

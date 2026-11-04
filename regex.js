@@ -227,26 +227,14 @@ try {
     #cb_modal_overlay .rx_dim .rx_name { opacity: .45; text-decoration: line-through; }
     #cb_modal_overlay .ntr_dragging + .rx_empty { display: none; }
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
-    #cb_modal_overlay input.rx_sw[type=checkbox] {
-      appearance: none; flex: none; box-sizing: border-box; position: relative; width: 2.1em; height: 1.15em; margin: 0;
-      border: 1px solid var(--SmartThemeBorderColor, #888); border-radius: 999px; background: var(--ntr-well-deep); cursor: pointer;
-      outline: none; box-shadow: none; transform: none; align-self: center; transition: background .15s, border-color .15s;
-    }
-    #cb_modal_overlay input.rx_sw[type=checkbox]::after { content: none; display: none; }
-    #cb_modal_overlay input.rx_sw[type=checkbox]::before {
-      content: ''; position: absolute; top: 50%; left: .14em; width: .8em; height: .8em; border-radius: 50%;
-      background: var(--SmartThemeBodyColor, #ccc); opacity: .6; box-shadow: none; clip-path: none; transform: translateY(-50%); transition: left .15s, background .15s, opacity .15s;
-    }
-    #cb_modal_overlay input.rx_sw[type=checkbox]:checked { background: var(--SmartThemeQuoteColor, #6cf); border-color: var(--SmartThemeQuoteColor, #6cf); }
-    #cb_modal_overlay input.rx_sw[type=checkbox]:checked::before { left: calc(100% - .94em); background: var(--ntr-on-accent); opacity: 1; }
-    #cb_modal_overlay input.rx_sw[type=checkbox]:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #6cf); outline-offset: 3px; }
+    #cb_modal_overlay .rx_swbox .ntr_pswitch { margin: 0; }
     #cb_modal_overlay .rx_guide { display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; border: 0; background: none;
       color: var(--SmartThemeQuoteColor, #6cf); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   `;
 
   let query = '';
   // In a label box, so a finger has room to hit it (see the CSS).
-  const sw = (cls, on, title, extra = '') => `<label class="rx_swbox ntr_swcol"><input type="checkbox" class="rx_sw ${cls}" ${on ? 'checked' : ''} title="${title}" aria-label="${title}"${extra}></label>`;
+  const sw = (cls, on, title, extra = '') => `<label class="rx_swbox ntr_swcol"><input type="checkbox" class="ntr_pswitch ${cls}" ${on ? 'checked' : ''} title="${title}" aria-label="${title}"${extra}></label>`;
   const btn = (act, icon, title, extra = '') => `<button class="menu_button rx_btn${extra}" data-act="${act}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
 
   function rowHtml(x) {

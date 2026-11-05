@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.63';
+  const VERSION = '2.86.64';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -718,6 +718,7 @@ await (async () => {
   }
   // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
+  const thumbHtml = (src, icon) => (media(src) ? `<img src="${escapeHTML(media(src))}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
   // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
   // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
   // optionally label (the name; Picture by default), icon (the empty preview's), wide (a wide preview), hint (under the
@@ -739,7 +740,7 @@ await (async () => {
     const part = (p) => overlay.querySelector(`#m_${o.id}_${p}`);
     const file = part('file');
     const render = () => {
-      part('prev').innerHTML = s[o.key] ? `<img src="${escapeHTML(s[o.key])}" alt="">` : `<i class="fa-solid ${o.icon || 'fa-image'}"></i>`;
+      part('prev').innerHTML = thumbHtml(s[o.key], o.icon || 'fa-image');
       part('clr').disabled = !s[o.key];
     };
     const setImg = (url) => {
@@ -1168,6 +1169,12 @@ await (async () => {
   function bindCheck(root, sel, s, key, after) {
     root.querySelector(sel).onchange = function() { s[key] = this.checked; save(); after?.(); };
   }
+  function bindSliders(root, sel, s, after) {
+    root.querySelectorAll(sel).forEach((sl) => {
+      sl.oninput = () => { s[sl.dataset.key] = Number(sl.value); after?.(); };
+      sl.onchange = save;
+    });
+  }
   function ovSlider(s, key, unit, min, max, step, cls, scale) {
     const v = rangeNum(s, key);
     return `
@@ -1227,13 +1234,7 @@ await (async () => {
         updateAvatarStyle();
       };
     });
-    overlay.querySelectorAll('.m_o_sl').forEach((sl) => {
-      sl.oninput = () => {
-        s[sl.dataset.key] = Number(sl.value);
-        updateAvatarStyle();
-      };
-      sl.onchange = save;
-    });
+    bindSliders(overlay, '.m_o_sl', s, updateAvatarStyle);
     const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
     for (const k of Object.keys(PICK_KEYS)) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
     syncWhen();
@@ -2865,7 +2866,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, checkBox, bindCheck, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, tiles, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,

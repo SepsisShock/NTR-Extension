@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.63';
+  const VN_VERSION = '2.86.64';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -674,14 +674,10 @@
     const mapOn = overlay.querySelector('#m_map_on');
     if (mapOn) mapOn.onchange = () => { s.nodeMaps = mapOn.checked; save(); syncMapBtn(); if (s.nodeMaps) loadSub('map', true); else A.openMenu(); };
 
-    overlay.querySelectorAll('.m_n_sl').forEach((sl) => {
-      sl.oninput = function() {
-        s[this.dataset.key] = Number(this.value);
-        nodeApplyLook();
-        placeNode();
-        updateStage();
-      };
-      sl.onchange = save;
+    A.bindSliders(overlay, '.m_n_sl', s, () => {
+      nodeApplyLook();
+      placeNode();
+      updateStage();
     });
     onPills(overlay, 'nshape', (v) => { s.nodeShape = v; save(); nodeApplyLook(); });
 
@@ -774,10 +770,9 @@
     // Default art
     const artFile = overlay.querySelector('#m_art_file');
     let artPending = null;
-    const thumb = (src, icon) => (src ? `<img src="${escapeHTML(src)}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
     const renderArt = () => {
-      overlay.querySelector('#m_art_bgprev').innerHTML = thumb(artBgUrl(), 'fa-image');
-      overlay.querySelector('#m_art_sprprev').innerHTML = thumb(silhouetteFor('preview'), 'fa-user');
+      overlay.querySelector('#m_art_bgprev').innerHTML = A.thumbHtml(artBgUrl(), 'fa-image');
+      overlay.querySelector('#m_art_sprprev').innerHTML = A.thumbHtml(silhouetteFor('preview'), 'fa-user');
       overlay.querySelector('#m_art_bgbtns').style.display = s.artBg === 'custom' ? 'flex' : 'none';
       overlay.querySelector('#m_art_sprbtns').style.display = s.artSprite === 'custom' ? 'flex' : 'none';
       overlay.querySelectorAll('.m_art_clr').forEach((b) => { b.disabled = !s[b.dataset.k]; });
@@ -844,7 +839,7 @@
     const row = (id, name, url) => {
       const isDef = id === DEF_ID;
       return `<div class="cb_spk"><div class="cb_spk_row">
-        <div class="cb_thumbbox cb_wide">${media(url) ? `<img src="${escapeHTML(media(url))}" alt="">` : '<i class="fa-solid fa-image"></i>'}</div>
+        <div class="cb_thumbbox cb_wide">${A.thumbHtml(url, 'fa-image')}</div>
         ${isDef
           ? `<span class="cb_spk_name"><strong>${L.def.label}</strong><small>${L.def.hint}</small></span>`
           : `<input type="text" class="text_pole m_${L.c}_name" data-id="${id}" aria-label="${L.label} Name" value="${escapeHTML(name)}" style="flex:1;min-width:0;margin:0;">`}

@@ -1,5 +1,5 @@
 (() => {
-  const MAP_VERSION = '2.86.63';
+  const MAP_VERSION = '2.86.64';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -325,7 +325,7 @@
       const id = escapeHTML(m.id);
       return `<div class="cb_spk"><div class="cb_spk_row">
         <label class="cb_defdot" title="Start map"><input type="radio" name="cbr_maproot" value="${id}" aria-label="Start Map" ${root && root.id === m.id ? 'checked' : ''}></label>
-        <div class="cb_thumbbox cb_wide">${media(m.url) ? `<img src="${escapeHTML(media(m.url))}" alt="">` : '<i class="fa-solid fa-map"></i>'}</div>
+        <div class="cb_thumbbox cb_wide">${A.thumbHtml(m.url, 'fa-map')}</div>
         <input type="text" class="text_pole m_m_name" data-id="${id}" aria-label="Map Name" value="${escapeHTML(m.name)}" style="flex:1;min-width:0;margin:0;">
         <button class="menu_button m_m_up" data-id="${id}" title="Upload map picture" aria-label="Upload map picture"><i class="fa-solid fa-upload"></i></button>
         <button class="menu_button m_m_url" data-id="${id}" title="Use a link for the map picture" aria-label="Use a link for the map picture"><i class="fa-solid fa-link"></i></button>

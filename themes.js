@@ -1,5 +1,5 @@
 (() => {
-  const THEMES_VERSION = '2.86.64';
+  const THEMES_VERSION = '2.86.65';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
@@ -115,7 +115,7 @@
     const page = overlay.querySelector('.ntr_page[data-page="themes"]');
     const panel = overlay.querySelector('#m_t_panel');
     const list = page.querySelector('.ntr_tlist');
-    const nameTaken = (name, self) => s.themes.some((t) => t !== self && t.name.toLowerCase() === name.toLowerCase());
+    const nameTaken = (name) => s.themes.some((t) => t.name.toLowerCase() === name.toLowerCase());
     // The ticked sections, or null with a warning when none is.
     const chosenSecs = () => {
       const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
@@ -146,8 +146,7 @@
       label: 'Theme Name',
       value,
       ok: '<i class="fa-solid fa-floppy-disk"></i> Save',
-      check: (name) => (!name ? { error: 'Type a name first.' }
-        : nameTaken(name, self) ? { error: 'A theme with that name already exists.' } : { value: name }),
+      check: A.uniqueName(s.themes, self, 'theme'),
     });
 
     // Which regex folders are on (regex.js) is kept with a theme, outside its look settings, and never exported.
@@ -269,10 +268,7 @@
 
     const tf = overlay.querySelector('#m_t_file');
     overlay.querySelector('#m_t_imp').onclick = () => tf.click();
-    tf.onchange = async () => {
-      const f = tf.files[0];
-      tf.value = '';
-      if (!f) return;
+    A.onFilePick(tf, 'Themes', async (f) => {
       let j;
       try { j = JSON.parse(await readText(f)); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
@@ -307,7 +303,7 @@
       panel.querySelector('#m_t_add').onclick = async () => {
         const chosen = chosenSecs();
         if (!chosen) return;
-        const name = freeName(panel.querySelector('#m_t_iname').value.trim() || 'Imported Theme', nameTaken);
+        const name = freeName(panel.querySelector('#m_t_iname').value.slice(0, 60).trim() || 'Imported Theme', nameTaken, 60);
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [sec, keys] of CSS_PARTS) for (const k of keys) if (data[sec] && (data[sec][k] || '').trim()) data[sec][k + 'On'] = false;
         if (hasEmbedded(data)) {
@@ -321,7 +317,7 @@
         openMenu();
         toastr.success(`Added "${name}". Pick it in the list to apply it.`, 'Themes');
       };
-    };
+    });
   }
 
   window.NTR.themes = { version: THEMES_VERSION, sectionHtml: themesSectionHtml, bind: bindThemes, resetLook };

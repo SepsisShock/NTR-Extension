@@ -1,8 +1,8 @@
 (() => {
-  const AVATARS_VERSION = '2.86.62';
+  const AVATARS_VERSION = '2.86.63';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills,
+  const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, menuBtn, newId, numRange, onPills, pageHtml, pills,
     popMenu, posGrid, openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
   const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow,
     restyle: updateAvatarStyle, setSlider, svgMask } = A.look;
@@ -694,7 +694,7 @@
         <span class="ntr_menu"><button type="button" class="menu_button" id="m_${prefix}_frmore" style="margin: 0;" title="More" aria-label="More for ${escapeHTML(f.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
       </div>
       ${tiles(`${prefix}frame`, 'Frame', opts, cur).replace('class="ntr_tiles', 'class="ntr_tiles ntr_frtiles')}
-      ${f.own ? `<button type="button" id="m_${prefix}_frup" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-upload"></i> Upload Frame</button>
+      ${f.own ? `${menuBtn(`m_${prefix}_frup`, 'fa-upload', 'Upload Frame')}
         ${f.frames.length ? '' : '<div class="cb_hint" style="margin: 0;">Use a picture with a see-through middle, like a PNG.</div>'}` : ''}`;
   }
 
@@ -740,7 +740,7 @@
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
 
-        ${grp('popout', `<button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Layout</button>
+        ${grp('popout', `${menuBtn(`m_${prefix}_place`, 'fa-up-down-left-right', 'Edit Layout')}
           <div class="cb_hint" style="margin: 0;">Position counts from the chat panel, not the screen.</div>
           <div id="m_${prefix}_pstat" class="cb_hint" style="margin: 0;">${escapeHTML(popMsg[prefix] || '')}</div>`
           + slider('ox', 'PopX', 'Move Left/Right:')
@@ -769,7 +769,7 @@
           + `<div class="cb_row"><label id="m_${prefix}_fadelab">${FADE_PARTS[fadeCur][1]} Fade Length:</label><span><span class="ntr_slval">${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}</span>%</span></div>
           <input type="range" id="m_${prefix}_fade" ${rangeAttrs(prefix + 'FadeTop')} value="${rangeNum(s, prefix + FADE_PARTS[fadeCur][0])}">
           <div id="m_${prefix}_fswrap" class="${anyFade(s, prefix) ? '' : 'cb_dim'}">${slider('fs', 'FadeStr', 'Fade Strength:')}</div>
-          <button type="button" id="m_${prefix}_fadeclr" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-eraser"></i> Clear Fades</button>`
+          ${menuBtn(`m_${prefix}_fadeclr`, 'fa-eraser', 'Clear Fades')}`
           + '<div class="cb_hint" style="margin: 0;">Pick a side or corner, then set its length. Lit cells have a fade on.</div>')}
 
         <div class="cb_sub">Filter</div>
@@ -791,7 +791,7 @@
           <div id="m_${prefix}_frlib" style="display: flex; flex-direction: column; gap: 6px;">${frameLibHtml(s, prefix, frameHome(s, prefix))}</div>
           <input type="file" id="m_${prefix}_frfile" accept="image/png,image/webp,image/gif" hidden>
           <div id="m_${prefix}_frrows" class="${frameOf(s, prefix) ? '' : 'cb_dim'}" style="display: flex; flex-direction: column; gap: 8px;">
-            <button type="button" id="m_${prefix}_frfit" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-crosshairs"></i> Fit to Hole</button>
+            ${menuBtn(`m_${prefix}_frfit`, 'fa-crosshairs', 'Fit to Hole')}
             <div>${slider('frs', 'FrameSize', 'Frame Size:')}</div>
             <div>${slider('frx', 'FrameX', 'Frame Left/Right:')}</div>
             <div>${slider('fry', 'FrameY', 'Frame Up/Down:')}</div>
@@ -803,7 +803,7 @@
             + `<div class="cb_hint">CSS properties for this avatar, without a selector. ${CSS_NOTE}</div>`)}
         </div>
 
-        <button type="button" id="m_${prefix}_reset" class="menu_button" style="margin-top: 6px; width: max-content;"><i class="fa-solid fa-rotate-left"></i> Reset ${title} Avatar</button>
+        ${menuBtn(`m_${prefix}_reset`, 'fa-rotate-left', `Reset ${title} Avatar`, { margin: '6px 0 5px' })}
         </div>
       </div>
       </div>

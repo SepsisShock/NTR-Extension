@@ -1,10 +1,10 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.62';
+  const READER_VERSION = '2.86.63';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, isOn } = A;
+  const { ctx, settings, isOn, askNumber } = A;
   const { cssTag } = A.look;
 
   // How long a page flip takes (Book, see flip).
@@ -175,32 +175,6 @@
       if (to !== cur) go(to, 'top');
       else scrollTo('top');
     });
-  }
-
-  // Turns el into a box for a number from 1 to n, starting at at + 1, with before and after (HTML) around it. Enter calls
-  // done with the number picked, counted from 0 and kept within 0 to n - 1; Escape, clicking away or an empty box call it
-  // with null. el should be redrawn in done, and left alone while it holds the box.
-  function askNumber(el, at, n, before, after, label, done) {
-    if (!el || n < 2 || el.querySelector('input')) return;
-    el.innerHTML = `${before}<input type="number" min="1" max="${n}" step="1" value="${at + 1}" aria-label="${label}">${after} ${n}`;
-    const box = el.querySelector('input');
-    let over = false;
-    const end = (jump) => {
-      if (over) return;
-      over = true;
-      const v = Math.round(Number(box.value));
-      const typed = jump && box.value.trim() && Number.isFinite(v);
-      box.remove();
-      done(typed ? Math.max(0, Math.min(n - 1, v - 1)) : null);
-    };
-    box.addEventListener('keydown', (e) => {
-      e.stopPropagation();
-      if (e.key === 'Enter') { e.preventDefault(); end(true); }
-      else if (e.key === 'Escape') { e.preventDefault(); end(false); }
-    });
-    box.addEventListener('blur', () => end(false));
-    box.focus();
-    box.select();
   }
 
   // A Floating send bar (Layout) over the bottom of the chat panel would cover the page bar, so the page bar sits on
@@ -763,10 +737,9 @@
       if (cur < pages.length - 1) go(pages.length - 1, 'force');
       follow = true;
     },
-    // For Visual Novel: the message this chat was left on (null for the last), saving the one it shows, and its number box.
+    // For Visual Novel: the message this chat was left on (null for the last), and saving the one it shows.
     savedMsg,
     rememberMsg,
-    askNumber,
     // For Edit Layout: the narrowest a Floating page bar can be.
     barMin,
     // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.

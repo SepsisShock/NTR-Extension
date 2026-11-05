@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.62';
+  const VN_VERSION = '2.86.63';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -1341,7 +1341,7 @@
   // Clicking the counter turns the message number into a box to type one in, like Reader Mode's page number.
   function askMsg() {
     const cnt = document.querySelector('#cb_node .cb_n_count');
-    window.NTR.reader?.askNumber(cnt, node.pos, node.list.length, '', '/', 'Message number', (to) => {
+    A.askNumber(cnt, node.pos, node.list.length, '', '/', 'Message number', (to) => {
       cnt.textContent = countText();
       if (to != null) nodeGoMsg(to - node.pos);
     });

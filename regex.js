@@ -8,10 +8,10 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.62';
+  const REGEX_VERSION = '2.86.63';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson } = A;
+  const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson, switchHtml } = A;
 
   // SillyTavern runs Global first, then Preset, then Character, each from top to bottom.
   const SECS = [
@@ -240,14 +240,13 @@ try {
 
   let query = '';
   // In a label box, so a finger has room to hit it (see the CSS).
-  const sw = (cls, on, title, extra = '') => `<label class="rx_swbox ntr_swcol"><input type="checkbox" class="ntr_pswitch ${cls}" ${on ? 'checked' : ''} title="${title}" aria-label="${title}"${extra}></label>`;
   const btn = (act, icon, title, extra = '') => `<button class="menu_button rx_btn${extra}" data-act="${act}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
 
   function rowHtml(x) {
     const on = !x.disabled;
     const n = esc(x.scriptName || 'Untitled');
     return `<div class="rx_row${on ? '' : ' rx_dim'}${query ? '' : ' rx_drag'}" data-id="${esc(x.id)}">
-      ${sw('rx_rsw', on, `Turn ${n} on or off`)}
+      ${switchHtml({ cls: 'rx_rsw', box: 'rx_swbox', on, title: `Turn ${x.scriptName || 'Untitled'} on or off` })}
       <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
       <span class="ntr_menu">${btn('mvmenu', 'fa-share', `Move ${n} to a folder`)}</span>
       ${btn('edit', 'fa-pen', `Edit ${n}`)}
@@ -266,7 +265,7 @@ try {
       const open = query ? true : !!s.uiOpen[openKey(f)];
       return `<div class="rx_folder${open ? ' rx_open' : ''}" data-fid="${esc(f.id)}">
         <div class="ntr_fold rx_fhead" tabindex="0" role="button" aria-expanded="${open}">
-          ${sw('rx_fsw', items.some((x) => !x.disabled), `Turn ${esc(f.name)} on or off`, items.length ? '' : ' disabled')}
+          ${switchHtml({ cls: 'rx_fsw', box: 'rx_swbox', on: items.some((x) => !x.disabled), title: `Turn ${f.name} on or off`, extra: items.length ? '' : ' disabled' })}
           <i class="fa-solid fa-fw ${open ? 'fa-folder-open' : 'fa-folder'} rx_ficon"></i>
           <span class="rx_fname">${esc(f.name)} <span class="rx_count">${items.length}</span></span>
           <span class="ntr_menu">${btn('fmenu', 'fa-ellipsis', `More for ${esc(f.name)}`)}</span>
@@ -289,7 +288,7 @@ try {
         ${btn('new', 'fa-plus', `New ${sec.name} Regex`)}
         ${btn('newf', 'fa-folder-plus', 'New Folder')}
         <span class="ntr_menu">${btn('smenu', 'fa-ellipsis', `More for ${sec.name}`)}</span>
-        ${sec.allow ? sw('rx_allow', ok, allowTitle) : ''}
+        ${sec.allow ? switchHtml({ cls: 'rx_allow', box: 'rx_swbox', on: ok, title: allowTitle }) : ''}
       </div>
       ${ok || !v.order.length ? '' : '<div class="cb_hint">Off: these don\'t run until you switch them on.</div>'}
       ${v.same || query ? '' : `<div class="cb_hint rx_order">ST's run order no longer matches this list. <button class="menu_button" data-act="fixorder">Use This Order</button></div>`}

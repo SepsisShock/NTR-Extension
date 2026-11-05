@@ -1,10 +1,10 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.62';
+  const AGENTS_VERSION = '2.86.63';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -868,7 +868,6 @@
   let root = null;
   const opt = (pairs, cur) => pairs.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const { ovLabel: lab } = A.look;
-  const btn = (id, icon, label, title = '') => `<button type="button" class="menu_button" id="${id}" style="margin:0;width:max-content;"${title ? ` title="${esc(title)}" aria-label="${esc(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label || ''}</button>`;
   // An agent's picture is a circle; Avatar Management's Shape doesn't apply.
   const picHtml = (a, size) => {
     return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
@@ -891,8 +890,6 @@
     : `After ${KINDS.filter(([k]) => a.runOn.includes(k)).map(([, l]) => l).join(', ') || 'Messages'}${a.every > 1 ? ` · Every ${a.every}` : ''}`);
   const status = (a) => `${runsText(a)} · ${conn(a)}`;
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  // An agent's switch, in a box that's easier to tap on a touch screen.
-  const onSwitch = (cls, on, name) => `<label class="m_ag_sw ntr_swcol"><input type="checkbox" class="ntr_pswitch ${cls}" ${on ? 'checked' : ''} title="Turn ${esc(name)} on or off" aria-label="Turn ${esc(name)} on or off"></label>`;
   const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
 
@@ -910,7 +907,7 @@
   function rowHtml(a, s) {
     return `
       <div class="m_ag_row${a.id === s.agPick ? ' m_ag_sel' : ''}" data-id="${a.id}">
-        ${onSwitch('m_ag_on', a.on, a.name)}
+        ${switchHtml({ cls: 'm_ag_on', box: 'm_ag_sw', on: a.on, title: `Turn ${a.name} on or off` })}
         <button type="button" class="m_ag_pick"${a.id === s.agPick ? ' aria-current="true"' : ''}>
           ${picHtml(a, 30)}
           <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
@@ -948,7 +945,7 @@
         ${btn('m_ag_imp', 'fa-file-import', 'Import Agents')}
         <input type="file" id="m_ag_impfile" accept=".json,application/json" hidden>
         ${btn('m_ag_dnew', 'fa-building-shield', 'Create Department')}
-        ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', 'Add Margi, a ready-made story tracker')}
+        ${l.some((a) => a.example) ? '' : btn('m_ag_ex', 'fa-wand-magic-sparkles', 'Add Margi', { title: 'Add Margi, a ready-made story tracker' })}
         ${btn('m_ag_stopall', 'fa-stop', 'Stop All')}
       </div>
       <div class="m_ag_roster">

@@ -730,6 +730,65 @@
       vp.onchange = save;
     }
 
+    if (key) {
+      overlay.querySelector('#m_b_lock').onchange = function() { r.locked = this.checked; save(); render(); };
+
+      overlay.querySelector('#m_b_overlap').onchange = function() {
+        r.overlap = this.checked;
+        overlay.querySelector('#m_b_gap_wrapper').classList.toggle('cb_dim', r.overlap);
+        overlay.querySelector('#m_b_offset_wrapper').style.display = r.overlap ? 'block' : 'none';
+        save();
+        render();
+      };
+
+      const bo = overlay.querySelector('#m_b_offset');
+      if (bo) {
+        bo.oninput = function() {
+          r.overlapOffset = Number(this.value);
+          const chat = document.getElementById('chat');
+          if (chat && r.overlap) chat.style.paddingTop = r.overlapOffset + 'px';
+        };
+        bo.onchange = save;
+      }
+    }
+
+    const fi = overlay.querySelector('#m_b_file');
+    overlay.querySelector('#m_b_up').onclick = () => fi.click();
+    overlay.querySelector('#m_b_url').onclick = async () => {
+      const url = await askImageUrl('Banner Picture', overlay.querySelector('#m_b_url'), ownBanner);
+      if (!url) return;
+      addPicture(src, url);
+      save(); updateBanner(); openMenu();
+    };
+    fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openMenu(); }};
+    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openMenu(); };
+    if (n > 0) {
+      overlay.querySelector('#m_b_prev').onclick = () => step(-1);
+      overlay.querySelector('#m_b_next').onclick = () => step(1);
+      overlay.querySelectorAll('.cb_thumbbtn').forEach((t) => {
+        t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openMenu(); };
+      });
+      const strip = overlay.querySelector('.cb_thumbs');
+      const act = strip?.querySelector('.active');
+      if (strip && act) strip.scrollLeft = act.offsetLeft - strip.clientWidth / 2 + act.offsetWidth / 2;
+    }
+    if (curImg) {
+      const bp = overlay.querySelector('#m_b_p');
+      bp.oninput = function() { const img = banner?.querySelector('.cb_img'); if (img) img.style.objectPosition = `50% ${this.value}%`; };
+      bp.onchange = function() { curImg.pos = Number(this.value); save(); };
+    }
+    const ytUrl = overlay.querySelector('#m_b_yt_url');
+    ytUrl.oninput = function() { src.youtubeUrl = this.value; };
+    ytUrl.onchange = function() { save(); updateBanner(); };
+    const lookSet = (k, v) => { if (ownBanner) r[k] = v; else s[BANNER_LOOK_KEYS[k]] = v; };
+    const bh = overlay.querySelector('#m_b_h');
+    bh.oninput = function() { lookSet('height', Number(this.value)); applyBannerSize(); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
+    bh.onchange = save;
+    const bgap = overlay.querySelector('#m_b_gap');
+    bgap.oninput = function() { lookSet('gap', Number(this.value)); applyBannerSize(); };
+    bgap.onchange = save;
+    onPills(overlay, 'bbd', (v) => { lookSet('backdrop', v); save(); syncWallpaper(); });
+
     A.bindCheck(overlay, '#m_f_hidevn', s, 'fgHideVN', ensureFg);
     for (const pos of FG_POS) onPills(overlay, 'fgl' + pos, (val) => { F[pos + 'Layer'] = val; save(); ensureFg(); });
     A.bindCheck(overlay, '#m_f_enable', s, 'fgEnabled', ensureFg);
@@ -794,65 +853,6 @@
       const url = await uploadHere(() => uploadImage(f, `fg_${pos.toLowerCase()}`));
       if (url) setFg(pos, url);
     });
-
-    if (key) {
-      overlay.querySelector('#m_b_lock').onchange = function() { r.locked = this.checked; save(); render(); };
-
-      overlay.querySelector('#m_b_overlap').onchange = function() {
-        r.overlap = this.checked;
-        overlay.querySelector('#m_b_gap_wrapper').classList.toggle('cb_dim', r.overlap);
-        overlay.querySelector('#m_b_offset_wrapper').style.display = r.overlap ? 'block' : 'none';
-        save();
-        render();
-      };
-
-      const bo = overlay.querySelector('#m_b_offset');
-      if (bo) {
-        bo.oninput = function() {
-          r.overlapOffset = Number(this.value);
-          const chat = document.getElementById('chat');
-          if (chat && r.overlap) chat.style.paddingTop = r.overlapOffset + 'px';
-        };
-        bo.onchange = save;
-      }
-    }
-
-    const fi = overlay.querySelector('#m_b_file');
-    overlay.querySelector('#m_b_up').onclick = () => fi.click();
-    overlay.querySelector('#m_b_url').onclick = async () => {
-      const url = await askImageUrl('Banner Picture', overlay.querySelector('#m_b_url'), ownBanner);
-      if (!url) return;
-      addPicture(src, url);
-      save(); updateBanner(); openMenu();
-    };
-    fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openMenu(); }};
-    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openMenu(); };
-    if (n > 0) {
-      overlay.querySelector('#m_b_prev').onclick = () => step(-1);
-      overlay.querySelector('#m_b_next').onclick = () => step(1);
-      overlay.querySelectorAll('.cb_thumbbtn').forEach((t) => {
-        t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openMenu(); };
-      });
-      const strip = overlay.querySelector('.cb_thumbs');
-      const act = strip?.querySelector('.active');
-      if (strip && act) strip.scrollLeft = act.offsetLeft - strip.clientWidth / 2 + act.offsetWidth / 2;
-    }
-    if (curImg) {
-      const bp = overlay.querySelector('#m_b_p');
-      bp.oninput = function() { const img = banner?.querySelector('.cb_img'); if (img) img.style.objectPosition = `50% ${this.value}%`; };
-      bp.onchange = function() { curImg.pos = Number(this.value); save(); };
-    }
-    const ytUrl = overlay.querySelector('#m_b_yt_url');
-    ytUrl.oninput = function() { src.youtubeUrl = this.value; };
-    ytUrl.onchange = function() { save(); updateBanner(); };
-    const lookSet = (k, v) => { if (ownBanner) r[k] = v; else s[BANNER_LOOK_KEYS[k]] = v; };
-    const bh = overlay.querySelector('#m_b_h');
-    bh.oninput = function() { lookSet('height', Number(this.value)); applyBannerSize(); overlay.querySelector('#m_b_guide').textContent = bannerGuideText(); };
-    bh.onchange = save;
-    const bgap = overlay.querySelector('#m_b_gap');
-    bgap.oninput = function() { lookSet('gap', Number(this.value)); applyBannerSize(); };
-    bgap.onchange = save;
-    onPills(overlay, 'bbd', (v) => { lookSet('backdrop', v); save(); syncWallpaper(); });
   }
 
   window.addEventListener('resize', () => {

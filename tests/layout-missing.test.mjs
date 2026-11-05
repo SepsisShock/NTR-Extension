@@ -1,5 +1,5 @@
 // Without layout.js, the Layout settings the core builds stay SillyTavern's own, saved blocks are still cleaned, and
-// Edit Placement's buttons say why they do nothing.
+// Edit Layout's buttons say why they do nothing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -25,7 +25,7 @@ test('without layout.js, saved Pinned Blocks are still cleaned', () => {
   assert.equal(p.place, 'float');
 });
 
-test('without layout.js, Edit Placement says it isn\'t there', () => {
+test('without layout.js, Edit Layout says it isn\'t there', () => {
   const said = [];
   const info = toastr.info;
   toastr.info = (msg) => said.push(msg);
@@ -34,5 +34,5 @@ test('without layout.js, Edit Placement says it isn\'t there', () => {
   } finally {
     toastr.info = info;
   }
-  assert.deepEqual(said, ['Layout didn\'t load, so Edit Placement isn\'t available.']);
+  assert.deepEqual(said, ['Layout didn\'t load, so Edit Layout isn\'t available.']);
 });

@@ -717,9 +717,8 @@ await (async () => {
       </div>`;
   }
   // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
-  // A picture preview's content: the picture, or the icon when there is none.
-  const thumbHtml = (src, icon) => (media(src) ? `<img src="${escapeHTML(media(src))}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
+  const thumbHtml = (src, icon) => (media(src) ? `<img src="${escapeHTML(media(src))}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
   // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
   // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
   // optionally label (the name; Picture by default), icon (the empty preview's), wide (a wide preview), hint (under the
@@ -1170,7 +1169,6 @@ await (async () => {
   function bindCheck(root, sel, s, key, after) {
     root.querySelector(sel).onchange = function() { s[key] = this.checked; save(); after?.(); };
   }
-  // Sliders under root matching sel: each sets its data-key in s while dragged, then after runs; saved on release.
   function bindSliders(root, sel, s, after) {
     root.querySelectorAll(sel).forEach((sl) => {
       sl.oninput = () => { s[sl.dataset.key] = Number(sl.value); after?.(); };

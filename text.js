@@ -80,7 +80,7 @@
   // ST also turns on for the device's own setting.
   const MOVING = ':not(.reduced-motion):not([data-generating])';
   // Changing a Shimmer setting switches the keyframes' name, which plays it again in place, so the menu shows the change.
-  // The second place is a Nameplate picture's, under a name's band; text with only the band ignores it.
+  // The keyframes' second position is a Nameplate picture's, under a name's band; text with only the band ignores it.
   let shine = { key: '', name: 'ntr_shine_a' };
   function shineCss(s) {
     const key = JSON.stringify(FX_PARTS.filter((p) => s[p + 'FxOn'] && s[p + 'Fx'] === 'shimmer')

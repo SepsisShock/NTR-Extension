@@ -437,6 +437,10 @@
     mesObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
   }
 
+  function elementsCss(s) {
+    return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
+  }
+
   // ===== Message Details =====
   // NTR draws each spot's details itself with ::after, from a CSS variable per spot on the message (see
   // syncMessageDetails), so nothing is added inside the message and SillyTavern's rewrites while streaming or editing
@@ -545,7 +549,7 @@
     }
   }
 
-  // Styles set where each detail goes. SillyTavern is where it puts them itself.
+  // The Style presets: which details each spot shows. ST is SillyTavern's own placement.
   const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
   const MD_PRESETS = {
     st: ['ST', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
@@ -555,12 +559,8 @@
   };
   const mdPreset = (s) => Object.keys(MD_PRESETS).find((k) => Object.entries(MD_PRESETS[k][1]).every(([key, v]) => s[key].join() === v.join())) || 'custom';
 
-  function elementsCss(s) {
-    return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
-  }
-
   // ===== The Elements page =====
-  // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
+  // Parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
     return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
   }

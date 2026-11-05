@@ -219,7 +219,7 @@
   // Kept while the extension is off: the menu still opens then, and the other rules only style VN parts, which are hidden.
   const applyStyle = () => cssTag('ntr_vn_style', VN_CSS + (vnOn() ? '\n      #chat .mes { display: none !important; }\n' : ''));
 
-  // ----- Player state and reading tags -----
+  // ----- Player state and reading messages into lines -----
   // follow: on the newest message, so new ones are followed. shown: the chat message on screen, found again after earlier
   // ones are deleted. md: the chat data whose saved message was read (see keepPlace).
   const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null, follow: true, shown: null, md: null };

@@ -1150,7 +1150,7 @@ await (async () => {
     return `<div class="ntr_fbox"><input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="300" placeholder="A font name or link"></div>
       <div class="cb_hint ntr_fmiss" hidden></div>`;
   }
-  // A Custom CSS box, k its setting, and the last line under each one.
+  // A Custom CSS box, k its setting. CSS_NOTE is the hint line callers put under it.
   const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="${strMax(k)}" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
   const CSS_NOTE = 'Add <code>!important</code> if a setting doesn\'t take. Saved in themes; CSS from someone else\'s theme arrives switched off.';
 
@@ -1559,10 +1559,10 @@ await (async () => {
     return typeof u === 'string' ? u : '';
   }
 
-  // ===== Per-chat storage (the character card, or the extension settings for a group) =====
+  // ===== Per-chat storage =====
   const cardSnap = new Map();
   const cardTimers = new Map();
-  // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see flushCard.
+  // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see saveCard.
   const cardFix = new Set();
 
   function charIndexByAvatar(av) {

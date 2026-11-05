@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.63';
+  const OP_VERSION = '2.86.64';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -534,7 +534,6 @@
     // opFade and opTransMs are saved in ms and shown in seconds.
     const sl = (key, label, scale) => ovLabel(label, rangeSlider(s, key, 'm_op_sl', scale));
     const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
-    const logoBox = media(o.logoUrl) ? `<img src="${escapeHTML(media(o.logoUrl))}" alt="">` : '<i class="fa-solid fa-image"></i>';
     return `
       ${subHead('vn_open', 'Opening Video ' + TAG, 'fa-clapperboard')}
       <div class="cb_collapse_content">
@@ -554,7 +553,7 @@
           ${ovLabel('Plays', pills('opwhen', [['newchat', 'Once per New Chat'], ['open', 'Each Time the Chat Opens'], ['vn', 'Each Time Visual Novel Starts']], o.when))}
           ${ovLabel('Logo', pills('oplogo', [['upload', 'Picture'], ['none', 'None']], o.logo === 'none' ? 'none' : 'upload'))}
           <div id="m_op_lrow" class="cb_row cb_cur_row" style="margin-top:6px;${o.logo === 'none' ? 'display:none;' : ''}">
-            <div class="cb_thumbbox cb_wide">${logoBox}</div>
+            <div class="cb_thumbbox cb_wide">${A.thumbHtml(o.logoUrl, 'fa-image')}</div>
             <span style="flex:1;"></span>
             <button type="button" id="m_op_lup" class="menu_button" style="margin:0;" title="Upload logo" aria-label="Upload logo"><i class="fa-solid fa-upload"></i></button>
             <button type="button" id="m_op_lurl" class="menu_button" style="margin:0;" title="Use a link for the logo" aria-label="Use a link for the logo"><i class="fa-solid fa-link"></i></button>
@@ -635,10 +634,7 @@
       col.oninput = () => { s.opTransColor = col.value; };
       col.onchange = save;
     }
-    overlay.querySelectorAll('.m_op_sl').forEach((sl) => {
-      sl.oninput = function() { s[this.dataset.key] = Number(this.value); };
-      sl.onchange = save;
-    });
+    A.bindSliders(overlay, '.m_op_sl', s);
 
     // The video (sent as is, no re-encoding) and the logo. The menu is redrawn after each change, which also re-enables
     // the Upload button a video upload disables.

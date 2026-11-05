@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.63';
+  const CAST_VERSION = '2.86.64';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -465,8 +465,7 @@
   const spkOpen = new Set();
 
   function thumbBox(src) {
-    src = media(src);
-    return `<div class="cb_thumbbox">${src ? `<img src="${escapeHTML(src)}" alt="">` : '<i class="fa-solid fa-user"></i>'}</div>`;
+    return `<div class="cb_thumbbox">${A.thumbHtml(src, 'fa-user')}</div>`;
   }
 
   function spkRowsHtml(s) {
@@ -815,13 +814,7 @@
       cleanTags();
       restoreTags();
     });
-    overlay.querySelectorAll('.m_emo_sl').forEach((sl) => {
-      sl.oninput = function() {
-        s[this.dataset.key] = Number(this.value);
-        schedule();
-      };
-      sl.onchange = save;
-    });
+    A.bindSliders(overlay, '.m_emo_sl', s, schedule);
 
     // Tags & Delimiters
     const dIns = [...overlay.querySelectorAll('.m_d_in')];

@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.57';
+  const VERSION = '2.86.58';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -44,7 +44,7 @@ await (async () => {
     fgOpacity: 100,
     fgHideVN: false,
 
-    // Edit Placement (dragging pop-outs and foreground images): editor choices, not part of themes
+    // Edit Layout's Snap to Grid and grid size: editor choices, not part of themes
     placeSnap: false, placeGrid: 20,
 
     // Layout: the chat panel, menu bar, send bar, Reader Mode's page bar and the header banner. Desktop for screens wider than 1000px, Phone (layPh) for 1000px or
@@ -121,7 +121,7 @@ await (async () => {
     tfUserFxOn: false, tfUserFx: 'glow', tfUserFxStr: 3, tfUserFxColorOn: false, tfUserFxColor: '',
     tfAiFxOn: false, tfAiFx: 'glow', tfAiFxStr: 3, tfAiFxColorOn: false, tfAiFxColor: '',
 
-    // Display overrides
+    // UI Decor's ov keys; some belong to other pages (MOVED_OV_KEYS).
     ovEnabled: true,
     ovWidthOn: false, ovWidth: 50, ovFontOn: false, ovFont: 1,
     ovBlurOn: false, ovBlur: 10, ovShadowOn: false, ovShadow: 2,
@@ -153,15 +153,15 @@ await (async () => {
 
     // Menu state
     uiOpen: {},
+    uiPage: 'fg',
+    uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
+    wandEntry: false,
     // Regexes page (regex.js): Global folders, and Preset folders by preset. Character folders live in the card.
     // Switched off, NTR leaves SillyTavern's regexes alone: they still run, but the page and themes don't show, sort or
     // switch them.
     rxEnabled: true,
     regexFolders: [],
     regexPresetFolders: {},
-    uiPage: 'fg',
-    uiPanel: { dock: 'right', w: 440, fw: 560, fh: 0, x: null, y: null },
-    wandEntry: false,
 
     // Master switch + themes
     masterEnabled: true,
@@ -190,7 +190,7 @@ await (async () => {
       [`ov${p}BorderOn`]: false, [`ov${p}Border`]: 'line', [`ov${p}BorderColor`]: '', [`ov${p}BorderWidth`]: 1, [`ov${p}BorderOpacity`]: 100,
     });
   }
-  // Overall Font Scale keeps its old UI Display key names so saved configs keep working; it now lives in Text Formatting.
+  // Overall Font Scale sits in Text Formatting but keeps UI Decor's ov key names.
   const FONT_SCALE_KEYS = ['ovFontOn', 'ovFont'];
 
   const ctx = () => SillyTavern.getContext();
@@ -283,7 +283,7 @@ await (async () => {
     return src;
   }
 
-  // ===== Layout, Pinned Blocks and Edit Placement (layout.js) =====
+  // ===== Layout, Pinned Blocks and Edit Layout (layout.js) =====
   // Their settings stay here, with what they're checked against while settings and themes load, before layout.js is
   // there: the menu bar's edges (PICK_KEYS), each layout's setting names (NUM_RANGE) and the saved blocks (cleanPins).
   const LAY_EDGES = ['top', 'bottom', 'left', 'right'];
@@ -477,7 +477,7 @@ await (async () => {
       <button class="menu_button ntr_ask_cancel">Cancel</button>
     </div>`;
 
-  // A small menu under a button, like Move to folder on the Regex page. The button sits in a .ntr_menu box, and `html`
+  // A small menu under a button, like Move to folder on the Regexes page. The button sits in a .ntr_menu box, and `html`
   // is the menu's buttons. A second click on the same button closes it; a page closes it on any other click.
   function popMenu(anchor, html) {
     const had = anchor.parentElement.querySelector('.ntr_pop');
@@ -706,7 +706,6 @@ await (async () => {
   const askImageUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a picture link (https://...)`, loadImg,
     'That link did not load as a picture. Check it and try again.', perChat);
 
-  // Ask for a video link (mp4 or webm).
   const loadVideo = (u) => new Promise((res, rej) => {
     const v = document.createElement('video');
     v.muted = true;
@@ -1418,7 +1417,7 @@ await (async () => {
 
   const FONT_NOTE = 'Fonts: a font on your device, or any Google Fonts name or link. Google fonts need a connection.';
 
-  // Pick-one rows of UI Decor (and the rows that moved from it to Layout and Avatars): the radio name is the key in lower case, with "o" in front.
+  // A pick-one row: the radio name is the key in lower case, with "o" in front.
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
   // Shown only while a pick has a certain value, like Roundness under Rounded.
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
@@ -1913,7 +1912,7 @@ await (async () => {
 
   // ===== Theme data =====
   const PFP_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ai') || k.startsWith('us'));
-  // UI Display keys that sit on other pages now, and go in those pages' theme sections.
+  // ov keys whose settings sit on other pages, so they go in those pages' theme sections.
   const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap', 'ovNamesOn'];
   const ELEMENT_OV_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ovScroll') || k.startsWith('ovCursor') || k.startsWith('ovQr'));
   const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...LAYOUT_OV_KEYS, ...ELEMENT_OV_KEYS];
@@ -2866,9 +2865,9 @@ await (async () => {
     numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
     peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, card, pagePart,
-    // Edit Placement (layout.js), for avatars.js and overlays.js. Without layout.js, the pictures keep their place and
+    // Edit Layout (layout.js), for avatars.js and overlays.js. Without layout.js, the pictures keep their place and
     // sliders, and the buttons say why they do nothing.
-    startPlacement: (first) => (window.NTR.layout ? callModule('layout', 'startPlacement', first) : toastr.info('Layout didn\'t load, so Edit Placement isn\'t available.', 'Edit Placement')),
+    startPlacement: (first) => (window.NTR.layout ? callModule('layout', 'startPlacement', first) : toastr.info('Layout didn\'t load, so Edit Layout isn\'t available.', 'Edit Layout')),
     drawPlace: () => callModule('layout', 'drawPlace'),
     loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
@@ -2898,7 +2897,7 @@ await (async () => {
     injectExtensionMenuButton();
     registerSlashCommand();
     document.addEventListener('click', typeSlider);
-    // Sliders outside the menu, like Edit Placement's grid size.
+    // Sliders outside the menu, like Edit Layout's grid size.
     document.addEventListener('input', (e) => { if (e.target.type === 'range') showSlider(e.target, e.target.value); });
     document.addEventListener('pointerover', (e) => {
       const el = e.target.closest?.('.ntr_slval');

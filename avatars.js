@@ -1,5 +1,5 @@
 (() => {
-  const AVATARS_VERSION = '2.86.57';
+  const AVATARS_VERSION = '2.86.58';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills,
@@ -730,7 +730,7 @@
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
 
-        ${grp('popout', `<button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
+        ${grp('popout', `<button type="button" id="m_${prefix}_place" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Layout</button>
           <div class="cb_hint" style="margin: 0;">Position counts from the chat panel, not the screen.</div>
           <div id="m_${prefix}_pstat" class="cb_hint" style="margin: 0;">${escapeHTML(popMsg[prefix] || '')}</div>`
           + slider('ox', 'PopX', 'Move Left/Right:')

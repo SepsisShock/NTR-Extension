@@ -391,7 +391,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 /* SillyTavern's buttons are flex boxes, which drop the space between an icon and its label, so the gap does it. */
 #cb_modal_overlay .menu_button, #ntr_pin_layer .menu_button { gap: 6px; }
 
-/* A small menu under a button (popMenu in index.js), like Move to folder on the Regex page. */
+/* A small menu under a button (popMenu in index.js), like Move to folder on the Regexes page. */
 #cb_modal_overlay .ntr_menu { position: relative; flex: none; }
 #cb_modal_overlay .ntr_pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 170px; max-height: min(60vh, 320px); overflow-y: auto; padding: 4px; border-radius: 8px; white-space: nowrap;
   background: var(--SmartThemeBlurTintColor, #222); border: 1px solid var(--SmartThemeBorderColor, #555); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
@@ -730,7 +730,6 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .cb_grp { flex-direction: column; gap: 8px; }
 .cb_col_body { display: flex; flex-direction: column; gap: 8px; }
 .cb_sub { font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--ntr-line); }
-
 
 .cb_collapse_toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
 .cb_dim { opacity: .4; pointer-events: none; filter: grayscale(.5); transition: opacity .15s; }

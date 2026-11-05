@@ -1,4 +1,4 @@
-// Layout, Pinned Blocks and Edit Placement come from layout.js. These check that it works from what the core shares;
+// Layout, Pinned Blocks and Edit Layout come from layout.js. These check that it works from what the core shares;
 // where things sit on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -51,8 +51,8 @@ Object.assign(globalThis, {
   fetch: async () => ({ ok: true, json: async () => ({}), text: async () => '' }),
 });
 
-// The files are copied as .mjs so Node always loads them as modules, without guessing from their syntax (like CI's
-// parse check). They sit two folders down so regex.js finds a stand-in for SillyTavern's regex engine.
+// The files are copied as .mjs so Node always loads them as modules, without guessing from their syntax.
+// They sit two folders down so regex.js finds a stand-in for SillyTavern's regex engine.
 const dir = mkdtempSync(join(tmpdir(), 'ntr-test-'));
 process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
 const ext = join(dir, 'extensions', 'ntr');

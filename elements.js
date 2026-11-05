@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.58';
+  const ELEMENTS_VERSION = '2.86.59';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -982,7 +982,9 @@
     },
     sync: () => {
       syncCustomCss();
-      watchMessages();
+      // Off: the full pass below removes NTR's output, so the watcher isn't needed.
+      if (isOn()) watchMessages();
+      else { mesObs?.disconnect(); mesObs = null; }
       syncReasoningLabels();
       syncMessageDetails();
     },

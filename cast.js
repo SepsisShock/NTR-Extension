@@ -1,5 +1,5 @@
 (() => {
-  const CAST_VERSION = '2.86.58';
+  const CAST_VERSION = '2.86.59';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
@@ -445,13 +445,16 @@
   // chat opens, so the instructions are set again here.
   function refresh() {
     beats.clear();
-    ensure();
+    if (A.isOn()) ensure();
     updateInjection();
     cleanTags();
     restoreTags();
     schedule();
   }
   function teardown() {
+    chatObs?.disconnect();
+    chatObs = null;
+    clearTimeout(cleanT);
     updateInjection();
     restoreTags();
     drawFaces();

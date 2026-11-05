@@ -577,7 +577,7 @@
     bindMenuBarIcons(overlay, s);
   }
 
-  // The picks save through bindRows; the rows that depend on them follow on each change in the part.
+  // The ovPick rows save through bindRows, and the posGrids here; the rows that depend on them follow on each change in the part.
   function bindReasoning(overlay, s) {
     const fadeRows = overlay.querySelector('.m_rb_fade');
     const part = fadeRows.closest('.ntr_part');

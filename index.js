@@ -5,6 +5,20 @@ await (async () => {
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
   const TAG_KEY = '<i class="fa-solid fa-tag ntr_tag" aria-hidden="true"></i> Marks settings saved per character.';
+
+  // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
+  const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
+    ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
+  const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
+  const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
+  // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
+  const FRAME_SERIES = [
+    { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
+    { id: 'roses', name: 'Rose Mirrors', frames: [['blush', 'Blush'], ['midnight', 'Midnight']] },
+  ];
+  const FRAME_IDS = FRAME_SERIES.flatMap((f) => f.frames.map(([v]) => `${f.id}/${v}`));
+  const frameUrl = (id) => (FRAME_IDS.includes(id) ? `${NTR_BASE}assets/frames/${id}.webp` : '');
+
   const DEFAULTS = {
     bannerOn: false,
     bannerMode: 'image',
@@ -465,7 +479,34 @@ await (async () => {
     return '';
   }
 
-  // ===== Questions in the menu =====
+  // Videos (mp4 or webm) are sent as they are. Resolves to the file's path, or '' if it isn't an mp4 or webm, or it's
+  // very big and the person cancels. `btn` shows a spinner while it uploads.
+  async function uploadVideo(f, prefix, title, btn) {
+    let ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
+    if (!ext) { toastr.warning('Use an mp4 or webm video.', title); return ''; }
+    if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    const data = String(await readDataURL(f));
+    return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
+  }
+
+  // Runs run(file) when a file is picked in input; a failure shows an error toast with this title. The input is
+  // cleared first, so the same file can be picked again.
+  function onFilePick(input, title, run) {
+    input.onchange = async () => {
+      const f = input.files[0];
+      input.value = '';
+      if (!f) return;
+      try { await run(f); } catch (e) {
+        console.error(`[NTR ${title} upload]`, e);
+        toastr.error(e.message || 'Upload failed', title);
+      }
+    };
+  }
+
+  // ===== Questions and pop-up menus under a button =====
   // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
   // One question at a time: a new question closes the open one as if Cancel was pressed, and so does closing or
   // redrawing the menu it's in, so code waiting on it never hangs.
@@ -489,6 +530,87 @@ await (async () => {
       <button class="menu_button ntr_ask_cancel">Cancel</button>
     </div>`;
 
+  // Resolves to true for the main button, false for Cancel.
+  function askYes(anchor, text, ok, { danger = false } = {}) {
+    return new Promise((res) => {
+      const cancel = () => { box.remove(); res(false); };
+      const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`, cancel);
+      box.querySelector('.ntr_ask_ok').onclick = () => { box.remove(); res(true); };
+      box.querySelector('.ntr_ask_cancel').onclick = cancel;
+    });
+  }
+
+  // A text field. `check(text)` resolves to { value } to accept or { error } to show a red hint and keep asking.
+  // Resolves to the accepted value, or null on Cancel.
+  function askText(anchor, { label, value = '', ok = 'Add', check = (v) => ({ value: v }) }) {
+    return new Promise((res) => {
+      const cancel = () => { box.remove(); res(null); };
+      const box = askBox(anchor, `
+        <label>${escapeHTML(label)} <input type="text" class="text_pole ntr_ask_input" value="${escapeHTML(value)}"></label>
+        <div class="ntr_terr"></div>
+        ${askBtns(ok, false)}`, cancel);
+      const input = box.querySelector('.ntr_ask_input');
+      const err = box.querySelector('.ntr_terr');
+      const okBtn = box.querySelector('.ntr_ask_ok');
+      const done = async () => {
+        if (okBtn.disabled) return;
+        okBtn.disabled = true;
+        okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        const r = await check(input.value.trim());
+        okBtn.disabled = false;
+        okBtn.innerHTML = ok;
+        if (r.error) { err.textContent = r.error; input.focus(); return; }
+        box.remove();
+        res(r.value);
+      };
+      input.oninput = () => { err.textContent = ''; };
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); done(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+      };
+      okBtn.onclick = done;
+      box.querySelector('.ntr_ask_cancel').onclick = cancel;
+      input.focus();
+      input.select();
+    });
+  }
+
+  // Ask for a link instead of an upload, under `anchor` (the Link button). Resolves to a checked http(s) URL that
+  // loaded, or '' if cancelled. Like uploadHere, a link for the open chat that finishes checking after the chat
+  // changed would land on the wrong character, so '' comes back. `perChat` false skips this for global settings.
+  const askUrl = (anchor, label, load, failMsg, perChat = true) => {
+    const st = store();
+    return askText(anchor, {
+      label,
+      check: async (raw) => {
+        const u = cUrl(raw);
+        if (!/^https?:\/\//i.test(u)) return { error: 'Paste a full link that starts with http:// or https://' };
+        try { await load(u); } catch (e) { return { error: failMsg }; }
+        return { value: u };
+      },
+    }).then((u) => {
+      if (!u) return '';
+      if (!perChat || store() === st) return u;
+      toastr.warning('The chat changed before the link was checked, so it was not saved. Paste it again.', 'Link');
+      return '';
+    });
+  };
+  const askImageUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a picture link (https://...)`, loadImg,
+    'That link did not load as a picture. Check it and try again.', perChat);
+
+  const loadVideo = (u) => new Promise((res, rej) => {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.preload = 'metadata';
+    const done = (ok) => { clearTimeout(t); v.removeAttribute('src'); v.load(); ok ? res() : rej(new Error('Video did not load')); };
+    const t = setTimeout(() => done(false), 15000);
+    v.onloadedmetadata = () => done(true);
+    v.onerror = () => done(false);
+    v.src = u;
+  });
+  const askVideoUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
+    'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
+
   // A small menu under a button, like Move to folder on the Regexes page. The button sits in a .ntr_menu box, and `html`
   // is the menu's buttons. A second click on the same button closes it; a page closes it on any other click.
   function popMenu(anchor, html) {
@@ -505,6 +627,203 @@ await (async () => {
   }
   function closePops(scope = document) {
     scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
+  }
+
+  // ===== Shared UI helpers =====
+  // The menu's pages, in the order of the icon column: id, icon, short name for the column, full name.
+  // The only place they're written: the column and each page's title both read them from here.
+  const PAGES = [
+    ['themes', 'fa-bookmark', 'Themes', 'Themes'],
+    ['reader', 'fa-book-open', 'Reader', 'Reader Mode'],
+    ['layout', 'fa-table-cells-large', 'Layout', 'Layout'],
+    ['display', 'fa-palette', 'Decor', 'UI Decor'],
+    ['text', 'fa-text-height', 'Text', 'Text Formatting'],
+    ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
+    ['elements', 'fa-shapes', 'Elements', 'Elements'],
+    ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
+    ['regex', 'fa-code', 'Regexes', 'Regexes'],
+    ['agents', 'fa-robot', 'Agents', 'Agents'],
+  ];
+  // Lines in the column: Themes and Reader Mode, then the look settings (Layout to Overlays), then the pages that work on the chat itself.
+  const NAV_SEP = new Set(['layout', 'regex']);
+  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
+    `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
+    + '<div class="ntr_navfill"></div>';
+  // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
+  // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
+  // `wait` names the module a page is still loading, which fills it in when it arrives (see fillIn).
+  function pageHtml(sec, body, { sw = null, legend = false, note = '', wait = '' } = {}) {
+    const [, icon, , title] = PAGES.find(([id]) => id === sec);
+    return `
+      <section class="ntr_page${sw && !sw[1] ? ' ntr_off' : ''}" data-page="${sec}"${wait ? ` data-ntr-wait="${wait}"` : ''}${settings().uiPage === sec ? '' : ' hidden'}>
+        <div class="ntr_phead">
+          <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
+          <h3 class="ntr_ptitle">${title}</h3>
+          ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
+          ${legend ? `<div class="cb_hint ntr_legend">${TAG_KEY}</div>` : ''}
+        </div>
+        ${note}
+        <div class="ntr_pbody">${body}</div>
+      </section>`;
+  }
+  // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
+  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title. An optional Font
+  // Awesome icon goes before the title.
+  function pagePart(title, sw, fold, body, icon = '') {
+    return `
+      <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
+        <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
+          ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
+          ${icon ? `<i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>` : ''}
+          <h4 class="ntr_parttitle">${title}</h4>
+          <input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">
+        </div>
+        <div class="ntr_partbody">${body}</div>
+      </div>`;
+  }
+  // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
+  const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
+  // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
+  // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
+  // optionally label (the name; Picture by default), icon (the empty preview's), wide (a wide preview), hint (under the
+  // name), attrs (on the slot) and onSet (after a change).
+  function picSlotHtml(o) {
+    return `
+          <div class="cb_cur_slot"${o.attrs ? ' ' + o.attrs : ''}>
+            <div class="cb_cur_row">
+              <div class="cb_cur_prev${o.wide ? ' ntr_rd_pic' : ''}" id="m_${o.id}_prev"></div>
+              <span class="cb_cur_name">${o.label || 'Picture'}${o.hint ? `<small>${o.hint}</small>` : ''}</span>
+              <button class="menu_button" id="m_${o.id}_up" title="Upload" aria-label="Upload ${o.title}"><i class="fa-solid fa-upload"></i></button>
+              <button class="menu_button" id="m_${o.id}_url" title="Use a link" aria-label="Use a link for ${o.title}"><i class="fa-solid fa-link"></i></button>
+              <button class="menu_button" id="m_${o.id}_clr" title="Remove picture" aria-label="Remove ${o.title}"><i class="fa-solid fa-rotate-left"></i></button>
+            </div>
+            <input type="file" id="m_${o.id}_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          </div>`;
+  }
+  function bindPicSlot(overlay, s, o) {
+    const part = (p) => overlay.querySelector(`#m_${o.id}_${p}`);
+    const file = part('file');
+    const render = () => {
+      part('prev').innerHTML = s[o.key] ? `<img src="${escapeHTML(s[o.key])}" alt="">` : `<i class="fa-solid ${o.icon || 'fa-image'}"></i>`;
+      part('clr').disabled = !s[o.key];
+    };
+    const setImg = (url) => {
+      const old = s[o.key];
+      s[o.key] = url;
+      save();
+      updateAvatarStyle();
+      o.onSet?.();
+      render();
+      deleteFileIfUnused(old);
+    };
+    part('up').onclick = () => file.click();
+    part('url').onclick = async function() {
+      const url = await askImageUrl(o.title, this, false);
+      if (url) setImg(url);
+    };
+    part('clr').onclick = () => setImg('');
+    onFilePick(file, o.title, async (f) => setImg(await uploadImage(f, ...o.upload)));
+    render();
+  }
+  // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
+  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_css_ai', 'av_css_us', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
+  // An optional Font Awesome icon goes before the title, like card's.
+  function subHead(sec, title, icon = '') {
+    const ic = icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : '';
+    if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${ic}${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
+    return `<div class="ntr_glab" data-sec="${sec}">${ic}${title}</div>`;
+  }
+  function pills(name, opts, cur) {
+    return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
+  }
+  // Tiles: pick-one choices shown as pictures. Each option is [value, name, face]; the face is its picture's HTML, or
+  // the name is shown when it has none. Named tiles also show the name under the picture. Bound with onPills, like pills.
+  function tiles(name, label, opts, cur, named = false) {
+    return `<div class="ntr_tiles${named ? ' ntr_named' : ''}" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span>${named ? `<span class="ntr_tile_name">${escapeHTML(l)}</span>` : ''}</label>`).join('')}</div>`;
+  }
+  const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
+  function posGrid(name, cur) {
+    return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" aria-label="${l}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
+  }
+  function onPills(root, name, fn) {
+    root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
+  }
+  const keyClick = (el) => el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); } });
+  // Content is the header's next sibling.
+  function showFold(h, open) {
+    h.nextElementSibling.style.display = open ? 'block' : 'none';
+    h.classList.toggle('ntr_open', open);
+    h.setAttribute('aria-expanded', String(open));
+    const icon = h.querySelector('.cb_chevron');
+    icon.classList.toggle('fa-chevron-down', open);
+    icon.classList.toggle('fa-chevron-right', !open);
+  }
+  function bindCollapses(overlay, s) {
+    overlay.querySelectorAll('.cb_collapse_toggle[data-sec]').forEach((h) => {
+      const sec = h.dataset.sec;
+      showFold(h, !!s.uiOpen[sec]);
+      h.addEventListener('click', (e) => {
+        if (e.target.closest('input')) return;
+        const open = !h.classList.contains('ntr_open');
+        s.uiOpen[sec] = open;
+        save();
+        showFold(h, open);
+      });
+      keyClick(h);
+    });
+  }
+
+  // The icon column switches pages. On a phone or a narrow panel it hides behind the menu button.
+  function bindPages(overlay, s, onSwitch) {
+    const content = overlay.querySelector('.cb_popup_content');
+    overlay.querySelectorAll('.ntr_navi').forEach((b) => {
+      b.onclick = () => {
+        content.classList.remove('ntr_navopen');
+        if (b.dataset.page === s.uiPage) return;
+        s.uiPage = b.dataset.page;
+        save();
+        showPage(overlay, s.uiPage);
+        overlay.querySelector('.ntr_body').scrollTop = 0;
+        onSwitch();
+      };
+    });
+    overlay.querySelector('.ntr_navbtn').onclick = () => content.classList.toggle('ntr_navopen');
+    overlay.querySelector('.ntr_shade').onclick = () => content.classList.remove('ntr_navopen');
+    overlay.addEventListener('change', (e) => { if (e.target.classList.contains('ntr_pswitch')) syncPageOff(overlay); });
+    syncPageOff(overlay);
+  }
+  function showPage(overlay, page) {
+    overlay.querySelectorAll('.ntr_page').forEach((p) => { p.hidden = p.dataset.page !== page; });
+    overlay.querySelectorAll('.ntr_navi').forEach((b) => b.classList.toggle('on', b.dataset.page === page));
+  }
+  // A switched-off section greys out: its icon in the column, its title, and its settings. A page made of parts greys
+  // out each part on its own, and its icon only when every part is off.
+  function syncPageOff(overlay) {
+    if (!overlay) return;
+    overlay.querySelectorAll('.ntr_part').forEach((p) => p.classList.toggle('ntr_off', !p.querySelector('.ntr_pswitch').checked));
+    overlay.querySelectorAll('.ntr_page').forEach((p) => {
+      const sw = p.querySelector('.ntr_phead .ntr_pswitch');
+      const parts = [...p.querySelectorAll('.ntr_part .ntr_pswitch')];
+      p.classList.toggle('ntr_off', !!sw && !sw.checked);
+      const off = sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked);
+      overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
+    });
+  }
+
+  // Adds to `into` the elements matching sel that MutationObserver records touched: the closest match around each changed
+  // node, or the matches inside added nodes.
+  function changedEls(recs, sel, into = new Set()) {
+    for (const r of recs) {
+      const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+      const m = t && t.closest(sel);
+      if (m) { into.add(m); continue; }
+      for (const a of r.addedNodes) {
+        if (a.nodeType !== 1) continue;
+        if (a.matches(sel)) into.add(a);
+        a.querySelectorAll(sel).forEach((e) => into.add(e));
+      }
+    }
+    return into;
   }
 
   // Dragging a row, with a mouse or a finger, on the Regexes and Agents pages. A mouse starts the drag once it moves a
@@ -637,410 +956,16 @@ await (async () => {
     return { busy: () => !!drag?.on };
   }
 
-  // Resolves to true for the main button, false for Cancel.
-  function askYes(anchor, text, ok, { danger = false } = {}) {
-    return new Promise((res) => {
-      const cancel = () => { box.remove(); res(false); };
-      const box = askBox(anchor, `<div>${escapeHTML(text)}</div>${askBtns(ok, danger)}`, cancel);
-      box.querySelector('.ntr_ask_ok').onclick = () => { box.remove(); res(true); };
-      box.querySelector('.ntr_ask_cancel').onclick = cancel;
-    });
+  // A drag also ends when the browser takes the gesture over (pointercancel), so it never stays on the next tap.
+  function dragEnds(move, up) {
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
   }
-
-  // A text field. `check(text)` resolves to { value } to accept or { error } to show a red hint and keep asking.
-  // Resolves to the accepted value, or null on Cancel.
-  function askText(anchor, { label, value = '', ok = 'Add', check = (v) => ({ value: v }) }) {
-    return new Promise((res) => {
-      const cancel = () => { box.remove(); res(null); };
-      const box = askBox(anchor, `
-        <label>${escapeHTML(label)} <input type="text" class="text_pole ntr_ask_input" value="${escapeHTML(value)}"></label>
-        <div class="ntr_terr"></div>
-        ${askBtns(ok, false)}`, cancel);
-      const input = box.querySelector('.ntr_ask_input');
-      const err = box.querySelector('.ntr_terr');
-      const okBtn = box.querySelector('.ntr_ask_ok');
-      const done = async () => {
-        if (okBtn.disabled) return;
-        okBtn.disabled = true;
-        okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        const r = await check(input.value.trim());
-        okBtn.disabled = false;
-        okBtn.innerHTML = ok;
-        if (r.error) { err.textContent = r.error; input.focus(); return; }
-        box.remove();
-        res(r.value);
-      };
-      input.oninput = () => { err.textContent = ''; };
-      input.onkeydown = (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); done(); }
-        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
-      };
-      okBtn.onclick = done;
-      box.querySelector('.ntr_ask_cancel').onclick = cancel;
-      input.focus();
-      input.select();
-    });
-  }
-
-  // Videos (mp4 or webm) are sent as they are. Resolves to the file's path, or '' if it isn't an mp4 or webm, or it's
-  // very big and the person cancels. `btn` shows a spinner while it uploads.
-  async function uploadVideo(f, prefix, title, btn) {
-    let ext = (f.name.split('.').pop() || '').toLowerCase();
-    if (!['mp4', 'webm'].includes(ext)) ext = f.type === 'video/webm' ? 'webm' : f.type === 'video/mp4' ? 'mp4' : '';
-    if (!ext) { toastr.warning('Use an mp4 or webm video.', title); return ''; }
-    if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    const data = String(await readDataURL(f));
-    return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
-  }
-
-  // Ask for a link instead of an upload, under `anchor` (the Link button). Resolves to a checked http(s) URL that
-  // loaded, or '' if cancelled. Like uploadHere, a link for the open chat that finishes checking after the chat
-  // changed would land on the wrong character, so '' comes back. `perChat` false skips this for global settings.
-  const askUrl = (anchor, label, load, failMsg, perChat = true) => {
-    const st = store();
-    return askText(anchor, {
-      label,
-      check: async (raw) => {
-        const u = cUrl(raw);
-        if (!/^https?:\/\//i.test(u)) return { error: 'Paste a full link that starts with http:// or https://' };
-        try { await load(u); } catch (e) { return { error: failMsg }; }
-        return { value: u };
-      },
-    }).then((u) => {
-      if (!u) return '';
-      if (!perChat || store() === st) return u;
-      toastr.warning('The chat changed before the link was checked, so it was not saved. Paste it again.', 'Link');
-      return '';
-    });
-  };
-  const askImageUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a picture link (https://...)`, loadImg,
-    'That link did not load as a picture. Check it and try again.', perChat);
-
-  const loadVideo = (u) => new Promise((res, rej) => {
-    const v = document.createElement('video');
-    v.muted = true;
-    v.preload = 'metadata';
-    const done = (ok) => { clearTimeout(t); v.removeAttribute('src'); v.load(); ok ? res() : rej(new Error('Video did not load')); };
-    const t = setTimeout(() => done(false), 15000);
-    v.onloadedmetadata = () => done(true);
-    v.onerror = () => done(false);
-    v.src = u;
-  });
-  const askVideoUrl = (label, anchor, perChat = true) => askUrl(anchor, `${label}: paste a link to an mp4 or webm video (https://...)`, loadVideo,
-    'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
-
-  // Adds to `into` the elements matching sel that MutationObserver records touched: the closest match around each changed
-  // node, or the matches inside added nodes.
-  function changedEls(recs, sel, into = new Set()) {
-    for (const r of recs) {
-      const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
-      const m = t && t.closest(sel);
-      if (m) { into.add(m); continue; }
-      for (const a of r.addedNodes) {
-        if (a.nodeType !== 1) continue;
-        if (a.matches(sel)) into.add(a);
-        a.querySelectorAll(sel).forEach((e) => into.add(e));
-      }
-    }
-    return into;
-  }
-  // Runs run(file) when a file is picked in input; a failure shows an error toast with this title. The input is
-  // cleared first, so the same file can be picked again.
-  function onFilePick(input, title, run) {
-    input.onchange = async () => {
-      const f = input.files[0];
-      input.value = '';
-      if (!f) return;
-      try { await run(f); } catch (e) {
-        console.error(`[NTR ${title} upload]`, e);
-        toastr.error(e.message || 'Upload failed', title);
-      }
-    };
-  }
-
-  function openCombinedModal() {
-    const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
-    const old = document.getElementById('cb_modal_overlay');
-    cancelAsks(old);
-    old?.remove();
-    const s = settings();
-    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
-
-    const overlay = document.createElement('div');
-    overlay.id = 'cb_modal_overlay';
-    overlay.className = 'cb_popup_overlay';
-
-    overlay.innerHTML = `
-      <div class="cb_popup_content">
-        <div class="cb_popup_header">
-          <button class="cb_hbtn ntr_navbtn" title="Show the sections"><i class="fa-solid fa-bars"></i></button>
-          <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
-          <span class="ntr_hbtns">
-            <button class="cb_hbtn" id="m_wand"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
-            <button class="cb_hbtn ntr_dockbtn" data-dock="right" title="Dock right"><i class="fa-solid fa-right-long"></i></button>
-            <button class="cb_close_btn" title="Close">&times;</button>
-          </span>
-        </div>
-        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. To turn it back on, open its bar on the Extensions page and press Switch on.</div>'}
-        <div class="ntr_main">
-        <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
-        <div class="ntr_shade"></div>
-        <div class="ntr_body">
-
-        ${themesSectionHtml(s)}
-        ${lookPageHtml('layout', s)}
-
-        ${overlaysSectionHtml(s)}
-
-        ${lookPageHtml('avatars', s)}
-
-        ${lookPageHtml('elements', s)}
-        ${lookPageHtml('text', s)}
-        ${lookPageHtml('decor', s)}
-        ${agentsSectionHtml(s)}
-
-        ${regexSectionHtml(s)}
-        ${readerSectionHtml(s)}
-        </div>
-        </div>
-      </div>
-      <div id="ntr_edge" title="Drag to resize"></div>
-      <div id="ntr_preview"></div>`;
-
-    document.body.appendChild(overlay);
-    // SillyTavern checks every input event that reaches the page against its own handlers, which cost more than NTR's
-    // own work while a slider is dragged. None of them are for the menu, so its input events stop here, and the
-    // document's slider listener never sees them.
-    overlay.addEventListener('input', (e) => {
-      e.stopPropagation();
-      if (e.target.type === 'range') showSlider(e.target, e.target.value);
-    });
-
-    bindCollapses(overlay, s);
-    // The banner's rotation waits while the Overlays page is open (see overlays.js).
-    const rotRestart = () => window.NTR.overlays?.rotRestart(s);
-    bindPages(overlay, s, rotRestart);
-
-    setupPanel(overlay, prevScroll);
-
-    const close = () => { cancelAsks(overlay); overlay.remove(); callModule('avatars', 'syncPopouts'); rotRestart(); };
-    overlay.querySelector('.cb_close_btn').onclick = close;
-
-    callModule('overlays', 'bind', overlay, s);
-
-    callModule('themes', 'bind', overlay, s);
-    callModule('layout', 'bind', overlay, s);
-    bindWand(overlay, s);
-    bindVNSection(overlay, s);
-    bindReader(overlay, s);
-    bindRegexPage(overlay, s);
-    callModule('agents', 'bind', overlay, s);
-    callModule('cast', 'bind', overlay, s);
-    bindRows(overlay, s);
-    callModule('decor', 'bind', overlay, s);
-    callModule('text', 'bind', overlay, s);
-    callModule('elements', 'bind', overlay, s);
-
-    callModule('avatars', 'bind', overlay, s);
-    // The font boxes' list (fonts.js), added to this draw once it has loaded, unless the menu was closed or drawn again.
-    loadModule('fonts').then((m) => overlay.isConnected && m?.bind(overlay));
-  }
-
-  // ===== Shared UI helpers =====
-  // The menu's pages, in the order of the icon column: id, icon, short name for the column, full name.
-  // The only place they're written: the column and each page's title both read them from here.
-  const PAGES = [
-    ['themes', 'fa-bookmark', 'Themes', 'Themes'],
-    ['reader', 'fa-book-open', 'Reader', 'Reader Mode'],
-    ['layout', 'fa-table-cells-large', 'Layout', 'Layout'],
-    ['display', 'fa-palette', 'Decor', 'UI Decor'],
-    ['text', 'fa-text-height', 'Text', 'Text Formatting'],
-    ['pfp', 'fa-user', 'Avatars', 'Avatar Management'],
-    ['elements', 'fa-shapes', 'Elements', 'Elements'],
-    ['fg', 'fa-layer-group', 'Overlays', 'Overlays'],
-    ['regex', 'fa-code', 'Regexes', 'Regexes'],
-    ['agents', 'fa-robot', 'Agents', 'Agents'],
-  ];
-  // Lines in the column: Themes and Reader Mode, then the look settings (Layout to Overlays), then the pages that work on the chat itself.
-  const NAV_SEP = new Set(['layout', 'regex']);
-  const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
-    `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
-    + '<div class="ntr_navfill"></div>';
-  // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
-  // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
-  // `wait` names the module a page is still loading, which fills it in when it arrives (see fillIn).
-  function pageHtml(sec, body, { sw = null, legend = false, note = '', wait = '' } = {}) {
-    const [, icon, , title] = PAGES.find(([id]) => id === sec);
-    return `
-      <section class="ntr_page${sw && !sw[1] ? ' ntr_off' : ''}" data-page="${sec}"${wait ? ` data-ntr-wait="${wait}"` : ''}${settings().uiPage === sec ? '' : ' hidden'}>
-        <div class="ntr_phead">
-          <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
-          <h3 class="ntr_ptitle">${title}</h3>
-          ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
-          ${legend ? `<div class="cb_hint ntr_legend">${TAG_KEY}</div>` : ''}
-        </div>
-        ${note}
-        <div class="ntr_pbody">${body}</div>
-      </section>`;
-  }
-  // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
-  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title. An optional Font
-  // Awesome icon goes before the title.
-  function pagePart(title, sw, fold, body, icon = '') {
-    return `
-      <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
-        <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
-          ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
-          ${icon ? `<i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>` : ''}
-          <h4 class="ntr_parttitle">${title}</h4>
-          <input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">
-        </div>
-        <div class="ntr_partbody">${body}</div>
-      </div>`;
-  }
-  // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
-  const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
-  // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
-  // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
-  // optionally label (the name; Picture by default), icon (the empty preview's), wide (a wide preview), hint (under the
-  // name), attrs (on the slot) and onSet (after a change).
-  function picSlotHtml(o) {
-    return `
-          <div class="cb_cur_slot"${o.attrs ? ' ' + o.attrs : ''}>
-            <div class="cb_cur_row">
-              <div class="cb_cur_prev${o.wide ? ' ntr_rd_pic' : ''}" id="m_${o.id}_prev"></div>
-              <span class="cb_cur_name">${o.label || 'Picture'}${o.hint ? `<small>${o.hint}</small>` : ''}</span>
-              <button class="menu_button" id="m_${o.id}_up" title="Upload" aria-label="Upload ${o.title}"><i class="fa-solid fa-upload"></i></button>
-              <button class="menu_button" id="m_${o.id}_url" title="Use a link" aria-label="Use a link for ${o.title}"><i class="fa-solid fa-link"></i></button>
-              <button class="menu_button" id="m_${o.id}_clr" title="Remove picture" aria-label="Remove ${o.title}"><i class="fa-solid fa-rotate-left"></i></button>
-            </div>
-            <input type="file" id="m_${o.id}_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
-          </div>`;
-  }
-  function bindPicSlot(overlay, s, o) {
-    const part = (p) => overlay.querySelector(`#m_${o.id}_${p}`);
-    const file = part('file');
-    const render = () => {
-      part('prev').innerHTML = s[o.key] ? `<img src="${escapeHTML(s[o.key])}" alt="">` : `<i class="fa-solid ${o.icon || 'fa-image'}"></i>`;
-      part('clr').disabled = !s[o.key];
-    };
-    const setImg = (url) => {
-      const old = s[o.key];
-      s[o.key] = url;
-      save();
-      updateAvatarStyle();
-      o.onSet?.();
-      render();
-      deleteFileIfUnused(old);
-    };
-    part('up').onclick = () => file.click();
-    part('url').onclick = async function() {
-      const url = await askImageUrl(o.title, this, false);
-      if (url) setImg(url);
-    };
-    part('clr').onclick = () => setImg('');
-    onFilePick(file, o.title, async (f) => setImg(await uploadImage(f, ...o.upload)));
-    render();
-  }
-  // Long reference parts stay folded into one row until opened. Every other part is a card that's always open.
-  const FOLDED = new Set(['rd_book', 'rd_vn', 'vn_guide', 'vn_prompt', 'rb_css', 'rb_bgimg', 'rb_pattern', 'ov_scroll_css', 'ov_cursor_css', 'ov_qr_css', 'av_css_ai', 'av_css_us', 'av_emo', 'av_chat', 'av_emo_list', 'av_spk', 'av_tags']);
-  // An optional Font Awesome icon goes before the title, like card's.
-  function subHead(sec, title, icon = '') {
-    const ic = icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : '';
-    if (FOLDED.has(sec)) return `<div class="cb_collapse_toggle ntr_fold" data-sec="${sec}" tabindex="0" role="button"><span>${ic}${title}</span><i class="fa-solid fa-chevron-right cb_chevron"></i></div>`;
-    return `<div class="ntr_glab" data-sec="${sec}">${ic}${title}</div>`;
-  }
-  // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
-  const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
-    ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
-  const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
-  const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
-  // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
-  const FRAME_SERIES = [
-    { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
-    { id: 'roses', name: 'Rose Mirrors', frames: [['blush', 'Blush'], ['midnight', 'Midnight']] },
-  ];
-  const FRAME_IDS = FRAME_SERIES.flatMap((f) => f.frames.map(([v]) => `${f.id}/${v}`));
-  const frameUrl = (id) => (FRAME_IDS.includes(id) ? `${NTR_BASE}assets/frames/${id}.webp` : '');
-  function pills(name, opts, cur) {
-    return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
-  }
-  // Tiles: pick-one choices shown as pictures. Each option is [value, name, face]; the face is its picture's HTML, or
-  // the name is shown when it has none. Named tiles also show the name under the picture. Bound with onPills, like pills.
-  function tiles(name, label, opts, cur, named = false) {
-    return `<div class="ntr_tiles${named ? ' ntr_named' : ''}" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span>${named ? `<span class="ntr_tile_name">${escapeHTML(l)}</span>` : ''}</label>`).join('')}</div>`;
-  }
-  const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
-  function posGrid(name, cur) {
-    return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" aria-label="${l}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
-  }
-  function onPills(root, name, fn) {
-    root.querySelectorAll(`input[name="cbr_${name}"]`).forEach((r) => { r.onchange = () => { if (r.checked) fn(r.value); }; });
-  }
-  const keyClick = (el) => el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); } });
-  // Content is the header's next sibling.
-  function showFold(h, open) {
-    h.nextElementSibling.style.display = open ? 'block' : 'none';
-    h.classList.toggle('ntr_open', open);
-    h.setAttribute('aria-expanded', String(open));
-    const icon = h.querySelector('.cb_chevron');
-    icon.classList.toggle('fa-chevron-down', open);
-    icon.classList.toggle('fa-chevron-right', !open);
-  }
-  function bindCollapses(overlay, s) {
-    overlay.querySelectorAll('.cb_collapse_toggle[data-sec]').forEach((h) => {
-      const sec = h.dataset.sec;
-      showFold(h, !!s.uiOpen[sec]);
-      h.addEventListener('click', (e) => {
-        if (e.target.closest('input')) return;
-        const open = !h.classList.contains('ntr_open');
-        s.uiOpen[sec] = open;
-        save();
-        showFold(h, open);
-      });
-      keyClick(h);
-    });
-  }
-
-  // The icon column switches pages. On a phone or a narrow panel it hides behind the menu button.
-  function bindPages(overlay, s, onSwitch) {
-    const content = overlay.querySelector('.cb_popup_content');
-    overlay.querySelectorAll('.ntr_navi').forEach((b) => {
-      b.onclick = () => {
-        content.classList.remove('ntr_navopen');
-        if (b.dataset.page === s.uiPage) return;
-        s.uiPage = b.dataset.page;
-        save();
-        showPage(overlay, s.uiPage);
-        overlay.querySelector('.ntr_body').scrollTop = 0;
-        onSwitch();
-      };
-    });
-    overlay.querySelector('.ntr_navbtn').onclick = () => content.classList.toggle('ntr_navopen');
-    overlay.querySelector('.ntr_shade').onclick = () => content.classList.remove('ntr_navopen');
-    overlay.addEventListener('change', (e) => { if (e.target.classList.contains('ntr_pswitch')) syncPageOff(overlay); });
-    syncPageOff(overlay);
-  }
-  function showPage(overlay, page) {
-    overlay.querySelectorAll('.ntr_page').forEach((p) => { p.hidden = p.dataset.page !== page; });
-    overlay.querySelectorAll('.ntr_navi').forEach((b) => b.classList.toggle('on', b.dataset.page === page));
-  }
-  // A switched-off section greys out: its icon in the column, its title, and its settings. A page made of parts greys
-  // out each part on its own, and its icon only when every part is off.
-  function syncPageOff(overlay) {
-    if (!overlay) return;
-    overlay.querySelectorAll('.ntr_part').forEach((p) => p.classList.toggle('ntr_off', !p.querySelector('.ntr_pswitch').checked));
-    overlay.querySelectorAll('.ntr_page').forEach((p) => {
-      const sw = p.querySelector('.ntr_phead .ntr_pswitch');
-      const parts = [...p.querySelectorAll('.ntr_part .ntr_pswitch')];
-      p.classList.toggle('ntr_off', !!sw && !sw.checked);
-      const off = sw ? !sw.checked : parts.length > 0 && parts.every((x) => !x.checked);
-      overlay.querySelector(`.ntr_navi[data-page="${p.dataset.page}"]`)?.classList.toggle('ntr_off', off);
-    });
+  function dragEnded(move, up) {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.removeEventListener('pointercancel', up);
   }
 
   // ===== Look helpers the look pages share (UI Decor is in decor.js; its keys start with ov) =====
@@ -1077,6 +1002,13 @@ await (async () => {
   }
   // A color at an opacity in %: below 100, it's mixed with see-through.
   const seeThrough = (c, opacity) => (opacity < 100 ? `color-mix(in srgb, ${c} ${opacity}%, transparent)` : c);
+  function cssTag(id, v) {
+    let el = document.getElementById(id);
+    if (!v) { el?.remove(); return; }
+    if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
+    // Rewriting the same text still makes the browser redo the page's styles, and some tags are set many times a second.
+    if (el.textContent !== v) el.textContent = v;
+  }
 
   // Chat panel, messages and send box. Each setting is SillyTavern's own look while it's unticked.
   const ovColorVal = (s, k, opacity) => seeThrough(s[k] || `var(${COLOR_FROM[k]})`, rangeNum(s, opacity));
@@ -1218,6 +1150,33 @@ await (async () => {
     return `<div class="ntr_fbox"><input type="text" class="text_pole m_o_txt" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="300" placeholder="A font name or link"></div>
       <div class="cb_hint ntr_fmiss" hidden></div>`;
   }
+  // A Custom CSS box, k its setting, and the last line under each one.
+  const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="${strMax(k)}" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
+  const CSS_NOTE = 'Add <code>!important</code> if a setting doesn\'t take. Saved in themes; CSS from someone else\'s theme arrives switched off.';
+
+  const FONT_NOTE = 'Fonts: a font on your device, or any Google Fonts name or link. Google fonts need a connection.';
+
+  // A pick-one row: the radio name is the key in lower case, with "o" in front.
+  const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
+  // Shown only while a pick has a certain value, like Roundness under Rounded.
+  const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
+  // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
+  // radio group, anything else on its first control. A pill keeps its own text as its name.
+  const ovLabel = (label, inner) => {
+    const n = escapeHTML(label.replace(/<[^>]*>/g, '').trim());
+    const named = /^\s*<div class="cb_pills"/.test(inner)
+      ? inner.replace('<div class="cb_pills"', `<div class="cb_pills" role="radiogroup" aria-label="${n}"`)
+      : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
+    return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
+  };
+
+  // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
+  const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
+    + ovWhen(`ov${p}Shape`, 'rounded', ovLabel('Roundness', rangeSlider(s, `ov${p}Round`))));
+  const ovBgRow = (s, p) => ovRow(s, `ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
+    + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BgOpacity`))));
+  const ovBorderRow = (s, p) => ovRow(s, `ov${p}BorderOn`, 'Border', ovPick(s, `ov${p}Border`, [['none', 'None'], ['line', 'Line']])
+    + ovWhen(`ov${p}Border`, 'line', ovLabel('Line Color', ovColor(s, `ov${p}BorderColor`)) + ovLabel('Thickness', rangeSlider(s, `ov${p}BorderWidth`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BorderOpacity`))));
 
   // The rows every page builds with ovRow, rangeSlider (its default class), ovColor, ovText, ovFont, ovPick, ovWhen and
   // customCssBox, bound once for the whole menu. It runs after the modules', Layout's and Reader Mode's binders and before
@@ -1281,7 +1240,7 @@ await (async () => {
     });
   }
 
-  // ===== Reasoning Block and Text Formatting =====
+  // ===== Look settings' choices, colors and fonts =====
   const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\))$/i;
   const FONT_RE = /^[\p{L}\p{N} _-]{0,60}$/u;
   const cleanFont = (v) => String(v || '').replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -1388,16 +1347,6 @@ await (async () => {
     const c = (get(k) || '').trim();
     return c ? `${sel} { ${c} }` : '';
   }).filter(Boolean).join('\n');
-  // A Custom CSS box, k its setting, and the last line under each one.
-  const customCssBox = (s, k, ph) => `<textarea class="text_pole m_css" data-key="${k}" rows="5" maxlength="${strMax(k)}" spellcheck="false" placeholder="${ph}" style="width:100%;font-family:monospace;">${escapeHTML(s[k])}</textarea>`;
-  const CSS_NOTE = 'Add <code>!important</code> if a setting doesn\'t take. Saved in themes; CSS from someone else\'s theme arrives switched off.';
-  function cssTag(id, v) {
-    let el = document.getElementById(id);
-    if (!v) { el?.remove(); return; }
-    if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-    // Rewriting the same text still makes the browser redo the page's styles, and some tags are set many times a second.
-    if (el.textContent !== v) el.textContent = v;
-  }
 
   // Google Fonts load only for font boxes that are ticked and filled in. One link per font, so a name Google
   // doesn't have can't break the others; the browser then uses a font of that name on the device, if any.
@@ -1414,42 +1363,6 @@ await (async () => {
       l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, '+')}&display=swap`;
       document.head.appendChild(l);
     }
-  }
-
-  const FONT_NOTE = 'Fonts: a font on your device, or any Google Fonts name or link. Google fonts need a connection.';
-
-  // A pick-one row: the radio name is the key in lower case, with "o" in front.
-  const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
-  // Shown only while a pick has a certain value, like Roundness under Rounded.
-  const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
-  // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
-  // radio group, anything else on its first control. A pill keeps its own text as its name.
-  const ovLabel = (label, inner) => {
-    const n = escapeHTML(label.replace(/<[^>]*>/g, '').trim());
-    const named = /^\s*<div class="cb_pills"/.test(inner)
-      ? inner.replace('<div class="cb_pills"', `<div class="cb_pills" role="radiogroup" aria-label="${n}"`)
-      : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
-    return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
-  };
-
-  // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
-  const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
-    + ovWhen(`ov${p}Shape`, 'rounded', ovLabel('Roundness', rangeSlider(s, `ov${p}Round`))));
-  const ovBgRow = (s, p) => ovRow(s, `ov${p}BgOn`, 'Background', ovPick(s, `ov${p}Bg`, [['clear', 'Transparent'], ['color', 'Color']])
-    + ovWhen(`ov${p}Bg`, 'color', ovLabel('Color', ovColor(s, `ov${p}BgColor`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BgOpacity`))));
-  const ovBorderRow = (s, p) => ovRow(s, `ov${p}BorderOn`, 'Border', ovPick(s, `ov${p}Border`, [['none', 'None'], ['line', 'Line']])
-    + ovWhen(`ov${p}Border`, 'line', ovLabel('Line Color', ovColor(s, `ov${p}BorderColor`)) + ovLabel('Thickness', rangeSlider(s, `ov${p}BorderWidth`)) + ovLabel('Opacity', rangeSlider(s, `ov${p}BorderOpacity`))));
-
-  // ===== Per-character storage (kept inside the character card) =====
-  const cardSnap = new Map();
-  const cardTimers = new Map();
-  // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see flushCard.
-  const cardFix = new Set();
-  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null });
-
-  function charIndexByAvatar(av) {
-    const cs = ctx().characters || [];
-    return cs.findIndex((c) => c && c.avatar === av);
   }
 
   // ===== Card data cleanup =====
@@ -1547,6 +1460,7 @@ await (async () => {
     });
   }
 
+  const defaultBanner = () => ({ images: [], idx: 0, locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '', video: '', videoPos: 50, scope: 'global', mode: '', rotate: false, rotateSec: 8, rotateFx: 'fade', rotateOrder: 'order', height: null, gap: null, backdrop: null, videoSound: null });
   function cleanBanner(b) {
     cleanBannerSrc(b);
     Object.assign(b, {
@@ -1568,6 +1482,10 @@ await (async () => {
   }
   // The shared Global banner has only the content fields.
   const cleanGlobalBanner = (b) => keepOnly(cleanBannerSrc(b), Object.keys(DEFAULTS.bannerGlobal));
+
+  const FG_POS = ['Left', 'Center', 'Right'];
+  const FG_DEF = () => ({ Left: '', Center: '', Right: '', LeftScale: 100, CenterScale: 100, RightScale: 100, LeftLayer: 'behind', CenterLayer: 'behind', RightLayer: 'behind',
+    LeftX: 0, LeftY: 0, CenterX: 0, CenterY: 0, RightX: 0, RightY: 0 });
 
   function cleanFg(f) {
     for (const p of FG_POS) {
@@ -1641,6 +1559,17 @@ await (async () => {
     return typeof u === 'string' ? u : '';
   }
 
+  // ===== Per-chat storage (the character card, or the extension settings for a group) =====
+  const cardSnap = new Map();
+  const cardTimers = new Map();
+  // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see flushCard.
+  const cardFix = new Set();
+
+  function charIndexByAvatar(av) {
+    const cs = ctx().characters || [];
+    return cs.findIndex((c) => c && c.avatar === av);
+  }
+
   function cardData(key) {
     const c = ctx();
     if (!key) return null;
@@ -1667,10 +1596,6 @@ await (async () => {
     return bannerEmpty && !hasMediaRef(d.fg) && !hasMediaRef(vn) && !(vn.emotions || []).length && !(vn.customSpk || []).length && !(vn.hiddenSpk || []).length && !(vn.locations || []).length
       && !(vn.cgs || []).length && !(vn.maps || []).length && !(vn.opening && vn.opening.yt) && !(d.regex?.folders || []).length;
   }
-
-  const FG_POS = ['Left', 'Center', 'Right'];
-  const FG_DEF = () => ({ Left: '', Center: '', Right: '', LeftScale: 100, CenterScale: 100, RightScale: 100, LeftLayer: 'behind', CenterLayer: 'behind', RightLayer: 'behind',
-    LeftX: 0, LeftY: 0, CenterX: 0, CenterY: 0, RightX: 0, RightY: 0 });
 
   // Per-chat storage: the character card for single chats, the extension settings for groups.
   function store() {
@@ -2141,87 +2066,97 @@ await (async () => {
     before.forEach((p) => deleteFileIfUnused(p));
   }
 
-  // The Themes page comes from themes.js, loaded at start.
-  const themesSectionHtml = (s) => modulePageHtml(s, 'themes', 'themes', themesSectionHtml, 'Loading your themes.');
+  // ===== The menu and its floating, dockable panel =====
+  function openCombinedModal() {
+    const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
+    const old = document.getElementById('cb_modal_overlay');
+    cancelAsks(old);
+    old?.remove();
+    const s = settings();
+    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
 
-  // The wand button in the menu's title bar adds the menu to SillyTavern's wand menu. Lit means it's in there.
-  function bindWand(overlay, s) {
-    const b = overlay.querySelector('#m_wand');
-    const show = () => {
-      b.classList.toggle('on', !!s.wandEntry);
-      b.setAttribute('aria-pressed', s.wandEntry ? 'true' : 'false');
-      b.title = s.wandEntry
-        ? 'In the wand menu next to the chat box. Click to take it out.'
-        : 'Add Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there';
-    };
-    show();
-    b.onclick = () => {
-      s.wandEntry = !s.wandEntry;
-      save();
-      syncWandEntry();
-      show();
-      toastr.info(s.wandEntry ? 'Added to the wand menu next to the chat box.' : 'Taken out of the wand menu.', 'Nitwit Tavern Redesign');
-    };
+    const overlay = document.createElement('div');
+    overlay.id = 'cb_modal_overlay';
+    overlay.className = 'cb_popup_overlay';
+
+    overlay.innerHTML = `
+      <div class="cb_popup_content">
+        <div class="cb_popup_header">
+          <button class="cb_hbtn ntr_navbtn" title="Show the sections"><i class="fa-solid fa-bars"></i></button>
+          <span class="ntr_title"><span class="ntr_icon"></span> Nitwit Tavern Redesign</span>
+          <span class="ntr_hbtns">
+            <button class="cb_hbtn" id="m_wand"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="left" title="Dock left"><i class="fa-solid fa-left-long"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="float" title="Float"><i class="fa-regular fa-window-restore"></i></button>
+            <button class="cb_hbtn ntr_dockbtn" data-dock="right" title="Dock right"><i class="fa-solid fa-right-long"></i></button>
+            <button class="cb_close_btn" title="Close">&times;</button>
+          </span>
+        </div>
+        ${isOn() ? '' : '<div class="ntr_offnote"><i class="fa-solid fa-power-off"></i> The extension is switched off. To turn it back on, open its bar on the Extensions page and press Switch on.</div>'}
+        <div class="ntr_main">
+        <nav class="ntr_nav">${navHtml(s.uiPage)}</nav>
+        <div class="ntr_shade"></div>
+        <div class="ntr_body">
+
+        ${themesSectionHtml(s)}
+        ${lookPageHtml('layout', s)}
+
+        ${overlaysSectionHtml(s)}
+
+        ${lookPageHtml('avatars', s)}
+
+        ${lookPageHtml('elements', s)}
+        ${lookPageHtml('text', s)}
+        ${lookPageHtml('decor', s)}
+        ${agentsSectionHtml(s)}
+
+        ${regexSectionHtml(s)}
+        ${readerSectionHtml(s)}
+        </div>
+        </div>
+      </div>
+      <div id="ntr_edge" title="Drag to resize"></div>
+      <div id="ntr_preview"></div>`;
+
+    document.body.appendChild(overlay);
+    // SillyTavern checks every input event that reaches the page against its own handlers, which cost more than NTR's
+    // own work while a slider is dragged. None of them are for the menu, so its input events stop here, and the
+    // document's slider listener never sees them.
+    overlay.addEventListener('input', (e) => {
+      e.stopPropagation();
+      if (e.target.type === 'range') showSlider(e.target, e.target.value);
+    });
+
+    bindCollapses(overlay, s);
+    // The banner's rotation waits while the Overlays page is open (see overlays.js).
+    const rotRestart = () => window.NTR.overlays?.rotRestart(s);
+    bindPages(overlay, s, rotRestart);
+
+    setupPanel(overlay, prevScroll);
+
+    const close = () => { cancelAsks(overlay); overlay.remove(); callModule('avatars', 'syncPopouts'); rotRestart(); };
+    overlay.querySelector('.cb_close_btn').onclick = close;
+
+    callModule('overlays', 'bind', overlay, s);
+
+    callModule('themes', 'bind', overlay, s);
+    callModule('layout', 'bind', overlay, s);
+    bindWand(overlay, s);
+    bindVNSection(overlay, s);
+    bindReader(overlay, s);
+    bindRegexPage(overlay, s);
+    callModule('agents', 'bind', overlay, s);
+    callModule('cast', 'bind', overlay, s);
+    bindRows(overlay, s);
+    callModule('decor', 'bind', overlay, s);
+    callModule('text', 'bind', overlay, s);
+    callModule('elements', 'bind', overlay, s);
+
+    callModule('avatars', 'bind', overlay, s);
+    // The font boxes' list (fonts.js), added to this draw once it has loaded, unless the menu was closed or drawn again.
+    loadModule('fonts').then((m) => overlay.isConnected && m?.bind(overlay));
   }
 
-  // ===== Remove NTR data (in the Extensions page drawer) =====
-  const removeGoHtml = 'Continue <i class="fa-solid fa-arrow-right"></i>';
-  const removeHtml = () => `
-    <div class="cb_hint">Uninstalling from SillyTavern keeps card data and its files. Remove them here first.</div>
-    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.<small class="ntr_rm_note">To keep a theme, export it first on the Themes page of the menu.</small></span></label>
-    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_chars"><span><strong>Uploaded files and character data</strong>: images, videos and maps uploaded through NTR, and the NTR data saved in each character card.</span></label>
-    <div class="cb_actions ntr_rm_foot"><button class="menu_button" id="ntr_rm_go" disabled>${removeGoHtml}</button></div>`;
-
-  function bindRemove(root) {
-    const box = (id) => root.querySelector(`#ntr_rm_${id}`);
-    const go = box('go');
-    const picked = () => ({ look: box('look').checked, chars: box('chars').checked });
-    const sync = () => {
-      const p = picked();
-      go.disabled = !(p.look || p.chars);
-      // A question still open was asked about the old ticks.
-      root.querySelector('.ntr_ask')?.ntrCancel?.();
-    };
-    const ticks = root.querySelectorAll('input[type=checkbox]');
-    ticks.forEach((c) => { c.onchange = sync; });
-    // Locked while a removal runs, so a second one can't start alongside it.
-    const lock = (on) => ticks.forEach((c) => { c.disabled = on; });
-    go.onclick = async () => {
-      const p = picked();
-      const what = p.look && p.chars ? 'your settings, themes, uploaded files and the NTR data in every character card'
-        : p.look ? 'your settings and themes' : 'your uploaded files and the NTR data in every character card';
-      // The question goes under the button's row, so the row hides once it's placed.
-      const asking = askYes(go, `This removes ${what}. This can't be undone.`, 'Remove', { danger: true });
-      go.parentElement.style.display = 'none';
-      const yes = await asking;
-      go.parentElement.style.display = '';
-      if (!yes) return;
-      lock(true);
-      go.disabled = true;
-      go.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Removing...';
-      let left;
-      try {
-        left = await removeData(p);
-      } catch (e) {
-        console.error('[NTR remove data]', e);
-        toastr.error(e.message || 'Something went wrong.', 'Remove NTR data');
-        go.innerHTML = removeGoHtml;
-        lock(false);
-        sync();
-        return;
-      }
-      if (left) {
-        toastr.warning(`${left} uploaded file${left === 1 ? '' : 's'} could not be deleted. Try again from Remove NTR data after the reload.`, 'Remove NTR data', { timeOut: 10000 });
-        setTimeout(() => location.reload(), 4000);
-        return;
-      }
-      toastr.success('NTR data removed. Reloading...', 'Remove NTR data');
-      // SillyTavern saves its settings about a second after a change.
-      setTimeout(() => location.reload(), 2500);
-    };
-  }
-
-  // ===== Floating, dockable menu panel =====
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const isNarrow = () => window.innerWidth < 700;
 
@@ -2266,18 +2201,6 @@ await (async () => {
     // The icon column hides at once on switching to compact; opening and closing it later still slide.
     if (compact && !wasCompact) content.querySelector('.ntr_nav').getAnimations().forEach((a) => a.finish());
     if (!compact) content.classList.remove('ntr_navopen');
-  }
-
-  // A drag also ends when the browser takes the gesture over (pointercancel), so it never stays on the next tap.
-  function dragEnds(move, up) {
-    document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', up);
-    document.addEventListener('pointercancel', up);
-  }
-  function dragEnded(move, up) {
-    document.removeEventListener('pointermove', move);
-    document.removeEventListener('pointerup', up);
-    document.removeEventListener('pointercancel', up);
   }
 
   function setupPanel(overlay, prevScroll) {
@@ -2358,7 +2281,7 @@ await (async () => {
     ro.observe(content);
   }
 
-  // ===== Module loader + the Visual Novel toggle button =====
+  // ===== Module loader and module pages =====
   // Each module registers itself as window.NTR[name]. A failed module never breaks the core.
   const MOD_LABEL = { vn: 'Visual Novel Mode', map: 'Maps', opening: 'Opening Video', overlays: 'Overlays', regex: 'Regexes', reader: 'Reader Mode', agents: 'Agents', cast: 'Emotions', elements: 'Elements', text: 'Text Formatting', avatars: 'Avatar Management', decor: 'UI Decor', layout: 'Layout', fonts: 'Font List', themes: 'Themes' };
   const modPromise = {}, modError = {}, modRetries = {};
@@ -2488,6 +2411,9 @@ await (async () => {
     return pageHtml(page, '', { ...opts, note: `<div class="cb_hint ntr_pnote">${moduleNote(name, loading)}</div>`, wait: wait ? name : '' });
   }
 
+  // The Themes page comes from themes.js, loaded at start.
+  const themesSectionHtml = (s) => modulePageHtml(s, 'themes', 'themes', themesSectionHtml, 'Loading your themes.');
+
   // The Agents page comes from agents.js, loaded the first time the menu opens (and at start when the page is on).
   const agentsSectionHtml = (s) => modulePageHtml(s, 'agents', 'agents', agentsSectionHtml, 'Loading your agents.');
 
@@ -2530,42 +2456,7 @@ await (async () => {
 
   const bindVNSection = (overlay, s) => { if (readerPart(s) === 'vn') callModule('vn', 'bind', overlay, s); };
 
-  // A mode's button in the send bar: pressed while its mode is on, hidden while the extension is off.
-  function syncSendBtn(id, on) {
-    const b = document.getElementById(id);
-    if (!b) return;
-    b.classList.toggle('cb_on', on);
-    b.setAttribute('aria-pressed', String(on));
-    b.style.display = isOn() ? '' : 'none';
-  }
-  function injectSendBtn(id, icon, title, label, onclick, sync) {
-    const lsf = document.getElementById('leftSendForm');
-    if (!lsf || document.getElementById(id)) return;
-    const b = document.createElement('div');
-    b.id = id;
-    b.className = `fa-solid ${icon} interactable`;
-    b.title = title;
-    b.setAttribute('role', 'button');
-    b.setAttribute('aria-label', label);
-    b.tabIndex = 0;
-    b.onclick = onclick;
-    lsf.appendChild(b);
-    sync();
-  }
-
-  function syncVNToggle() {
-    // Pinned Blocks can hide in Visual Novel Mode.
-    callModule('layout', 'syncPins');
-    syncSendBtn('cb_node_toggle', !!settings().nodeEnabled);
-  }
-
-  // The chat bubbles button: Reader Mode with the Visual Novel style, or Reader Mode off.
-  async function toggleVN() {
-    const on = !settings().nodeEnabled;
-    await setReader(on, on);
-  }
-
-  // ===== Reader Mode (the paging itself lives in reader.js) =====
+  // ===== Reader Mode and the send bar buttons (the paging itself lives in reader.js) =====
   // Visual Novel Mode is Reader Mode's third style (Visual Novel), next to Standard and Book (rdStyle). It keeps its own
   // switch (nodeEnabled), which is on only while Reader Mode is, so Standard or Book is still picked for when it's off.
   // Standard is saved as 'plain'.
@@ -2721,6 +2612,41 @@ await (async () => {
     syncSendBtn('ntr_rd_toggle', !!settings().rdEnabled);
   }
 
+  // A mode's button in the send bar: pressed while its mode is on, hidden while the extension is off.
+  function syncSendBtn(id, on) {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.classList.toggle('cb_on', on);
+    b.setAttribute('aria-pressed', String(on));
+    b.style.display = isOn() ? '' : 'none';
+  }
+  function injectSendBtn(id, icon, title, label, onclick, sync) {
+    const lsf = document.getElementById('leftSendForm');
+    if (!lsf || document.getElementById(id)) return;
+    const b = document.createElement('div');
+    b.id = id;
+    b.className = `fa-solid ${icon} interactable`;
+    b.title = title;
+    b.setAttribute('role', 'button');
+    b.setAttribute('aria-label', label);
+    b.tabIndex = 0;
+    b.onclick = onclick;
+    lsf.appendChild(b);
+    sync();
+  }
+
+  function syncVNToggle() {
+    // Pinned Blocks can hide in Visual Novel Mode.
+    callModule('layout', 'syncPins');
+    syncSendBtn('cb_node_toggle', !!settings().nodeEnabled);
+  }
+
+  // The chat bubbles button: Reader Mode with the Visual Novel style, or Reader Mode off.
+  async function toggleVN() {
+    const on = !settings().nodeEnabled;
+    await setReader(on, on);
+  }
+
   // ===== Extensions page drawer + master power switch =====
   function syncExtBar() {
     const p = document.getElementById('ntr_power');
@@ -2783,7 +2709,84 @@ await (async () => {
     syncExtBar();
   }
 
+  // ===== Remove NTR data (in the Extensions page drawer) =====
+  const removeGoHtml = 'Continue <i class="fa-solid fa-arrow-right"></i>';
+  const removeHtml = () => `
+    <div class="cb_hint">Uninstalling from SillyTavern keeps card data and its files. Remove them here first.</div>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_look"><span><strong>Settings and themes</strong>: your look, saved themes and menu settings.<small class="ntr_rm_note">To keep a theme, export it first on the Themes page of the menu.</small></span></label>
+    <label class="checkbox_label"><input type="checkbox" id="ntr_rm_chars"><span><strong>Uploaded files and character data</strong>: images, videos and maps uploaded through NTR, and the NTR data saved in each character card.</span></label>
+    <div class="cb_actions ntr_rm_foot"><button class="menu_button" id="ntr_rm_go" disabled>${removeGoHtml}</button></div>`;
+
+  function bindRemove(root) {
+    const box = (id) => root.querySelector(`#ntr_rm_${id}`);
+    const go = box('go');
+    const picked = () => ({ look: box('look').checked, chars: box('chars').checked });
+    const sync = () => {
+      const p = picked();
+      go.disabled = !(p.look || p.chars);
+      // A question still open was asked about the old ticks.
+      root.querySelector('.ntr_ask')?.ntrCancel?.();
+    };
+    const ticks = root.querySelectorAll('input[type=checkbox]');
+    ticks.forEach((c) => { c.onchange = sync; });
+    // Locked while a removal runs, so a second one can't start alongside it.
+    const lock = (on) => ticks.forEach((c) => { c.disabled = on; });
+    go.onclick = async () => {
+      const p = picked();
+      const what = p.look && p.chars ? 'your settings, themes, uploaded files and the NTR data in every character card'
+        : p.look ? 'your settings and themes' : 'your uploaded files and the NTR data in every character card';
+      // The question goes under the button's row, so the row hides once it's placed.
+      const asking = askYes(go, `This removes ${what}. This can't be undone.`, 'Remove', { danger: true });
+      go.parentElement.style.display = 'none';
+      const yes = await asking;
+      go.parentElement.style.display = '';
+      if (!yes) return;
+      lock(true);
+      go.disabled = true;
+      go.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Removing...';
+      let left;
+      try {
+        left = await removeData(p);
+      } catch (e) {
+        console.error('[NTR remove data]', e);
+        toastr.error(e.message || 'Something went wrong.', 'Remove NTR data');
+        go.innerHTML = removeGoHtml;
+        lock(false);
+        sync();
+        return;
+      }
+      if (left) {
+        toastr.warning(`${left} uploaded file${left === 1 ? '' : 's'} could not be deleted. Try again from Remove NTR data after the reload.`, 'Remove NTR data', { timeOut: 10000 });
+        setTimeout(() => location.reload(), 4000);
+        return;
+      }
+      toastr.success('NTR data removed. Reloading...', 'Remove NTR data');
+      // SillyTavern saves its settings about a second after a change.
+      setTimeout(() => location.reload(), 2500);
+    };
+  }
+
   // ===== Wand menu entry and /ntr: other ways to open the menu, even with the power off =====
+  // The wand button in the menu's title bar adds the menu to SillyTavern's wand menu. Lit means it's in there.
+  function bindWand(overlay, s) {
+    const b = overlay.querySelector('#m_wand');
+    const show = () => {
+      b.classList.toggle('on', !!s.wandEntry);
+      b.setAttribute('aria-pressed', s.wandEntry ? 'true' : 'false');
+      b.title = s.wandEntry
+        ? 'In the wand menu next to the chat box. Click to take it out.'
+        : 'Add Nitwit Tavern Redesign to the wand menu next to the chat box, so this menu opens from there';
+    };
+    show();
+    b.onclick = () => {
+      s.wandEntry = !s.wandEntry;
+      save();
+      syncWandEntry();
+      show();
+      toastr.info(s.wandEntry ? 'Added to the wand menu next to the chat box.' : 'Taken out of the wand menu.', 'Nitwit Tavern Redesign');
+    };
+  }
+
   function syncWandEntry() {
     const menu = document.getElementById('extensionsMenu');
     const old = document.getElementById('ntr_wand_entry');

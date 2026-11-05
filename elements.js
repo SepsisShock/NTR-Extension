@@ -982,7 +982,7 @@
     },
     sync: () => {
       syncCustomCss();
-      // Off, the full pass below takes NTR's labels and details out, and new messages get none, so nothing is watched.
+      // Off: the full pass below removes NTR's output, so the watcher isn't needed.
       if (isOn()) watchMessages();
       else { mesObs?.disconnect(); mesObs = null; }
       syncReasoningLabels();

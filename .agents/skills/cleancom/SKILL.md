@@ -11,4 +11,4 @@ Investigate and check for...
 4. Imports, functions, paths, and event handlers that still point to old locations
 5. Incorrect loading order, duplicate initialization, forgotten cleanup
 
-Propose succint edits or deletions.
+Propose succinct edits or deletions.

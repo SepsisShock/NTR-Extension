@@ -256,7 +256,7 @@
     });
   }
 
-  // YouTube without loading its API script: the embed talks to us through postMessage.
+  // YouTube without loading its API script: the embed talks to the page through postMessage.
   function ytCmd(func, args = []) {
     const f = cur && cur.iframe;
     if (!f || !f.contentWindow) return;
@@ -302,7 +302,7 @@
       ytCmd('mute'); ytCmd('playVideo');
       setSnd(st, true);
     }, 3500);
-    // Never started playing (YouTube blocked, the video stuck buffering, or an error that didn't reach us): don't leave
+    // Never started playing (YouTube blocked, the video stuck buffering, or an error NTR never saw): don't leave
     // the opening waiting.
     later(() => { if (st.phase === 'video' && !st.ytPlayed) ytFail(); }, 15000);
   }

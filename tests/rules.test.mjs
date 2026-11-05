@@ -91,7 +91,7 @@ test('the code-only copies keep all the code', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
   const sample = "const f = (a) => /x'/i.test(a); // f('x')\nconst g = a / 2 / b; return /\\//.test(c) && uploadImage(q, 'z');";
   assert.equal(codeOnly(sample), `const f = (a) => /  /i.test(a); ${' '.repeat(9)}\nconst g = a / 2 / b; return /  /.test(c) && uploadImage(q, ' ');`);
-  // A file that ends in a comment, or (not valid, so CI's parse check reports it) in an unclosed comment or string.
+  // A file that ends in a comment, or (not valid, so ESLint reports it) in an unclosed comment or string.
   assert.equal(codeOnly('f(); // end'), 'f();       ');
   assert.equal(codeOnly('f(); /* end'), 'f();       ');
   assert.equal(codeOnly("f('end"), "f('   ");

@@ -415,7 +415,7 @@
   // Its instructions with SillyTavern's macros filled in ({{char}}, {{user}}...), then its reports, and with Include Its
   // Last Result, the newest result saved before message `at`. With Fields, the format part and the current values
   // instead. A saved result is left as it is. {{messagesRead}} becomes `read`, the chat messages it reads, after
-  // SillyTavern's macros. Same as Chat's request fills in macros again, chat messages included, as it always has.
+  // SillyTavern's macros. Same as Chat's request fills in macros again, chat messages included.
   const TAG = /\{\{\s*messagesRead\s*\}\}/gi;
   const TAG_MARK = '\u0000ntr_messagesRead\u0000';
   const hasTag = (a) => /\{\{\s*messagesRead\s*\}\}/i.test(a.job);
@@ -647,7 +647,7 @@
       if (!o.early) await abortable(chatIdle(), signal);
       stillAllowed(a, test);
       const full = usesFull(a, test);
-      // SillyTavern's own request can't take our Stop, but its "generation stopped" event cancels it, and Stop Generation
+      // SillyTavern's own request can't take NTR's Stop, but its "generation stopped" event cancels it, and Stop Generation
       // cancels a full-prompt request. Both would also stop a reply being written, so they're only used while no reply is.
       const cancel = () => { if (!chatBusy) { if (full) c.stopGeneration(); else c.eventSource.emit(c.event_types.GENERATION_STOPPED); } };
       signal.addEventListener('abort', cancel, { once: true });

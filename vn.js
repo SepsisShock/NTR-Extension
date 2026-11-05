@@ -1506,7 +1506,6 @@
     nodeQ = setTimeout(() => { const a = nodeQAnim; nodeQAnim = false; nodeLoad({ animate: a }); }, 60);
   }
 
-
   function refresh(opts = {}) {
     applyStyle();
     loadSubs();

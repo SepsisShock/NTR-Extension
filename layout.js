@@ -7,9 +7,9 @@
   const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, joinCss, lk, ovLabel, ovPick,
     ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, setSlider } = A.look;
 
-  // ===== Edit Placement =====
+  // ===== Edit Layout =====
   // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar, page bar and banner can be dragged on
-  // screen. Edit Placement hides the menu and outlines what can move; only the picked item drags, and a picked Layout
+  // screen. Edit Layout hides the menu and outlines what can move; only the picked item drags, and a picked Layout
   // part also resizes from the handles on its edges. Tapping the picked item picks the one under it. The bar at the
   // bottom has Snap to Grid, Undo, Reset and Done.
   // Layout parts come first, so the pictures' outlines sit on top of theirs.
@@ -468,7 +468,7 @@
       place.on = false;
       document.body.classList.remove('ntr_placing');
       syncPins();
-      toastr.info('Nothing to move yet. Set an avatar to Pop Out, add a foreground image, or pick a Pinned Block with Layout on, first.', 'Edit Placement');
+      toastr.info('Nothing to move yet. Set an avatar to Pop Out, add a foreground image, or pick a Pinned Block with Layout on, first.', 'Edit Layout');
       return;
     }
     place.undo = [];
@@ -831,14 +831,14 @@
   // ===== Pinned Blocks =====
   // A block the user's regexes draw in the chat, like a tracker, shown in a box of its own on screen. NTR copies it from the
   // newest message that has it, so SillyTavern's own message stays as it is, and can hide it in the messages. Pinned
-  // Blocks are part of Layout, so Layout's switch counts. A block is remembered by the tag and classes of what was picked
-  // in the chat, never as typed-in CSS, so a theme from someone else can't slip CSS in through it.
+  // Blocks are part of Layout, so Layout's switch counts.
   // A block can show agents' saved results instead (Agent Results; agents.js draws them), Stacked or in Tabs. Add
   // Dashboard makes one set up for that.
   // Each block has a place on screen for Desktop and one for Phone, as a % of the screen: Floating anywhere, or Docked
   // to the left or right edge at full height. On a phone a docked block slides out from its edge. A Floating box is the
   // height set in Edit Layout (Fixed), or as tall as what it shows (Fit Content).
-  // Blocks saved before Where You're Reading and Fit Content came in keep Always and Fixed; new ones start on them.
+  // A block without show or height gets 'always' (Newest) and 'fixed'; new blocks start on Where You're Reading and
+  // Fit Content.
   // A Floating block from the chat stays in its message until it's dragged out with Edit Layout (moved, kept for Desktop
   // and Phone apart); Reset puts it back there.
   // While a block is being picked in the chat (see pickPin), the boxes hide and the originals show.

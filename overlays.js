@@ -611,7 +611,7 @@
             ${card('', `
             ${sl('m_f_o', 'Opacity', rangeNum(s, 'fgOpacity'), 'fgOpacity')}
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide in Visual Novel Mode</span></label>
-            <button type="button" id="m_f_place" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Placement</button>
+            <button type="button" id="m_f_place" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Layout</button>
             <div class="cb_hint" style="margin-bottom: 0;">Hides the menu while you drag the pictures. Each stays tied to its side.</div>`)}
 
             <div class="ntr_glab">Pictures ${TAG}</div>

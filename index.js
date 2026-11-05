@@ -1042,7 +1042,7 @@ await (async () => {
     });
   }
 
-  // ===== Look helpers the look pages share (UI Decor is in decor.js; its keys start with ov, from its old name UI Display) =====
+  // ===== Look helpers the look pages share (UI Decor is in decor.js; its keys start with ov) =====
   // UI Decor's switch, with decor.js loaded. Without decor.js, the parts of UI Decor the core builds stay SillyTavern's
   // own too, whatever is saved: Blur and Shadow, the corners and bottom line where the chat panel meets a Floating send
   // bar, and Speech Bubbles (bubblesOn).

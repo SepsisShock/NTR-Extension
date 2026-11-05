@@ -677,8 +677,8 @@ await (async () => {
     + '<div class="ntr_navfill"></div>';
   // A menu button with an icon and a label (HTML). title also names it for screen readers; margin replaces the default 0.
   const menuBtn = (id, icon, label, { title = '', margin = '0', cls = '' } = {}) => `<button type="button"${id ? ` id="${id}"` : ''} class="menu_button${cls ? ` ${cls}` : ''}" style="margin: ${margin}; width: max-content;"${title ? ` title="${escapeHTML(title)}" aria-label="${escapeHTML(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label}</button>`;
-  // An on/off switch, title naming it for screen readers. With box (its class), it sits in a column that's easier to tap,
-  // for list rows. extra holds more attributes, like ' disabled'.
+  // An on/off switch; title is also its aria-label. With box (a class), it is wrapped in a larger tap target for list
+  // rows. extra holds more attributes, like ' disabled'.
   function switchHtml({ id = '', cls = '', box = '', on, title, extra = '' }) {
     const t = escapeHTML(title);
     const input = `<input type="checkbox"${id ? ` id="${id}"` : ''} class="ntr_pswitch${cls ? ` ${cls}` : ''}" ${on ? 'checked' : ''} title="${t}" aria-label="${t}"${extra}>`;

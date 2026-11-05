@@ -24,13 +24,13 @@
   // corner, at the end of the text, keeps ST's shadow. Speech Bubbles' Dark and Light text turn Glow and Shadow off
   // (decor.js), so there the text inside keeps ST's.
   const FX_SKIP = ':is(pre, table, textarea)';
+  const ST_SHADOW = '0 0 calc(var(--shadowWidth) * 1px) var(--SmartThemeShadowColor)';
   function fxInnerCss(fx, box, inked) {
     if (fx['-webkit-text-stroke']) return cssRule(`${box} ${FX_SKIP}`, { '-webkit-text-stroke': '0' });
     if (!fx['text-shadow'] || inked) return '';
     return cssRule(`${box} :not(${FX_SKIP}, ${FX_SKIP} *)`, { 'text-shadow': 'inherit' })
       + cssRule(`body:not(.ntr_book) ${box} > *::after`, { 'text-shadow': ST_SHADOW });
   }
-  const ST_SHADOW = '0 0 calc(var(--shadowWidth) * 1px) var(--SmartThemeShadowColor)';
 
   // Gradient and Shimmer: a background painted into the letters (background-clip: text) over see-through text. Gradient
   // runs across from the text's color to the Effect Color, reaching it sooner the higher the Strength. Shimmer is a band
@@ -38,24 +38,6 @@
   // part's own if it has one, else ST's. The band sits in a background wider than the text and rests off it, so a
   // Shimmer that isn't playing looks like plain text. ST's text shadow would show through the letters, so it's taken off.
   const PAINT = ['gradient', 'shimmer'];
-  // Shimmer sweeps twice when its text appears, then stops, so nothing runs at rest and its motion stays under 5 seconds.
-  // New text plays it again: a new message, a swipe or an edit (ST draws the text anew), and in the Visual Novel box each
-  // segment once it's typed and the name tag when the speaker changes (vn.js marks them cb_shown). It waits while a reply
-  // is written, since ST rewrites the message on every streamed word, and doesn't play with ST's Reduced Motion, which
-  // ST also turns on for the device's own setting.
-  const MOVING = ':not(.reduced-motion):not([data-generating])';
-  // Changing a Shimmer setting switches the keyframes' name, which plays it again in place, so the menu shows the change.
-  // The second place is a Nameplate picture's, under a name's band; text with only the band ignores it.
-  let shine = { key: '', name: 'ntr_shine_a' };
-  function shineCss(s) {
-    const key = JSON.stringify(FX_PARTS.filter((p) => s[p + 'FxOn'] && s[p + 'Fx'] === 'shimmer')
-      .map((p) => [p, ...['FxStr', 'FxColorOn', 'FxColor', 'QuoteOn', 'Quote'].map((k) => s[p + k])]));
-    if (key !== shine.key) shine = { key, name: shine.key && shine.name === 'ntr_shine_a' ? 'ntr_shine_b' : 'ntr_shine_a' };
-    return {
-      spin: { animation: `${shine.name} 2.5s ease-in-out 2` },
-      keyframes: `\n      @keyframes ${shine.name} { 0% { background-position: 100% 0, center; } 60%, 100% { background-position: 0 0, center; } }`,
-    };
-  }
   function paintOf(s, p, quote) {
     if (!s[p + 'FxOn'] || !PAINT.includes(s[p + 'Fx'])) return null;
     const n = rangeNum(s, p + 'FxStr');
@@ -89,6 +71,25 @@
       + cssRule(`${sel} :is(${PASS})`, { 'text-shadow': 'none' })
       // Message Details' corner, at the end of the text.
       + cssRule(`${sel}::after`, { '-webkit-text-fill-color': 'currentColor', 'text-shadow': ST_SHADOW });
+  }
+
+  // Shimmer sweeps twice when its text appears, then stops, so nothing runs at rest and its motion stays under 5 seconds.
+  // New text plays it again: a new message, a swipe or an edit (ST draws the text anew), and in the Visual Novel box each
+  // segment once it's typed and the name tag when the speaker changes (vn.js marks them cb_shown). It waits while a reply
+  // is written, since ST rewrites the message on every streamed word, and doesn't play with ST's Reduced Motion, which
+  // ST also turns on for the device's own setting.
+  const MOVING = ':not(.reduced-motion):not([data-generating])';
+  // Changing a Shimmer setting switches the keyframes' name, which plays it again in place, so the menu shows the change.
+  // The second place is a Nameplate picture's, under a name's band; text with only the band ignores it.
+  let shine = { key: '', name: 'ntr_shine_a' };
+  function shineCss(s) {
+    const key = JSON.stringify(FX_PARTS.filter((p) => s[p + 'FxOn'] && s[p + 'Fx'] === 'shimmer')
+      .map((p) => [p, ...['FxStr', 'FxColorOn', 'FxColor', 'QuoteOn', 'Quote'].map((k) => s[p + k])]));
+    if (key !== shine.key) shine = { key, name: shine.key && shine.name === 'ntr_shine_a' ? 'ntr_shine_b' : 'ntr_shine_a' };
+    return {
+      spin: { animation: `${shine.name} 2.5s ease-in-out 2` },
+      keyframes: `\n      @keyframes ${shine.name} { 0% { background-position: 100% 0, center; } 60%, 100% { background-position: 0 0, center; } }`,
+    };
   }
 
   // Nameplate: a color or picture, border and roundness behind the name, on chat messages and the Visual Novel name tag.

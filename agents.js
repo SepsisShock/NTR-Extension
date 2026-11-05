@@ -1450,6 +1450,7 @@
     render();
   }
 
+  // ----- Binding the page -----
   // SillyTavern's crop box, square, on the picture at src. Returns the cropped part as a PNG file (transparency kept), or
   // null on Cancel. A picture from another site that doesn't allow reading it can't be cropped.
   async function cropFile(src, revoke = false) {

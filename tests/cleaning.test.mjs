@@ -1,5 +1,6 @@
-// Card data comes from other people, so it's cleaned before anything reads it. These tests feed bad data in through
-// api.store(), the same path the extension uses, so they also fail if card reads stop going through the cleaning.
+// Card data and theme files come from other people, so they're cleaned before anything reads them. The card tests
+// feed bad data in through api.store(), the same path the extension uses, so they also fail if card reads stop going
+// through the cleaning.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { api, context, R } from './env.mjs';
@@ -195,4 +196,41 @@ test("a card's own emotion list is checked like a theme's", () => {
     assert.equal(api.emoSet().own, false);
     assert.equal(api.emoSet().emotions, context.extensionSettings.chatvisuals.emotions);
   }
+});
+
+// themes.js import and apply both clean sections through cleanLookSection; the tests below call it directly, not
+// through themes.js.
+test("a theme's unsafe links are removed, safe ones kept", () => {
+  for (const url of SAFE) assert.equal(api.cleanLookSection('reader', { rdBookImg: url }).rdBookImg, url);
+  for (const url of UNSAFE) assert.ok(!('rdBookImg' in api.cleanLookSection('reader', { rdBookImg: url })), url.slice(0, 60));
+  const { bannerGlobal } = api.cleanLookSection('bannerGlobal', { bannerGlobal: { images: [...SAFE, ...UNSAFE].map((url) => ({ url })), video: UNSAFE[0] } });
+  assert.deepEqual(bannerGlobal.images.map((im) => im.url), SAFE);
+  assert.equal(bannerGlobal.video, '');
+});
+
+test("a theme's numbers are kept inside their limits, and values of the wrong type or too long are left out", () => {
+  assert.deepEqual(api.cleanLookSection('banner', { bannerHeight: 1e9, bannerGap: -1e9 }), { bannerHeight: R.bannerHeight[1], bannerGap: R.bannerGap[0] });
+  for (const [sec, good, bad] of [
+    ['banner', { bannerRotateSec: R.bannerRotateSec[0], bannerRotate: true, bannerRotateFx: 'fade' },
+      { bannerRotateSec: '5', bannerGap: NaN, bannerHeight: Infinity, bannerRotate: 'yes', bannerRotateFx: 'explode' }],
+    ['reader', { rdInk: '#123456', rdBookFont: 'Georgia' }, { rdInk: 'red;background:url(//evil.example)', rdBookFont: "Georgia'; } body { display: none" }],
+    ['pfp', { aiCss: '.x { color: red; }' }, { aiCss: long(2001) }],
+    ['vn', { mapGoText: 'Go' }, { mapGoText: long(201) }],
+  ]) {
+    assert.deepEqual(api.cleanLookSection(sec, good), good, sec);
+    assert.deepEqual(api.cleanLookSection(sec, bad), {}, sec);
+  }
+});
+
+test("a theme's unknown settings are left out at every level, and known ones next to them kept", () => {
+  const X = 'user/files/banner_x.png';
+  const out = {
+    ...api.cleanLookSection('banner', { bannerHeight: 100, fgOpacity: 50, extra: X }),
+    ...api.cleanLookSection('bannerGlobal', { bannerGlobal: { images: [{ url: SAFE[0], extra: X }], extra: X } }),
+  };
+  assert.equal(JSON.stringify(out).includes(X), false);
+  assert.equal(out.bannerHeight, 100);
+  assert.ok(!('fgOpacity' in out));
+  assert.equal(out.bannerGlobal.images[0].url, SAFE[0]);
+  for (const part of ['junk', 7, null, []]) assert.deepEqual(api.cleanLookSection('banner', part), {});
 });

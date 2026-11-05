@@ -239,7 +239,6 @@ try {
   `;
 
   let query = '';
-  // In a label box, so a finger has room to hit it (see the CSS).
   const btn = (act, icon, title, extra = '') => `<button class="menu_button rx_btn${extra}" data-act="${act}" title="${title}" aria-label="${title}"><i class="fa-solid ${icon}"></i></button>`;
 
   function rowHtml(x) {

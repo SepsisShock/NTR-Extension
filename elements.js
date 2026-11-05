@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.61';
+  const ELEMENTS_VERSION = '2.86.62';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -105,6 +105,21 @@
     if (down) css += `\n      html.ntr_cur_down, html.ntr_cur_down *:not(${TEXT_CURSOR_SEL}) { cursor: ${down} !important; }`;
     return css ? css + '\n' : '';
   }
+  function onCursorDown(e) {
+    if (e.pointerType === 'mouse' && cursorKinds.down) document.documentElement.classList.add('ntr_cur_down');
+  }
+  const onCursorUp = () => document.documentElement.classList.remove('ntr_cur_down');
+  // SillyTavern gives the hand to many kinds of things, too many to list. So the thing under the mouse is checked as the
+  // mouse moves onto it: if its own cursor is the hand (or the plain arrow or the text cursor), it's marked to get the custom one instead.
+  let cursorEl = null;
+  function onCursorOver(e) {
+    if (cursorEl) { cursorEl.removeAttribute('data-ntr-cur'); cursorEl = null; }
+    const t = e.target;
+    if (!(t instanceof Element) || (!cursorKinds.normal && !cursorKinds.ptr && !cursorKinds.text)) return;
+    const c = getComputedStyle(t).cursor;
+    const kind = c === 'pointer' && cursorKinds.ptr ? 'ptr' : c === 'default' && cursorKinds.normal ? 'normal' : c === 'text' && cursorKinds.text ? 'text' : '';
+    if (kind) { t.setAttribute('data-ntr-cur', kind); cursorEl = t; }
+  }
   // Menu Bar Icons. A picture takes the place of its icon in the icon's own 1em square, so it follows SillyTavern's icon
   // size and fades like its icons when the panel is closed. Tint uses the picture as a mask in the icon's color. A
   // picture shows only once it has loaded, so a broken link keeps SillyTavern's icon. While SillyTavern shows its
@@ -137,31 +152,6 @@
     }
     return css ? css + '\n' : '';
   }
-  function onCursorDown(e) {
-    if (e.pointerType === 'mouse' && cursorKinds.down) document.documentElement.classList.add('ntr_cur_down');
-  }
-  const onCursorUp = () => document.documentElement.classList.remove('ntr_cur_down');
-  // SillyTavern gives the hand to many kinds of things, too many to list. So the thing under the mouse is checked as the
-  // mouse moves onto it: if its own cursor is the hand (or the plain arrow or the text cursor), it's marked to get the custom one instead.
-  let cursorEl = null;
-  function onCursorOver(e) {
-    if (cursorEl) { cursorEl.removeAttribute('data-ntr-cur'); cursorEl = null; }
-    const t = e.target;
-    if (!(t instanceof Element) || (!cursorKinds.normal && !cursorKinds.ptr && !cursorKinds.text)) return;
-    const c = getComputedStyle(t).cursor;
-    const kind = c === 'pointer' && cursorKinds.ptr ? 'ptr' : c === 'default' && cursorKinds.normal ? 'normal' : c === 'text' && cursorKinds.text ? 'text' : '';
-    if (kind) { t.setAttribute('data-ntr-cur', kind); cursorEl = t; }
-  }
-
-  // Styles set where each detail goes. SillyTavern is where it puts them itself.
-  const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
-  const MD_PRESETS = {
-    st: ['ST', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
-    messenger: ['Messenger', mdSpots([], [], ['time'], [])],
-    row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
-    footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],
-  };
-  const mdPreset = (s) => Object.keys(MD_PRESETS).find((k) => Object.entries(MD_PRESETS[k][1]).every(([key, v]) => s[key].join() === v.join())) || 'custom';
 
   // Background Pattern: layers drawn over the Box Color, in a shade of it or the Pattern Color. Sizes are in em, so
   // they scale with the text; ruled lines use 1lh, so they sit under each line of text.
@@ -447,6 +437,10 @@
     mesObs.observe(chat, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-duration'] });
   }
 
+  function elementsCss(s) {
+    return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
+  }
+
   // ===== Message Details =====
   // NTR draws each spot's details itself with ::after, from a CSS variable per spot on the message (see
   // syncMessageDetails), so nothing is added inside the message and SillyTavern's rewrites while streaming or editing
@@ -555,13 +549,20 @@
     }
   }
 
-  // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
+  // The Style presets: which details each spot shows. ST is SillyTavern's own placement.
+  const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
+  const MD_PRESETS = {
+    st: ['ST', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
+    messenger: ['Messenger', mdSpots([], [], ['time'], [])],
+    row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
+    footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],
+  };
+  const mdPreset = (s) => Object.keys(MD_PRESETS).find((k) => Object.entries(MD_PRESETS[k][1]).every(([key, v]) => s[key].join() === v.join())) || 'custom';
+
+  // ===== The Elements page =====
+  // Parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
     return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
-  }
-
-  function elementsCss(s) {
-    return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
   }
 
   // Each part's switch, then its own binder. A new part gets its own *Css function, added to elementsCss, and its own
@@ -615,6 +616,37 @@
     syncFade();
     bindReasoningArrow(overlay, s);
     bindReasoningBg(overlay, s, syncFade);
+  }
+
+  // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
+  function bindReasoningBg(overlay, s, onChange) {
+    const syncRows = () => {
+      onChange();
+      overlay.querySelector('.m_rbbg_rows').classList.toggle('cb_dim', !s.rbBgImg);
+      overlay.querySelectorAll('[data-rbbg]').forEach((r) => { r.style.display = r.dataset.rbbg === s.rbBgFit ? '' : 'none'; });
+    };
+    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
+    onPills(overlay, 'rbbgfit', (v) => set('rbBgFit', v));
+    onPills(overlay, 'rbbgpos', (v) => set('rbBgPos', v));
+    bindPicSlot(overlay, s, { ...RB_BG_PIC, onSet: syncRows });
+    syncRows();
+  }
+
+  // Reasoning Arrow: show the rows for the picked arrow, and the picture's Upload / Link / Remove.
+  function bindReasoningArrow(overlay, s) {
+    const syncRows = () => {
+      const a = s.rbArrow;
+      overlay.querySelectorAll('[data-rbarrow]').forEach((r) => {
+        const w = r.dataset.rbarrow;
+        r.style.display = w === a || (w === 'shown' && a !== 'none') || (w === 'color' && a !== 'none' && a !== 'image') ? '' : 'none';
+      });
+    };
+    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
+    onPills(overlay, 'rbarrow', (v) => set('rbArrow', v));
+    onPills(overlay, 'rbarrowturn', (v) => set('rbArrowTurn', v));
+    onPills(overlay, 'rbarrowanim', (v) => set('rbArrowAnim', v));
+    bindPicSlot(overlay, s, RB_ARROW_PIC);
+    syncRows();
   }
 
   // Cursor pictures: Upload / Link / Remove for each kind.
@@ -746,37 +778,6 @@
     });
     onPills(overlay, 'mddate', (v) => { s.mdDate = v; apply(); });
     onPills(overlay, 'mdsep', (v) => { s.mdSep = v; apply(); });
-  }
-
-  // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
-  function bindReasoningBg(overlay, s, onChange) {
-    const syncRows = () => {
-      onChange();
-      overlay.querySelector('.m_rbbg_rows').classList.toggle('cb_dim', !s.rbBgImg);
-      overlay.querySelectorAll('[data-rbbg]').forEach((r) => { r.style.display = r.dataset.rbbg === s.rbBgFit ? '' : 'none'; });
-    };
-    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
-    onPills(overlay, 'rbbgfit', (v) => set('rbBgFit', v));
-    onPills(overlay, 'rbbgpos', (v) => set('rbBgPos', v));
-    bindPicSlot(overlay, s, { ...RB_BG_PIC, onSet: syncRows });
-    syncRows();
-  }
-
-  // Reasoning Arrow: show the rows for the picked arrow, and the picture's Upload / Link / Remove.
-  function bindReasoningArrow(overlay, s) {
-    const syncRows = () => {
-      const a = s.rbArrow;
-      overlay.querySelectorAll('[data-rbarrow]').forEach((r) => {
-        const w = r.dataset.rbarrow;
-        r.style.display = w === a || (w === 'shown' && a !== 'none') || (w === 'color' && a !== 'none' && a !== 'image') ? '' : 'none';
-      });
-    };
-    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
-    onPills(overlay, 'rbarrow', (v) => set('rbArrow', v));
-    onPills(overlay, 'rbarrowturn', (v) => set('rbArrowTurn', v));
-    onPills(overlay, 'rbarrowanim', (v) => set('rbArrowAnim', v));
-    bindPicSlot(overlay, s, RB_ARROW_PIC);
-    syncRows();
   }
 
   function scrollbarPartHtml(s) {

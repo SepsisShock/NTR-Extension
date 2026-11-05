@@ -1,5 +1,5 @@
 (() => {
-  const AVATARS_VERSION = '2.86.61';
+  const AVATARS_VERSION = '2.86.62';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, newId, numRange, onPills, pageHtml, pills,
@@ -406,6 +406,25 @@
     `;
   }
 
+  // NTR Avatars on each side. A side that's switched off keeps SillyTavern's own avatar.
+  function avatarsCss(s) {
+    let css = '';
+    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+      if (!ntrAvatars(s, prefix)) continue;
+      const m = `.mes[is_user="${flag}"]`;
+      // In Line keeps SillyTavern's own message layout.
+      if (s[prefix + 'Style'] === 'inline') { css += getAvatarCss(prefix, flag, s); continue; }
+      css += `
+        ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; overflow: clip !important; }
+        ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
+        ${m} .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
+
+        ${getAvatarCss(prefix, flag, s)}
+      `;
+    }
+    return css;
+  }
+
   // A chat avatar picture's shape and width, so the image can be sized to the picture (see getAvatarCss). The wrapper
   // gets them too, for the Frame.
   function setAvatarRatio(img) {
@@ -543,30 +562,12 @@
     }
   }
 
+  // ===== The Avatar Management page =====
   function setSliders(root, s, prefix, pairs) {
     for (const [id, key] of pairs) {
       const el = root.querySelector(`#m_${prefix}_${id}`);
       if (el) setSlider(el, rangeNum(s, prefix + key));
     }
-  }
-
-  // NTR Avatars on each side. A side that's switched off keeps SillyTavern's own avatar.
-  function avatarsCss(s) {
-    let css = '';
-    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
-      if (!ntrAvatars(s, prefix)) continue;
-      const m = `.mes[is_user="${flag}"]`;
-      // In Line keeps SillyTavern's own message layout.
-      if (s[prefix + 'Style'] === 'inline') { css += getAvatarCss(prefix, flag, s); continue; }
-      css += `
-        ${m} { position: relative !important; padding: 0 !important; background-color: var(--SmartThemeChatMesBgc) !important; border-radius: var(--SmartThemeChatMesRounding, 15px) !important; overflow: clip !important; }
-        ${m} .mes_block, ${m} .mes_text { background: transparent !important; border: none !important; box-shadow: none !important; }
-        ${m} .mes_block { position: relative !important; z-index: 1 !important; width: 100% !important; min-height: 120px !important; padding: 15px !important; }
-
-        ${getAvatarCss(prefix, flag, s)}
-      `;
-    }
-    return css;
   }
 
   // Which ways a side's picture is bigger than its box, so Shift Left/Right and Up/Down have something to do. A Shape
@@ -584,7 +585,6 @@
     const cut = ntrAvatars(s, prefix) && s[`${prefix}Style`] === 'backdrop' && s[`${prefix}Fit`] !== 'contain';
     return { x: cut, y: cut };
   }
-  const anyFade = (s, prefix) => Object.values(FADE_PARTS).some(([key]) => rangeNum(s, prefix + key) > 0);
 
   // A side's picture box, as its height for a width of 1: the Shape's, or with None the picture's own.
   function boxAspect(s, prefix) {
@@ -705,6 +705,16 @@
     const shaped = !!shapeOf(s, prefix);
     const own = !shaped && s[`${prefix}Fit`] === 'original';
     return { shaped, own, cornersOn: ['rectangle', 'square'].includes(s[`${prefix}Shape`]), scaleOff: s[`${prefix}Style`] !== 'popout' && own };
+  }
+
+  const anyFade = (s, prefix) => Object.values(FADE_PARTS).some(([key]) => rangeNum(s, prefix + key) > 0);
+  // The avatar fade grid: the Position grid's cells, each a fade, with the middle left empty. Lit cells have a fade on.
+  function fadeGrid(prefix, s, cur) {
+    return `<div class="cb_posgrid cb_fadegrid">${POS_GRID.map(([v]) => {
+      if (!FADE_PARTS[v]) return '<span></span>';
+      const [key, name] = FADE_PARTS[v];
+      return `<label title="${name} Fade" class="${rangeNum(s, prefix + key) > 0 ? 'cb_fon' : ''}"><input type="radio" name="cbr_${prefix}fade" value="${v}" aria-label="${name} Fade" ${v === cur ? 'checked' : ''}></label>`;
+    }).join('')}</div>`;
   }
 
   function getColHtml(prefix, title, s) {
@@ -1093,15 +1103,6 @@
     const redraws = [];
     bindCol('ai');
     bindCol('us');
-  }
-
-  // The avatar fade grid: the Position grid's cells, each a fade, with the middle left empty. Lit cells have a fade on.
-  function fadeGrid(prefix, s, cur) {
-    return `<div class="cb_posgrid cb_fadegrid">${POS_GRID.map(([v]) => {
-      if (!FADE_PARTS[v]) return '<span></span>';
-      const [key, name] = FADE_PARTS[v];
-      return `<label title="${name} Fade" class="${rangeNum(s, prefix + key) > 0 ? 'cb_fon' : ''}"><input type="radio" name="cbr_${prefix}fade" value="${v}" aria-label="${name} Fade" ${v === cur ? 'checked' : ''}></label>`;
-    }).join('')}</div>`;
   }
 
   window.NTR.avatars = {

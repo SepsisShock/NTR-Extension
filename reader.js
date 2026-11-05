@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.61';
+  const READER_VERSION = '2.86.62';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn } = A;
@@ -390,6 +390,79 @@
     go(cur + d, 'top');
   }
 
+  // The book follows a reply as it's written, while the current page is one of its last two.
+  let textObs = null, textQueued = false;
+  function watchText() {
+    textObs?.disconnect();
+    textObs = null;
+    const last = geom && cur === pages.length - 1 && document.querySelector(`#chat > .mes[mesid="${pages[cur]?.[1]}"] .mes_text`);
+    if (!last) return;
+    textObs = new MutationObserver(() => {
+      if (textQueued) return;
+      textQueued = true;
+      requestAnimationFrame(() => {
+        textQueued = false;
+        if (!booked()) return;
+        const atEnd = spread >= spreads - 1;
+        spreads = countSpreads();
+        if (atEnd) showSpread(spreads - 1); else syncBar();
+      });
+    });
+    textObs.observe(last, { childList: true, subtree: true, characterData: true });
+  }
+
+  // Editing a message shows it like Standard until the edit is done, so the edit box has room.
+  function syncEdit() {
+    const on = !!geom && !!document.querySelector('#chat .edit_textarea');
+    if (on === editing()) return;
+    document.body.classList.toggle('ntr_bk_edit', on);
+    const chat = chatEl();
+    if (on) { if (chat) chat.scrollLeft = 0; document.querySelector('#chat .edit_textarea')?.scrollIntoView({ block: 'nearest' }); }
+    else showSpread(spread);
+  }
+  const checkEdit = () => { if (!geom) return; requestAnimationFrame(syncEdit); setTimeout(syncEdit, 300); };
+
+  // SillyTavern scrolls the chat down for new messages. The book's pages never scroll up and down, so it stays at the top.
+  const keepTop = (e) => { if (booked() && e.target.scrollTop) e.target.scrollTop = 0; };
+
+  // What only the book needs is watched only while it's on screen.
+  let bookChat = null;
+  function bookListen(on) {
+    const chat = on ? chatEl() : null;
+    if (chat === bookChat) return;
+    if (bookChat) {
+      bookChat.removeEventListener('scroll', keepTop);
+      bookChat.removeEventListener('load', onLoad, true);
+      bookChat.removeEventListener('toggle', onToggle, true);
+    } else if (chat) {
+      document.addEventListener('click', checkEdit, true);
+      document.addEventListener('keyup', checkEdit, true);
+      document.fonts.addEventListener('loadingdone', recount);
+    }
+    if (chat) {
+      chat.addEventListener('scroll', keepTop, { passive: true });
+      chat.addEventListener('load', onLoad, true);
+      chat.addEventListener('toggle', onToggle, true);
+    } else {
+      document.removeEventListener('click', checkEdit, true);
+      document.removeEventListener('keyup', checkEdit, true);
+      document.fonts.removeEventListener('loadingdone', recount);
+    }
+    bookChat = chat;
+  }
+
+  // After a setting or the screen size changed: the book again, at the same spread.
+  function relayout() {
+    flipEnd?.();
+    if (!live()) return;
+    const was = !!geom;
+    layoutBook();
+    placeBar();
+    if (geom) { requestAnimationFrame(() => showSpread(was ? spread : 0)); watchText(); }
+    else { spread = 0; spreads = 1; textObs?.disconnect(); textObs = null; const chat = chatEl(); if (chat) chat.scrollLeft = 0; syncBar(); }
+  }
+  const onResize = () => { if (live()) relayout(); };
+
   // ----- Page flip -----
   // In the book, Next and Previous turn a page: a sheet of the book picture's paper lifts off the right page (the left
   // one going back) and turns over the spine while the next two pages show under it. The sheet is paper only, so the
@@ -470,76 +543,7 @@
     decoded.set(u, img);
   }
 
-  // The book follows a reply as it's written, while the current page is one of its last two.
-  let textObs = null, textQueued = false;
-  function watchText() {
-    textObs?.disconnect();
-    textObs = null;
-    const last = geom && cur === pages.length - 1 && document.querySelector(`#chat > .mes[mesid="${pages[cur]?.[1]}"] .mes_text`);
-    if (!last) return;
-    textObs = new MutationObserver(() => {
-      if (textQueued) return;
-      textQueued = true;
-      requestAnimationFrame(() => {
-        textQueued = false;
-        if (!booked()) return;
-        const atEnd = spread >= spreads - 1;
-        spreads = countSpreads();
-        if (atEnd) showSpread(spreads - 1); else syncBar();
-      });
-    });
-    textObs.observe(last, { childList: true, subtree: true, characterData: true });
-  }
-
-  // Editing a message shows it like Standard until the edit is done, so the edit box has room.
-  function syncEdit() {
-    const on = !!geom && !!document.querySelector('#chat .edit_textarea');
-    if (on === editing()) return;
-    document.body.classList.toggle('ntr_bk_edit', on);
-    const chat = chatEl();
-    if (on) { if (chat) chat.scrollLeft = 0; document.querySelector('#chat .edit_textarea')?.scrollIntoView({ block: 'nearest' }); }
-    else showSpread(spread);
-  }
-  const checkEdit = () => { if (!geom) return; requestAnimationFrame(syncEdit); setTimeout(syncEdit, 300); };
-
-  // What only the book needs is watched only while it's on screen.
-  let bookChat = null;
-  function bookListen(on) {
-    const chat = on ? chatEl() : null;
-    if (chat === bookChat) return;
-    if (bookChat) {
-      bookChat.removeEventListener('scroll', keepTop);
-      bookChat.removeEventListener('load', onLoad, true);
-      bookChat.removeEventListener('toggle', onToggle, true);
-    } else if (chat) {
-      document.addEventListener('click', checkEdit, true);
-      document.addEventListener('keyup', checkEdit, true);
-      document.fonts.addEventListener('loadingdone', recount);
-    }
-    if (chat) {
-      chat.addEventListener('scroll', keepTop, { passive: true });
-      chat.addEventListener('load', onLoad, true);
-      chat.addEventListener('toggle', onToggle, true);
-    } else {
-      document.removeEventListener('click', checkEdit, true);
-      document.removeEventListener('keyup', checkEdit, true);
-      document.fonts.removeEventListener('loadingdone', recount);
-    }
-    bookChat = chat;
-  }
-
-  // After a setting or the screen size changed: the book again, at the same spread.
-  function relayout() {
-    flipEnd?.();
-    if (!live()) return;
-    const was = !!geom;
-    layoutBook();
-    placeBar();
-    if (geom) { requestAnimationFrame(() => showSpread(was ? spread : 0)); watchText(); }
-    else { spread = 0; spreads = 1; textObs?.disconnect(); textObs = null; const chat = chatEl(); if (chat) chat.scrollLeft = 0; syncBar(); }
-  }
-  const onResize = () => { if (live()) relayout(); };
-
+  // ----- Pages, the saved page, keys and switching on or off -----
   function scrollTo(at) {
     const chat = chatEl();
     if (!chat) return;
@@ -654,9 +658,6 @@
     // While a page turn is loading older messages, counting waits until it's done.
     requestAnimationFrame(() => { queued = false; if (!live()) return; if (turning === opened) queue(); else rebuild(); });
   }
-
-  // SillyTavern scrolls the chat down for new messages. The book's pages never scroll up and down, so it stays at the top.
-  const keepTop = (e) => { if (booked() && e.target.scrollTop) e.target.scrollTop = 0; };
 
   // Only the chat's own list of messages is watched, so a streaming reply doesn't count pages again for every word.
   function watch(on) {

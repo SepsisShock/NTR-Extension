@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.61';
+  const LAYOUT_VERSION = '2.86.62';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -843,6 +843,11 @@
   // and Phone apart); Reset puts it back there.
   // While a block is being picked in the chat (see pickPin), the boxes hide and the originals show.
   let pinPicking = false;
+  const pinLast = new Map();
+  let pinObs = null, pinTimer = null;
+  // The message being read, while a box uses Where You're Reading (see pinReadAt). Scrolling only works it out again; the
+  // boxes redraw when it changes.
+  let pinRead = null, pinReadOn = false, pinReadFrame = 0, pinReadRo = null;
   // What a block looks for in the messages. Empty until something has been picked.
   const pinSel = (p) => (p.tag && p.classes.length ? p.tag + p.classes.map((c) => '.' + CSS.escape(c)).join('') : '');
   // Whether a block has something to look for: a picked block, or at least one agent.
@@ -860,25 +865,6 @@
     return { ...d, moved: p.from === 'agents' ? p[k].moved : false };
   }
 
-  // Where You're Reading: the message crossing a line a third of the way down the chat, or null at the bottom of the
-  // chat, for the newest. Only while the chat scrolls freely: Reader Mode's pages and Visual Novel Mode pick the
-  // message themselves (window.NTR.reader.upTo). Messages Reader Mode hides have no height and are skipped.
-  function pinReadAt() {
-    const chat = document.getElementById('chat');
-    if (!chat || settings().nodeEnabled || window.NTR.reader?.page()) return null;
-    if (chat.scrollHeight - chat.scrollTop - chat.clientHeight <= 4) return null;
-    const r = chat.getBoundingClientRect();
-    const line = r.top + r.height / 3;
-    // From the newest up, so near the bottom only a few are measured. Above every message, the oldest one.
-    const all = chat.querySelectorAll(':scope > .mes');
-    let m = null;
-    for (let i = all.length - 1; i >= 0; i--) {
-      if (!all[i].offsetHeight) continue;
-      m = all[i];
-      if (m.getBoundingClientRect().top <= line) break;
-    }
-    return m ? Number(m.getAttribute('mesid')) : null;
-  }
   // The message a block shows up to: the current page in Reader Mode, and with Where You're Reading, the message
   // being read too. Null for the newest.
   function pinUpTo(p) {
@@ -954,11 +940,25 @@
     if (inp.length === was.checked.length) inp.forEach((x, i) => { x.checked = was.checked[i]; });
   }
 
-  const pinLast = new Map();
-  let pinObs = null, pinTimer = null;
-  // The message being read, while a box uses Where You're Reading (see pinReadAt). Scrolling only works it out again; the
-  // boxes redraw when it changes.
-  let pinRead = null, pinReadOn = false, pinReadFrame = 0, pinReadRo = null;
+  // Where You're Reading: the message crossing a line a third of the way down the chat, or null at the bottom of the
+  // chat, for the newest. Only while the chat scrolls freely: Reader Mode's pages and Visual Novel Mode pick the
+  // message themselves (window.NTR.reader.upTo). Messages Reader Mode hides have no height and are skipped.
+  function pinReadAt() {
+    const chat = document.getElementById('chat');
+    if (!chat || settings().nodeEnabled || window.NTR.reader?.page()) return null;
+    if (chat.scrollHeight - chat.scrollTop - chat.clientHeight <= 4) return null;
+    const r = chat.getBoundingClientRect();
+    const line = r.top + r.height / 3;
+    // From the newest up, so near the bottom only a few are measured. Above every message, the oldest one.
+    const all = chat.querySelectorAll(':scope > .mes');
+    let m = null;
+    for (let i = all.length - 1; i >= 0; i--) {
+      if (!all[i].offsetHeight) continue;
+      m = all[i];
+      if (m.getBoundingClientRect().top <= line) break;
+    }
+    return m ? Number(m.getAttribute('mesid')) : null;
+  }
   function onPinScroll(e) {
     if (e.target.id === 'chat') pinCheckRead();
   }

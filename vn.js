@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.61';
+  const VN_VERSION = '2.86.62';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -17,7 +17,7 @@
   const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
   const vnOn = () => A.isOn() && settings().nodeEnabled;
 
-  // ----- Built-in art kit: original SVG drawn in code, no outside art -----
+  // ----- Built-in art kit: original SVG drawn in code, no outside art, and picking built-in or custom art -----
   function rng(seed) {
     return () => {
       seed = (seed + 0x6D2B79F5) | 0;
@@ -122,6 +122,19 @@
   }
   const WX = { r1: tile(3, 220, 16, 'rain'), r2: tile(4, 300, 12, 'rain'), s1: tile(5, 260, 16, 'snow'), s2: tile(6, 380, 12, 'snow') };
 
+  function silhouetteFor(key) {
+    const s = settings();
+    if (s.artSprite === 'custom') return s.artSpriteImg || null;
+    if (s.artSprite !== 'builtin' || !key) return null;
+    const h = hueOf(key);
+    return silCache[h] || (silCache[h] = silhouette(h));
+  }
+  function artBgUrl() {
+    const s = settings();
+    return s.artBg === 'custom' ? (s.artBgImg || '') : artUri(s.artBg);
+  }
+
+  // ----- Styles -----
   // Animations that stop with Reduced Motion, ST's own (body.reduced-motion) or the device's.
   const still = (sels) => `
       @media (prefers-reduced-motion: reduce) { ${sels.join(', ')} { animation: none; } }
@@ -206,6 +219,7 @@
   // Kept while the extension is off: the menu still opens then, and the other rules only style VN parts, which are hidden.
   const applyStyle = () => cssTag('ntr_vn_style', VN_CSS + (vnOn() ? '\n      #chat .mes { display: none !important; }\n' : ''));
 
+  // ----- Player state and reading messages into lines -----
   // follow: on the newest message, so new ones are followed. shown: the chat message on screen, found again after earlier
   // ones are deleted. md: the chat data whose saved message was read (see keepPlace).
   const node = { list: [], pos: 0, segs: [], i: 0, typer: null, auto: null, typing: false, finish: null, waitId: null, cont: null, contJump: null, follow: true, shown: null, md: null };
@@ -313,23 +327,91 @@
     return h.replace(/\n/g, '<br>');
   }
 
-  // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
-  function spriteSrc(name, emoName) {
-    return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());
+  function parseMsg(m) {
+    const c = ctx();
+    return m.is_user ? parseSegments(m.mes, m.name || c.name1, true) : parseSegments(m.mes, m.name || c.name2, false);
   }
 
-  function silhouetteFor(key) {
-    const s = settings();
-    if (s.artSprite === 'custom') return s.artSpriteImg || null;
-    if (s.artSprite !== 'builtin' || !key) return null;
-    const h = hueOf(key);
-    return silCache[h] || (silCache[h] = silhouette(h));
-  }
-  function artBgUrl() {
-    const s = settings();
-    return s.artBg === 'custom' ? (s.artBgImg || '') : artUri(s.artBg);
+  // Who is on stage: castNew and castStep (cast.js) keep the list. A snapshot goes on each line.
+  const castSnap = (st) => ({ explicit: st.explicit, list: st.list.map((x) => ({ ...x })) });
+  // The chat's messages before idx that have text, without system messages.
+  const before = (idx) => (ctx().chat || []).slice(0, idx).filter((m) => m && !m.is_system && m.mes);
+  function castAt(idx) {
+    const st = castNew();
+    for (const m of before(idx)) for (const seg of parseMsg(m)) castStep(st, seg);
+    return st;
   }
 
+  // Location and weather in effect when message idx starts: the last such tags in any earlier message.
+  // Pass a Set as `visited` to also collect every location named along the way.
+  function stickyAt(idx, visited) {
+    const s = settings();
+    const nc = reEsc(s.delimNarClose);
+    const words = [s.locWord, s.weatherWord].map(reEsc).join('|');
+    const re = new RegExp(`${reEsc(s.delimNarOpen)}[ \\t]*(${words})[ \\t]*:[ \\t]*((?:(?!${nc})[^\\n]){1,200}?)[ \\t]*${nc}`, 'gi');
+    const lw = lc(s.locWord);
+    let loc = null, wx = null;
+    for (const m of before(idx)) {
+      re.lastIndex = 0;
+      let mm;
+      while ((mm = re.exec(m.mes))) {
+        const arg = mm[2].trim();
+        if (lc(mm[1]) === lw) { loc = arg; if (visited) visited.add(normLoc(arg)); } else wx = wxKind(arg, s) || wx;
+      }
+    }
+    return { loc, wx };
+  }
+  const chatLen = () => (ctx().chat || []).length;
+  const currentLoc = () => stickyAt(chatLen()).loc;
+  function visitedLocs() { const set = new Set(); stickyAt(chatLen(), set); return set; }
+
+  // The dialogue parts of a message's tags and text (from parseMsg), each with the scene it plays in.
+  function buildSegs(idx, parts) {
+    const s = settings();
+    let { loc, wx } = stickyAt(idx);
+    const cast = castAt(idx);
+    const segs = [];
+    // Effects and CGs belong to the next line; choices to the line before them.
+    let fx = [], cg = null, choice = null;
+    for (const seg of parts) {
+      if (seg.kind === 'loc') { loc = seg.name; continue; }
+      if (seg.kind === 'enter' || seg.kind === 'exit') { castStep(cast, seg); continue; }
+      castStep(cast, seg);
+      if (seg.kind === 'wx') { wx = wxKind(seg.name, s) || wx; continue; }
+      if (seg.kind === 'fx') { const k = fxKind(seg.name, s); if (k) fx.push(k); continue; }
+      if (seg.kind === 'cg') { cg = seg.name; continue; }
+      if (seg.kind === 'choice') { const opts = splitChoices(seg.name, s); if (opts.length) choice = { opts, after: segs.length }; continue; }
+      Object.assign(seg, { loc, wx, fx, cg, cast: castSnap(cast) });
+      fx = []; cg = null;
+      segs.push(seg);
+    }
+    if (cg) { segs.push({ kind: 'cg', name: '', emo: '', text: '', loc, wx, fx, cg, cast: castSnap(cast) }); fx = []; }
+    if (fx.length && segs.length) segs[segs.length - 1].fx.push(...fx);
+    if (choice) {
+      if (!segs.length) segs.push({ kind: 'narrator', name: '', emo: '', text: '', loc, wx, fx: [], cg: null, cast: castSnap(cast) });
+      const textAfter = segs.slice(choice.after).some((x) => x.kind !== 'cg');
+      (textAfter ? segs[Math.max(0, choice.after - 1)] : segs[segs.length - 1]).choices = choice.opts;
+    }
+    return { segs, loc, wx, cast: castSnap(cast) };
+  }
+
+  function nodeParseCurrent() {
+    const c = ctx();
+    const idx = node.list[node.pos];
+    const m = c.chat[idx];
+    node.prevTail = [];
+    if (!m) { node.segs = []; node.endLoc = null; node.endWx = null; node.endCast = null; return; }
+    // A new swipe being written still holds the old reply, so it shows "..." like SillyTavern's chat (see nodeSwiped).
+    const r = buildSegs(idx, idx === node.waitId ? [{ kind: 'narrator', name: '', emo: '', text: '...' }] : parseMsg(m));
+    node.segs = r.segs;
+    node.endLoc = r.loc;
+    node.endWx = r.wx;
+    node.endCast = r.cast;
+    const prev = node.pos > 0 ? c.chat[node.list[node.pos - 1]] : null;
+    if (prev) node.prevTail = parseMsg(prev).filter((x) => x.kind === 'char' && x.name).slice(-3);
+  }
+
+  // ----- Menu (the Visual Novel part of the Reader Mode page) -----
   // Every tag with the user's own delimiters and real names, so people can see exactly what to write in a card.
   function guideRows(s) {
     const v = V();
@@ -1129,102 +1211,6 @@
     loadSub('map', true).then((m) => { if (m) safe(() => m.open()); });
   }
 
-  function nodeStep(d) {
-    const ni = node.i + d;
-    if (ni < 0 || ni >= node.segs.length) return;
-    node.i = ni;
-    nodeShow(d > 0);
-  }
-
-  function nodeAdvance() {
-    if (node.typing && node.finish) { node.finish(); return; }
-    nodeStep(1);
-  }
-
-  function parseMsg(m) {
-    const c = ctx();
-    return m.is_user ? parseSegments(m.mes, m.name || c.name1, true) : parseSegments(m.mes, m.name || c.name2, false);
-  }
-
-  // Who is on stage: castNew and castStep (cast.js) keep the list. A snapshot goes on each line.
-  const castSnap = (st) => ({ explicit: st.explicit, list: st.list.map((x) => ({ ...x })) });
-  // The chat's messages before idx that have text, without system messages.
-  const before = (idx) => (ctx().chat || []).slice(0, idx).filter((m) => m && !m.is_system && m.mes);
-  function castAt(idx) {
-    const st = castNew();
-    for (const m of before(idx)) for (const seg of parseMsg(m)) castStep(st, seg);
-    return st;
-  }
-
-  // Location and weather in effect when message idx starts: the last such tags in any earlier message.
-  // Pass a Set as `visited` to also collect every location named along the way.
-  function stickyAt(idx, visited) {
-    const s = settings();
-    const nc = reEsc(s.delimNarClose);
-    const words = [s.locWord, s.weatherWord].map(reEsc).join('|');
-    const re = new RegExp(`${reEsc(s.delimNarOpen)}[ \\t]*(${words})[ \\t]*:[ \\t]*((?:(?!${nc})[^\\n]){1,200}?)[ \\t]*${nc}`, 'gi');
-    const lw = lc(s.locWord);
-    let loc = null, wx = null;
-    for (const m of before(idx)) {
-      re.lastIndex = 0;
-      let mm;
-      while ((mm = re.exec(m.mes))) {
-        const arg = mm[2].trim();
-        if (lc(mm[1]) === lw) { loc = arg; if (visited) visited.add(normLoc(arg)); } else wx = wxKind(arg, s) || wx;
-      }
-    }
-    return { loc, wx };
-  }
-  const chatLen = () => (ctx().chat || []).length;
-  const currentLoc = () => stickyAt(chatLen()).loc;
-  function visitedLocs() { const set = new Set(); stickyAt(chatLen(), set); return set; }
-
-  // The dialogue parts of a message's tags and text (from parseMsg), each with the scene it plays in.
-  function buildSegs(idx, parts) {
-    const s = settings();
-    let { loc, wx } = stickyAt(idx);
-    const cast = castAt(idx);
-    const segs = [];
-    // Effects and CGs belong to the next line; choices to the line before them.
-    let fx = [], cg = null, choice = null;
-    for (const seg of parts) {
-      if (seg.kind === 'loc') { loc = seg.name; continue; }
-      if (seg.kind === 'enter' || seg.kind === 'exit') { castStep(cast, seg); continue; }
-      castStep(cast, seg);
-      if (seg.kind === 'wx') { wx = wxKind(seg.name, s) || wx; continue; }
-      if (seg.kind === 'fx') { const k = fxKind(seg.name, s); if (k) fx.push(k); continue; }
-      if (seg.kind === 'cg') { cg = seg.name; continue; }
-      if (seg.kind === 'choice') { const opts = splitChoices(seg.name, s); if (opts.length) choice = { opts, after: segs.length }; continue; }
-      Object.assign(seg, { loc, wx, fx, cg, cast: castSnap(cast) });
-      fx = []; cg = null;
-      segs.push(seg);
-    }
-    if (cg) { segs.push({ kind: 'cg', name: '', emo: '', text: '', loc, wx, fx, cg, cast: castSnap(cast) }); fx = []; }
-    if (fx.length && segs.length) segs[segs.length - 1].fx.push(...fx);
-    if (choice) {
-      if (!segs.length) segs.push({ kind: 'narrator', name: '', emo: '', text: '', loc, wx, fx: [], cg: null, cast: castSnap(cast) });
-      const textAfter = segs.slice(choice.after).some((x) => x.kind !== 'cg');
-      (textAfter ? segs[Math.max(0, choice.after - 1)] : segs[segs.length - 1]).choices = choice.opts;
-    }
-    return { segs, loc, wx, cast: castSnap(cast) };
-  }
-
-  function nodeParseCurrent() {
-    const c = ctx();
-    const idx = node.list[node.pos];
-    const m = c.chat[idx];
-    node.prevTail = [];
-    if (!m) { node.segs = []; node.endLoc = null; node.endWx = null; node.endCast = null; return; }
-    // A new swipe being written still holds the old reply, so it shows "..." like SillyTavern's chat (see nodeSwiped).
-    const r = buildSegs(idx, idx === node.waitId ? [{ kind: 'narrator', name: '', emo: '', text: '...' }] : parseMsg(m));
-    node.segs = r.segs;
-    node.endLoc = r.loc;
-    node.endWx = r.wx;
-    node.endCast = r.cast;
-    const prev = node.pos > 0 ? c.chat[node.list[node.pos - 1]] : null;
-    if (prev) node.prevTail = parseMsg(prev).filter((x) => x.kind === 'char' && x.name).slice(-3);
-  }
-
   // ----- Location backgrounds -----
   let locCur = '';
   function ensureLocLayer() {
@@ -1289,6 +1275,11 @@
     return st;
   }
 
+  // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
+  function spriteSrc(name, emoName) {
+    return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());
+  }
+
   function updateStage() {
     const s = settings();
     const st = ensureStage();
@@ -1320,6 +1311,19 @@
   function updateInjection() {
     const s = settings();
     A.setInjection(INJECT_KEY, A.isOn() && s.nodeEnabled && s.nodeInject ? buildPrompt(s) : '');
+  }
+
+  // ----- Moving between lines and messages -----
+  function nodeStep(d) {
+    const ni = node.i + d;
+    if (ni < 0 || ni >= node.segs.length) return;
+    node.i = ni;
+    nodeShow(d > 0);
+  }
+
+  function nodeAdvance() {
+    if (node.typing && node.finish) { node.finish(); return; }
+    nodeStep(1);
   }
 
   function nodeGoMsg(d) {
@@ -1356,8 +1360,6 @@
     if (node.shown !== was) Promise.resolve(R?.drawTo(idx)).then(() => A.refreshPins());
   }
 
-  const syncNodeToggle = () => A.syncVNToggle();
-
   // ----- Opening video triggers (the player itself lives in opening.js) -----
   let lastSig = null;
   function chatSig() {
@@ -1382,6 +1384,7 @@
     else loadSub('opening').then(run);
   }
 
+  // ----- Loading the chat -----
   function clearScene() {
     setWeather(null);
     setCG(null);
@@ -1442,7 +1445,7 @@
     nodeShow(!!opts.animate);
   }
 
-  // ----- Continue -----
+  // ----- Continue and swipes -----
   // The text a part shows, without its formatting.
   function plainText(t) {
     const d = document.createElement('div');
@@ -1497,6 +1500,9 @@
     node.waitId = null;
     return true;
   }
+
+  // ----- Redrawing and switching off -----
+  const syncNodeToggle = () => A.syncVNToggle();
 
   // While Visual Novel Mode is off, new messages, edits and swipes are left alone: switching it on loads the chat again.
   function nodeQueue(animate) {

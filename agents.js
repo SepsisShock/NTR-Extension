@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.61';
+  const AGENTS_VERSION = '2.86.62';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName } = A;
@@ -1450,6 +1450,7 @@
     render();
   }
 
+  // ----- Binding the page -----
   // SillyTavern's crop box, square, on the picture at src. Returns the cropped part as a PNG file (transparency kept), or
   // null on Cancel. A picture from another site that doesn't allow reading it can't be cropped.
   async function cropFile(src, revoke = false) {

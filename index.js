@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.60';
+  const VERSION = '2.86.61';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -453,6 +453,18 @@ await (async () => {
     return uploadDataUrl(url, prefix);
   }
 
+  // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
+  // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
+  // global settings.
+  async function uploadHere(upload, perChat = true) {
+    const st = store();
+    const path = await upload();
+    if (!path || !perChat || store() === st) return path;
+    deleteFileIfUnused(path);
+    toastr.warning('The chat changed before the upload finished, so it was not saved. Upload it again.', 'Upload');
+    return '';
+  }
+
   // ===== Questions in the menu =====
   // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
   // One question at a time: a new question closes the open one as if Cancel was pressed, and so does closing or
@@ -746,17 +758,6 @@ await (async () => {
         toastr.error(e.message || 'Upload failed', title);
       }
     };
-  }
-  // Runs `upload` and returns the file's path. If the chat changes before it finishes, saving the path would put it on
-  // the wrong character, so the file is deleted and '' comes back. `perChat` false skips this for files that go in the
-  // global settings.
-  async function uploadHere(upload, perChat = true) {
-    const st = store();
-    const path = await upload();
-    if (!path || !perChat || store() === st) return path;
-    deleteFileIfUnused(path);
-    toastr.warning('The chat changed before the upload finished, so it was not saved. Upload it again.', 'Upload');
-    return '';
   }
 
   function openCombinedModal() {
@@ -1830,6 +1831,15 @@ await (async () => {
   // Resolves to true if the file was deleted or was already gone. Never throws.
   const deleteFile = (p) => fetch('/api/files/delete', { method: 'POST', headers: ctx().getRequestHeaders(), body: JSON.stringify({ path: p }) })
     .then((res) => res.ok || res.status === 404).catch(() => false);
+  // Says why the file was kept: 'used', 'lazy', 'failed', or 'other' when it isn't NTR's upload. '' once it's deleted or already gone.
+  async function deleteFileIfUnused(path) {
+    const p = normFile(path);
+    if (!p || !OWN_FILE.test(p)) return 'other';
+    if (filesInUse().has(p)) return 'used';
+    // With SillyTavern's lazy loading on, cards that haven't been opened yet aren't loaded, so their files can't be checked: keep the file.
+    if ((ctx().characters || []).some((c) => c && c.shallow)) return 'lazy';
+    return (await deleteFile(p)) ? '' : 'failed';
+  }
 
   // ===== Removing NTR data =====
   // `look`: settings and themes (the whole extension settings). `chars`: the NTR data in every character card, plus the
@@ -1898,16 +1908,6 @@ await (async () => {
     }
     c.saveSettingsDebounced(); // the page reloads next, so `wiping` stays on until then
     return left.length;
-  }
-
-  // Says why the file was kept: 'used', 'lazy', 'failed', or 'other' when it isn't NTR's upload. '' once it's deleted or already gone.
-  async function deleteFileIfUnused(path) {
-    const p = normFile(path);
-    if (!p || !OWN_FILE.test(p)) return 'other';
-    if (filesInUse().has(p)) return 'used';
-    // With SillyTavern's lazy loading on, cards that haven't been opened yet aren't loaded, so their files can't be checked: keep the file.
-    if ((ctx().characters || []).some((c) => c && c.shallow)) return 'lazy';
-    return (await deleteFile(p)) ? '' : 'failed';
   }
 
   // ===== Theme data =====

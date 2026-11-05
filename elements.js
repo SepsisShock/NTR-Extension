@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.64';
+  const ELEMENTS_VERSION = '2.86.65';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -577,14 +577,12 @@
     bindMenuBarIcons(overlay, s);
   }
 
+  // The picks save through bindRows; the rows that depend on them follow on each change in the part.
   function bindReasoning(overlay, s) {
-    onPills(overlay, 'rbtyping', (v) => { s.rbTyping = v; save(); syncReasoningLabels(); });
-    for (const [name, k] of [['rbbtnfx', 'rbBtnFx'], ['rbedgefx', 'rbEdgeFx']]) {
-      onPills(overlay, name, (v) => {
-        s[k] = v; save(); updateAvatarStyle();
-        overlay.querySelector(`.m_rb_fxsize[data-for="${k}"]`).classList.toggle('cb_dim', v === 'none');
-      });
-    }
+    const fadeRows = overlay.querySelector('.m_rb_fade');
+    const part = fadeRows.closest('.ntr_part');
+    for (const [name, k] of [['rbbgpos', 'rbBgPos'], ['rbpatfade', 'rbPatFade']]) onPills(overlay, name, (v) => { s[k] = v; save(); updateAvatarStyle(); });
+    const syncFx = () => { for (const k of ['rbBtnFx', 'rbEdgeFx']) overlay.querySelector(`.m_rb_fxsize[data-for="${k}"]`).classList.toggle('cb_dim', s[k] === 'none'); };
     // Background Pattern: show the rows for the picked pattern, and dim the sliders it doesn't use.
     const syncPatRows = () => {
       const p = s.rbPat;
@@ -593,47 +591,42 @@
       overlay.querySelector('.m_rb_patdim[data-for="thick"]').classList.toggle('cb_dim', p === 'checkers');
       overlay.querySelector('.m_rb_patdim[data-for="size"]').classList.toggle('cb_dim', p === 'notebook' || onlyH);
     };
-    const patSet = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncPatRows(); };
-    onPills(overlay, 'rbpat', (v) => patSet('rbPat', v));
-    onPills(overlay, 'rbpatshade', (v) => patSet('rbPatShade', v));
-    onPills(overlay, 'rbpatfade', (v) => patSet('rbPatFade', v));
-    overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.onchange = () => patSet(c.dataset.key, c.checked); });
+    part.addEventListener('change', () => { syncFx(); syncPatRows(); });
+    overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.onchange = () => { s[c.dataset.key] = c.checked; save(); updateAvatarStyle(); }; });
     overlay.querySelector('#m_rb_patreset').onclick = () => {
       overlay.querySelectorAll('.m_rb_patline').forEach((c) => { c.checked = false; s[c.dataset.key] = false; });
-      patSet('rbPatH', false);
+      save();
+      updateAvatarStyle();
+      syncPatRows();
     };
     syncPatRows();
     // Fade: its rows dim while it's off, and a note shows while the box has nothing to fade.
-    const fadeRows = overlay.querySelector('.m_rb_fade');
     const syncFade = () => {
       const fill = cssReaders(s).col('rbBoxColor') || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
       const pat = s.rbPat !== 'none' && (s.rbPat !== 'lines' || s.rbPatH || s.rbPatV || s.rbPatR || s.rbPatL);
       fadeRows.classList.toggle('cb_dim', !s.rbPatFadeOn);
       overlay.querySelector('.m_rb_fadeneed').hidden = !s.rbPatFadeOn || fill || pat || !!s.rbBgImg;
     };
-    const part = fadeRows.closest('.ntr_part');
     for (const ev of ['input', 'change', 'click']) part.addEventListener(ev, () => setTimeout(syncFade), true);
     syncFade();
-    bindReasoningArrow(overlay, s);
-    bindReasoningBg(overlay, s, syncFade);
+    bindReasoningArrow(overlay, s, part);
+    bindReasoningBg(overlay, s, part, syncFade);
   }
 
   // Background Image: Upload / Link / Remove, and the rows for Cover or Tile, dimmed until there's a picture.
-  function bindReasoningBg(overlay, s, onChange) {
+  function bindReasoningBg(overlay, s, part, onChange) {
     const syncRows = () => {
       onChange();
       overlay.querySelector('.m_rbbg_rows').classList.toggle('cb_dim', !s.rbBgImg);
       overlay.querySelectorAll('[data-rbbg]').forEach((r) => { r.style.display = r.dataset.rbbg === s.rbBgFit ? '' : 'none'; });
     };
-    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
-    onPills(overlay, 'rbbgfit', (v) => set('rbBgFit', v));
-    onPills(overlay, 'rbbgpos', (v) => set('rbBgPos', v));
+    part.addEventListener('change', syncRows);
     bindPicSlot(overlay, s, { ...RB_BG_PIC, onSet: syncRows });
     syncRows();
   }
 
   // Reasoning Arrow: show the rows for the picked arrow, and the picture's Upload / Link / Remove.
-  function bindReasoningArrow(overlay, s) {
+  function bindReasoningArrow(overlay, s, part) {
     const syncRows = () => {
       const a = s.rbArrow;
       overlay.querySelectorAll('[data-rbarrow]').forEach((r) => {
@@ -641,10 +634,7 @@
         r.style.display = w === a || (w === 'shown' && a !== 'none') || (w === 'color' && a !== 'none' && a !== 'image') ? '' : 'none';
       });
     };
-    const set = (k, v) => { s[k] = v; save(); updateAvatarStyle(); syncRows(); };
-    onPills(overlay, 'rbarrow', (v) => set('rbArrow', v));
-    onPills(overlay, 'rbarrowturn', (v) => set('rbArrowTurn', v));
-    onPills(overlay, 'rbarrowanim', (v) => set('rbArrowAnim', v));
+    part.addEventListener('change', syncRows);
     bindPicSlot(overlay, s, RB_ARROW_PIC);
     syncRows();
   }
@@ -689,7 +679,7 @@
             ${label('rbSome', 'Finished, Time Unknown')}
             <div class="cb_ovrow cb_sep">
               <div>Typewriter Effect</div>
-              <div class="m_o_body cb_flat">${pills('rbtyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']], s.rbTyping)}<div class="cb_hint">Off with ST's Reduced Motion.</div></div>
+              <div class="m_o_body cb_flat">${ovPick(s, 'rbTyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']])}<div class="cb_hint">Off with ST's Reduced Motion.</div></div>
             </div>
           </div>
           ${card('Reasoning Button', `
@@ -698,7 +688,7 @@
           ${pickRow('Button Shape', ovPick(s, 'rbBtnShape', [['square', 'Square'], ['rounded', 'Rounded', 'ST\'s default'], ['pill', 'Pill']]))}
           ${ovRow(s, 'rbBtnBorderOn', 'Border Style', ovPick(s, 'rbBtnBorder', borders))}
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor'))}
-          ${pickRow('Border Effects', pills('rbbtnfx', fxOpts, s.rbBtnFx) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}`)}
+          ${pickRow('Border Effects', ovPick(s, 'rbBtnFx', fxOpts) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}`)}
           ${card('Reasoning Box', `
           ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor'))}
           ${ovRow(s, 'rbBoxAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBoxOpacity'))}
@@ -707,12 +697,12 @@
           ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', ovPick(s, 'rbBoxShape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']]))}
           ${ovRow(s, 'rbBorderStyleOn', 'Border Style', ovPick(s, 'rbBorderStyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')]))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder'))}
-          ${pickRow('Border Effects', pills('rbedgefx', fxOpts, s.rbEdgeFx) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}
+          ${pickRow('Border Effects', ovPick(s, 'rbEdgeFx', fxOpts) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}
           ${subHead('rb_bgimg', 'Background Picture')}
           <div class="cb_collapse_content">
           ${picSlotHtml(RB_BG_PIC)}
           <div class="m_rbbg_rows">
-          ${pickRow('Fit', pills('rbbgfit', [['cover', 'Cover'], ['tile', 'Tile']], s.rbBgFit))}
+          ${pickRow('Fit', ovPick(s, 'rbBgFit', [['cover', 'Cover'], ['tile', 'Tile']]))}
           ${pickRow('Keep in View', posGrid('rbbgpos', s.rbBgPos), ' data-rbbg="cover"')}
           ${pickRow('Tile Size', rangeSlider(s, 'rbBgTile'), ' data-rbbg="tile"')}
           ${pickRow('Picture Opacity', rangeSlider(s, 'rbBgOpacity') + '<div class="cb_hint">If your Box CSS makes the box scroll, the picture scrolls with the text.</div>')}
@@ -721,10 +711,10 @@
           </div>
           ${subHead('rb_pattern', 'Background Pattern')}
           <div class="cb_collapse_content">
-          ${pickRow('Pattern', pills('rbpat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers']], s.rbPat))}
+          ${pickRow('Pattern', ovPick(s, 'rbPat', [['none', 'None'], ['notebook', 'Notebook'], ['lines', 'Lines'], ['dots', 'Dots'], ['checkers', 'Checkers']]))}
           ${pickRow('Lines', `<div class="ntr_rbpat_lines">${patLine('rbPatH', 'Horizontal')}${patLine('rbPatV', 'Vertical')}${patLine('rbPatR', 'Diagonal /')}${patLine('rbPatL', 'Diagonal \\')}</div>`
             + '<button class="menu_button" id="m_rb_patreset" style="margin:6px 0 0;">Reset Lines</button>', ' data-rbpat="lines"')}
-          ${pickRow('Pattern Shade', pills('rbpatshade', [['light', 'Lighter'], ['dark', 'Darker']], s.rbPatShade), ' data-rbpat="drawn"')}
+          ${pickRow('Pattern Shade', ovPick(s, 'rbPatShade', [['light', 'Lighter'], ['dark', 'Darker']]), ' data-rbpat="drawn"')}
           <div data-rbpat="drawn">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor'))}</div>
           ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">Line thickness, or dot size. Checkers doesn't use it.</div>`, ' data-rbpat="drawn"')}
           ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Notebook and Horizontal lines follow the text lines instead.</div>`, ' data-rbpat="drawn"')}
@@ -736,14 +726,14 @@
           </div>
           </div>`)}
           ${card('Reasoning Arrow', `
-          ${pickRow('Arrow', pills('rbarrow', [['default', 'Default', 'ST\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']], s.rbArrow))}
+          ${pickRow('Arrow', ovPick(s, 'rbArrow', [['default', 'Default', 'ST\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']]))}
           ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼') + '<div class="cb_hint">Empty shows ST\'s arrow.</div>', ' data-rbarrow="symbol"')}
           ${picSlotHtml(RB_ARROW_PIC)}
           <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Color emoji keep their own colors.</div>')}</div>
           <div data-rbarrow="shown">
           ${ovRow(s, 'rbArrowSizeOn', 'Arrow Size', rangeSlider(s, 'rbArrowSize'))}
-          ${pickRow('Turn', pills('rbarrowturn', [['flip', 'Flip', 'ST\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']], s.rbArrowTurn) + '<div class="cb_hint">When the block closes. Quarter Turn suits symbols that point right, like ▶.</div>')}
-          ${pickRow('While Thinking', pills('rbarrowanim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']], s.rbArrowAnim) + '<div class="cb_hint">Off with ST\'s Reduced Motion.</div>')}
+          ${pickRow('Turn', ovPick(s, 'rbArrowTurn', [['flip', 'Flip', 'ST\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']]) + '<div class="cb_hint">When the block closes. Quarter Turn suits symbols that point right, like ▶.</div>')}
+          ${pickRow('While Thinking', ovPick(s, 'rbArrowAnim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']]) + '<div class="cb_hint">Off with ST\'s Reduced Motion.</div>')}
           </div>`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
@@ -776,8 +766,6 @@
       for (const [k, list] of Object.entries(MD_PRESETS[v][1])) s[k] = [...list];
       apply();
     });
-    onPills(overlay, 'mddate', (v) => { s.mdDate = v; apply(); });
-    onPills(overlay, 'mdsep', (v) => { s.mdSep = v; apply(); });
   }
 
   function scrollbarPartHtml(s) {
@@ -932,8 +920,8 @@
             + hint('Changing a tick after makes it Custom.'))}
           ${grid}
           ${hint('Corner sits at the end of the text, inside the bubble with Speech Bubbles. A message ending in a table or HTML moves it to the end of Below. Tokens show only while ST\'s Message Token Count is on.')}
-          ${pickRow('Date', pills('mddate', [['long', 'Long'], ['short', 'Short']], s.mdDate))}
-          ${pickRow('Separator', pills('mdsep', [['dot', '·'], ['bar', '|'], ['slash', '/'], ['space', 'Space']], s.mdSep) + hint('Avatar stacks them one per line. Date and time stay together.'))}
+          ${pickRow('Date', ovPick(s, 'mdDate', [['long', 'Long'], ['short', 'Short']]))}
+          ${pickRow('Separator', ovPick(s, 'mdSep', [['dot', '·'], ['bar', '|'], ['slash', '/'], ['space', 'Space']]) + hint('Avatar stacks them one per line. Date and time stay together.'))}
           ${row('mdSizeOn', 'Size', rangeSlider(s, 'mdSize'))}
           ${row('mdColorOn', 'Color', ovColor(s, 'mdColor'))}
           ${row('mdOpacityOn', 'Opacity', rangeSlider(s, 'mdOpacity') + hint('ST\'s is 70%.'))}

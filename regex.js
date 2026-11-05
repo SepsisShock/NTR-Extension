@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.64';
+  const REGEX_VERSION = '2.86.65';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson, switchHtml } = A;
@@ -340,7 +340,6 @@ try {
     for (const f of fl) {
       if (!f.ids.includes(id)) continue;
       f.ids = f.ids.filter((x) => x !== id);
-      if (f.was) f.was = f.was.filter((x) => x !== id);
     }
     const to = fid ? fl.find((f) => f.id === fid) || null : null;
     if (to) to.ids.push(id);

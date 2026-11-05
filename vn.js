@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.64';
+  const VN_VERSION = '2.86.65';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -507,10 +507,9 @@
   }
 
   function loadSubs() {
-    const s = settings();
-    if (!(A.isOn() && s.nodeEnabled)) return;
+    if (!vnOn()) return;
     loadSub('opening');
-    if (s.nodeMaps) loadSub('map');
+    if (settings().nodeMaps) loadSub('map');
   }
 
   // Visual Novel's settings, in the Visual Novel part of the Reader Mode page (index.js puts them there).
@@ -1137,7 +1136,7 @@
 
   function setWeather(kind) {
     const s = settings();
-    const k = A.isOn() && s.nodeEnabled && s.nodeEffects && (kind === 'rain' || kind === 'snow') ? kind : '';
+    const k = vnOn() && s.nodeEffects && (kind === 'rain' || kind === 'snow') ? kind : '';
     let L = document.getElementById('ntr_wx');
     if (!L) {
       if (!k) return;
@@ -1168,7 +1167,7 @@
   let cgCur = '', cgT = null;
   function setCG(name) {
     const s = settings();
-    const url = A.isOn() && s.nodeEnabled && s.nodeCG && name ? cgUrl(name) : '';
+    const url = vnOn() && s.nodeCG && name ? cgUrl(name) : '';
     let L = document.getElementById('ntr_cg');
     if (!L) {
       if (!url) return;
@@ -1237,8 +1236,7 @@
 
   function setLocation(name) {
     const L = ensureLocLayer();
-    const s = settings();
-    const url = A.isOn() && s.nodeEnabled ? locUrl(name) : '';
+    const url = vnOn() ? locUrl(name) : '';
     const [a, b] = L.children;
     if (!url) {
       L.style.display = 'none';
@@ -1278,7 +1276,7 @@
   function updateStage() {
     const s = settings();
     const st = ensureStage();
-    if (!(A.isOn() && s.nodeEnabled && s.nodeSprites) || !node.list.length) { st.style.display = 'none'; return; }
+    if (!(vnOn() && s.nodeSprites) || !node.list.length) { st.style.display = 'none'; return; }
     st.style.display = 'block';
     const cur = node.segs[node.i];
     const lines = [...(node.prevTail || []), ...node.segs.slice(0, node.i + 1)].slice(-6);
@@ -1305,7 +1303,7 @@
   const INJECT_KEY = 'ntr_vn_tags';
   function updateInjection() {
     const s = settings();
-    A.setInjection(INJECT_KEY, A.isOn() && s.nodeEnabled && s.nodeInject ? buildPrompt(s) : '');
+    A.setInjection(INJECT_KEY, vnOn() && s.nodeInject ? buildPrompt(s) : '');
   }
 
   // ----- Moving between lines and messages -----
@@ -1367,7 +1365,7 @@
   }
   const opHooks = {
     onStart: () => { node.held = true; nodeStopTyping(); renderChoices(null); },
-    onDone: () => { node.held = false; if (A.isOn() && settings().nodeEnabled) nodeShow(true); },
+    onDone: () => { node.held = false; if (vnOn()) nodeShow(true); },
   };
   function maybeOpening(reason) {
     const info = { sig: chatSig(), fresh: chatIsFresh() };
@@ -1399,7 +1397,7 @@
     const opened = sig !== lastSig;
     lastSig = sig;
     if (opened) { node.waitId = null; node.cont = null; jump = null; safe(() => window.NTR.map?.close()); }
-    if (!s.nodeEnabled || !A.isOn()) { stopNode(ov); return; }
+    if (!vnOn()) { stopNode(ov); return; }
     watchLayout(true);
     if (opened) node.held = false; // opening.js stops a video that belongs to the previous chat
     if (opts.switchedOn) maybeOpening('vn');
@@ -1557,7 +1555,7 @@
     // For Reader Mode's Page Up and Page Down.
     goMsg: (d) => nodeGoMsg(d),
     // For Pinned Blocks (through Reader Mode): the message on screen, or null on the newest.
-    shownMsg: () => (A.isOn() && settings().nodeEnabled && node.list.length && !node.follow ? node.list[node.pos] : null),
+    shownMsg: () => (vnOn() && node.list.length && !node.follow ? node.list[node.pos] : null),
     // For map.js and opening.js
     normLoc,
     putInInput,

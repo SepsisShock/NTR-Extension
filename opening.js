@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.64';
+  const OP_VERSION = '2.86.65';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -519,7 +519,6 @@
     cleanup(st);
     st.root.remove();
     if (st.pin) st.pin.remove();
-    unloadVideo(st);
   }
 
   function safeCall(fn) { try { return fn(); } catch (e) { console.error('[NTR opening]', e); return ''; } }

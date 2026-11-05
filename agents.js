@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.64';
+  const AGENTS_VERSION = '2.86.65';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
@@ -1510,10 +1510,7 @@
     // Import: the file's agents come in at the end, switched off, and the first one is picked.
     const impFile = root.querySelector('#m_ag_impfile');
     root.querySelector('#m_ag_imp').onclick = () => impFile.click();
-    impFile.onchange = async () => {
-      const f = impFile.files[0];
-      impFile.value = '';
-      if (!f) return;
+    A.onFilePick(impFile, 'Agents', async (f) => {
       let j;
       try { j = JSON.parse(await readText(f)); } catch (e) { j = null; }
       if (list().length >= AGENT_MAX) { fullNote(); return; }
@@ -1528,7 +1525,7 @@
       const notes = [r.skipped && `${r.skipped} skipped (up to ${AGENT_MAX} agents)`, r.picFails && `${r.picFails} picture(s) couldn't be added`,
         r.deptsOut && `up to ${DEPT_MAX} departments, so ${r.deptsOut > 1 ? 'some agents are' : 'its agents are'} in no department`].filter(Boolean);
       toastr.success(`Added ${n} agent${n === 1 ? '' : 's'}, switched off.${notes.length ? ` ${notes.join('; ')}.` : ''}`, 'Agents');
-    };
+    });
     const ex = root.querySelector('#m_ag_ex');
     if (ex) ex.onclick = () => {
       if (list().length >= AGENT_MAX) { fullNote(); return; }

@@ -17,7 +17,7 @@
   const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
   const vnOn = () => A.isOn() && settings().nodeEnabled;
 
-  // ----- Built-in art kit: original SVG drawn in code, no outside art -----
+  // ----- Built-in art kit: original SVG drawn in code, no outside art, and picking built-in or custom art -----
   function rng(seed) {
     return () => {
       seed = (seed + 0x6D2B79F5) | 0;
@@ -121,11 +121,6 @@
     return svgUri(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">${g}${o}</g></svg>`);
   }
   const WX = { r1: tile(3, 220, 16, 'rain'), r2: tile(4, 300, 12, 'rain'), s1: tile(5, 260, 16, 'snow'), s2: tile(6, 380, 12, 'snow') };
-
-  // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
-  function spriteSrc(name, emoName) {
-    return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());
-  }
 
   function silhouetteFor(key) {
     const s = settings();
@@ -1280,6 +1275,11 @@
     return st;
   }
 
+  // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
+  function spriteSrc(name, emoName) {
+    return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());
+  }
+
   function updateStage() {
     const s = settings();
     const st = ensureStage();
@@ -1360,8 +1360,6 @@
     if (node.shown !== was) Promise.resolve(R?.drawTo(idx)).then(() => A.refreshPins());
   }
 
-  const syncNodeToggle = () => A.syncVNToggle();
-
   // ----- Opening video triggers (the player itself lives in opening.js) -----
   let lastSig = null;
   function chatSig() {
@@ -1386,6 +1384,7 @@
     else loadSub('opening').then(run);
   }
 
+  // ----- Loading the chat -----
   function clearScene() {
     setWeather(null);
     setCG(null);
@@ -1503,6 +1502,8 @@
   }
 
   // ----- Redrawing and switching off -----
+  const syncNodeToggle = () => A.syncVNToggle();
+
   // While Visual Novel Mode is off, new messages, edits and swipes are left alone: switching it on loads the chat again.
   function nodeQueue(animate) {
     if (!vnOn()) return;

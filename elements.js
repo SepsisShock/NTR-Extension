@@ -555,14 +555,14 @@
   };
   const mdPreset = (s) => Object.keys(MD_PRESETS).find((k) => Object.entries(MD_PRESETS[k][1]).every(([key, v]) => s[key].join() === v.join())) || 'custom';
 
+  function elementsCss(s) {
+    return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
+  }
+
   // ===== The Elements page =====
   // Elements: parts of SillyTavern NTR restyles one by one, each with its own switch, folded until opened.
   function elementsSectionHtml(s) {
     return pageHtml('elements', reasoningPartHtml(s) + mdPartHtml(s) + scrollbarPartHtml(s) + cursorPartHtml(s) + menuBarIconsPartHtml(s) + qrPartHtml(s));
-  }
-
-  function elementsCss(s) {
-    return scrollbarCss(s) + cursorCss(s) + menuBarIconCss(s) + qrCss(s) + messageDetailsCss(s) + reasoningCss(s);
   }
 
   // Each part's switch, then its own binder. A new part gets its own *Css function, added to elementsCss, and its own

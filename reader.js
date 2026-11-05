@@ -543,7 +543,7 @@
     decoded.set(u, img);
   }
 
-  // ----- Pages -----
+  // ----- Pages, the saved page, keys and switching on or off -----
   function scrollTo(at) {
     const chat = chatEl();
     if (!chat) return;

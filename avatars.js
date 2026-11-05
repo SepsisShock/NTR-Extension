@@ -562,6 +562,7 @@
     }
   }
 
+  // ===== The Avatar Management page =====
   function setSliders(root, s, prefix, pairs) {
     for (const [id, key] of pairs) {
       const el = root.querySelector(`#m_${prefix}_${id}`);
@@ -569,7 +570,6 @@
     }
   }
 
-  // ===== The Avatar Management page =====
   // Which ways a side's picture is bigger than its box, so Shift Left/Right and Up/Down have something to do. A Shape
   // cuts a picture that's taller or wider than it (see picAspect). None only gets cut on Backdrop with Crop Picture or
   // Use Picture's Own Size: a short message cuts the bottom off, and a narrow one the sides (the box is at most 80% of

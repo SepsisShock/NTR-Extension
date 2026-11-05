@@ -1240,7 +1240,7 @@ await (async () => {
     });
   }
 
-  // ===== Look settings' choices, colors and fonts =====
+  // ===== Look settings' choices, colors and fonts, and what their CSS reads =====
   const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\))$/i;
   const FONT_RE = /^[\p{L}\p{N} _-]{0,60}$/u;
   const cleanFont = (v) => String(v || '').replace(/[^\p{L}\p{N} _-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -1365,7 +1365,7 @@ await (async () => {
     }
   }
 
-  // ===== Card data cleanup =====
+  // ===== Data cleanup (card data, saved settings and themes) =====
   // Character cards get shared, so their NTR data is untrusted: every field is forced to the
   // type and range the extension expects before anything reads it. Unknown keys are dropped, so a new card field must be
   // added here or it won't load.
@@ -1835,7 +1835,7 @@ await (async () => {
     return left.length;
   }
 
-  // ===== Theme data =====
+  // ===== Theme data and shared value helpers =====
   const PFP_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ai') || k.startsWith('us'));
   // ov keys whose settings sit on other pages, so they go in those pages' theme sections.
   const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap', 'ovNamesOn'];
@@ -2814,6 +2814,7 @@ await (async () => {
     }));
   }
 
+  // ===== Startup, the injected buttons, the public API and SillyTavern's hooks =====
   function injectExtensionMenuButton() {
     const tick = () => {
       injectExtBar();

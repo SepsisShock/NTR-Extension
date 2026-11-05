@@ -1,11 +1,11 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.62';
+  const LAYOUT_VERSION = '2.86.63';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
-  const { askYes, card, cardNum, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
+  const { askYes, card, cardNum, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, menuBtn: btn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
   const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, joinCss, lk, ovLabel, ovPick,
-    ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle, setSlider } = A.look;
+    ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle } = A.look;
 
   // ===== Edit Layout =====
   // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar, page bar and banner can be dragged on
@@ -53,31 +53,9 @@
   const placeKind = (it) => (it.lay ? 'lay' : it.pin ? 'pin' : it.pos ? 'fg' : 'pop');
   const place = { on: false, sel: null, drag: null, undo: [], step: null, dirty: false, frame: 0 };
 
-  function syncFgSliders(pos) {
-    const F = fgData();
-    for (const ax of ['X', 'Y']) {
-      const v = cardNum(F[pos + ax], 'fg' + ax, 0);
-      const el = document.getElementById(`m_f_${ax}_${pos}`);
-      if (el) setSlider(el, v);
-    }
-  }
-
   const placeEl = (it) => (it.lay ? document.getElementById(LAY_PART[it.lay].el)
     : it.pin ? document.querySelector(`#ntr_pin_layer > .ntr_pin[data-pin="${it.pin}"]`)
       : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_popf_${it.id}`));
-
-  // The part of a foreground image that's visible: its box fills the whole side, with the picture at the bottom.
-  function fgRect(el) {
-    const r = el.getBoundingClientRect();
-    const nw = el.naturalWidth, nh = el.naturalHeight, w = el.offsetWidth, h = el.offsetHeight;
-    if (!nw || !nh || !w || !h) return null;
-    const k = Math.min(w / nw, h / nh);
-    const sx = r.width / w, sy = r.height / h;
-    const dw = nw * k * sx, dh = nh * k * sy;
-    const fx = el.id === 'cb_fg_left' ? 0 : el.id === 'cb_fg_right' ? 1 : 0.5;
-    const left = r.left + (r.width - dw) * fx, top = r.bottom - dh;
-    return { left, top, right: left + dw, bottom: top + dh, width: dw, height: dh };
-  }
 
   // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar, page bar and
   // banner only while they're Floating, since Attached they follow the chat panel. The page bar is there in Reader
@@ -108,7 +86,7 @@
     // A pop-out moves by its frame, which shows once its picture has a source.
     if (!el || el.style.display === 'none' || !(it.pos ? el : el.querySelector('img'))?.getAttribute('src')) return null;
     if (it.pos && el.parentNode?.style.display === 'none') return null;
-    const r = it.pos ? fgRect(el) : el.getBoundingClientRect();
+    const r = it.pos ? window.NTR.overlays.fgRect(el) : el.getBoundingClientRect();
     return r && r.width > 0 && r.height > 0 ? r : null;
   }
 
@@ -153,7 +131,7 @@
       F[it.pos + 'Y'] = cardNum(Math.round(v.y), 'fgY', 0);
       const el = placeEl(it);
       if (el) fgTransform(el, it.pos, F);
-      syncFgSliders(it.pos);
+      window.NTR.overlays.syncFgSliders(it.pos);
     }
     drawPlace();
   }
@@ -741,7 +719,6 @@
 
   function layoutSectionHtml(s) {
     const ph = phoneNow();
-    const btn = (id, icon, label) => `<button type="button" id="${id}" class="menu_button" style="margin: 0; width: max-content;"><i class="fa-solid ${icon}"></i> ${label}</button>`;
     return pageHtml('layout', `
         ${card('', `
           <div class="m_l_now">${layNowHtml(ph)}</div>
@@ -1202,7 +1179,7 @@
             ${pick(p, 'view', [['stacked', 'Stacked'], ['tabs', 'Tabs']], p.view)}
             <div class="cb_hint">Stacked shows every agent, each folding open and closed. Tabs shows one at a time. ▲ ▼ and ◆ mark what changed since the agent's previous result.</div>` : `
             <div class="cb_plab">Block</div>
-            <button type="button" class="menu_button m_pin_pick" style="margin: 0; width: max-content;"><i class="fa-solid fa-hand-pointer"></i> Pick from chat</button>
+            ${btn('', 'fa-hand-pointer', 'Pick from chat', { cls: 'm_pin_pick' })}
             <div class="cb_hint">Click the block in a message. Escape cancels.</div>`}
             <div class="cb_plab">Place</div>
             ${pick(p, 'place', [['float', 'Floating'], ['left', 'Docked Left'], ['right', 'Docked Right']], p.place)}

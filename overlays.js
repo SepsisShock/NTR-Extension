@@ -1,11 +1,11 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.62';
+  const OVERLAYS_VERSION = '2.86.63';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
     media, escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
-    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, openMenu } = A;
-  const { ovLabel, cssTag } = A.look;
+    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, openMenu, menuBtn } = A;
+  const { ovLabel, cssTag, setSlider } = A.look;
 
   const CSS = `
       #cb_banner { width: 100%; height: var(--cb-h, 120px); position: relative; overflow: hidden; display: block; border-radius: 10px; margin-bottom: var(--cb-gap, 10px); }
@@ -95,6 +95,19 @@
       }
     }
     layoutFg();
+  }
+
+  // The part of a foreground image that's visible: its box fills the whole side, with the picture at the bottom.
+  function fgRect(el) {
+    const r = el.getBoundingClientRect();
+    const nw = el.naturalWidth, nh = el.naturalHeight, w = el.offsetWidth, h = el.offsetHeight;
+    if (!nw || !nh || !w || !h) return null;
+    const k = Math.min(w / nw, h / nh);
+    const sx = r.width / w, sy = r.height / h;
+    const dw = nw * k * sx, dh = nh * k * sy;
+    const fx = el.id === 'cb_fg_left' ? 0 : el.id === 'cb_fg_right' ? 1 : 0.5;
+    const left = r.left + (r.width - dw) * fx, top = r.bottom - dh;
+    return { left, top, right: left + dw, bottom: top + dh, width: dw, height: dh };
   }
 
   // ===== Header banner =====
@@ -493,6 +506,15 @@
   }
 
   // ===== The Overlays page in the menu =====
+  function syncFgSliders(pos) {
+    const F = fgData();
+    for (const ax of ['X', 'Y']) {
+      const v = cardNum(F[pos + ax], 'fg' + ax, 0);
+      const el = document.getElementById(`m_f_${ax}_${pos}`);
+      if (el) setSlider(el, v);
+    }
+  }
+
   function bannerGuideText() {
     const chat = document.getElementById('chat');
     const w = Math.round((banner && banner.offsetWidth) || (chat ? chat.getBoundingClientRect().width : 0));
@@ -611,7 +633,7 @@
             ${card('', `
             ${sl('m_f_o', 'Opacity', rangeNum(s, 'fgOpacity'), 'fgOpacity')}
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide in Visual Novel Mode</span></label>
-            <button type="button" id="m_f_place" class="menu_button" style="margin: 8px 0 0; width: max-content;"><i class="fa-solid fa-up-down-left-right"></i> Edit Layout</button>
+            ${menuBtn('m_f_place', 'fa-up-down-left-right', 'Edit Layout', { margin: '8px 0 0' })}
             <div class="cb_hint" style="margin-bottom: 0;">Hides the menu while you drag the pictures. Each stays tied to its side.</div>`)}
 
             <div class="ntr_glab">Pictures ${TAG}</div>
@@ -864,6 +886,8 @@
 
   window.NTR.overlays = {
     version: OVERLAYS_VERSION, render, ensureFg, sectionHtml, bind, rotRestart,
+    // For Edit Layout.
+    fgRect, syncFgSliders,
     relayout: () => {
       layoutFg();
       // Layout can make the banner Floating or Attached.

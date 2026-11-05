@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.62';
+  const VERSION = '2.86.63';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -575,6 +575,32 @@ await (async () => {
     });
   }
 
+  // Turns el into a box for a number from 1 to n, starting at at + 1, with before and after (HTML) around it. Enter calls
+  // done with the number picked, counted from 0 and kept within 0 to n - 1; Escape, clicking away or an empty box call it
+  // with null. el should be redrawn in done, and left alone while it holds the box.
+  function askNumber(el, at, n, before, after, label, done) {
+    if (!el || n < 2 || el.querySelector('input')) return;
+    el.innerHTML = `${before}<input type="number" min="1" max="${n}" step="1" value="${at + 1}" aria-label="${label}">${after} ${n}`;
+    const box = el.querySelector('input');
+    let over = false;
+    const end = (jump) => {
+      if (over) return;
+      over = true;
+      const v = Math.round(Number(box.value));
+      const typed = jump && box.value.trim() && Number.isFinite(v);
+      box.remove();
+      done(typed ? Math.max(0, Math.min(n - 1, v - 1)) : null);
+    };
+    box.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); end(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); end(false); }
+    });
+    box.addEventListener('blur', () => end(false));
+    box.focus();
+    box.select();
+  }
+
   // Ask for a link instead of an upload, under `anchor` (the Link button). Resolves to a checked http(s) URL that
   // loaded, or '' if cancelled. Like uploadHere, a link for the open chat that finishes checking after the chat
   // changed would land on the wrong character, so '' comes back. `perChat` false skips this for global settings.
@@ -649,6 +675,15 @@ await (async () => {
   const navHtml = (cur) => PAGES.map(([id, icon, short, full]) => (NAV_SEP.has(id) ? '<div class="ntr_navsep" role="separator"></div>' : '') +
     `<button class="ntr_navi${id === cur ? ' on' : ''}" data-page="${id}" title="${full}"><i class="fa-solid fa-fw ${icon}"></i><span>${short}</span></button>`).join('')
     + '<div class="ntr_navfill"></div>';
+  // A menu button with an icon and a label (HTML). title also names it for screen readers; margin replaces the default 0.
+  const menuBtn = (id, icon, label, { title = '', margin = '0', cls = '' } = {}) => `<button type="button"${id ? ` id="${id}"` : ''} class="menu_button${cls ? ` ${cls}` : ''}" style="margin: ${margin}; width: max-content;"${title ? ` title="${escapeHTML(title)}" aria-label="${escapeHTML(title)}"` : ''}><i class="fa-solid ${icon}"></i>${label}</button>`;
+  // An on/off switch; title is also its aria-label. With box (a class), it is wrapped in a larger tap target for list
+  // rows. extra holds more attributes, like ' disabled'.
+  function switchHtml({ id = '', cls = '', box = '', on, title, extra = '' }) {
+    const t = escapeHTML(title);
+    const input = `<input type="checkbox"${id ? ` id="${id}"` : ''} class="ntr_pswitch${cls ? ` ${cls}` : ''}" ${on ? 'checked' : ''} title="${t}" aria-label="${t}"${extra}>`;
+    return box ? `<label class="${box} ntr_swcol">${input}</label>` : input;
+  }
   // One page: a big title with the section's icon (both from PAGES) and, for a section that can be switched off, its switch.
   // A switched-off section's settings are dimmed (see syncPageOff). A note sits between the title and the settings and is never dimmed.
   // `wait` names the module a page is still loading, which fills it in when it arrives (see fillIn).
@@ -659,7 +694,7 @@ await (async () => {
         <div class="ntr_phead">
           <i class="fa-solid fa-fw ${icon} ntr_picon"></i>
           <h3 class="ntr_ptitle">${title}</h3>
-          ${sw ? `<input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">` : ''}
+          ${sw ? switchHtml({ id: sw[0], on: sw[1], title: `Turn ${title} on or off` }) : ''}
           ${legend ? `<div class="cb_hint ntr_legend">${TAG_KEY}</div>` : ''}
         </div>
         ${note}
@@ -676,7 +711,7 @@ await (async () => {
           ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
           ${icon ? `<i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>` : ''}
           <h4 class="ntr_parttitle">${title}</h4>
-          <input type="checkbox" id="${sw[0]}" class="ntr_pswitch" ${sw[1] ? 'checked' : ''} title="Turn ${title} on or off" aria-label="Turn ${title} on or off">
+          ${switchHtml({ id: sw[0], on: sw[1], title: `Turn ${title} on or off` })}
         </div>
         <div class="ntr_partbody">${body}</div>
       </div>`;
@@ -2848,7 +2883,7 @@ await (async () => {
     // sliders, and the buttons say why they do nothing.
     startPlacement: (first) => (window.NTR.layout ? callModule('layout', 'startPlacement', first) : toastr.info('Layout didn\'t load, so Edit Layout isn\'t available.', 'Edit Layout')),
     drawPlace: () => callModule('layout', 'drawPlace'),
-    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, popMenu, closePops, dragSort, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
+    loadModule, moduleError: (name) => modError[name] || '', reducedMotion, removeData, askYes, askText, askNumber, popMenu, menuBtn, switchHtml, closePops, dragSort, uploadImage, uploadVideo, getYouTubeId, currentKey, newId, validateDelims,
     bannerImage: () => {
       const key = currentKey();
       if (!key) return '';

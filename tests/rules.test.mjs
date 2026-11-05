@@ -144,9 +144,9 @@ test('per-chat uploads go through uploadHere', () => {
   assert.deepEqual(stale, [], `GLOBAL_UPLOADS lists ${stale.join(', ')}, which no longer exist; remove them`);
 });
 
-// Inputs allowed to write their own min and max: ovSlider (rangeSlider's backend), and the Book's page number, which
-// isn't a setting.
-const OWN_LIMITS = [['index.js', 'class="${cls}"'], ['reader.js', 'max="${n}"']];
+// Inputs allowed to write their own min and max: ovSlider (rangeSlider's backend), and askNumber's box (Reader Mode's
+// page and Visual Novel's message number), which isn't a setting.
+const OWN_LIMITS = [['index.js', 'class="${cls}"'], ['index.js', 'max="${n}"']];
 
 test('sliders and number boxes take their limits from NUM_RANGE', () => {
   const tags = Object.entries(SRC).flatMap(([file, src]) => [...src.matchAll(/<input\b[^>]*\btype="(?:range|number)"[^>]*>/g)].map((m) => [file, m[0]]));

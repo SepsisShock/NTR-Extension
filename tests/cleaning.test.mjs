@@ -198,8 +198,8 @@ test("a card's own emotion list is checked like a theme's", () => {
   }
 });
 
-// Importing a theme and applying one both run its sections through cleanLookSection. The tests below call it
-// directly, so they don't cover themes.js calling it.
+// themes.js import and apply both clean sections through cleanLookSection; the tests below call it directly, not
+// through themes.js.
 test("a theme's unsafe links are removed, safe ones kept", () => {
   for (const url of SAFE) assert.equal(api.cleanLookSection('reader', { rdBookImg: url }).rdBookImg, url);
   for (const url of UNSAFE) assert.ok(!('rdBookImg' in api.cleanLookSection('reader', { rdBookImg: url })), url.slice(0, 60));

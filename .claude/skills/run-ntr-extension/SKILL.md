@@ -62,7 +62,7 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | `eval <expression>` | runs one expression in the page (may use `await`) and prints the result as JSON. No `;`: wrap statements in `(() => { ...; return value; })()`, made `async` if they use `await` |
 | `card` | the open chat's NTR data as saved in the card file, read back from the server. If the page's copy is different, it's shown below it: a save still waiting, or NTR's empty defaults, which it doesn't save |
 | `ss [name]` / `shot <name> <css>` | screenshot of the page / of one element |
-| `wait <ms>`, `reload`, `errors` | pause; load the page again; page errors so far, minus SillyTavern's network noise. `errors` fails the run if there are any, so end with it. A failed load shows its address |
+| `wait <ms>`, `reload`, `errors` | pause; load the page again, with no chat open as at the start of a run, so `select` again; page errors so far, minus SillyTavern's network noise. `errors` fails the run if there are any, so end with it. A failed load shows its address |
 
 An upload and a link, with the server running:
 
@@ -151,7 +151,7 @@ Reading the numbers:
 - **`set` skips `maxlength`.** To test a limit, show the field (open its page and part with `menu`, and click any fold it's still in), then type the way a user does: `eval (() => { const el = document.querySelector('<css>'); el.focus(); document.execCommand('insertText', false, 'x'.repeat(2100)); return el.value.length; })()`. A hidden field can't take focus, so nothing goes in.
 - **Upload buttons open their file input from code**, and a headless page shows no file picker for that; even a forced Playwright click produced no file chooser. `click` the Upload button (it records the slot), then `upload` to the hidden input.
 - **SillyTavern clears every extension prompt when a chat opens, starts or reloads.** That's how NTR's Visual Novel instructions once went missing. Check `extensionPrompts.ntr_vn_tags` after `select` or `reloadCurrentChat()`, never only before.
-- **Card data is written 0.7 s after the last change**, and the driver closes the browser when its commands run out. A change made right before the end never reaches the card. End with `wait 1500` when the next run (or a `reload` or `card`) has to see it.
+- **Saves are delayed:** settings start saving 1 s after the last change (SillyTavern's `saveSettingsDebounced`), and card data 0.7 s after. A `reload`, or the driver closing the browser when its commands run out, drops a change not yet saved. Put `wait 1500` right after a change that a later `reload`, `card` or run has to see, including mid-script.
 - **`reset` stops the server.** SillyTavern keeps characters in memory, so the data can't be swapped under it; `start` again afterwards.
 - **SillyTavern's first-run "Welcome" dialog asks for a persona name and holds up loading**: the character list stays empty behind it. `st.sh setup` sets `"firstRun": false` in `data/default-user/settings.json`; do the same if you make SillyTavern data another way.
 - **Lazy loading:** `st.sh lazy on`, then `stop` and `start`. Characters load as shallow copies without their NTR data, and opening a chat loads that one in full. For two cards that share files, duplicate one, which makes `default_Seraphina_1.png`:

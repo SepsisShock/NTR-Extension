@@ -449,7 +449,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 #ntr_pin_layer .ntr_pin { position: absolute; box-sizing: border-box; display: flex; pointer-events: auto; }
 #ntr_pin_layer .ntr_pin[hidden] { display: none; }
 #ntr_pin_layer .ntr_pin_body { flex: 1; min-width: 0; overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0; }
-/* Panel: SillyTavern's own panel look, without its blur. None keeps only what the regex draws. */
+/* Panel: SillyTavern's own panel look, without its blur. */
 #ntr_pin_layer .ntr_pin_panel { background-color: var(--SmartThemeBlurTintColor); border: 1px solid var(--SmartThemeBorderColor); border-radius: 10px; }
 #ntr_pin_layer .ntr_pin_panel .ntr_pin_body { padding: 8px 10px; }
 #ntr_pin_layer .ntr_pin_panel.ntr_pin_left { border-radius: 0 10px 10px 0; border-left: 0; }

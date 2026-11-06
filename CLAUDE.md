@@ -13,7 +13,7 @@
 
 #### Before Responding
 - If my input could be read different ways, use the conversation context and common sense to determine what I mean.
-- Evaluate criticism on its merits. Reconsider your position when evidence or overlooked factors warrant it, rather than automatically agreeing or becoming defensive.
+- Evaluate criticism on its merits. Don't automatically agree or become defensive; reconsider your position when evidence or overlooked factors warrant it.
 
 ### UI Copy (Helper text and Tooltips)
 - Use general and familiar terms, succinct language.
@@ -27,7 +27,7 @@
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - Before stating or disputing how any tool, API, or library behaves, check its official docs, then search proven community patterns.
-- One rule, one file: don't restate a rule from another instruction file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
+- One rule, one file: don't restate a rule from another *instruction* file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
 - If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag it in chat when you notice, and also in the PR summary.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 - Other LLMs: Independently verify their claims and evidence. Even when a conclusion is correct, assess whether it's a good judgment for the project.

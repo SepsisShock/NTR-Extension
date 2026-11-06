@@ -828,8 +828,6 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .ntr_mdgrid input { margin: 0; }
 @media (pointer: coarse) {
   .ntr_mdgrid label { min-height: 40px; align-items: center; }
-  .cb_posgrid { grid-template-columns: repeat(3, 40px); }
-  .cb_posgrid label { width: 40px; height: 40px; }
   .ntr_tile_face { height: 44px; }
   .ntr_named .ntr_tile_face { height: 44px; }
   .cb_spk_row .menu_button, .cb_emo_cell .menu_button, .cb_emo_row .menu_button { min-width: 40px; min-height: 40px; }

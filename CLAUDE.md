@@ -3,7 +3,7 @@
 ## Project Context
 - Nitwit Tavern Redesign (NTR), non-profit and open-source SillyTavern extension, being developed for public release.
 - Lightweight code matters because some users will be on slower devices.
-- Clean and maintainable codebase, even when effects are unnoticed by users.
+- Important to have a clean and maintainable codebase, even when effects are unnoticed by users.
 
 ## Communication
 - Everywhere: No em dashes, use semicolons or colons instead.

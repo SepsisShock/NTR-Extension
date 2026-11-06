@@ -1405,6 +1405,8 @@
     const head = el.closest('.m_ag_dhead');
     return head && { item: head.parentElement, kind: 'dept', scope: head.closest('.m_ag_roster'), face: head };
   }
+  // Same steps as regex.js's dragPlace, with this module's class names. Kept as a copy: a shared one would take every
+  // selector as an argument.
   function dragPlace(el, d, after) {
     if (d.kind === 'dept') {
       const dep = el.closest('.m_ag_dept');

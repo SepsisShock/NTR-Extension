@@ -34,7 +34,6 @@
 
 ## PRs & Testing
 - Group related changes into one PR; split them when separate PRs are easier to review or revert, and justify why in chat before splitting.
-- After each fix pushed to an open PR, re-test the changed parts with `/run-ntr-extension` and update the PR summary.
 - Before adding a test to the repo, tell me in one plain sentence: what users would notice if the feature it checks broke, why it's needed, and its run time.
 
 ## Architecture & Module Routing

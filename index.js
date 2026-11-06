@@ -346,6 +346,8 @@ await (async () => {
   }
 
   // ===== NTR's main stylesheet (aw_dynamic_style) =====
+  // Not cssTag: with empty CSS, cssTag removes the tag, and its next CSS re-adds it at the end of head, after any
+  // styles added since.
   function updateAvatarStyle() {
     let styleEl = document.getElementById('aw_dynamic_style');
     if (!styleEl) {

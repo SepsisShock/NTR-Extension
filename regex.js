@@ -488,6 +488,8 @@ try {
     return head && { item: head.parentElement, kind: 'folder', scope: head.closest('.rx_sec'), face: head };
   }
 
+  // Same steps as agents.js's dragPlace, with this module's class names. Kept as a copy: a shared one would take every
+  // selector as an argument.
   function dragPlace(el, d, after) {
     if (d.kind === 'folder') {
       const fol = el.closest('.rx_folder');

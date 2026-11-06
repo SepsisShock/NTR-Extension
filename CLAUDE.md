@@ -28,7 +28,7 @@
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - One rule, one file: don't restate a rule from another *instruction* file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
-- If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag it in chat when you notice.
+- If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag (AND INVESTIGATE) it in chat when you notice.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 - Other LLMs: Independently verify each claim and evidence. Even when a conclusion is correct, assess whether it's a good judgment for the project.
 

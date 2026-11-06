@@ -13,8 +13,8 @@
 
 #### Before Responding, Think First
 - If my input could be read different ways, use the conversation context and common sense to determine what I mean.
-- Evaluate criticism on its merits. Don't automatically agree or become defensive; reconsider your position when evidence or overlooked factors warrant it.
 - Whenever stating or disputing how any tool, API, or library behaves, check its official docs, then search proven community patterns.
+- Evaluate criticism on its merits. Don't automatically agree or become defensive; reconsider your position when evidence or overlooked factors warrant it.
 
 ### UI Copy (Helper text and Tooltips)
 - Use general and familiar terms, succinct language.

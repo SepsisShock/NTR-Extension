@@ -1,7 +1,7 @@
 # Runs on every PR and every push to main.
-# Lints for syntax errors and undefined and unused names (eslint.config.mjs), looks for copied code in the extension,
-# scripts, tests and skill scripts (jscpd), runs the tests in tests/, checks that the version matches everywhere
-# (scripts/version.cjs), and (on PRs) that the version was bumped when a .js or .css file changed.
+# Lints for syntax errors and undefined and unused names (eslint.config.mjs), looks for copied code in the extension's
+# .js and .css, scripts, tests, skill scripts and hooks (jscpd), runs the tests in tests/, checks that the version
+# matches everywhere (scripts/version.cjs), and (on PRs) that the version was bumped when a .js or .css file changed.
 # On PRs it also warns when index.js grows by more than 100 lines (see CLAUDE.md on where new code goes).
 name: Check
 
@@ -30,7 +30,7 @@ jobs:
 
       # Blocks of 5+ lines and 50+ tokens that appear twice. Every file is scanned, whatever its size.
       - name: Copied code
-        run: npx jscpd --max-size 5mb --max-lines 100000 --min-tokens 50 --min-lines 5 --threshold 0 --reporters console --format javascript --pattern "{*.js,scripts/*.cjs,tests/*.mjs,.claude/skills/**/*.cjs}" .
+        run: npx jscpd --max-size 5mb --max-lines 100000 --min-tokens 50 --min-lines 5 --threshold 0 --reporters console --format javascript,css --pattern "{*.js,*.css,scripts/*.cjs,tests/*.mjs,.claude/skills/**/*.cjs,.claude/hooks/*.mjs}" .
 
       - name: Tests
         run: node --test tests/*.test.mjs

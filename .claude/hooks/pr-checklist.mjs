@@ -13,9 +13,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { dir, input } from './lib.mjs';
 
-const input = JSON.parse(readFileSync(0, 'utf8'));
-const dir = process.env.CLAUDE_PROJECT_DIR || input.cwd;
 const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
 
 let branch = input.tool_input.head;

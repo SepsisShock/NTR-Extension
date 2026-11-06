@@ -2,11 +2,12 @@
   - Scope: every comment added or changed in `git diff origin/main...HEAD`, plus comments anywhere that mention names this PR renamed or removed.
   - Verdicts: one per comment (keep, shorten or delete), citing the guideline number.
   - Apply and commit its fixes, unless one deletes a constraint the code needs.
-- Unless the change is only comments or tests, run `/run-ntr-extension`, comparing `main` with the branch:
+- If the extension's files (`manifest.json`, root `.js` and `.css`, `assets/`) changed beyond comments and the version bump, run `/run-ntr-extension`, comparing `main` with the branch:
   - Test the changed and new parts with driver commands.
   - A diff is a regression unless it comes from a new part or a change the task meant; say which in the PR.
   - **CSS changes, in any file:** compare before and after screenshots of the pages they reach; add `NTR_PHONE=1` screenshots for CSS in a `pointer: coarse` or width query.
   - If SillyTavern can't be run, say so in the PR.
-- **Versioning:** Bump with `node scripts/version.cjs bump patch` (fixes) or `minor` (features).
+- If the `run-ntr-extension` skill changed, run the commands it changed.
+- **Versioning:** If a root `.js` or `.css` file changed (CI checks this), bump with `node scripts/version.cjs bump patch` (fixes) or `minor` (features).
 - **Docs:** Propose removing shipped features from `ROADMAP.md`. Propose a few-word `manifest.json` description update only when a new top-level area ships.
 - **PR Summary:** State what changed, why, how it was tested, what caught any real bug (a test, script, skill, review, or plan check) and when (planning, building, or review), or "none", and explain any out-of-scope file touches. If CI's Core growth check warns, justify why that code belongs in core; if you can't, propose moving it. End it with the line `Checklist: done`, so the user can tell this checklist came up.

@@ -13,7 +13,7 @@
 
 #### Before Responding
 - If my input could be read different ways, use the conversation context and common sense to determine what I mean.
-- Evaluate criticism on its merits. Reconsider your position when evidence or overlooked factors warrant it, rather than agreeing or becoming defensive under pressure.
+- Evaluate criticism on its merits. Reconsider your position when evidence or overlooked factors warrant it, rather than automatically agreeing or becoming defensive.
 
 ### UI Copy (Helper text and Tooltips)
 - Use general and familiar terms, succinct language.
@@ -22,7 +22,7 @@
 ### Source Code Comments
 - Use literal and succinct language. 3rd person if perspective is needed.
 - Don't cite examples from my personal setup.
-- Comments are read only by LLMs, not humans; when in doubt, write none.
+- Avoid writing when the code is obvious; comments are read only by LLMs, not humans.
 
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.

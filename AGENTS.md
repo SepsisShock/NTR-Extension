@@ -9,7 +9,7 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 ## Ground Rules
 
 1. Edit files when explicitly requested or noted per instructions in this file.
-2. For GitHub tasks, use the GitHub Connector, because otherwise it will fail.
+2. For GitHub tasks, must use the GitHub Connector, because local clones often fail.
 3. If a call fails, retry the same call just once. After that, change the approach or report the blocker.
 4. Before posting, confirm the repository belongs to `SepsisShock`. Posting anywhere else needs explicit permission.
 
@@ -51,11 +51,12 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 - In the overall comment, say what you inspected and any limits, and whether you tested runtime behavior in SillyTavern. Keep tests you ran separate from existing CI results. Don't claim a reproduction based on reading code alone.
 - With no findings, the overall comment says no issues worth flagging were found.
 
-### Submitting Reviews For Open PRs
+### Submitting Reviews (For Open PRs)
 
-1. Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
-2. Never leave the review pending.
-3. In chat, give a short summary and the review link.
+1. Submit using authentication that makes GitHub record the ChatGPT/Codex bot as the actual author. If bot-authenticated posting is unavailable, report the blocker.
+2. Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
+3. Never leave the review pending.
+4. In chat, give a short summary and the review link.
 
 ## Special Review Skills
 

@@ -2,7 +2,7 @@
 // like on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api, reloadSettings } from './env.mjs';
+import { api, R, reloadSettings } from './env.mjs';
 
 test('Avatar Management builds its CSS, and none while NTR is off', () => {
   const s = api.settings();
@@ -101,7 +101,7 @@ test('the Frame library keeps safe links and short names, and drops the rest', (
   assert.equal(c.frameLib.folders[0].name.length, 60);
   assert.deepEqual(c.frameLib.folders[0].frames.map((f) => f.id), ['a']);
   assert.deepEqual(c.frameHidden, ['nouveau']);
-  const [lo, hi] = api.numRange('aiFrameSize'), [xlo] = api.numRange('aiFrameX');
+  const [lo, hi] = R.aiFrameSize, [xlo] = R.aiFrameX;
   assert.deepEqual(c.frameFits.ai['/user/files/avframe_a.png'], [hi, xlo, 0]);
   assert.ok(lo < hi);
   assert.equal('short' in c.frameFits.ai, false);

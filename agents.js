@@ -1256,8 +1256,8 @@
     return `<div class="cb_sub" style="margin-top:0;border-top:0;padding-top:0;">NTR</div>${row(['{{messagesRead}}', 'The messages chosen in Messages Read.'])}<div class="cb_sub">SillyTavern</div>${ST_MACROS.map(row).join('')}`;
   }
   const macBtn = () => `<i class="fa-solid fa-code"></i>${macOpen ? 'Hide Macros' : 'Macros'}`;
-  // A button with a panel under it that fills only while open. p: the button's and box's ids, the box's aria-label, and
-  // optional extra box CSS. face: the button's HTML.
+  // A button with a panel under it. p: btn and box (ids), label (the box's aria-label), optional style (extra box CSS).
+  // face: the button's HTML. body(): the box's HTML, called only while open.
   const panelRowHtml = (p, open, face, body) => `
         <div class="cb_actions" style="margin:8px 0 0;"><button type="button" class="menu_button" id="${p.btn}" aria-expanded="${open}" aria-controls="${p.box}" style="margin:0;">${face}</button></div>
         <div id="${p.box}" class="ntr_tpanel" role="region" aria-label="${p.label}" style="margin-top:6px;${p.style || ''}${open ? '' : 'display:none;'}">${open ? body() : ''}</div>`;

@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.66';
+  const LAYOUT_VERSION = '2.86.67';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, menuBtn: btn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -1204,6 +1204,7 @@
     const list = overlay.querySelector('#m_pin_list');
     const render = () => { list.innerHTML = pinListHtml(s); };
     const changed = () => { save(); syncPins(); };
+    const addPin = (p) => { s.layPins.push(p); pinOpen = p.id; changed(); render(); };
     const pinAt = (el) => s.layPins.find((p) => p.id === el.closest('[data-pin]')?.dataset.pin);
     render();
     overlay.querySelector('#m_pin_add').onclick = () => {
@@ -1211,10 +1212,7 @@
       // Each new box starts a little lower than the last, so they don't land on top of each other.
       const n = s.layPins.length;
       const [p] = cleanPins([{ name: `Pinned Block ${n + 1}`, show: 'reading', height: 'fit', desk: { ...PIN_START.desk, y: PIN_START.desk.y + (n % 6) * 8, moved: false }, phone: { ...PIN_START.phone, y: PIN_START.phone.y + (n % 6) * 8, moved: false } }]);
-      s.layPins.push(p);
-      pinOpen = p.id;
-      changed();
-      render();
+      addPin(p);
     };
     // A Dashboard: Agent Results docked right, with every agent, starting on the message being read. Past the
     // block's agent limit, agents that are on go in first.
@@ -1226,10 +1224,7 @@
       if (all.length > agents.length) toastr.info(`A Dashboard holds up to ${PIN_LIMITS.agents} agents. Agents that are on went in first; change them in its settings.`, 'Dashboard');
       const n = s.layPins.filter((x) => x.name === 'Dashboard' || x.name.startsWith('Dashboard ')).length;
       const [p] = cleanPins([{ name: n ? `Dashboard ${n + 1}` : 'Dashboard', from: 'agents', agents, place: 'right', frame: 'panel', show: 'reading', view: 'stacked', height: 'fit' }]);
-      s.layPins.push(p);
-      pinOpen = p.id;
-      changed();
-      render();
+      addPin(p);
       if (!layOn(s)) toastr.info('Turn Layout on to see it.', 'Dashboard');
     };
     list.addEventListener('click', async (e) => {

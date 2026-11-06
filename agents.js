@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.66';
+  const AGENTS_VERSION = '2.86.67';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
@@ -1484,10 +1484,11 @@
 
   function bindAll(s, a) {
     const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); syncTag(a); syncLinks(a); if (prevOpen) syncPreview(a); } };
+    const pick = (id) => { s.agPick = id; changed(true); showHead(); };
     // A click anywhere but in a menu closes it.
     root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
-      row.querySelector('.m_ag_pick').onclick = () => { s.agPick = row.dataset.id; changed(true); showHead(); };
+      row.querySelector('.m_ag_pick').onclick = () => pick(row.dataset.id);
       row.querySelector('.m_ag_on').onchange = function() {
         const x = byId(row.dataset.id);
         if (!x) return;
@@ -1503,9 +1504,7 @@
       if (list().length >= AGENT_MAX) { fullNote(); return; }
       const x = fresh(name);
       list().push(x);
-      s.agPick = x.id;
-      changed(true);
-      showHead();
+      pick(x.id);
     };
     // Import: the file's agents come in at the end, switched off, and the first one is picked.
     const impFile = root.querySelector('#m_ag_impfile');
@@ -1518,9 +1517,7 @@
       if (!r) { toastr.error('That isn\'t a Nitwit Tavern Redesign agents file.', 'Agents'); return; }
       // Agents hired meanwhile can take the room.
       if (!r.added.length) { fullNote(); return; }
-      s.agPick = r.added[0].id;
-      changed(true);
-      showHead();
+      pick(r.added[0].id);
       const n = r.added.length;
       const notes = [r.skipped && `${r.skipped} skipped (up to ${AGENT_MAX} agents)`, r.picFails && `${r.picFails} picture(s) couldn't be added`,
         r.deptsOut && `up to ${DEPT_MAX} departments, so ${r.deptsOut > 1 ? 'some agents are' : 'its agents are'} in no department`].filter(Boolean);
@@ -1531,9 +1528,7 @@
       if (list().length >= AGENT_MAX) { fullNote(); return; }
       const x = { ...fresh('Margi'), title: 'Story Tracker', example: true, pic: MARGI_PIC, on: true, job: MARGI_JOB, runs: 'reply', answer: 'fields', fields: cleanFields(MARGI_FIELDS) };
       list().push(x);
-      s.agPick = x.id;
-      changed(true);
-      showHead();
+      pick(x.id);
       toastr.info('Margi runs after every reply. To see her on screen, add a Dashboard on the Layout page.', 'Agents');
     };
     root.querySelector('#m_ag_dnew').onclick = async function() {
@@ -1664,7 +1659,7 @@
       const b = e.target.closest('button');
       if (!b || b.disabled) return;
       const x = byId(b.dataset.go || b.dataset.rm || b.dataset.add);
-      if (b.dataset.go && x) { s.agPick = x.id; changed(true); showHead(); } else if (b.dataset.rm && x) link(b.dataset.side, x, false);
+      if (b.dataset.go && x) pick(x.id); else if (b.dataset.rm && x) link(b.dataset.side, x, false);
       else if (b.dataset.add && x) link(b.dataset.side, x, true);
       else if (b.classList.contains('m_ag_radd')) {
         const side = b.dataset.side;

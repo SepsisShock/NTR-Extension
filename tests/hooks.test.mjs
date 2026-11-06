@@ -1,6 +1,7 @@
 // The Claude Code hooks in .claude/hooks: commit-guard.mjs (the user approves wording changes, deletions and major
-// version bumps before they reach GitHub) and pr-checklist.mjs (the PR checklist comes up once each time a
-// branch starts from main).
+// version bumps before they reach GitHub, and Claude explains new tests), pr-checklist.mjs (the PR checklist comes up
+// once each time a branch starts from main) and pr-update.mjs (Claude re-tests and updates the summary after pushing
+// to an open PR).
 // Each test feeds a hook the JSON Claude Code would send, in a scratch repo with its own "origin", so nothing touches
 // this repo or GitHub. This checks the scripts only: whether settings.json still makes Claude Code run them (tool names,
 // matchers, onFailure) can only be seen in a real session.
@@ -42,20 +43,20 @@ function scratch(t) {
     else { writeFileSync(join(repo, file), text); git('add', file); }
     git('commit', '-qm', file);
   };
+  const run = (name, data, env) => spawnSync(process.execPath, [join(ROOT, '.claude/hooks', name)], {
+    input: JSON.stringify({ cwd: repo, ...data }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: repo, ...env },
+  });
   // What the hook decides: 'deny', 'ask', 'allow', or 'pass' when it lets the call through. A hook that crashes also
   // prints nothing, so it fails the test unless fails is set; Claude Code would block that call (onFailure) or let it through.
   const hook = (name, tool_name, tool_input, fails = false) => {
-    const r = spawnSync(process.execPath, [join(ROOT, '.claude/hooks', name)], {
-      input: JSON.stringify({ cwd: repo, tool_name, tool_input }), encoding: 'utf8',
-      env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
-    });
+    const r = run(name, { tool_name, tool_input });
     if (fails) assert.notEqual(r.status, 0);
     else assert.equal(r.status, 0, r.stderr);
     const out = r.stdout ? JSON.parse(r.stdout).hookSpecificOutput : null;
     return { decision: out?.permissionDecision ?? 'pass', reason: out?.permissionDecisionReason ?? '' };
   };
   const bash = (name, command, fails) => hook(name, 'Bash', { command }, fails);
-  return { repo, git, commit, hook, bash };
+  return { repo, git, commit, run, hook, bash };
 }
 
 test('commit-guard lets a push through when only code changed', (t) => {
@@ -126,6 +127,55 @@ test('commit-guard fails when GitHub can\'t be read, so onFailure blocks the pus
   s.commit('a.js', 'y\n');
   s.git('remote', 'set-url', 'origin', join(s.repo, 'missing.git'));
   assert.equal(s.bash('commit-guard.mjs', PUSH, true).decision, 'pass');
+});
+
+test('commit-guard has Claude explain each new test once, and asks only for changes that need approval', (t) => {
+  const s = scratch(t);
+  mkdirSync(join(s.repo, 'tests'));
+  s.commit('tests/a.test.mjs', "test('one', () => {});\n");
+  assert.match(s.bash('commit-guard.mjs', PUSH).reason, /New tests: tests\/a\.test\.mjs: one\..*No approval/);
+  assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'pass');
+  s.git('push', '-q', 'origin', 'feat');
+  s.commit('tests/a.test.mjs', "test('one', () => { 1; });\ntest('two', () => {});\n");
+  s.commit('a.js', null);
+  const both = s.bash('commit-guard.mjs', PUSH);
+  assert.match(both.reason, /deletes a\.js/);
+  assert.match(both.reason, /New tests: tests\/a\.test\.mjs: two\./);
+  assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'ask');
+});
+
+test('pr-update reminds after a push or GitHub tool commit to an open PR, and sends Claude back once if the summary is unchanged', (t) => {
+  const s = scratch(t);
+  // A fake gh: the open PR list comes from open.json, a single PR from pr.json.
+  const bin = join(s.repo, '..', 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\ncase "$2" in *state=open*) cat "$GH_DIR/open.json";; *) cat "$GH_DIR/pr.json";; esac\n', { mode: 0o755 });
+  const pr = (open, body) => {
+    writeFileSync(join(bin, 'open.json'), JSON.stringify(open ? [{ number: 7, body }] : []));
+    writeFileSync(join(bin, 'pr.json'), JSON.stringify({ number: 7, body }));
+  };
+  const out = (data) => {
+    const r = s.run('pr-update.mjs', { session_id: 'a', ...data }, { PATH: `${bin}:${process.env.PATH}`, GH_DIR: bin });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout && JSON.parse(r.stdout);
+  };
+  const push = () => out({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: PUSH } });
+  const stop = () => out({ hook_event_name: 'Stop' });
+  s.commit('a.js', 'y\n');
+  s.git('push', '-q', 'origin', 'feat');
+  pr(false, 'x');
+  assert.equal(push(), '');
+  pr(true, 'x');
+  assert.match(push().hookSpecificOutput.additionalContext, /PR #7/);
+  assert.equal(stop().decision, 'block');
+  assert.equal(stop(), '');
+  push();
+  pr(true, 'y');
+  assert.equal(stop(), '');
+  // A push that didn't go through leaves origin's tracking ref behind.
+  s.commit('a.js', 'z\n');
+  assert.equal(push(), '');
+  assert.match(out({ hook_event_name: 'PostToolUse', tool_name: 'mcp__github__push_files', tool_input: { branch: 'feat' } }).hookSpecificOutput.additionalContext, /PR #7/);
 });
 
 test('pr-checklist shows the checklist once per branch, from the CLI or the GitHub tool', (t) => {

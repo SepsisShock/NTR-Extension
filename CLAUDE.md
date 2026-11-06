@@ -25,9 +25,9 @@
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - One Rule, One Help File: don't restate a rule from another *help* file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
 - If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag it in chat and suggest when & where to address it.
+- Group related changes into one PR; split them when separate PRs are easier to review or revert, and justify why in chat before splitting.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
 - Other LLMs: Thoroughly verify each claim and evidence. Even when a conclusion is correct, assess whether it's a good judgment for the project.
-- Group related changes into one PR; split them when separate PRs are easier to review or revert, and justify why in chat before splitting.
 
 ### Architecture & Module Routing
 - **Core Boundary:** `index.js` is core. Modules never import other NTR files; they communicate only through `window.NTR`: core's helpers in `window.NTR.api` (look helpers in `window.NTR.api.look`), and other modules' exports in `window.NTR.<module>`.

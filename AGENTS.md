@@ -45,7 +45,7 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 ## Writing Reviews
 
-- Start each comment and reply with `ChatGPT review:`. Label findings `Bug:` (state the trigger and what goes wrong) or `Verify:` (state the trigger, the possible result, and a test). A requested skill may use its own labels.
+- Start each comment and reply with `ChatGPT review:`. Label findings `Bug:` (state the trigger and what goes wrong) or `Verify:` (state the trigger, the possible result, and a test). A special review or request may use its own labels.
 - Name exact functions, keys, and files. Keep comments short.
 - Put each finding in its own inline comment on a related changed line, or in the overall comment if no changed line fits.
 - In the overall comment, say what you inspected and any limits, and whether you tested runtime behavior in SillyTavern. Keep tests you ran separate from existing CI results. Don't claim a reproduction based on reading code alone.
@@ -53,7 +53,7 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 ### Submitting Reviews (For Open PRs)
 
-1. Submit using authentication that makes GitHub record the ChatGPT/Codex bot as the actual author. If bot-authenticated posting is unavailable, report the blocker.
+1. Submit using authentication that makes GitHub record the ChatGPT/Codex bot as the actual author. Only if bot-authenticated posting is unavailable, use SepsisShock.
 2. Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
 3. Never leave the review pending.
 4. In chat, give a short summary and the review link.

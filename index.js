@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.68';
+  const VERSION = '2.86.69';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1098,6 +1098,7 @@ await (async () => {
   const bubblesOn = (s) => isOn() && decorOn(s) && s.ovBubOn;
   // Whether a side's messages sit on the right.
   const bubRight = (s, p) => (s.ovBubAlign === 'sides' && p === 'Us') || (s.ovBubAlign === 'swap' && p === 'Ai');
+  const hint = (t) => `<div class="cb_hint">${t}</div>`;
   // Override rows: a checkbox in front of each setting; unticked means SillyTavern's own value applies.
   function ovRow(s, onKey, label, inner) {
     return `
@@ -1591,16 +1592,11 @@ await (async () => {
   // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see saveCard.
   const cardFix = new Set();
 
-  function charIndexByAvatar(av) {
-    const cs = ctx().characters || [];
-    return cs.findIndex((c) => c && c.avatar === av);
-  }
+  const charByAvatar = (av) => (ctx().characters || []).find((c) => c && c.avatar === av);
 
   function cardData(key) {
-    const c = ctx();
     if (!key) return null;
-    const i = charIndexByAvatar(key);
-    const ch = i >= 0 ? c.characters[i] : null;
+    const ch = charByAvatar(key);
     if (!ch || !ch.data) return null;
     if (!isObj(ch.data.extensions)) ch.data.extensions = {};
     let d = cleanStore(ch.data.extensions.ntr);
@@ -1707,8 +1703,7 @@ await (async () => {
   async function saveCard(key) {
     if (wiping) return;
     const c = ctx();
-    const i = charIndexByAvatar(key);
-    const ch = i >= 0 ? c.characters[i] : null;
+    const ch = charByAvatar(key);
     const d = ch?.data?.extensions?.ntr;
     if (!d) return;
     const json = JSON.stringify(d);
@@ -2533,7 +2528,7 @@ await (async () => {
           ${ovLabel('Text', ovColor(s, 'rdInk'))}
           ${ovLabel('Italics', ovColor(s, 'rdInkEm'))}
           ${ovLabel('Quotes', ovColor(s, 'rdInkQuote'))}
-          ${ovRow(s, 'rdBookFontOn', 'Book Font', ovFont(s, 'rdBookFont') + `<div class="cb_hint">${FONT_NOTE}</div>`)}
+          ${ovRow(s, 'rdBookFontOn', 'Book Font', ovFont(s, 'rdBookFont') + hint(FONT_NOTE))}
           <div class="cb_hint" style="margin-bottom: 0;">In the book, these replace ST's and Text Formatting's colors and text effects, and the reasoning block's look. Reasoning text uses Italics. Text Formatting's sizes still apply.</div>`, 'fa-pen-nib')}
         </div>`}
         ${part !== 'vn' ? '' : `${subHead('rd_vn', 'Visual Novel', 'fa-film')}
@@ -2886,7 +2881,7 @@ await (async () => {
     // lists their settings are checked against.
     look: {
       POS_GRID, SHAPE_OPTS, castPartHtml, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, joinCss, ovWhen, sendSeparate,
-      FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel,
+      FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel, hint,
       RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
       cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,

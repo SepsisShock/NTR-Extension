@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.68';
+  const VN_VERSION = '2.86.69';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -797,10 +797,7 @@
         const k = b.dataset.k;
         // Its pill may have left Custom while the question was open.
         if (s[k === 'artBgImg' ? 'artBg' : 'artSprite'] !== 'custom') return;
-        const old = s[k];
-        s[k] = '';
-        save(); renderArt(); refreshAll(); updateStage();
-        A.deleteFileIfUnused(old);
+        setArtImage(k, '');
       };
     });
     A.onFilePick(artFile, 'Visual Novel', async (f) => {

@@ -1,7 +1,7 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.68';
+  const AGENTS_VERSION = '2.86.69';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
@@ -1256,36 +1256,36 @@
     return `<div class="cb_sub" style="margin-top:0;border-top:0;padding-top:0;">NTR</div>${row(['{{messagesRead}}', 'The messages chosen in Messages Read.'])}<div class="cb_sub">SillyTavern</div>${ST_MACROS.map(row).join('')}`;
   }
   const macBtn = () => `<i class="fa-solid fa-code"></i>${macOpen ? 'Hide Macros' : 'Macros'}`;
-  const macRowHtml = () => `
-        <div class="cb_actions" style="margin:8px 0 0;"><button type="button" class="menu_button" id="m_ag_macbtn" aria-expanded="${macOpen}" aria-controls="m_ag_macbox" style="margin:0;">${macBtn()}</button></div>
-        <div id="m_ag_macbox" class="ntr_tpanel" role="region" aria-label="Macros" style="margin-top:6px;gap:0;${macOpen ? '' : 'display:none;'}">${macOpen ? macListHtml() : ''}</div>`;
-  function syncMacros(open) {
-    macOpen = open;
-    const b = root?.querySelector('#m_ag_macbtn');
-    const box = root?.querySelector('#m_ag_macbox');
+  // A button with a panel under it that fills only while open. p: the button's and box's ids, the box's aria-label, and
+  // optional extra box CSS. face: the button's HTML.
+  const panelRowHtml = (p, open, face, body) => `
+        <div class="cb_actions" style="margin:8px 0 0;"><button type="button" class="menu_button" id="${p.btn}" aria-expanded="${open}" aria-controls="${p.box}" style="margin:0;">${face}</button></div>
+        <div id="${p.box}" class="ntr_tpanel" role="region" aria-label="${p.label}" style="margin-top:6px;${p.style || ''}${open ? '' : 'display:none;'}">${open ? body() : ''}</div>`;
+  // style.display, not hidden: .ntr_tpanel is a flex box, which would show a hidden one anyway.
+  function syncPanel(p, open, face, body) {
+    const b = root?.querySelector(`#${p.btn}`);
+    const box = root?.querySelector(`#${p.box}`);
     if (!b || !box) return;
-    b.innerHTML = macBtn();
+    b.innerHTML = face;
     b.setAttribute('aria-expanded', String(open));
     box.style.display = open ? '' : 'none';
-    box.innerHTML = open ? macListHtml() : '';
+    box.innerHTML = open ? body() : '';
+  }
+  const MAC_PANEL = { btn: 'm_ag_macbtn', box: 'm_ag_macbox', label: 'Macros', style: 'gap:0;' };
+  const macRowHtml = () => panelRowHtml(MAC_PANEL, macOpen, macBtn(), macListHtml);
+  function syncMacros(open) {
+    macOpen = open;
+    syncPanel(MAC_PANEL, open, macBtn(), macListHtml);
   }
   // Preview Prompt, under Reports: it shows what the agent sends, for every part of its settings. It stays open
   // while its settings are changed, until Collapse All or a reload.
   let prevOpen = false;
   const prevBtn = () => `<i class="fa-solid ${prevOpen ? 'fa-eye-slash' : 'fa-eye'}"></i>${prevOpen ? 'Hide Preview' : 'Preview Prompt'}`;
-  const prevRowHtml = (a) => `
-      <div class="cb_actions" style="margin:8px 0 0;"><button type="button" class="menu_button" id="m_ag_prev" aria-expanded="${prevOpen}" aria-controls="m_ag_prevbox" style="margin:0;">${prevBtn()}</button></div>
-      <div id="m_ag_prevbox" class="ntr_tpanel" role="region" aria-label="Prompt Preview" style="margin-top:6px;${prevOpen ? '' : 'display:none;'}">${prevOpen ? previewHtml(a) : ''}</div>`;
-  // style.display, not hidden: .ntr_tpanel is a flex box, which would show a hidden one anyway.
+  const PREV_PANEL = { btn: 'm_ag_prev', box: 'm_ag_prevbox', label: 'Prompt Preview' };
+  const prevRowHtml = (a) => panelRowHtml(PREV_PANEL, prevOpen, prevBtn(), () => previewHtml(a));
   function syncPreview(a, open = prevOpen) {
     prevOpen = open;
-    const b = root?.querySelector('#m_ag_prev');
-    const box = root?.querySelector('#m_ag_prevbox');
-    if (!b || !box) return;
-    b.innerHTML = prevBtn();
-    b.setAttribute('aria-expanded', String(open));
-    box.style.display = open ? '' : 'none';
-    box.innerHTML = open ? previewHtml(a) : '';
+    syncPanel(PREV_PANEL, open, prevBtn(), () => previewHtml(a));
   }
 
   function activityHtml(a, l = runs.get(a.id) || []) {

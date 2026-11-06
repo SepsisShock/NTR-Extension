@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.68';
+  const ELEMENTS_VERSION = '2.86.69';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -7,7 +7,7 @@
   const { FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
     RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
     cssRule, cssReaders, cssTag, seeThrough, rbCssText, customCssBox, CSS_NOTE, bubblesOn, bubRight, restyle: updateAvatarStyle,
-    rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal, ovLabel } = A.look;
+    rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal, ovLabel, hint } = A.look;
 
   // Chrome, Edge and Safari use the -webkit- parts. Firefox only knows scrollbar-color,
   // and Chrome drops the -webkit- parts when it sees it, so Firefox gets it on its own.
@@ -692,7 +692,7 @@
           ${card('Reasoning Box', `
           ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor'))}
           ${ovRow(s, 'rbBoxAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBoxOpacity'))}
-          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + `<div class="cb_hint">${FONT_NOTE}</div>`)}
+          ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + hint(FONT_NOTE))}
           ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">ST\'s is 50%. 0% is grey.</div>')}
           ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', ovPick(s, 'rbBoxShape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']]))}
           ${ovRow(s, 'rbBorderStyleOn', 'Border Style', ovPick(s, 'rbBorderStyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')]))}
@@ -909,7 +909,6 @@
 
   function mdPartHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
-    const hint = (t) => `<div class="cb_hint">${t}</div>`;
     const pickRow = (title, inner) => `<div class="cb_ovrow"><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
     // A tick for each detail in each spot. A detail can show in more than one.
     const grid = `<div class="ntr_mdgrid"><span></span>${MD_SPOTS.map(([, , label]) => `<span class="ntr_mdh">${label}</span>`).join('')}
@@ -931,7 +930,6 @@
 
   function qrPartHtml(s) {
     const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
-    const hint = (t) => `<div class="cb_hint">${t}</div>`;
     return pagePart('Quick Replies', ['m_qr_enable', s.ovQrOn], 'el_qr', `
           ${hint('Restyles ST\'s Quick Reply bar and pop-out. A set\'s own color still shows behind its buttons.')}
           ${card('Buttons', `

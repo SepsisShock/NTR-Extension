@@ -1,10 +1,10 @@
 (() => {
-  const DECOR_VERSION = '2.86.68';
+  const DECOR_VERSION = '2.86.69';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
   const { BUB_INK_OPTS, BUB_TAIL_OPTS, COLOR_FROM, bubRight, bubblesOn, cssRule, joinCss, ntrAvatars, ovBgRow, ovBorderRow, ovBorderVal,
-    ovColorVal, ovLabel, ovPick, ovRadius, ovRow, ovShapeRow, ovWhen, rangeSlider, restyle: updateAvatarStyle, sendSeparate, svgMask } = A.look;
+    ovColorVal, hint, ovLabel, ovPick, ovRadius, ovRow, ovShapeRow, ovWhen, rangeSlider, restyle: updateAvatarStyle, sendSeparate, svgMask } = A.look;
 
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
   const NO_BLUR = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
@@ -258,7 +258,6 @@
 
   function bubbleRowHtml(s) {
     const pick = (k, opts) => ovPick(s, k, opts);
-    const hint = (t) => `<div class="cb_hint">${t}</div>`;
     return ovRow(s, 'ovBubOn', 'Speech Bubbles',
       hint('Turns AI and User messages into bubbles. Colors, roundness and border come from AI Message and User Message. Reader Mode\'s Book keeps plain messages.')
       + ovLabel('Style', pills('obubpreset', [...Object.entries(BUB_PRESETS).map(([v, [l]]) => [v, l]), ['custom', 'Custom']], bubPreset(s)))

@@ -8,11 +8,6 @@
 ## Communication
 - Everywhere: No em dashes; use semicolons or colons instead.
 
-### Before Answering or Acting, Think First
-- My Input: if it could be read different ways, use the conversation context & common sense to determine what I mean.
-- Tools, APIs, Library: Whenever stating how they behave, check official docs, then search proven community patterns.
-- Criticisms: Don't automatically agree or become defensive; may reconsider when evidence or overlooked factors warrant it, but evaluate on its own merits.
-
 ### UI Copy (Helper text and Tooltips)
 - Use general and familiar terms, succinct language.
 - Omit unless a setting's behavior is not obvious from its label.
@@ -20,6 +15,11 @@
 ### Source Code Comments
 - Use literal and succinct language. 3rd person if perspective is needed.
 - Avoid writing when code is obvious; comments are read only by LLMs, not humans.
+
+## Before Outputting, Think First
+- My Input: if it could be read different ways, use the conversation context & common sense to determine what I mean.
+- Tools, APIs, Library: Whenever stating how they behave, check official docs, then search proven community patterns.
+- Criticisms: Don't automatically agree or become defensive; may reconsider when evidence or overlooked factors warrant it, but evaluate on its own merits.
 
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.

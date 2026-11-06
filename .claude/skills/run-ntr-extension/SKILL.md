@@ -62,7 +62,7 @@ The server keeps running across commands until `st.sh stop` (below). The driver 
 | `eval <expression>` | runs one expression in the page (may use `await`) and prints the result as JSON. No `;`: wrap statements in `(() => { ...; return value; })()`, made `async` if they use `await` |
 | `card` | the open chat's NTR data as saved in the card file, read back from the server. If the page's copy is different, it's shown below it: a save still waiting, or NTR's empty defaults, which it doesn't save |
 | `ss [name]` / `shot <name> <css>` | screenshot of the page / of one element |
-| `wait <ms>`, `reload`, `errors` | pause; load the page again; page errors so far, minus SillyTavern's network noise. `errors` fails the run if there are any, so end with it. A failed load shows its address |
+| `wait <ms>`, `reload`, `errors` | pause; load the page again, with no chat open as at the start of a run, so `select` again; page errors so far, minus SillyTavern's network noise. `errors` fails the run if there are any, so end with it. A failed load shows its address |
 
 An upload and a link, with the server running:
 

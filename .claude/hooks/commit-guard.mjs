@@ -18,9 +18,8 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { dir, input } from './lib.mjs';
 
-const input = JSON.parse(readFileSync(0, 'utf8'));
-const dir = process.env.CLAUDE_PROJECT_DIR || input.cwd;
 const run = (...args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 15000 });
 const out = (...args) => run(...args).stdout.trim();
 // For reads the check depends on: a failure throws, and settings.json's onFailure blocks the command.

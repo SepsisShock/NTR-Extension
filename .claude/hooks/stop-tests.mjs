@@ -5,10 +5,10 @@
 // - First check of a session: always runs, and failures are only reported, so an already broken branch can't block a
 //   plain answer.
 // - After that, nothing changed (questions, plans): no run.
-// - Sent back already and the same tests still fail: Claude may stop, and the user is told.
+// - Sent back already, then nothing changed or the same tests still fail: Claude may stop, and the user is told.
 //
-// What it saw last, and whether it sent Claude back, is kept in .git/ntr-stop-hook.json, which git doesn't track. It
-// doesn't read stop_hook_active, which is also true when another Stop hook sent Claude back.
+// What it saw last, and whether it sent Claude back, is kept in .git/ntr-stop-hook.json, which git doesn't track.
+// stop_hook_active isn't used: it's also true when another Stop hook sent Claude back.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';

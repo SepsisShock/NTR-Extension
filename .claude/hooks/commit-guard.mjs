@@ -109,12 +109,12 @@ if (input.tool_name === 'Bash') {
   const push = /\bgit\b/.test(bare) && /\bpush\b/.test(bare);
   const pr = /\bgh\s+pr\s+create\b/.test(bare);
   if (!push && !pr) process.exit(0);
-  // Only plain forms, so the commits are already made and exactly one branch goes to origin.
+  // Only plain forms, so the commits are already made.
   const target = pushed(cmd);
   if (push && (!target || out('config', '--get-all', 'remote.origin.push'))) say('deny', 'Run git push by itself as git push [-u] origin <branch>, from the project folder: one branch, to origin, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
   if (pr && !/^gh\s+pr\s+create\b[^;&|`$<>\n]*$/.test(bare)) say('deny', 'Run gh pr create by itself, after pushing, so the guard can check the commits it sends.');
 
-  // What's pushed: the refspec's source (gh pr create: HEAD). Where to: the refspec's target, or the source branch.
+  // What's pushed: the refspec's source (gh pr create: HEAD), and the branch it goes to.
   const { src, branch } = target ?? { src: 'HEAD', branch: must('symbolic-ref', '--short', 'HEAD') };
   const sha = must('rev-parse', `${src}^{commit}`);
   // GitHub's current copies of main and the branch, fetched into their usual refs. A branch GitHub doesn't have yet has none.

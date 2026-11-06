@@ -43,11 +43,11 @@ function scratch(t) {
     else { writeFileSync(join(repo, file), text); git('add', file); }
     git('commit', '-qm', file);
   };
-  // What the hook decides: 'deny', 'ask', 'allow', or 'pass' when it lets the call through. A hook that crashes also
-  // prints nothing, so it fails the test unless fails is set; Claude Code would block that call (onFailure) or let it through.
   const run = (name, data, env) => spawnSync(process.execPath, [join(ROOT, '.claude/hooks', name)], {
     input: JSON.stringify({ cwd: repo, ...data }), encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: repo, ...env },
   });
+  // What the hook decides: 'deny', 'ask', 'allow', or 'pass' when it lets the call through. A hook that crashes also
+  // prints nothing, so it fails the test unless fails is set; Claude Code would block that call (onFailure) or let it through.
   const hook = (name, tool_name, tool_input, fails = false) => {
     const r = run(name, { tool_name, tool_input });
     if (fails) assert.notEqual(r.status, 0);

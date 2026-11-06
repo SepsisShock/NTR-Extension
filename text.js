@@ -4,7 +4,7 @@
   if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, subHead } = A;
   const { FONT_NOTE, FX_PARTS, NAME_WEIGHT, bubblesOn, bubRight, cssReaders, cssRule, ntrAvatars,
-    restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel, ovPick } = A.look;
+    restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel, ovPick, hint } = A.look;
 
   // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
   // Gradient and Shimmer are painted into the letters instead (see paintOf).
@@ -221,11 +221,11 @@
   }
 
   function ovFx(s, p) {
-    const hint = p === 'tfName' ? 'Shimmer sweeps twice over the newest name when it appears'
+    const note = p === 'tfName' ? 'Shimmer sweeps twice over the newest name when it appears'
       : 'Gradient and Shimmer keep italics, quotes, underlines and links in their own colors. Shimmer sweeps twice over the newest message when it appears';
     return ovPick(s, p + 'Fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline'], ['gradient', 'Gradient'], ['shimmer', 'Shimmer']])
       + ovLabel('Strength', rangeSlider(s, p + 'FxStr'))
-      + `<div class="cb_hint">${hint}. Off with Reduced Motion, ST's or the device's.</div>`;
+      + hint(`${note}. Off with Reduced Motion, ST's or the device's.`);
   }
 
   function fxRows(s, p) {

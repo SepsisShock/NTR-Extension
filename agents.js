@@ -867,7 +867,7 @@
   // ----- The Agents page -----
   let root = null;
   const opt = (pairs, cur) => pairs.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
-  const { ovLabel: lab } = A.look;
+  const { ovLabel: lab, hint } = A.look;
   // An agent's picture is a circle; Avatar Management's Shape doesn't apply.
   const picHtml = (a, size) => {
     return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
@@ -1066,8 +1066,8 @@
   }
   // Where {{messagesRead}} puts the messages: its hint, and Chat Messages grayed out while the tag places them.
   function syncTag(a) {
-    const hint = root?.querySelector('#m_ag_taghint');
-    if (hint) hint.innerHTML = tagHint(a);
+    const el = root?.querySelector('#m_ag_taghint');
+    if (el) el.innerHTML = tagHint(a);
     root?.querySelector('#m_ag_splitwrap')?.classList.toggle('cb_dim', hasTag(a));
   }
   // The summaries, the header's status line and its roster row, after a change that doesn't redraw the page.
@@ -1187,7 +1187,7 @@
         <div class="cb_hint">Counts only the ticked messages.</div>
         ${lab('Only From', `<input type="text" class="text_pole m_ag_txt" data-f="runFrom" data-redraw="1" value="${esc(a.runFrom)}" maxlength="500" placeholder="Anyone" style="width:100%;">`)}
         <div class="cb_hint">Names, separated by commas. Macros like {{char}} work.</div>
-        ${(a.kind === 'chat' || a.send) && (a.runOn.includes('user') || a.runOn.includes('sys')) ? `<div class="cb_hint">${usesFull(a) ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : a.send ? 'Your reply waits for its answer, so the answer reaches that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.'}</div>` : ''}` : ''}
+        ${(a.kind === 'chat' || a.send) && (a.runOn.includes('user') || a.runOn.includes('sys')) ? hint(usesFull(a) ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : a.send ? 'Your reply waits for its answer, so the answer reaches that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.') : ''}` : ''}
         <div class="cb_hint" style="margin-bottom:0;">To show its answers, add a Dashboard on the Layout page.</div>`],
       ['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>

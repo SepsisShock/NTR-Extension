@@ -458,13 +458,11 @@
     // Still loading, or it failed and isn't asked for again.
     if (full === src || img.dataset.ntrLoading === full) return;
     img.dataset.ntrLoading = full;
-    const pre = new Image();
-    pre.onload = () => {
+    loadImg(full).then(() => {
       if (img.dataset.ntrLoading === full) delete img.dataset.ntrLoading;
       img.dataset.ntrFull = full;
       if (img.getAttribute('src') === src) img.src = full;
-    };
-    pre.src = full;
+    }, () => {});
   }
 
   // After a restyle: every chat avatar picture on screen gets its shape and width once it has loaded, and the full-size

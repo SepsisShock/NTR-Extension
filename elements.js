@@ -69,11 +69,8 @@
       c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
       done({ url: c.toDataURL('image/png'), w: c.width, h: c.height });
     };
-    const i = new Image();
-    i.crossOrigin = 'anonymous';
-    i.onload = () => { try { draw(i); } catch (e) { loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}); } };
-    i.onerror = () => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {});
-    i.src = src;
+    const plain = () => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {});
+    loadImg(src, true).then((i) => { try { draw(i); } catch (e) { plain(); } }, plain);
     return cursorLast.get(src) || null;
   }
   const TEXT_CURSOR_SEL = 'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], [contenteditable="true"]';
@@ -129,12 +126,11 @@
   // doesn't load, null while loading.
   const mbLoaded = new Map();
   const mbWait = new Map();
-  const loadCors = (u) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
   function mbReady(src) {
     if (mbLoaded.has(src)) return mbLoaded.get(src);
     if (mbLoaded.size > 60) { mbLoaded.clear(); mbWait.clear(); }
     mbLoaded.set(src, null);
-    const p = loadCors(src).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
+    const p = loadImg(src, true).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
     mbWait.set(src, p.then((st) => { mbLoaded.set(src, st); updateAvatarStyle(); return st; }));
     return null;
   }
@@ -841,7 +837,7 @@
       const c = document.createElement('canvas');
       c.width = c.height = 32;
       const g = c.getContext('2d');
-      g.drawImage(await loadCors(src), 0, 0, 32, 32);
+      g.drawImage(await loadImg(src, true), 0, 0, 32, 32);
       const d = g.getImageData(0, 0, 32, 32).data;
       for (let k = 3; k < d.length; k += 4) if (d[k] < 250) return true;
       return false;

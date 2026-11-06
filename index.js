@@ -448,7 +448,10 @@ await (async () => {
   }
 
   const readDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-  const loadImg = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+  // Runs fn in the next frame; calls made before that frame share it.
+  const frameOnce = (fn) => { let id = 0; return () => { if (!id) id = requestAnimationFrame(() => { id = 0; fn(); }); }; };
+  // `cors` asks for CORS, so a canvas can read the picture.
+  const loadImg =(u, cors) => new Promise((res, rej) => { const i = new Image(); if (cors) i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
 
   // Images over `max` px on their longer side (or `maxWidth` wide) are shrunk first: photos stay JPEG, the rest become
   // PNG so transparency survives. Other image types become PNG too, so the file always matches its name. GIFs go as
@@ -1201,7 +1204,8 @@ await (async () => {
   const FONT_NOTE = 'Fonts: a font on your device, or any Google Fonts name or link. Google fonts need a connection.';
 
   // A pick-one row: the radio name is the key in lower case, with "o" in front.
-  const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
+  const pickName = (k) => 'o' + k.toLowerCase();
+  const ovPick = (s, k, opts) => pills(pickName(k), opts, s[k]);
   // Shown only while a pick has a certain value, like Roundness under Rounded.
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
   // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
@@ -1238,7 +1242,11 @@ await (async () => {
     });
     bindSliders(overlay, '.m_o_sl', s, updateAvatarStyle);
     const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
-    for (const k of Object.keys(PICK_KEYS)) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
+    const keyOfRadio = Object.fromEntries(Object.keys(PICK_KEYS).map((k) => [`cbr_${pickName(k)}`, k]));
+    overlay.querySelectorAll('input[type="radio"][name^="cbr_o"]').forEach((r) => {
+      const k = keyOfRadio[r.name];
+      if (k) r.onchange = () => { if (r.checked) { s[k] = r.value; save(); updateAvatarStyle(); syncWhen(); } };
+    });
     syncWhen();
     overlay.querySelectorAll('.m_o_col').forEach((el) => {
       const k = el.dataset.key;
@@ -2867,7 +2875,7 @@ await (async () => {
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, cId, cRef, frameOnce, askImageUrl, askVideoUrl,
     pills, tiles, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: () => openCombinedModal(), fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },

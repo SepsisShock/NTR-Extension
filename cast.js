@@ -356,14 +356,7 @@
   }
 
   // Many changes in a row (a reply streaming in) draw once, before the next frame.
-  let drawQ = 0;
-  function schedule() {
-    if (drawQ) return;
-    drawQ = requestAnimationFrame(() => {
-      drawQ = 0;
-      try { drawFaces(); drawStage(); } catch (e) { console.error('[NTR] emotions', e); }
-    });
-  }
+  const schedule = A.frameOnce(() => { try { drawFaces(); drawStage(); } catch (e) { console.error('[NTR] emotions', e); } });
 
   // ----- Hiding tags in the chat: the emotion part of speaker tags, Emotion tags and scene tags -----
   // A reply being written can end partway through a tag; that part is hidden too until the reply is done.

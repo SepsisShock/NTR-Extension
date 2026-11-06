@@ -51,7 +51,7 @@
   let cur = 0;
   // On the last page: new pages are followed, so a new reply shows as it arrives.
   let follow = true;
-  let obs = null, queued = false;
+  let obs = null;
   // Each chat opening gets a number (see openSaved). A page turn that's drawing older messages holds the number of the
   // chat it's for, so one left over from the chat before stops instead of landing in the new chat.
   let opened = 1, turning = 0;
@@ -626,12 +626,8 @@
     if (!quiet) remember();
   }
 
-  function queue() {
-    if (queued) return;
-    queued = true;
-    // While a page turn is loading older messages, counting waits until it's done.
-    requestAnimationFrame(() => { queued = false; if (!live()) return; if (turning === opened) queue(); else rebuild(); });
-  }
+  // While a page turn is loading older messages, counting waits until it's done.
+  const queue = A.frameOnce(() => { if (!live()) return; if (turning === opened) queue(); else rebuild(); });
 
   // Only the chat's own list of messages is watched, so a streaming reply doesn't count pages again for every word.
   function watch(on) {

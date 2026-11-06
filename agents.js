@@ -4,7 +4,7 @@
   const AGENTS_VERSION = '2.86.66';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, cId, cRef, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -78,7 +78,7 @@
   }
   const fieldName = (v, d) => (typeof v === 'string' ? nameText(v) : '') || d;
   function cleanField(f) {
-    const id = typeof f?.id === 'string' && /^[\w-]{1,40}$/.test(f.id) ? f.id : newId('fd');
+    const id = cId(f?.id, 'fd');
     if (f?.kind === 'heading') return { id, kind: 'heading', name: fieldName(f.name, 'Heading') };
     const top = A.numRange('agFieldNum')[1];
     const min = Math.min(num('agFieldNum', f?.min, 0), top - 1);
@@ -104,7 +104,7 @@
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
   function clean(a) {
     const d = fresh('Agent');
-    const o = { ...d, id: typeof a?.id === 'string' && /^[\w-]{1,40}$/.test(a.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
+    const o = { ...d, id: cRef(a?.id) || d.id, name: str(a?.name, 60).trim() || 'Agent',
       title: str(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
       pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
       runOn: Array.isArray(a?.runOn) ? KINDS.map(([k]) => k).filter((k) => a.runOn.includes(k)) : d.runOn, every: num('agEvery', a?.every, d.every),
@@ -119,7 +119,7 @@
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
       answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields),
-      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter((x) => typeof x === 'string' && /^[\w-]{1,40}$/.test(x)))].slice(0, AGENT_MAX) : [] };
+      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.map(cRef).filter(Boolean))].slice(0, AGENT_MAX) : [] };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
@@ -152,7 +152,7 @@
       const seen = new Set();
       const used = new Set();
       s.agDepts = s.agDepts.filter((d) => d && typeof d === 'object').slice(0, DEPT_MAX).map((d) => {
-        let id = typeof d.id === 'string' && /^[\w-]{1,40}$/.test(d.id) ? d.id : newId('dp');
+        let id = cId(d.id, 'dp');
         if (used.has(id)) id = newId('dp');
         used.add(id);
         // An agent listed twice stays where it's listed first.

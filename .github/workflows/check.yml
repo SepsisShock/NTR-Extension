@@ -1,7 +1,7 @@
 # Runs on every PR and every push to main.
-# Lints for syntax errors and undefined and unused names (eslint.config.mjs), looks for copied code in the extension
-# and its stylesheet, scripts, tests, skill scripts and hooks (jscpd), runs the tests in tests/, checks that the version matches everywhere
-# (scripts/version.cjs), and (on PRs) that the version was bumped when a .js or .css file changed.
+# Lints for syntax errors and undefined and unused names (eslint.config.mjs), looks for copied code in the extension's
+# .js and .css, scripts, tests, skill scripts and hooks (jscpd), runs the tests in tests/, checks that the version
+# matches everywhere (scripts/version.cjs), and (on PRs) that the version was bumped when a .js or .css file changed.
 # On PRs it also warns when index.js grows by more than 100 lines (see CLAUDE.md on where new code goes).
 name: Check
 

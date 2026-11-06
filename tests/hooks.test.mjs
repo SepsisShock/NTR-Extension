@@ -144,7 +144,7 @@ test('commit-guard has Claude explain each new test once, and asks only for chan
   assert.equal(s.bash('commit-guard.mjs', PUSH).decision, 'ask');
 });
 
-test('pr-update reminds after a push to an open PR, and sends Claude back once if the summary is unchanged', (t) => {
+test('pr-update reminds after a push or GitHub tool commit to an open PR, and sends Claude back once if the summary is unchanged', (t) => {
   const s = scratch(t);
   // A fake gh: the open PR list comes from open.json, a single PR from pr.json.
   const bin = join(s.repo, '..', 'bin');
@@ -175,6 +175,7 @@ test('pr-update reminds after a push to an open PR, and sends Claude back once i
   // A push that didn't go through leaves origin's tracking ref behind.
   s.commit('a.js', 'z\n');
   assert.equal(push(), '');
+  assert.match(out({ hook_event_name: 'PostToolUse', tool_name: 'mcp__github__push_files', tool_input: { branch: 'feat' } }).hookSpecificOutput.additionalContext, /PR #7/);
 });
 
 test('pr-checklist shows the checklist once per branch, from the CLI or the GitHub tool', (t) => {

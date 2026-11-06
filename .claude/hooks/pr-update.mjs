@@ -1,5 +1,6 @@
-// PostToolUse and Stop hook (see .claude/settings.json): after a push to a branch with an open PR, reminds Claude to
-// re-test and update the PR summary, and at Stop sends it back once if the summary hasn't changed since that push.
+// PostToolUse and Stop hook (see .claude/settings.json): after a push or GitHub tool commit to a branch with an open
+// PR, reminds Claude to re-test and update the PR summary, and at Stop sends it back once if the summary hasn't
+// changed since.
 //
 // - Open PRs are looked up with gh api. Without gh or its login it does nothing: it's a reminder, not a guard.
 // - The waiting push is kept in .git/ntr-pr-update.json, which git doesn't track. The next Stop clears it, so Claude is
@@ -23,10 +24,14 @@ const remind = (n) => `This push updated PR #${n}: re-test what it changed (the 
 const stateFile = join(git('rev-parse', '--absolute-git-dir'), 'ntr-pr-update.json');
 
 if (input.hook_event_name === 'PostToolUse') {
-  const target = pushed(input.tool_input.command);
-  // A push that went through moves origin's tracking ref to what it sent.
-  if (!target || git('rev-parse', '-q', '--verify', `${target.src}^{commit}`) !== git('rev-parse', '-q', '--verify', `refs/remotes/origin/${target.branch}`)) process.exit(0);
-  const [pr] = gh(`repos/{owner}/{repo}/pulls?state=open&head={owner}:${encodeURIComponent(target.branch)}`);
+  let { branch } = input.tool_input;
+  if (input.tool_name === 'Bash') {
+    const target = pushed(input.tool_input.command);
+    // A push that went through moves origin's tracking ref to what it sent.
+    if (!target || git('rev-parse', '-q', '--verify', `${target.src}^{commit}`) !== git('rev-parse', '-q', '--verify', `refs/remotes/origin/${target.branch}`)) process.exit(0);
+    ({ branch } = target);
+  }
+  const [pr] = gh(`repos/{owner}/{repo}/pulls?state=open&head={owner}:${encodeURIComponent(branch)}`);
   if (!pr) process.exit(0);
   writeFileSync(stateFile, JSON.stringify({ session: input.session_id, pr: pr.number, summary: summary(pr) }));
   say({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: remind(pr.number) } });

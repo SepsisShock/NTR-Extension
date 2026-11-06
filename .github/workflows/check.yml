@@ -28,7 +28,7 @@ jobs:
       - name: Lint
         run: npx eslint .
 
-      # Blocks of 5+ lines and 50+ tokens that appear twice. Every file is scanned, whatever its size.
+      # Every file is scanned, whatever its size.
       - name: Copied code
         run: npx jscpd --max-size 5mb --max-lines 100000 --min-tokens 25 --min-lines 5 --threshold 0 --reporters console --format javascript,css --pattern "{*.js,*.css,scripts/*.cjs,tests/*.mjs,.claude/skills/**/*.cjs,.claude/hooks/*.mjs}" .
 

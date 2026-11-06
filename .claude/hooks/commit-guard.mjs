@@ -1,5 +1,6 @@
 // PreToolUse hook (see .claude/settings.json): before changes reach GitHub, gets the user's approval when they change
-// a .md file, raise the major version, or delete a file. A renamed file is checked only at its new path.
+// a .md file, raise the major version, or delete a file, and has Claude explain new tests. A renamed file is checked
+// only at its new path.
 //
 // - The claude.ai app's permission prompt shows only the command, so the first attempt is denied with the changes for
 //   Claude to show the user in chat. Trying again with the same changes then goes through if they only change .md
@@ -12,13 +13,16 @@
 //   So is a push of anything but one branch to origin, since that's the only one it compares.
 // - If GitHub's copies can't be read, the command is blocked rather than let through.
 // - GitHub tools that commit (push_files, create_or_update_file, delete_file): checks their content against HEAD.
+// - New tests (test names in tests/*.test.mjs that none of the compared copies has): the first attempt is denied so
+//   Claude explains them in chat. They need no approval: a retry with only tests goes through the usual permission
+//   check, and each name comes up once. Shown names are kept in the same file.
 // - If this script fails, settings.json's onFailure blocks the command.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { dir, input } from './lib.mjs';
+import { dir, input, pushed } from './lib.mjs';
 
 const run = (...args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 15000 });
 const out = (...args) => run(...args).stdout.trim();
@@ -28,6 +32,8 @@ const show = (rev, f) => { const r = run('show', `${rev}:${f}`); return r.status
 const version = (text) => text?.match(/"version": "([^"]*)"/)?.[1];
 
 const problems = [];
+// New tests, as "file: name".
+const added = [];
 let onlyMd = true;
 const shown = [];
 // The approval key covers full contents, since what's shown is cut short.
@@ -77,8 +83,14 @@ function diff(f, old, now) {
   return `\`${f}\`\n\n${body}`;
 }
 
-// Records why a file needs approval. now is null for a deleted file; olds are the copies it's compared with.
+const testNames = (text) => [...(text ?? '').matchAll(/^\s*test\((['"`])((?:\\.|(?!\1).)*)\1/gm)].map((m) => m[2]);
+
+// Records new tests, and why a file needs approval. now is null for a deleted file; olds are the copies it's compared with.
 function check(f, now, olds) {
+  if (/^tests\/.*\.test\.mjs$/.test(f)) {
+    const had = new Set(olds.flatMap(testNames));
+    added.push(...testNames(now).filter((n) => !had.has(n)).map((n) => `${f}: ${n}`));
+  }
   if (now == null) problems.push(`deletes ${f}`);
   else if (f.endsWith('.md')) problems.push(`changes ${f}`);
   else if (f === 'manifest.json' && olds.every((o) => parseInt(version(now)) > parseInt(version(o)))) problems.push(`raises the major version (${version(olds[0])} to ${version(now)})`);
@@ -97,16 +109,14 @@ if (input.tool_name === 'Bash') {
   const push = /\bgit\b/.test(bare) && /\bpush\b/.test(bare);
   const pr = /\bgh\s+pr\s+create\b/.test(bare);
   if (!push && !pr) process.exit(0);
-  // Only plain forms, so the commits are already made and exactly one branch goes to origin: no chaining, -C, quotes,
-  // variables, other remotes, several branches or flags like --all.
-  const form = cmd.match(/^git\s+push(?:\s+(?:-u|--set-upstream|-f|--force|--force-with-lease|-q|--quiet))*\s+origin\s+\+?([\w./@^~-]+)(?::([\w./-]+))?$/);
-  if (push && (!form || out('config', '--get-all', 'remote.origin.push'))) say('deny', 'Run git push by itself as git push [-u] origin <branch>, from the project folder: one branch, to origin, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
+  // Only plain forms, so the commits are already made and exactly one branch goes to origin.
+  const target = pushed(cmd);
+  if (push && (!target || out('config', '--get-all', 'remote.origin.push'))) say('deny', 'Run git push by itself as git push [-u] origin <branch>, from the project folder: one branch, to origin, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
   if (pr && !/^gh\s+pr\s+create\b[^;&|`$<>\n]*$/.test(bare)) say('deny', 'Run gh pr create by itself, after pushing, so the guard can check the commits it sends.');
 
   // What's pushed: the refspec's source (gh pr create: HEAD). Where to: the refspec's target, or the source branch.
-  const [src, dst] = form ? [form[1], form[2]] : ['HEAD'];
+  const { src, branch } = target ?? { src: 'HEAD', branch: must('symbolic-ref', '--short', 'HEAD') };
   const sha = must('rev-parse', `${src}^{commit}`);
-  const branch = dst || (src !== 'HEAD' ? src : must('symbolic-ref', '--short', 'HEAD'));
   // GitHub's current copies of main and the branch, fetched into their usual refs. A branch GitHub doesn't have yet has none.
   const main = 'refs/remotes/origin/main';
   must('fetch', '-q', 'origin', `+refs/heads/main:${main}`);
@@ -128,12 +138,22 @@ if (input.tool_name === 'Bash') {
   for (const f of input.tool_input.files || []) check(f.path, f.content, [show('HEAD', f.path)]);
 }
 
-if (!problems.length) process.exit(0);
-const changes = [`Not on GitHub yet: this ${problems.join('; ')}.`, ...shown].join('\n\n');
-const key = createHash('sha256').update(JSON.stringify([changes, full])).digest('hex');
+if (!problems.length && !added.length) process.exit(0);
 const stateFile = join(run('rev-parse', '--absolute-git-dir').stdout.trim(), 'ntr-commit-guard.json');
-let shownKey = null;
-try { shownKey = JSON.parse(readFileSync(stateFile, 'utf8')).key; } catch {}
-if (shownKey === key) say(onlyMd ? 'allow' : 'ask', `${changes}\n\nThe user approves .md changes, deletions and major version bumps before they reach GitHub.`);
-writeFileSync(stateFile, JSON.stringify({ key }));
-say('deny', `The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged and not wrapped in another code block, and ask for approval. Once they approve, run the same command again${onlyMd ? '' : "; they'll then confirm it in the prompt"}.\n\n${changes}`);
+let state = {};
+try { state = JSON.parse(readFileSync(stateFile, 'utf8')); } catch {}
+const noted = state.tests ?? [];
+const fresh = added.filter((n) => !noted.includes(n));
+const changes = [`Not on GitHub yet: this ${problems.join('; ')}.`, ...shown].join('\n\n');
+const key = problems.length ? createHash('sha256').update(JSON.stringify([changes, full])).digest('hex') : state.key;
+const approve = problems.length && state.key !== key;
+if (!approve && !fresh.length) {
+  if (!problems.length) process.exit(0);
+  say(onlyMd ? 'allow' : 'ask', `${changes}\n\nThe user approves .md changes, deletions and major version bumps before they reach GitHub.`);
+}
+writeFileSync(stateFile, JSON.stringify({ key, tests: [...noted, ...fresh] }));
+say('deny', [
+  approve && "The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged and not wrapped in another code block, and ask for approval.",
+  fresh.length && `New tests: ${fresh.join('; ')}. Before they reach GitHub, tell the user in chat, in one plain sentence per test: what users would notice if the feature it checks broke, why it's needed, and its run time (node --test prints it).${approve ? '' : ' No approval is needed.'}`,
+  `Then run the same command again${approve ? ` once they approve${onlyMd ? '' : "; they'll then confirm it in the prompt"}` : ''}.`,
+].filter(Boolean).join(' ') + (approve ? `\n\n${changes}` : ''));

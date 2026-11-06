@@ -7,7 +7,8 @@
 // - After that, nothing changed (questions, plans): no run.
 // - Sent back already and the same tests still fail: Claude may stop, and the user is told.
 //
-// What it saw last is kept in .git/ntr-stop-hook.json, which git doesn't track.
+// What it saw last, and whether it sent Claude back, is kept in .git/ntr-stop-hook.json, which git doesn't track. It
+// doesn't read stop_hook_active, which is also true when another Stop hook sent Claude back.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -32,18 +33,22 @@ const fp = fingerprint();
 const say = (out) => { process.stdout.write(JSON.stringify(out)); process.exit(0); };
 const still = (failing) => say({ systemMessage: `Tests still fail after Claude's fix attempt: ${failing.join('; ')}` });
 
+const save = (failing, blocked) => writeFileSync(stateFile, JSON.stringify({ session: input.session_id, fp, failing, blocked }));
+
 if (!first && prev.fp === fp) {
-  if (input.stop_hook_active && prev.failing.length) still(prev.failing);
-  process.exit(0);
+  if (!prev.blocked) process.exit(0);
+  save(prev.failing, false);
+  still(prev.failing);
 }
 
 const files = readdirSync(join(dir, 'tests')).filter((f) => f.endsWith('.test.mjs')).map((f) => join('tests', f));
 const run = spawnSync(process.execPath, ['--test', '--test-reporter=tap', ...files], { cwd: dir, encoding: 'utf8', timeout: 120000, maxBuffer: 64 << 20 });
 const failing = run.error ? [`the tests didn't finish: ${run.error.message}`]
   : [...run.stdout.matchAll(/^not ok \d+ - (.+)$/gm)].map((m) => m[1]).concat(run.status && !/^not ok /m.test(run.stdout) ? ['the test run failed'] : []);
-writeFileSync(stateFile, JSON.stringify({ session: input.session_id, fp, failing }));
+const blocked = !first && failing.length > 0 && !(prev.blocked && failing.join('\n') === prev.failing.join('\n'));
+save(failing, blocked);
 
 if (!failing.length) process.exit(0);
 if (first) say({ systemMessage: `Tests fail (first check this session, so Claude wasn't sent back): ${failing.join('; ')}` });
-if (input.stop_hook_active && failing.join('\n') === prev.failing.join('\n')) still(failing);
+if (!blocked) still(failing);
 say({ decision: 'block', reason: `These tests fail: ${failing.join('; ')}. Run node --test tests/*.test.mjs to see why, then fix them, or tell the user why they can't be fixed.` });

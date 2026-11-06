@@ -1,5 +1,5 @@
 (() => {
-  const DECOR_VERSION = '2.86.65';
+  const DECOR_VERSION = '2.86.66';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;

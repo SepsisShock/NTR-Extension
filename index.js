@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.66';
+  const VERSION = '2.86.67';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -1226,17 +1226,16 @@ await (async () => {
   // earlier. Empty colors get SillyTavern's own (stColor). The font boxes' list comes after, from fonts.js, which only
   // listens.
   function bindRows(overlay, s) {
+    const put = (k, v) => { s[k] = v; save(); updateAvatarStyle(); };
     overlay.querySelectorAll('.m_o_on').forEach((c) => {
       c.onchange = () => {
-        s[c.dataset.key] = c.checked;
-        save();
         overlay.querySelector(`.m_o_body[data-for="${c.dataset.key}"]`).classList.toggle('cb_dim', !c.checked);
-        updateAvatarStyle();
+        put(c.dataset.key, c.checked);
       };
     });
     bindSliders(overlay, '.m_o_sl', s, updateAvatarStyle);
     const syncWhen = () => overlay.querySelectorAll('.m_o_when').forEach((el) => { el.style.display = s[el.dataset.when] === el.dataset.val ? '' : 'none'; });
-    for (const k of Object.keys(PICK_KEYS)) onPills(overlay, 'o' + k.toLowerCase(), (v) => { s[k] = v; save(); updateAvatarStyle(); syncWhen(); });
+    for (const k of Object.keys(PICK_KEYS)) onPills(overlay, 'o' + k.toLowerCase(), (v) => { put(k, v); syncWhen(); });
     syncWhen();
     overlay.querySelectorAll('.m_o_col').forEach((el) => {
       const k = el.dataset.key;
@@ -1244,28 +1243,19 @@ await (async () => {
         s[k] = stColor(k);
         el.setAttribute('color', s[k]);
       }
-      const set = (v) => {
-        if (!COLOR_RE.test(v) || v === s[k]) return;
-        s[k] = v;
-        save();
-        updateAvatarStyle();
-      };
-      el.addEventListener('change', (e) => set(e.detail.rgba));
+      el.addEventListener('change', (e) => {
+        const v = e.detail.rgba;
+        if (COLOR_RE.test(v) && v !== s[k]) put(k, v);
+      });
     });
     overlay.querySelectorAll('.m_o_txt').forEach((el) => {
       el.onchange = () => {
         el.value = fontName(el.value);
-        s[el.dataset.key] = el.value;
-        save();
-        updateAvatarStyle();
+        put(el.dataset.key, el.value);
       };
     });
     overlay.querySelectorAll('.m_o_lbl').forEach((el) => {
-      el.onchange = () => {
-        s[el.dataset.key] = el.value;
-        save();
-        updateAvatarStyle();
-      };
+      el.onchange = () => put(el.dataset.key, el.value);
     });
     overlay.querySelectorAll('.m_css').forEach((box) => {
       box.oninput = () => {

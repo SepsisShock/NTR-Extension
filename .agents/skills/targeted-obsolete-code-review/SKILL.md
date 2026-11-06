@@ -3,7 +3,7 @@ name: targeted-obsolete-code-review
 description: Use only when the user explicitly asks for a targeted obsolete-code review or OBCR1
 ---
 
-Review the requested file for dead code, obsolete migration and compatibility logic, copied code, unnecessary guards, and outdated comments.
+Review the requested file for dead code, obsolete migration and compatibility logic, copied code, and unnecessary guards.
 
 ## Context
 

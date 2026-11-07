@@ -9,6 +9,8 @@
   const MES_SEL = { Ai: '#chat .mes[is_user="false"]', Us: '#chat .mes[is_user="true"]' };
   const NO_BLUR = { 'backdrop-filter': 'none', '-webkit-backdrop-filter': 'none' };
   const on = (s, k) => s[k + 'On'];
+  // Ticked and set to v.
+  const picked = (s, k, v) => on(s, k) && s[k] === v;
   const bgColor = (s, p) => ovColorVal(s, `ov${p}BgColor`, `ov${p}BgOpacity`);
 
   // Interface Shape for the rest of the interface: SillyTavern's Menu Bar, drawers, side panels, menus and popups, and NTR's
@@ -51,18 +53,15 @@
   function chatLookCss(s) {
     if (!s.ovEnabled) return '';
     let css = '';
-    const radius = (p) => ovRadius(s, p);
-    const border = (p) => ovBorderVal(s, p);
-    const fill = (p) => (s[`ov${p}Bg`] === 'clear' ? 'transparent' : bgColor(s, p));
     const separate = sendSeparate(s);
 
     // Chat panel. Transparent also clears the boxes around it.
-    if (on(s, 'ovPanelBg') && s.ovPanelBg === 'clear') css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...NO_BLUR, border: 'none', 'box-shadow': 'none' });
-    else if (on(s, 'ovPanelBg')) css += cssRule('#chat', { 'background-color': fill('Panel') });
+    if (picked(s, 'ovPanelBg', 'clear')) css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...NO_BLUR, border: 'none', 'box-shadow': 'none' });
+    else if (on(s, 'ovPanelBg')) css += cssRule('#chat', { 'background-color': bgColor(s, 'Panel') });
     // No line along the top, which stays flush with SillyTavern's top bar. The corners and the bottom line follow joinCss.
     const line = on(s, 'ovPanelBorder') && s.ovPanelBorder !== 'none';
     css += cssRule('#chat', {
-      border: on(s, 'ovPanelBorder') ? border('Panel') : '',
+      border: on(s, 'ovPanelBorder') ? ovBorderVal(s, 'Panel') : '',
       'border-top': line ? 'none' : '',
     });
     css += joinCss(s, separate) + uiShapeCss(s);
@@ -71,27 +70,24 @@
     // unless NTR Avatars lays it out. Speech Bubbles put all of that on the message text instead.
     for (const p of ['Ai', 'Us']) {
       if (s.ovBubOn) { css += bubbleCss(s, p); continue; }
-      const sel = MES_SEL[p];
-      const boxed = (on(s, `ov${p}Bg`) && s[`ov${p}Bg`] === 'color') || (on(s, `ov${p}Border`) && s[`ov${p}Border`] === 'line');
-      const r = on(s, `ov${p}Shape`) ? `${radius(p)}px` : '';
-      css += cssRule(sel, {
-        'border-radius': r,
-        'background-color': on(s, `ov${p}Bg`) ? fill(p) : '',
-        ...(on(s, `ov${p}Bg`) && s[`ov${p}Bg`] === 'clear' ? NO_BLUR : {}),
-        border: on(s, `ov${p}Border`) ? border(p) : '',
+      const clear = picked(s, `ov${p}Bg`, 'clear');
+      const boxed = picked(s, `ov${p}Bg`, 'color') || picked(s, `ov${p}Border`, 'line');
+      css += cssRule(MES_SEL[p], {
+        'border-radius': on(s, `ov${p}Shape`) ? `${ovRadius(s, p)}px` : '',
+        'background-color': clear ? 'transparent' : on(s, `ov${p}Bg`) ? bgColor(s, p) : '',
+        ...(clear ? NO_BLUR : {}),
+        border: on(s, `ov${p}Border`) ? ovBorderVal(s, p) : '',
         padding: boxed && !ntrAvatars(s, p.toLowerCase()) ? '10px' : '',
       });
     }
 
-    // Send box.
-    const sr = on(s, 'ovSendShape') ? radius('Send') : null;
-    // #form_sheld in front: SillyTavern's Fast UI gives the send box its color with a stronger rule.
+    // Send box. #form_sheld in front: SillyTavern's Fast UI gives the send box its color with a stronger rule.
     css += cssRule('#form_sheld #send_form', {
-      ...(on(s, 'ovSendBg') && s.ovSendBg === 'clear' ? { background: 'transparent', ...NO_BLUR } : { 'background-color': on(s, 'ovSendBg') ? fill('Send') : '' }),
-      border: on(s, 'ovSendBorder') ? border('Send') : '',
+      ...(picked(s, 'ovSendBg', 'clear') ? { background: 'transparent', ...NO_BLUR } : { 'background-color': on(s, 'ovSendBg') ? bgColor(s, 'Send') : '' }),
+      border: on(s, 'ovSendBorder') ? ovBorderVal(s, 'Send') : '',
       // Bars other extensions put inside it, with their own square backgrounds, follow its rounded corners.
       // SillyTavern's own menus open outside it, so nothing gets cut off.
-      overflow: sr ? 'clip' : '',
+      overflow: on(s, 'ovSendShape') && ovRadius(s, 'Send') ? 'clip' : '',
     });
     return css;
   }
@@ -126,10 +122,10 @@
     const right = bubRight(s, p);
     const top = s.ovBubTailPos === 'top';
     const placed = avatarPlaced(s, p);
-    const clear = on(s, `ov${p}Bg`) && s[`ov${p}Bg`] === 'clear';
+    const clear = picked(s, `ov${p}Bg`, 'clear');
     // Unticked, the bubble takes SillyTavern's own message color, so it always shows.
     const fill = clear ? 'transparent' : on(s, `ov${p}Bg`) ? bgColor(s, p) : `var(${COLOR_FROM[`ov${p}BgColor`]})`;
-    const line = on(s, `ov${p}Border`) && s[`ov${p}Border`] === 'line';
+    const line = picked(s, `ov${p}Border`, 'line');
     const bw = line ? rangeNum(s, `ov${p}BorderWidth`) : 0;
     const r = on(s, `ov${p}Shape`) ? ovRadius(s, p) : 15;
     // A see-through bubble gets no tail: there's nothing to draw it in.
@@ -142,8 +138,7 @@
     const ink = BUB_INK[s.ovBubInk];
 
     // The message itself loses SillyTavern's box, unless NTR Avatars draws the picture behind it.
-    let css = placed ? '' : cssRule(sel, { 'background-color': 'transparent', border: 'none', 'box-shadow': 'none', ...NO_BLUR });
-    css += cssRule(sel, { 'flex-direction': 'row' });
+    let css = cssRule(sel, { ...(placed ? {} : { 'background-color': 'transparent', border: 'none', 'box-shadow': 'none', ...NO_BLUR }), 'flex-direction': 'row' });
     if (!placed) css += cssRule(`${sel} .mesAvatarWrapper`, { order: right ? '1' : '0' });
     if (right) css += cssRule(`${sel} .ch_name`, { 'flex-direction': 'row-reverse' }) + cssRule(`${sel} .ch_name > .flex1`, { 'justify-content': 'flex-end' });
     css += cssRule(`${sel} .mes_text`, {
@@ -203,13 +198,15 @@
     const s = settings();
     const grouped = bubblesOn(s) && s.ovBubGroup === 'group';
     const page = window.NTR.reader?.page();
-    const shown = (m) => !page || (Number(m.getAttribute('mesid')) >= page[0] && Number(m.getAttribute('mesid')) <= page[1]);
-    let prev = null;
+    const shown = (m) => { if (!page) return true; const id = Number(m.getAttribute('mesid')); return id >= page[0] && id <= page[1]; };
+    let prev = null, prevShown = false;
     for (const m of chat.querySelectorAll(':scope > .mes')) {
-      const same = grouped && !!prev && shown(prev) && shown(m) && prev.getAttribute('is_user') === m.getAttribute('is_user') && prev.getAttribute('ch_name') === m.getAttribute('ch_name');
+      const vis = grouped && shown(m);
+      const same = vis && prevShown && prev.getAttribute('is_user') === m.getAttribute('is_user') && prev.getAttribute('ch_name') === m.getAttribute('ch_name');
       m.classList.toggle('ntr_bub_prev', same);
       if (prev) prev.classList.toggle('ntr_bub_next', same);
       prev = m;
+      prevShown = vis;
     }
     prev?.classList.remove('ntr_bub_next');
   }
@@ -239,12 +236,12 @@
     const bg = (p) => ovBgRow(s, p);
     const border = (p) => ovBorderRow(s, p);
     return pageHtml('display', `
-          <div class="cb_hint">Changes how ST looks without touching its own settings. Tick a setting to change it; untick it to go back to ST's value.</div>
+          ${hint('Changes how ST looks without touching its own settings. Tick a setting to change it; untick it to go back to ST\'s value.')}
           ${card('Whole Interface', `
           ${row('ovShapeOn', 'Interface Shape', ovPick(s, 'ovShape', [['rounded', 'Rounded'], ['square', 'Square']])
             + ovWhen('ovShape', 'rounded', ovLabel('Roundness', sl('ovRound')))
-            + '<div class="cb_hint">Corners of the ST Menu Bar, drawers, side panels, menus, popups and NTR\'s windows, and the chat panel\'s bottom when the send bar stands apart. Square also squares their buttons and controls.</div>')}
-          ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + '<div class="cb_hint">The frosted-glass blur behind the chat, menus, drawers and popups.</div>')}
+            + hint('Corners of the ST Menu Bar, drawers, side panels, menus, popups and NTR\'s windows, and the chat panel\'s bottom when the send bar stands apart. Square also squares their buttons and controls.'))}
+          ${row('ovBlurOn', 'Blur Strength', sl('ovBlur') + hint('The frosted-glass blur behind the chat, menus, drawers and popups.'))}
           ${row('ovShadowOn', 'Text Shadow', sl('ovShadow'))}`, 'fa-display')}
           ${card('Chat Panel', `
           ${bg('Panel')}

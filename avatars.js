@@ -19,8 +19,9 @@
   const ellipse = (shape) => shape === 'round' || shape === 'oval';
   // A side's Shape, or null for None.
   const shapeOf = (s, prefix) => (SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null);
-  // The Frame's settings, remembered together for each frame.
-  const FRAME_KEYS = ['FrameSize', 'FrameX', 'FrameY'];
+  // The Frame's sliders' ids and settings, which are remembered together for each frame.
+  const FRAME_SLIDERS = [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']];
+  const FRAME_KEYS = FRAME_SLIDERS.map(([, k]) => k);
 
   // Heart and Star are outlines that cut the picture (a mask), drawn in a 100 x 100 box stretched over the frame. The
   // star's points are thick, so it keeps more of the picture.
@@ -32,19 +33,20 @@
     heart: svgMask('M50 96C22 76 0 56 0 30C0 13 13 2 28 2C38 2 46 8 50 17C54 8 62 2 72 2C87 2 100 13 100 30C100 56 78 76 50 96Z'),
     star: svgMask(`M${STAR.join('L')}Z`),
   };
+  // Each outline as the CSS that cuts a box to it.
+  const OUTLINE_CUT = Object.fromEntries(Object.entries(OUTLINES).map(([k, m]) => [k, `-webkit-mask: ${m} center / 100% 100% no-repeat; mask: ${m} center / 100% 100% no-repeat;`]));
 
   // The Shape tiles' pictures: Circle, Oval, Rectangle and Square drawn as boxes, Heart and Star cut by their outlines.
   const SHAPE_FACES = {
     round: 'width: 22px; height: 22px; border-radius: 50%;', oval: 'width: 15px; height: 22px; border-radius: 50%;', rectangle: 'width: 15px; height: 22px; border-radius: 2px;', square: 'width: 20px; height: 20px; border-radius: 2px;',
-    heart: `width: 24px; height: 24px; -webkit-mask: ${OUTLINES.heart} center / 100% 100% no-repeat; mask: ${OUTLINES.heart} center / 100% 100% no-repeat;`,
-    star: `width: 24px; height: 24px; -webkit-mask: ${OUTLINES.star} center / 100% 100% no-repeat; mask: ${OUTLINES.star} center / 100% 100% no-repeat;`,
+    heart: `width: 24px; height: 24px; ${OUTLINE_CUT.heart}`, star: `width: 24px; height: 24px; ${OUTLINE_CUT.star}`,
   };
   const shapeTiles = (prefix, cur) => tiles(`${prefix}shape`, 'Shape', SHAPE_OPTS.map(([v, l]) => [v, l,
     SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur).replace('class="ntr_tiles', 'class="ntr_tiles ntr_shapes');
 
   // Filters, at a Filter Strength s from 0 to 1, as the picture's CSS filter. k sizes Dreamy's blur for a smaller
   // picture (the menu's previews).
-  const r3 = (x) => +x.toFixed(3);
+  const r3 = (x) => +x.toFixed(3), r4 = (x) => +x.toFixed(4);
   const FILTERS = {
     piss: { fx: (s) => `sepia(${r3(0.6 * s)}) contrast(${r3(1 + 0.1 * s)}) saturate(${r3(1 - 0.2 * s)})` },
     bw: { fx: (s) => `grayscale(${r3(s)})` },
@@ -105,11 +107,13 @@
     const pic = sidePic(prefix);
     return tiles(`${prefix}texture`, 'Texture', TEXTURE_OPTS.map(([v, l]) => [v, l, previewFace(pic, '', TEXTURES[v] || '')]), cur, true);
   }
+  // Each side's prefix and its messages' is_user.
+  const SIDES = [['ai', 'false'], ['us', 'true']];
   // Custom CSS for each side's avatar box (the frame, on Pop Out), in its own style tag so a typo can't break the
   // others. Gone while NTR, Avatar Management or that side is off.
   function syncAvatarCss() {
     const s = settings();
-    for (const [p, flag] of [['ai', 'false'], ['us', 'true']]) {
+    for (const [p, flag] of SIDES) {
       const c = ntrAvatars(s, p) && s[p + 'CssOn'] ? s[p + 'Css'].trim() : '';
       cssTag(`ntr_av_css_${p}`, c ? `${s[p + 'Style'] === 'popout' ? `#cb_popf_${p}` : `#chat .mes[is_user="${flag}"] .avatar`} { ${c} }` : '');
     }
@@ -169,7 +173,6 @@
   // box (contain). fw and fh are the picture box's width and height. Where it goes and what it turns around (the
   // picture's middle) are from the picture box's top left. turn is the Rotation it gets, in degrees.
   function frameBox(f, fw, fh, turn = 0) {
-    const n = (v) => +v.toFixed(4);
     // The turned frame's reach: half its width and height across, and its middle, moved by the turn.
     const t = turn * Math.PI / 180, C = Math.cos(t), S = Math.sin(t), c = Math.abs(C), s = Math.abs(S);
     const mx = f.x * C - f.y * S, my = f.x * S + f.y * C;
@@ -177,15 +180,15 @@
     const reach = [[s * f.k / 2 - my, (c * f.k - 1) / 2], [c * f.k / 2 + mx - 0.5, s * f.k / 2],
       [s * f.k / 2 + my, (c * f.k - 1) / 2], [c * f.k / 2 - mx - 0.5, s * f.k / 2]];
     return {
-      size: `width: calc(${fw} * ${n(f.k)}); height: calc(${fh} * ${n(f.k)});`,
-      left: `calc(${fw} * ${n((1 - f.k) / 2 + f.x)})`,
-      top: `calc(${fh} * ${n((1 - f.k) / 2)} + ${fw} * ${n(f.y)})`,
-      origin: `transform-origin: calc(${fw} * ${n(f.k / 2 - f.x)}) calc(${fh} * ${n(f.k / 2)} - ${fw} * ${n(f.y)});`,
+      size: `width: calc(${fw} * ${r4(f.k)}); height: calc(${fh} * ${r4(f.k)});`,
+      left: `calc(${fw} * ${r4((1 - f.k) / 2 + f.x)})`,
+      top: `calc(${fh} * ${r4((1 - f.k) / 2)} + ${fw} * ${r4(f.y)})`,
+      origin: `transform-origin: calc(${fw} * ${r4(f.k / 2 - f.x)}) calc(${fh} * ${r4(f.k / 2)} - ${fw} * ${r4(f.y)});`,
       // How far it reaches past each side of the picture, turned, for the room In Line keeps around it.
-      spill: reach.map(([w, h]) => `max(0px, ${fw} * ${n(w)} + ${fh} * ${n(h)})`),
+      spill: reach.map(([w, h]) => `max(0px, ${fw} * ${r4(w)} + ${fh} * ${r4(h)})`),
       // The picture's width and what reaches past its left and right, in picture widths, for a picture whose height
       // is tall times its width.
-      across: (tall) => `(1 + ${[reach[1], reach[3]].map(([w, h]) => `max(0, ${n(w)} + ${tall} * ${n(h)})`).join(' + ')})`,
+      across: (tall) => `(1 + ${[reach[1], reach[3]].map(([w, h]) => `max(0, ${r4(w)} + ${tall} * ${r4(h)})`).join(' + ')})`,
       bg: `background: url("${f.img}") center / contain no-repeat;`,
     };
   }
@@ -199,7 +202,7 @@
     const x = rangeNum(s, prefix + 'ShiftX'), y = rangeNum(s, prefix + 'Focus'), zoom = rangeNum(s, prefix + 'Zoom') / 100;
     const turn = rangeNum(s, prefix + 'Rotate');
     const back = shapeOnly(s, prefix)
-      ? ` translate(${50 - x}cqw, ${50 - y}cqh) rotate(${-turn}deg) scale(${+turnCover(s[`${prefix}Shape`], turn).toFixed(4)}) translate(${x - 50}cqw, ${y - 50}cqh)` : '';
+      ? ` translate(${50 - x}cqw, ${50 - y}cqh) rotate(${-turn}deg) scale(${r4(turnCover(s[`${prefix}Shape`], turn))}) translate(${x - 50}cqw, ${y - 50}cqh)` : '';
     return `left: ${x}% !important; right: auto !important; top: ${y}% !important; bottom: auto !important;`
       + ` transform-origin: ${x}% ${y}% !important; transform: translate(-${x}%, -${y}%)${back}${zoom !== 1 ? ` scale(${zoom})` : ''} !important;`
       + ` width: ${w} !important; height: auto !important; max-width: none !important; max-height: none !important;`
@@ -207,8 +210,7 @@
   }
 
   function getAvatarCss(prefix, isUserStr, s) {
-    const v = s[`${prefix}Side`][0];
-    const h = s[`${prefix}Side`][1];
+    const [v, h] = s[`${prefix}Side`];
     const style = s[`${prefix}Style`];
     const shape = shapeOf(s, prefix);
     // A shape crops the picture: it fills the shape like SillyTavern's own avatars, so Short Messages and Use Picture's
@@ -220,10 +222,6 @@
     const popX = n('PopX');
     const popY = n('PopY');
 
-    const topFade = n('FadeTop');
-    const botFade = n('FadeBot');
-    const leftFade = n('FadeLeft');
-    const rightFade = n('FadeRight');
     const look = lookCss(s, prefix);
     const turn = n('Rotate');
     const turnCss = turn ? ` rotate(${turn}deg)` : '';
@@ -233,7 +231,7 @@
     // A shape is a frame Picture Size sizes: its width, and its height from the shape. Corners are a % of the width.
     const aspect = shape ? SHAPES[shape] : 1;
     const frameH = Math.round(width * aspect);
-    const frameR = ellipse(shape) ? '50%' : OUTLINES[shape] ? '0' : `${Math.round(width * n('Corner') / 100)}px`;
+    const frameR = !shape || OUTLINES[shape] ? '0' : ellipse(shape) ? '50%' : `${Math.round(width * n('Corner') / 100)}px`;
 
     const padCss = h === 'l' ? `padding-left: ${pad}px !important;` : h === 'r' ? `padding-right: ${pad}px !important;`
       : `padding-left: ${Math.floor(pad / 2)}px !important; padding-right: ${Math.floor(pad / 2)}px !important;`;
@@ -247,41 +245,38 @@
       .mes[is_user="${isUserStr}"] .ch_name { display: flex !important; justify-content: ${justify} !important; text-align: ${align} !important; width: 100% !important; }
     `;
 
+    // --cb-ar is the picture's shape and --cb-nw its own width (see setAvatarRatio, and ensurePopLayer on Pop Out).
+    const ar = 'var(--cb-ar, 0.6667)';
+
     if (style === 'popout') {
-      // Position is on the chat panel, not the screen: Top Left is the chat's top-left corner (see layoutPop).
-      const vA = `top: calc(var(--cb-ct, 0px) + var(--cb-ch, 100vh) * ${v === 't' ? 0 : v === 'b' ? 1 : 0.5}); bottom: auto;`;
-      const hA = `left: calc(var(--cb-cl, 0px) + var(--cb-cw, 100vw) * ${h === 'l' ? 0 : h === 'r' ? 1 : 0.5}); right: auto;`;
-      const tx = h === 'c' ? '-50%' : h === 'r' ? '-100%' : '0px';
-      const ty = v === 'c' ? '-50%' : v === 'b' ? '-100%' : '0px';
+      // Position is on the chat panel, not the screen: Top Left is the chat's top-left corner (see layoutPop). The frame
+      // moves back by gx and gy times its own width and height, so Position's point on the chat is the same point on it.
+      const gx = h === 'c' ? -0.5 : h === 'r' ? -1 : 0, gy = v === 'c' ? -0.5 : v === 'b' ? -1 : 0;
+      const vA = `top: calc(var(--cb-ct, 0px) + var(--cb-ch, 100vh) * ${-gy}); bottom: auto;`;
+      const hA = `left: calc(var(--cb-cl, 0px) + var(--cb-cw, 100vw) * ${-gx}); right: auto;`;
+      // The Frame's layer goes where the picture is, with the same turn around the picture's middle.
+      const fh = shape ? `${frameH}px` : `(${width}px / ${ar})`;
+      const b = frame && frameBox(frame, `${width}px`, fh);
       // The frame is the shape, or the picture's own shape for None, and the picture fills it.
       return `
         .mes[is_user="${isUserStr}"] .avatar { display: none !important; }
         #cb_popf_${prefix} {
           ${vA} ${hA}
-          width: ${width}px; ${shape ? `height: ${frameH}px;` : 'aspect-ratio: var(--cb-ar, 0.6667);'}
-          border-radius: ${shape ? frameR : '0'};
-          ${OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;` : ''}
-          transform: translate(calc(${tx} + ${popX}px), calc(${ty} + ${popY}px))${turnCss};
+          width: ${width}px; ${shape ? `height: ${frameH}px;` : `aspect-ratio: ${ar};`}
+          border-radius: ${frameR};
+          ${OUTLINE_CUT[shape] || ''}
+          transform: translate(calc(${gx ? `${gx * 100}%` : '0px'} + ${popX}px), calc(${gy ? `${gy * 100}%` : '0px'} + ${popY}px))${turnCss};
         }
         ${layerCss(`#cb_popf_${prefix}`)}
-        ${frame ? (() => {
-          // The Frame's layer goes where the picture is, with the same turn around the picture's middle.
-          const fh = shape ? `${frameH}px` : `(${width}px / var(--cb-ar, 0.6667))`;
-          const b = frameBox(frame, `${width}px`, fh);
-          const frac = (t) => (t === '-50%' ? -0.5 : t === '-100%' ? -1 : 0);
-          return `#cb_popr_${prefix} {
+        ${b ? `#cb_popr_${prefix} {
           ${vA} ${hA} ${b.size} ${b.bg} ${b.origin}
-          transform: translate(calc(${width}px * ${frac(tx)} + ${b.left} + ${popX}px), calc(${fh} * ${frac(ty)} + ${b.top} + ${popY}px))${turnCss};
-        }`;
-        })() : ''}
-        #cb_pop_${prefix} { ${imgPlaceCss(s, prefix, 'max(100cqw, 100cqh * var(--cb-ar, 0.6667))', 'var(--cb-ar, 0.6667)')} ${look.filter} }
+          transform: translate(calc(${width}px * ${gx} + ${b.left} + ${popX}px), calc(${fh} * ${gy} + ${b.top} + ${popY}px))${turnCss};
+        }` : ''}
+        #cb_pop_${prefix} { ${imgPlaceCss(s, prefix, `max(100cqw, 100cqh * ${ar})`, ar)} ${look.filter} }
         ${shared}
       `;
     }
 
-    // --cb-ar is the picture's shape and --cb-nw its own width (see setAvatarRatio).
-    const ar = 'var(--cb-ar, 0.6667)';
-    const framed = !!shape;
     const pictureW = fit === 'original' ? `var(--cb-nw, ${width}px)` : `${width}px`;
 
     // Fade Strength bends every fade the same way. At 50% a fade goes evenly from gone at the edge to all there where it
@@ -299,8 +294,8 @@
       const k = a + b > 100 ? 100 / (a + b) : 1;
       return `linear-gradient(${dir}, ${[...band(a * k, false), ...band(b * k, true).reverse()].join(', ')})`;
     };
-    const hMask = pair(leftFade, rightFade, 'to right');
-    const vMask = pair(topFade, botFade, 'to bottom');
+    const hMask = pair(n('FadeLeft'), n('FadeRight'), 'to right');
+    const vMask = pair(n('FadeTop'), n('FadeBot'), 'to bottom');
     // A corner fade is a rounded fade from that corner, reaching its % of the picture's width and height.
     const corners = [['TL', '0% 0%'], ['TR', '100% 0%'], ['BL', '0% 100%'], ['BR', '100% 100%']]
       .filter(([k]) => n('Fade' + k) > 0)
@@ -329,7 +324,7 @@
       // middle or bottom. The middle column puts it above the text, or below it on the bottom row.
       const where = h === 'c' ? (v === 'b' ? 'below' : 'above') : h === 'r' ? 'right' : 'left';
       const stacked = where === 'above' || where === 'below';
-      const boxShape = framed ? `aspect-ratio: 1 / ${aspect} !important; border-radius: ${frameR} !important;` : `aspect-ratio: ${ar} !important; border-radius: 0 !important;`;
+      const boxShape = `aspect-ratio: ${shape ? `1 / ${aspect}` : ar} !important; border-radius: ${frameR} !important;`;
       // The Frame sits on the avatar's wrapper, outside the shape and fades that cut the picture. The picture is at the
       // wrapper's top left, or top middle above or below the text. The wrapper keeps room for what reaches past it.
       // The avatar's width. On a narrow screen it stops at a share of the screen that Picture Size still shrinks (25vw at
@@ -340,11 +335,11 @@
       const gap = (side) => (where === side ? ' + 6px' : '');
       // Beside the text, the picture shrinks so it and its Frame together take at most 40% of the message's width
       // (40cqw, with the message as the container), leaving the text room.
-      const sideW = b && !stacked && `min(${avW}, 40cqw / ${b.across(framed ? aspect : `(1 / ${ar})`)})`;
+      const sideW = b && !stacked && `min(${avW}, 40cqw / ${b.across(shape ? aspect : `(1 / ${ar})`)})`;
       const frameCss = b ? `
       ${sideW ? `#chat .mes[is_user="${isUserStr}"] { container-type: inline-size !important; }` : ''}
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper {
-        position: relative !important; --ntr-fw: ${sideW || avW}; --ntr-fh: ${framed ? `calc(var(--ntr-fw) * ${aspect})` : `calc(var(--ntr-fw) / ${ar})`};
+        position: relative !important; --ntr-fw: ${sideW || avW}; --ntr-fh: ${shape ? `calc(var(--ntr-fw) * ${aspect})` : `calc(var(--ntr-fw) / ${ar})`};
         margin: calc(${b.spill[0]}${gap('below')}) ${stacked ? '0' : b.spill[1]} calc(${b.spill[2]}${gap('above')}) ${stacked ? '0' : b.spill[3]} !important;
       }
       #chat .mes[is_user="${isUserStr}"] .mesAvatarWrapper::before {
@@ -383,8 +378,8 @@
     // Backdrop's box is a frame placed by Position, no taller than the message, which clips it to its own corners. A
     // shape's frame is the shape; None's is the picture's own shape, pictureW wide. In a short message Shrink Picture
     // shrinks it to show the whole picture; Crop Picture and Use Picture's Own Size keep their width and get cut off.
-    const boxH = framed ? `${frameH}px` : `calc(${pictureW} / ${ar})`;
-    const boxAR = framed ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
+    const boxH = shape ? `${frameH}px` : `calc(${pictureW} / ${ar})`;
+    const boxAR = shape ? `1 / ${aspect}` : fit === 'contain' ? ar : '';
     const boxPos = (h === 'l' ? 'left: 0 !important; right: auto !important;' : h === 'c' ? 'left: 50% !important; right: auto !important;' : 'left: auto !important; right: 0 !important;')
       + (v === 't' ? ' top: 0 !important; bottom: auto !important;' : v === 'b' ? ' top: auto !important; bottom: 0 !important;' : ' top: 50% !important; bottom: auto !important;')
       + ` height: min(100%, ${boxH}) !important;${boxAR ? ` aspect-ratio: ${boxAR} !important;` : ''}`
@@ -396,7 +391,7 @@
         position: absolute !important; ${boxPos}
         width: ${boxW} !important; max-width: 80% !important;
         margin: 0 !important; padding: 0 !important; z-index: 0 !important; pointer-events: none !important;
-        overflow: hidden !important; container-type: size !important; border-radius: ${framed ? frameR : '0'} !important;
+        overflow: hidden !important; container-type: size !important; border-radius: ${frameR} !important;
         display: block !important; background: transparent !important; border: none !important;
         ${maskCss}
       }
@@ -409,7 +404,7 @@
   // NTR Avatars on each side. A side that's switched off keeps SillyTavern's own avatar.
   function avatarsCss(s) {
     let css = '';
-    for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
+    for (const [prefix, flag] of SIDES) {
       if (!ntrAvatars(s, prefix)) continue;
       const m = `.mes[is_user="${flag}"]`;
       // In Line keeps SillyTavern's own message layout.
@@ -425,14 +420,17 @@
     return css;
   }
 
+  // A loaded picture's width for a height of 1, as --cb-ar.
+  const arOf = (img) => (img.naturalWidth / img.naturalHeight).toFixed(4);
   // A chat avatar picture's shape and width, so the image can be sized to the picture (see getAvatarCss). The wrapper
   // gets them too, for the Frame.
   function setAvatarRatio(img) {
     if (!img.naturalWidth || !img.naturalHeight) return;
-    img.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
+    const ar = arOf(img);
+    img.style.setProperty('--cb-ar', ar);
     for (const box of [img.parentElement, img.closest('.mesAvatarWrapper')]) {
       box.style.setProperty('--cb-nw', img.naturalWidth + 'px');
-      box.style.setProperty('--cb-ar', (img.naturalWidth / img.naturalHeight).toFixed(4));
+      box.style.setProperty('--cb-ar', ar);
     }
   }
 
@@ -499,7 +497,6 @@
     document.body.appendChild(layer);
     new ResizeObserver(layoutPop).observe(document.getElementById('chat'));
     window.addEventListener('resize', layoutPop);
-    layoutPop();
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       el.onerror = () => {
@@ -515,7 +512,7 @@
         const fell = el.dataset.want !== el.dataset.thumb && el.getAttribute('src') === el.dataset.thumb;
         setPopStatus(prefix, `Showing ${el.naturalWidth}x${el.naturalHeight} picture${fell ? ' (thumbnail)' : ''}`);
         if (el.naturalWidth && el.naturalHeight) {
-          for (const box of [el.parentElement, layer.querySelector(`#cb_popr_${prefix}`)]) box.style.setProperty('--cb-ar', (el.naturalWidth / el.naturalHeight).toFixed(4));
+          for (const box of [el.parentElement, layer.querySelector(`#cb_popr_${prefix}`)]) box.style.setProperty('--cb-ar', arOf(el));
         }
         // The menu's rows were drawn before the picture loaded (see picAspect).
         colSyncs[prefix]?.();
@@ -601,7 +598,7 @@
     // The whole frame fits in the tile, or the picture alone without one.
     const w = Math.round((FRAME_TILE - 12) / ((f ? f.k : 1) * Math.max(1, a)));
     const h = Math.round(w * a);
-    const cut = ellipse(shape) ? 'border-radius: 50%;' : OUTLINES[shape] ? `-webkit-mask: ${OUTLINES[shape]} center / 100% 100% no-repeat; mask: ${OUTLINES[shape]} center / 100% 100% no-repeat;`
+    const cut = ellipse(shape) ? 'border-radius: 50%;' : OUTLINE_CUT[shape] ? OUTLINE_CUT[shape]
       : shape ? `border-radius: ${Math.round(w * rangeNum(s, prefix + 'Corner') / 100)}px;` : '';
     const { f: fl, fStr, t: tx, tStr } = sideLook(s, prefix);
     const left = (FRAME_TILE - w) / 2, top = (FRAME_TILE - h) / 2;
@@ -832,6 +829,9 @@
 
     const bindCol = (prefix) => {
       const col = overlay.querySelector(`#m_${prefix}_col`);
+      const part = (id) => col.querySelector(`#m_${prefix}_${id}`);
+      const dim = (id, off) => part(id).classList.toggle('cb_dim', off);
+      const show = (id, on) => { part(id).style.display = on ? '' : 'none'; };
       const label = prefix === 'ai' ? 'AI' : 'User';
 
       // What colState shows and hides follows the Shape, Style and Own Size. Keep Picture Upright waits for a turn, the
@@ -839,31 +839,29 @@
       const syncScale = () => {
         const { shaped, own, cornersOn, scaleOff } = colState(s, prefix);
         const room = shiftRoom(s, prefix);
-        const show = (id, on) => { col.querySelector(`#m_${prefix}_${id}`).style.display = on ? '' : 'none'; };
-        col.querySelector(`#m_${prefix}_fowrap`).classList.toggle('cb_dim', !room.y);
-        col.querySelector(`#m_${prefix}_sxwrap`).classList.toggle('cb_dim', !room.x);
+        dim('fowrap', !room.y);
+        dim('sxwrap', !room.x);
         show('shint', !(room.x && room.y));
         show('rmwrap', shaped);
-        col.querySelector(`#m_${prefix}_rmwrap`).classList.toggle('cb_dim', !rangeNum(s, prefix + 'Rotate'));
-        col.querySelector(`#m_${prefix}_fswrap`).classList.toggle('cb_dim', !anyFade(s, prefix));
-        col.querySelector(`#m_${prefix}_fxwrap`).classList.toggle('cb_dim', !FILTERS[s[`${prefix}Filter`]]);
-        col.querySelector(`#m_${prefix}_txwrap`).classList.toggle('cb_dim', !TEXTURES[s[`${prefix}Texture`]]);
+        dim('rmwrap', !rangeNum(s, prefix + 'Rotate'));
+        dim('fswrap', !anyFade(s, prefix));
+        dim('fxwrap', !FILTERS[s[`${prefix}Filter`]]);
+        dim('txwrap', !TEXTURES[s[`${prefix}Texture`]]);
         show('crwrap', cornersOn);
         show('ownwrap', !shaped);
         show('fitwrap', !shaped && !own);
-        col.querySelector(`#m_${prefix}_scwrap`).classList.toggle('cb_dim', scaleOff);
+        dim('scwrap', scaleOff);
         drawFrame();
       };
       colSyncs[prefix] = () => { if (col.isConnected) syncScale(); };
       // The Frame: its preview, name, Delete and the rows, which wait for a frame.
       const drawFrame = () => {
-        const on = !!frameOf(s, prefix);
-        col.querySelector(`#m_${prefix}_frprev`).innerHTML = framePrevHtml(s, prefix);
-        col.querySelector(`#m_${prefix}_frname`).innerHTML = frameNameHtml(s, prefix);
-        col.querySelector(`#m_${prefix}_frdel`).style.display = frameNow(s, prefix)?.folder?.own ? '' : 'none';
-        col.querySelector(`#m_${prefix}_frrows`).classList.toggle('cb_dim', !on);
+        part('frprev').innerHTML = framePrevHtml(s, prefix);
+        part('frname').innerHTML = frameNameHtml(s, prefix);
+        show('frdel', frameNow(s, prefix)?.folder?.own);
+        dim('frrows', !frameOf(s, prefix));
       };
-      const frameSliders = () => setSliders(col, s, prefix, [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']]);
+      const frameSliders = () => setSliders(col, s, prefix, FRAME_SLIDERS);
       // The fit is remembered for this side and frame, so picking the frame again puts it back.
       const keepFit = () => {
         const k = fitKey(s, prefix);
@@ -900,7 +898,7 @@
         if (k && !was) await fit();
       };
       let open = frameHome(s, prefix);
-      const lib = col.querySelector(`#m_${prefix}_frlib`);
+      const lib = part('frlib');
       const bindLib = () => {
         onPills(lib, `${prefix}frf`, (v) => { open = v; drawLib(); });
         onPills(lib, `${prefix}frame`, pickFrame);
@@ -979,7 +977,7 @@
         };
       };
       col.addEventListener('click', (e) => { if (!e.target.closest('.ntr_menu')) closePops(col); });
-      col.querySelector(`#m_${prefix}_frdel`).onclick = async function() {
+      part('frdel').onclick = async function() {
         const now = frameNow(s, prefix);
         if (!now?.folder?.own) return;
         if (!(await askYes(this, `Delete the frame "${now.frame.name}"? It's removed from your library, and any avatar using it goes back to no frame.`, 'Delete', { danger: true }))) return;
@@ -988,9 +986,9 @@
         own.frames = own.frames.filter((fr) => fr.id !== now.frame.id);
         dropFrames(gone);
       };
-      const frFile = col.querySelector(`#m_${prefix}_frfile`);
+      const frFile = part('frfile');
       bindLib();
-      col.querySelector(`#m_${prefix}_frfit`).onclick = fit;
+      part('frfit').onclick = fit;
       // An upload goes in the open folder, named from its file, and this side uses it.
       A.onFilePick(frFile, 'Frame', async (file) => {
         const own = s.frameLib.folders.find((f) => f.id === open);
@@ -1004,43 +1002,39 @@
         await pickFrame(fr.id);
         drawLib();
       });
-      onPills(col, `${prefix}style`, (v) => {
-        s[`${prefix}Style`] = v;
-        save();
-        col.querySelectorAll('.cb_grp').forEach((g) => { g.style.display = g.dataset.only.split(' ').includes(v) ? 'flex' : 'none'; });
-        syncScale();
-        updateAvatarStyle();
-      });
-      onPills(col, `${prefix}shape`, (v) => { s[`${prefix}Shape`] = v; save(); syncScale(); updateAvatarStyle(); });
+      // A pick saved under key, which the column's rows and the avatars then follow.
+      const onPick = (name, key, then) => onPills(col, prefix + name, (v) => { s[prefix + key] = v; save(); then?.(v); syncScale(); updateAvatarStyle(); });
+      onPick('style', 'Style', (v) => col.querySelectorAll('.cb_grp').forEach((g) => { g.style.display = g.dataset.only.split(' ').includes(v) ? 'flex' : 'none'; }));
+      onPick('shape', 'Shape');
       overlay.querySelector(`#m_${prefix}_on`).onchange = function() {
         s[`${prefix}Enabled`] = this.checked; save(); syncScale(); updateAvatarStyle();
-        col.querySelector(`#m_${prefix}_body`).classList.toggle('cb_dim', !this.checked);
+        dim('body', !this.checked);
       };
       overlay.querySelector(`#m_${prefix}_place`).onclick = () => startPlacement('pop');
       onPills(col, `${prefix}pos`, (v) => { s[`${prefix}Side`] = v; save(); updateAvatarStyle(); });
-      onPills(col, `${prefix}fit`, (v) => { s[`${prefix}Fit`] = v; save(); syncScale(); updateAvatarStyle(); });
+      onPick('fit', 'Fit');
       // Use Picture's Own Size saves Fit as 'original'; unticked, Short Messages starts at Shrink Picture.
-      col.querySelector(`#m_${prefix}_own`).onchange = function() {
+      part('own').onchange = function() {
         s[`${prefix}Fit`] = this.checked ? 'original' : 'contain';
         if (!this.checked) col.querySelector(`input[name="cbr_${prefix}fit"][value="contain"]`).checked = true;
         save(); syncScale(); updateAvatarStyle();
       };
-      col.querySelector(`#m_${prefix}_upright`).onchange = function() {
+      part('upright').onchange = function() {
         s[`${prefix}RotateMode`] = this.checked ? 'shape' : 'both'; save(); updateAvatarStyle();
       };
       // The Custom CSS fold says On while that side's CSS is ticked.
       col.addEventListener('change', (e) => {
-        if (e.target.matches(`.m_o_on[data-key="${prefix}CssOn"]`)) col.querySelector(`#m_${prefix}_csstag`).style.display = e.target.checked ? '' : 'none';
+        if (e.target.matches(`.m_o_on[data-key="${prefix}CssOn"]`)) show('csstag', e.target.checked);
       });
-      onPills(col, `${prefix}filter`, (v) => { s[`${prefix}Filter`] = v; save(); syncScale(); updateAvatarStyle(); });
-      onPills(col, `${prefix}texture`, (v) => { s[`${prefix}Texture`] = v; save(); syncScale(); updateAvatarStyle(); });
+      onPick('filter', 'Filter');
+      onPick('texture', 'Texture');
       // One slider for the fade picked on the fade grid.
-      const fadeSl = col.querySelector(`#m_${prefix}_fade`);
+      const fadeSl = part('fade');
       let fadeAt = col.querySelector(`input[name="cbr_${prefix}fade"]:checked`).value;
       onPills(col, `${prefix}fade`, (v) => {
         fadeAt = v;
         setSlider(fadeSl, rangeNum(s, prefix + FADE_PARTS[v][0]));
-        col.querySelector(`#m_${prefix}_fadelab`).textContent = `${FADE_PARTS[v][1]} Fade Length:`;
+        part('fadelab').textContent = `${FADE_PARTS[v][1]} Fade Length:`;
       });
       fadeSl.oninput = function() {
         s[prefix + FADE_PARTS[fadeAt][0]] = Number(this.value);
@@ -1070,14 +1064,10 @@
         openMenu();
       };
 
-      const sliders = [
-        { id: 'sc', key: 'Scale' }, { id: 'cr', key: 'Corner' }, { id: 'fo', key: 'Focus' }, { id: 'sx', key: 'ShiftX' }, { id: 'zm', key: 'Zoom' },
-        { id: 'rt', key: 'Rotate' }, { id: 'pad', key: 'Pad' }, { id: 'ox', key: 'PopX' }, { id: 'oy', key: 'PopY' },
-        { id: 'fs', key: 'FadeStr' }, { id: 'fx', key: 'FilterStr' }, { id: 'tx', key: 'TextureStr' },
-        { id: 'frs', key: 'FrameSize' }, { id: 'frx', key: 'FrameX' }, { id: 'fry', key: 'FrameY' }
-      ];
+      const sliders = [['sc', 'Scale'], ['cr', 'Corner'], ['fo', 'Focus'], ['sx', 'ShiftX'], ['zm', 'Zoom'], ['rt', 'Rotate'], ['pad', 'Pad'], ['ox', 'PopX'], ['oy', 'PopY'],
+        ['fs', 'FadeStr'], ['fx', 'FilterStr'], ['tx', 'TextureStr'], ...FRAME_SLIDERS];
 
-      sliders.forEach(({ id, key }) => {
+      sliders.forEach(([id, key]) => {
         const el = overlay.querySelector(`#m_${prefix}_${id}`);
         // Dragging Rotation sticks at 0, so it's easy to set straight again. Arrow keys and typed values go in as they are.
         if (key === 'Rotate') {

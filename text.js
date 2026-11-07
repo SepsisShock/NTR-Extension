@@ -8,11 +8,11 @@
 
   // Text Effect: Glow, Shadow or Outline. Without an Effect Color, Glow uses the text's own color and the others are black.
   // Gradient and Shimmer are painted into the letters instead (see paintOf).
-  function fxProps(s, p) {
-    if (!s[p + 'FxOn'] || PAINT.includes(s[p + 'Fx'])) return {};
-    const n = rangeNum(s, p + 'FxStr');
+  function fxProps(s, p, col) {
     const fx = s[p + 'Fx'];
-    const c = cssReaders(s).col(p + 'FxColor') || (fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)');
+    if (!s[p + 'FxOn'] || PAINT.includes(fx)) return {};
+    const n = rangeNum(s, p + 'FxStr');
+    const c = col(p + 'FxColor') || (fx === 'glow' ? 'currentColor' : 'rgba(0, 0, 0, .8)');
     if (fx === 'glow') return { 'text-shadow': `0 0 ${n * 2}px ${c}, 0 0 ${n}px ${c}` };
     if (fx === 'shadow') return { 'text-shadow': `${Math.ceil(n / 3)}px ${Math.ceil(n / 3)}px ${n}px ${c}` };
     return { '-webkit-text-stroke': `${(n * 0.2).toFixed(1)}px ${c}`, 'paint-order': 'stroke fill' };
@@ -38,10 +38,10 @@
   // part's own if it has one, else ST's. The band sits in a background wider than the text and rests off it, so a
   // Shimmer that isn't playing looks like plain text. ST's text shadow would show through the letters, so it's taken off.
   const PAINT = ['gradient', 'shimmer'];
-  function paintOf(s, p, quote) {
+  function paintOf(s, p, col, quote) {
     if (!s[p + 'FxOn'] || !PAINT.includes(s[p + 'Fx'])) return null;
     const n = rangeNum(s, p + 'FxStr');
-    const c = cssReaders(s).col(p + 'FxColor') || quote || 'var(--SmartThemeQuoteColor)';
+    const c = col(p + 'FxColor') || quote || 'var(--SmartThemeQuoteColor)';
     if (s[p + 'Fx'] === 'gradient') return { shimmer: false, image: `linear-gradient(90deg, currentColor, ${c} ${100 - (n - 1) * 8}%)` };
     // Three times the text's width keeps the widest band (30% of it) off the text at both ends of the sweep.
     return { shimmer: true, size: '300% 100%', image: `linear-gradient(90deg, currentColor ${50 - n * 1.5}%, ${c} 50%, currentColor ${50 + n * 1.5}%)` };
@@ -113,14 +113,15 @@
     if (!on('tfPlatePos') || s.tfPlatePos !== 'edge') return css;
     // The plate's height: one line at line-height 1.3, its padding (.1em top and bottom) and its border.
     const half = `calc((var(--mainFontSize) * ${+((ns || 1) * (boxed ? 1.5 : 1.3)).toFixed(3)} + ${border ? 2 * rangeNum(s, 'tfPlateBorderWidth') : 0}px) / 2)`;
+    const one = { 'line-height': '1.3', 'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0' };
     for (const [prefix, flag] of [['ai', 'false'], ['us', 'true']]) {
       const m = `body:not(.ntr_book) #chat .mes[is_user="${flag}"]`;
-      if (ntrAvatars(s, prefix) && s[prefix + 'Style'] !== 'inline') continue;
-      const one = { 'line-height': '1.3', 'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', 'min-width': '0' };
+      const av = ntrAvatars(s, prefix);
+      if (av && s[prefix + 'Style'] !== 'inline') continue;
       // NTR Avatars In Line above the text puts the name row under the avatar. There the name leaves its row for the
       // message's top edge, and the avatar moves down to clear it.
       const side = s[prefix + 'Side'];
-      if (ntrAvatars(s, prefix) && side[1] === 'c' && side[0] !== 'b') {
+      if (av && side[1] === 'c' && side[0] !== 'b') {
         // Speech Bubbles put this side's name row on the right: the name lines up with the row's right end instead of
         // running past the message.
         const right = bubblesOn(s) && bubRight(s, prefix === 'ai' ? 'Ai' : 'Us');
@@ -151,17 +152,18 @@
 
     // Names on chat messages, and the speaker's name tag in Visual Novel Mode.
     const ns = size('tfNameSize');
+    const nameLook = { color: col('tfNameColor'), 'font-family': font('tfNameFont') };
+    const nameFx = fxProps(s, 'tfName', col);
     css += cssRule('.mes .name_text', {
-      color: col('tfNameColor'),
-      'font-family': font('tfNameFont'),
+      ...nameLook,
       'font-size': ns ? `calc(var(--mainFontSize) * ${ns})` : '',
       'font-weight': on('tfNameWeight') ? NAME_WEIGHT[s.tfNameWeight] : '',
-      ...fxProps(s, 'tfName'),
+      ...nameFx,
     });
-    css += cssRule('#cb_node .cb_n_name', { color: col('tfNameColor'), 'font-family': font('tfNameFont'), ...fxProps(s, 'tfName') });
+    css += cssRule('#cb_node .cb_n_name', { ...nameLook, ...nameFx });
     // Shimmer plays on the newest message's name, and on the Visual Novel name tag. Under it, a Nameplate picture's place
     // is set without !important, which would hold the band still.
-    const namePaint = paintOf(s, 'tfName', '');
+    const namePaint = paintOf(s, 'tfName', col, '');
     const img = s.tfPlateImg;
     const freePlace = !!(namePaint && namePaint.shimmer && img);
     css += nameplateCss(s, on, col, ns, freePlace);
@@ -186,8 +188,8 @@
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
     const align = (p) => (on(p + 'Align') ? s[p + 'Align'] : '');
     const inked = bubblesOn(s) && s.ovBubInk !== 'auto';
-    const fx = { tfUser: fxProps(s, 'tfUser'), tfAi: fxProps(s, 'tfAi') };
-    const paint = { tfUser: paintOf(s, 'tfUser', col('tfUserQuote')), tfAi: paintOf(s, 'tfAi', col('tfAiQuote')) };
+    const fx = { tfUser: fxProps(s, 'tfUser', col), tfAi: fxProps(s, 'tfAi', col) };
+    const paint = { tfUser: paintOf(s, 'tfUser', col, col('tfUserQuote')), tfAi: paintOf(s, 'tfAi', col, col('tfAiQuote')) };
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
@@ -220,19 +222,16 @@
     return css ? css + '\n' : '';
   }
 
-  function ovFx(s, p) {
-    const note = p === 'tfName' ? 'Shimmer sweeps twice over the newest name when it appears'
+  function fxRows(s, p) {
+    const name = p === 'tfName';
+    const note = name ? 'Shimmer sweeps twice over the newest name when it appears'
       : 'Gradient and Shimmer keep italics, quotes, underlines and links in their own colors. Shimmer sweeps twice over the newest message when it appears';
-    return ovPick(s, p + 'Fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline'], ['gradient', 'Gradient'], ['shimmer', 'Shimmer']])
+    const fx = ovPick(s, p + 'Fx', [['glow', 'Glow'], ['shadow', 'Shadow'], ['outline', 'Outline'], ['gradient', 'Gradient'], ['shimmer', 'Shimmer']])
       + ovLabel('Strength', rangeSlider(s, p + 'FxStr'))
       + hint(`${note}. Off with Reduced Motion, ST's or the device's.`);
-  }
-
-  function fxRows(s, p) {
-    const quote = p === 'tfName' ? 'ST\'s Quote Color' : 'the Quote Color';
     return `
-          ${ovRow(s, p + 'FxOn', 'Text Effect', ovFx(s, p))}
-          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + `<div class="cb_hint">Unticked, Glow uses the text color, Shadow and Outline are black, and Gradient and Shimmer use ${quote}.</div>`)}`;
+          ${ovRow(s, p + 'FxOn', 'Text Effect', fx)}
+          ${ovRow(s, p + 'FxColorOn', 'Effect Color', ovColor(s, p + 'FxColor') + hint(`Unticked, Glow uses the text color, Shadow and Outline are black, and Gradient and Shimmer use ${name ? 'ST\'s Quote Color' : 'the Quote Color'}.`))}`;
   }
 
   const PLATE_PIC = { id: 'plate', key: 'tfPlateImg', title: 'Nameplate Picture', upload: ['plate', { maxWidth: 800 }], wide: true, hint: 'Covers the Color.' };
@@ -242,14 +241,14 @@
           ${ovRow(s, p + 'FontOn', 'Font', ovFont(s, p + 'Font'))}
           ${ovRow(s, p + 'SizeOn', 'Size', rangeSlider(s, p + 'Size'))}
           ${ovRow(s, p + 'AlignOn', 'Alignment', ovPick(s, p + 'Align', [['left', 'Left', 'ST\'s default'], ['right', 'Right'], ['center', 'Center'], ['justify', 'Justify']])
-            + '<div class="cb_hint">Lists, tables and code blocks keep ST\'s alignment.</div>')}
+            + hint('Lists, tables and code blocks keep ST\'s alignment.'))}
           ${ovRow(s, p + 'MainOn', 'Main Text Color', ovColor(s, p + 'Main'))}
           ${ovRow(s, p + 'EmOn', 'Italics Color', ovColor(s, p + 'Em'))}
           ${ovRow(s, p + 'UnderOn', 'Underline Color', ovColor(s, p + 'Under'))}
           ${ovRow(s, p + 'QuoteOn', 'Quote Color', ovColor(s, p + 'Quote'))}${fxRows(s, p)}`;
     return pageHtml('text', `
-          <div class="cb_hint">Also styles the Visual Novel box: AI Text the dialogue, Names and Nameplate the name tag. Sizes and weight there come from Visual Novel Mode. Tick a setting to change it; untick it to go back to ST's value. ${FONT_NOTE}</div>
-          ${card('Whole Interface', ovRow(s, 'ovFontOn', 'Overall Font Scale', rangeSlider(s, 'ovFont') + '<div class="cb_hint">Scales all of ST\'s text, menus included. The Sizes below multiply it.</div>'), 'fa-display')}
+          ${hint(`Also styles the Visual Novel box: AI Text the dialogue, Names and Nameplate the name tag. Sizes and weight there come from Visual Novel Mode. Tick a setting to change it; untick it to go back to ST's value. ${FONT_NOTE}`)}
+          ${card('Whole Interface', ovRow(s, 'ovFontOn', 'Overall Font Scale', rangeSlider(s, 'ovFont') + hint('Scales all of ST\'s text, menus included. The Sizes below multiply it.')), 'fa-display')}
           ${subHead('tf_names', 'Names', 'fa-signature')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'tfNameFontOn', 'Font', ovFont(s, 'tfNameFont'))}
@@ -259,13 +258,13 @@
           </div>
           ${subHead('tf_plate', 'Nameplate', 'fa-id-badge')}
           <div class="cb_collapse_content">
-            <div class="cb_hint">A box behind the name.</div>
+            ${hint('A box behind the name.')}
             ${ovRow(s, 'tfPlateBgOn', 'Color', ovColor(s, 'tfPlateBg'))}
             ${picSlotHtml(PLATE_PIC)}
             ${ovRow(s, 'tfPlateBorderOn', 'Border', ovColor(s, 'tfPlateBorder') + ovLabel('Width', rangeSlider(s, 'tfPlateBorderWidth')))}
             ${ovRow(s, 'tfPlateRoundOn', 'Roundness', rangeSlider(s, 'tfPlateRound'))}
             ${ovRow(s, 'tfPlatePosOn', 'Position', ovPick(s, 'tfPlatePos', [['row', 'Name Row', 'ST\'s default'], ['edge', 'On the Top Edge']])
-              + '<div class="cb_hint">On the Top Edge adds room above each message and cuts a long name short. With NTR Avatars behind or popped out, and in Reader Mode\'s Book, the name stays in its row.</div>')}
+              + hint('On the Top Edge adds room above each message and cuts a long name short. With NTR Avatars behind or popped out, and in Reader Mode\'s Book, the name stays in its row.'))}
           </div>
           ${subHead('tf_user', 'User Text', 'fa-user-pen')}
           <div class="cb_collapse_content">${part('tfUser')}

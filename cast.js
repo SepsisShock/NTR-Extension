@@ -103,7 +103,7 @@
   // ask for the same one, the later Enter (later in `present`) gets it. The user's persona prefers the right, everyone else the left.
   function pickSpots(spots, present, wanted) {
     const persona = lc(ctx().name1);
-    for (const k of [...spots.keys()]) if (!present.includes(k)) spots.delete(k);
+    for (const k of spots.keys()) if (!present.includes(k)) spots.delete(k);
     const claim = new Map();
     for (const k of present) if (wanted.get(k)) claim.set(wanted.get(k), k);
     for (const [sp, k] of claim) {
@@ -154,9 +154,7 @@
   function baseFace(name) {
     const key = lc(name);
     if (!key) return null;
-    const emo = media(defaultFace(key));
-    if (emo) return emo;
-    return stAvatar(key)?.src || null;
+    return media(defaultFace(key)) || stAvatar(key)?.src || null;
   }
 
   function findEmo(name) {
@@ -188,8 +186,7 @@
 
   // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
   const fileOk = new Map();
-  function fileExists(u) {
-    const p = String(u || '').trim();
+  function fileExists(p) {
     if (!/^\/?user\/files\//.test(p)) return Promise.resolve(true);
     if (!fileOk.has(p)) fileOk.set(p, fetch(p, { method: 'HEAD', cache: 'no-store' }).then((r) => r.status !== 404).catch(() => true));
     return fileOk.get(p);
@@ -258,7 +255,7 @@
         if (sp.emo && lc(sp.name) === author) emo = sp.emo;
         continue;
       }
-      const inner = String(t[2]);
+      const inner = t[2];
       const c = inner.indexOf(':');
       if (c <= 0) continue;
       const word = lc(inner.slice(0, c)), arg = inner.slice(c + 1).trim();
@@ -273,8 +270,6 @@
     beats.set(i, info);
     return info;
   }
-
-  const hasFaces = (key) => !!mainEmo(key);
 
   // Faces: each message's avatar shows its writer's face for that message's emotion, or their main face without a tag.
   // Speakers without faces keep SillyTavern's picture. SillyTavern puts its own picture back when it redraws a message,
@@ -296,7 +291,7 @@
       if (on) {
         const i = Number(mes.getAttribute('mesid'));
         const m = chat[i];
-        if (m && !m.is_system && m.name && hasFaces(lc(m.name))) want = faceSrc(m.name, msgInfo(m, i).emo);
+        if (m && !m.is_system && m.name && mainEmo(lc(m.name))) want = faceSrc(m.name, msgInfo(m, i).emo);
       }
       if (want) {
         if (cur === want) return;
@@ -644,10 +639,12 @@
       overlay.querySelector('#m_emo_state').textContent = !chat ? 'Editing the Template' : own ? `Own List: ${A.chatName() || 'This Chat'}` : 'Following the Template';
       overlay.querySelector('#m_emo_tpl').style.display = own ? '' : 'none';
     };
+    const saveEmo = () => { save(); renderEmo(); renderSpk(); changed(); };
+    const saveSpk = () => { save(); renderSpk(); changed(); };
     const renderEmo = () => {
       emoBox.innerHTML = emoRowsHtml();
       renderState();
-      onPills(emoBox, 'emodef', (v) => { T().emoDefault = v; save(); renderEmo(); renderSpk(); changed(); });
+      onPills(emoBox, 'emodef', (v) => { T().emoDefault = v; saveEmo(); });
       emoBox.querySelectorAll('.m_emo_name').forEach((inp) => {
         inp.onchange = () => {
           const id = inp.dataset.id;
@@ -658,7 +655,7 @@
             return;
           }
           T().emotions.find((x) => x.id === id).name = nm;
-          save(); renderEmo(); renderSpk(); changed();
+          saveEmo();
         };
       });
       emoBox.querySelectorAll('.m_emo_del').forEach((b) => {
@@ -672,7 +669,7 @@
           L.emotions = L.emotions.filter((x) => x.id !== id);
           const olds = [];
           for (const m of Object.values(D().emoImgs)) { if (m[id]) olds.push(m[id]); delete m[id]; }
-          save(); renderEmo(); renderSpk(); changed();
+          saveEmo();
           olds.forEach((u) => A.deleteFileIfUnused(u));
         };
       });
@@ -685,7 +682,7 @@
       if (E().emotions.length >= 100) { toastr.warning('A list holds up to 100 emotions.', 'Emotions'); return; }
       T().emotions.push({ id: newId('emo'), name: nm });
       inp.value = '';
-      save(); renderEmo(); renderSpk(); changed();
+      saveEmo();
     };
     // Reset drops the chat's own list, so it follows the template again. Faces stay, by emotion: one whose emotion
     // isn't on the template comes back if that emotion does. A character with faces gets a fresh copy (see D).
@@ -695,7 +692,7 @@
       delete v.emotions;
       delete v.emoDefault;
       D();
-      save(); renderEmo(); renderSpk(); changed();
+      saveEmo();
     };
     overlay.querySelector('#m_emo_savetpl').onclick = async function() {
       if (!(await A.askYes(this, 'Make this list the template? Characters following it change too.', 'Save'))) return;
@@ -726,7 +723,7 @@
           let old;
           if (full) { old = D().sprites[key]; delete D().sprites[key]; }
           else if (D().emoImgs[key]) { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }
-          save(); renderSpk(); changed();
+          saveSpk();
           A.deleteFileIfUnused(old).then((kept) => {
             const why = { used: 'something else still uses it', lazy: "with lazy loading on, other characters can't be checked for it", failed: "it couldn't be deleted" }[kept];
             if (why) toastr.info(`Removed. The file itself was kept because ${why}.`, 'Emotions');
@@ -754,18 +751,17 @@
             if (!D().hiddenSpk.some((n) => lc(n) === k)) D().hiddenSpk.push(k);
           }
           spkOpen.delete(k);
-          save(); renderSpk(); changed();
+          saveSpk();
         };
       });
       spkBox.querySelector('.m_spk_unhide')?.addEventListener('click', (e) => {
         e.preventDefault();
         D().hiddenSpk = [];
-        save(); renderSpk(); changed();
+        saveSpk();
       });
       pruneMissing().then((n) => {
         if (!n) return;
-        save(); changed();
-        renderSpk();
+        saveSpk();
         toastr.info(`Removed ${n} link${n === 1 ? '' : 's'} to deleted picture files.`, 'Emotions');
       });
     };
@@ -777,7 +773,7 @@
         old = D().emoImgs[p.key][p.emo];
         D().emoImgs[p.key][p.emo] = url;
       }
-      save(); renderSpk(); changed();
+      saveSpk();
       A.deleteFileIfUnused(old);
     };
     A.onFilePick(sFile, 'Emotions', async (f) => {
@@ -798,7 +794,7 @@
       if (!D().customSpk.some((n) => lc(n) === k)) D().customSpk.push(nm);
       spkOpen.add(k);
       inp.value = '';
-      save(); renderSpk(); changed();
+      saveSpk();
     };
     overlay.querySelector('#m_spk_add').onclick = addSpk;
     overlay.querySelector('#m_spk_new').onkeydown = (e) => { if (e.key === 'Enter') addSpk(); };
@@ -829,11 +825,10 @@
     };
     const applyD = (d) => {
       const { errs } = validateDelims(d);
-      if (errs.length) { toastr.error(errs[0], 'Emotions'); return false; }
+      if (errs.length) { toastr.error(errs[0], 'Emotions'); return; }
       Object.assign(s, d);
-      save(); renderSpk(); changed(); cleanTags();
+      saveSpk(); cleanTags();
       toastr.success('Delimiters updated', 'Emotions');
-      return true;
     };
     dIns.forEach((i) => { i.oninput = preview; });
     overlay.querySelector('#m_d_apply').onclick = () => applyD(readD());

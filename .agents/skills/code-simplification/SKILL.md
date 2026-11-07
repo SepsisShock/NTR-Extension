@@ -9,7 +9,7 @@ Review the requested code and the code paths it touches for unnecessary complexi
 
 - Code that could be simpler without hurting performance or reliability.
 - Helpers, layers or general systems that serve only one case, or cases that don't exist yet.
-- Repeated logic or operation sequences, within a module or across modules, that a shared helper could replace. A short expression made only of built-in calls needs no new helper, but flag it when a helper for it already exists.
+- Repeated logic or operation sequences that a shared helper could replace, per `CLAUDE.md`'s No Copied Code.
 - One value or rule kept in two places that can drift apart.
 - Work repeated on every call that could run once.
 - Checks, fallbacks and guards for cases no caller or SillyTavern produces for any user, not just in the owner's setup, or that another check already covers. Weigh how likely the case is, what happens if it occurs, and the cost of keeping the guard.

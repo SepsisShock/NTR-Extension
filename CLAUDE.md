@@ -24,6 +24,7 @@
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - One Rule, One Help File: don't restate a rule from another *help* file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
+- Writing Rules: a help-file rule says what to do (or what's fine) and names what to use, not how the code works; cut an explanation that proves incomplete instead of extending it.
 - If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag it in chat and suggest when & where to address it.
 - Group related changes into one PR; split them when separate PRs are easier to review or revert, and justify why in chat before splitting.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.

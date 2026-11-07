@@ -20,7 +20,7 @@
     if (track) css += `\n      ::-webkit-scrollbar-track { background-color: ${track}; }\n      ::-webkit-scrollbar-corner { background-color: ${track}; }`;
     if (color) css += `\n      ::-webkit-scrollbar-thumb:vertical, ::-webkit-scrollbar-thumb:horizontal { background-color: ${color}; }`;
     if (color || track) css += `\n      @supports not selector(::-webkit-scrollbar) { * { scrollbar-color: ${color || 'var(--grey7070a)'} ${track || 'transparent'}; } }`;
-    return css ? css + '\n' : '';
+    return css;
   }
 
   // Quick Replies: the buttons in the bar and in its pop-out window, and the bar's own layout. Each setting is
@@ -48,7 +48,7 @@
       'justify-content': on('ovQrAlign') ? QR_ALIGN[s.ovQrAlign] : scroll ? QR_ALIGN.center : '',
     });
     css += cssRule('#qr--bar', { opacity: on('ovQrOpacity') ? rangeNum(s, 'ovQrOpacity') / 100 : '' });
-    return css ? css + '\n' : '';
+    return css;
   }
 
   // Custom cursor. A CSS cursor shows its picture at the picture's own size, so each one is redrawn at the Size setting
@@ -56,6 +56,7 @@
   // redrawing is used as it is.
   const cursorCache = new Map();
   const cursorLast = new Map();
+  const loadCors = (u) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
   function cursorImg(src, size) {
     const key = `${size}|${src}`;
     if (cursorCache.has(key)) return cursorCache.get(key) || cursorLast.get(src) || null;
@@ -69,11 +70,7 @@
       c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
       done({ url: c.toDataURL('image/png'), w: c.width, h: c.height });
     };
-    const i = new Image();
-    i.crossOrigin = 'anonymous';
-    i.onload = () => { try { draw(i); } catch (e) { loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}); } };
-    i.onerror = () => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {});
-    i.src = src;
+    loadCors(src).then(draw).catch(() => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}));
     return cursorLast.get(src) || null;
   }
   const TEXT_CURSOR_SEL = 'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], [contenteditable="true"]';
@@ -103,7 +100,7 @@
     if (ptr) css += `\n      [data-ntr-cur="ptr"] { cursor: ${ptr} !important; }`;
     // While the mouse button is down, everything but typing boxes takes the Click cursor.
     if (down) css += `\n      html.ntr_cur_down, html.ntr_cur_down *:not(${TEXT_CURSOR_SEL}) { cursor: ${down} !important; }`;
-    return css ? css + '\n' : '';
+    return css;
   }
   function onCursorDown(e) {
     if (e.pointerType === 'mouse' && cursorKinds.down) document.documentElement.classList.add('ntr_cur_down');
@@ -129,7 +126,6 @@
   // doesn't load, null while loading.
   const mbLoaded = new Map();
   const mbWait = new Map();
-  const loadCors = (u) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
   function mbReady(src) {
     if (mbLoaded.has(src)) return mbLoaded.get(src);
     if (mbLoaded.size > 60) { mbLoaded.clear(); mbWait.clear(); }
@@ -143,14 +139,14 @@
     let css = '';
     for (const [id, e] of Object.entries(s.mbIcons)) {
       const u = e.img;
-      // MB_ID keeps the id a plain CSS name, so it needs no escaping in the selector.
-      const st = MB_ID.test(id) && mbReady(u);
+      // Saved ids are plain CSS names (cleanMbIcons in index.js), so they need no escaping in the selector.
+      const st = mbReady(u);
       if (!st) continue;
       const pic = `url("${u}") center / contain no-repeat`;
       css += `\n      #top-settings-holder > #${id} > :not(.drawer-content) .drawer-icon:not(.redOverlayGlow, .fa-plug-circle-exclamation)::before { content: '' !important; display: inline-block; width: 1em; height: 1em; vertical-align: middle; `
         + (e.mode === 'full' || st !== 'mask' ? `background: ${pic};` : `background-color: currentColor; -webkit-mask: ${pic}; mask: ${pic};`) + ' }';
     }
-    return css ? css + '\n' : '';
+    return css;
   }
 
   // Background Pattern: layers drawn over the Box Color, in a shade of it or the Pattern Color. Sizes are in em, so
@@ -227,11 +223,12 @@
     const k = s.rbArrowSizeOn ? rangeNum(s, 'rbArrowSize') : 1;
     const size = `calc(var(--mainFontSize) * ${+(0.7 * k).toFixed(3)})`;
     const symbol = kind === 'symbol';
+    const box = symbol ? 'auto' : k !== 1 ? size : '';
     let css = cssRule(A, {
       color: kind === 'image' ? '' : col('rbArrowColor'),
       'font-size': k !== 1 ? size : '',
-      width: symbol ? 'auto' : k !== 1 ? size : '',
-      height: symbol ? 'auto' : k !== 1 ? size : '',
+      width: box,
+      height: box,
       'line-height': symbol ? '1' : '',
       'white-space': symbol ? 'nowrap' : '',
       background: kind === 'image' ? `url("${img}") center / contain no-repeat` : '',
@@ -318,7 +315,7 @@
       'box-shadow': edgeFx('rbBtnFx', bc, '0px', false),
     });
     css += reasoningArrowCss(s, col);
-    return css ? css + '\n' : '';
+    return css;
   }
 
   function syncCustomCss() {
@@ -573,7 +570,7 @@
     }
     bindReasoning(overlay, s);
     bindMessageDetails(overlay, s);
-    bindCursor(overlay, s);
+    for (const o of CURSOR_PICS) bindPicSlot(overlay, s, o);
     bindMenuBarIcons(overlay, s);
   }
 
@@ -602,8 +599,9 @@
     syncPatRows();
     // Fade: its rows dim while it's off, and a note shows while the box has nothing to fade.
     const syncFade = () => {
-      const fill = cssReaders(s).col('rbBoxColor') || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
-      const pat = s.rbPat !== 'none' && (s.rbPat !== 'lines' || s.rbPatH || s.rbPatV || s.rbPatR || s.rbPatL);
+      const { col } = cssReaders(s);
+      const fill = col('rbBoxColor') || (s.rbBoxAlphaOn && rangeNum(s, 'rbBoxOpacity') < 100);
+      const pat = boxPattern(s, col).length > 0;
       fadeRows.classList.toggle('cb_dim', !s.rbPatFadeOn);
       overlay.querySelector('.m_rb_fadeneed').hidden = !s.rbPatFadeOn || fill || pat || !!s.rbBgImg;
     };
@@ -646,40 +644,37 @@
     ['ovCursorTextImg', 'Text', 'Typing boxes. Empty keeps the system\'s.', 'fa-i-cursor'],
     ['ovCursorDownImg', 'Click', 'While the button is held. Empty keeps the current cursor.', 'fa-computer-mouse'],
   ].map(([key, label, hint, icon]) => ({ id: `cur_${label.toLowerCase()}`, key, label, title: `${label} Cursor`, hint, icon, upload: ['cursor', { max: 128 }] }));
-  function bindCursor(overlay, s) {
-    for (const o of CURSOR_PICS) bindPicSlot(overlay, s, o);
-  }
 
   // The Reasoning Block's pictures.
   const RB_BG_PIC = { id: 'rbbg', key: 'rbBgImg', title: 'Background Picture', upload: ['rbbg', { maxWidth: 1600 }], wide: true };
   const RB_ARROW_PIC = { id: 'rba', key: 'rbArrowImg', title: 'Arrow Picture', upload: ['arrow', { max: 128 }], icon: 'fa-chevron-up',
     hint: 'Empty shows ST\'s arrow.', attrs: 'data-rbarrow="image"' };
 
+  // A pick-one row with no tick: its default choice is SillyTavern's own look.
+  const pickRow = (title, inner, attrs = '') => `
+          <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
+
   function reasoningPartHtml(s) {
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => `
             <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
     const borders = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']];
-    const cssBox = (k, ph) => customCssBox(s, k, ph);
-    // A pick-one row with no tick: its default choice is SillyTavern's own look.
-    const pickRow = (title, inner, attrs = '') => `
-          <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
     const patLine = (k, label) => `<label class="checkbox_label"><input type="checkbox" class="m_rb_patline" data-key="${k}" ${s[k] ? 'checked' : ''}><span>${label}</span></label>`;
-    const fxOpts = [['none', 'None', 'ST\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']];
-    const fxSize = (k) => `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>`;
+    const fxRow = (k) => pickRow('Border Effects', ovPick(s, k, [['none', 'None', 'ST\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']])
+      + `<div class="m_rb_fxsize ${s[k] === 'none' ? 'cb_dim' : ''}" data-for="${k}">${rangeSlider(s, k + 'Size')}</div>` + hint('Glow takes the Border Color. Shadow is black.'));
     return pagePart('Reasoning Block', ['m_rb_enable', s.rbEnabled], 'el_reasoning', `
-          <div class="cb_hint">Only changes the look. Reasoning shows when ST's "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) is on.</div>
-          <div class="cb_hint">Tick a setting to change it; untick it to go back to ST's look.</div>
+          ${hint('Only changes the look. Reasoning shows when ST\'s "Request model reasoning" (Chat Completion) or "Auto-Parse" (Text Completion) is on.')}
+          ${hint('Tick a setting to change it; untick it to go back to ST\'s look.')}
           ${subHead('rb_header', 'Reasoning Status Text')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'rbBtnTextOn', 'Text Color', ovColor(s, 'rbBtnText'))}
             <div class="cb_hint" style="margin-top:6px;">Empty uses ST's wording.</div>
             ${label('rbThink', 'While Thinking')}
-            ${label('rbDone', 'Finished', '<div class="cb_hint">{time} becomes the thinking time.</div>')}
+            ${label('rbDone', 'Finished', hint('{time} becomes the thinking time.'))}
             ${label('rbSome', 'Finished, Time Unknown')}
             <div class="cb_ovrow cb_sep">
               <div>Typewriter Effect</div>
-              <div class="m_o_body cb_flat">${ovPick(s, 'rbTyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']])}<div class="cb_hint">Off with ST's Reduced Motion.</div></div>
+              <div class="m_o_body cb_flat">${ovPick(s, 'rbTyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']])}${hint('Off with ST\'s Reduced Motion.')}</div>
             </div>
           </div>
           ${card('Reasoning Button', `
@@ -688,16 +683,16 @@
           ${pickRow('Button Shape', ovPick(s, 'rbBtnShape', [['square', 'Square'], ['rounded', 'Rounded', 'ST\'s default'], ['pill', 'Pill']]))}
           ${ovRow(s, 'rbBtnBorderOn', 'Border Style', ovPick(s, 'rbBtnBorder', borders))}
           ${ovRow(s, 'rbBtnBorderColorOn', 'Border Color', ovColor(s, 'rbBtnBorderColor'))}
-          ${pickRow('Border Effects', ovPick(s, 'rbBtnFx', fxOpts) + fxSize('rbBtnFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}`)}
+          ${fxRow('rbBtnFx')}`)}
           ${card('Reasoning Box', `
           ${ovRow(s, 'rbBoxColorOn', 'Box Color', ovColor(s, 'rbBoxColor'))}
           ${ovRow(s, 'rbBoxAlphaOn', 'Background Opacity', rangeSlider(s, 'rbBoxOpacity'))}
           ${ovRow(s, 'rbFontOn', 'Font', ovFont(s, 'rbFont') + hint(FONT_NOTE))}
-          ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + '<div class="cb_hint">ST\'s is 50%. 0% is grey.</div>')}
+          ${ovRow(s, 'rbSatOn', 'Text Color Strength', rangeSlider(s, 'rbSat') + hint('ST\'s is 50%. 0% is grey.'))}
           ${ovRow(s, 'rbBoxShapeOn', 'Box Shape', ovPick(s, 'rbBoxShape', [['rounded', 'Rounded'], ['extra', 'Extra Rounded']]))}
           ${ovRow(s, 'rbBorderStyleOn', 'Border Style', ovPick(s, 'rbBorderStyle', [['none', 'None'], ...borders.filter(([v]) => v !== 'solid')]))}
           ${ovRow(s, 'rbBorderOn', 'Border Color', ovColor(s, 'rbBorder'))}
-          ${pickRow('Border Effects', ovPick(s, 'rbEdgeFx', fxOpts) + fxSize('rbEdgeFx') + '<div class="cb_hint">Glow takes the Border Color. Shadow is black.</div>')}
+          ${fxRow('rbEdgeFx')}
           ${subHead('rb_bgimg', 'Background Picture')}
           <div class="cb_collapse_content">
           ${picSlotHtml(RB_BG_PIC)}
@@ -705,8 +700,8 @@
           ${pickRow('Fit', ovPick(s, 'rbBgFit', [['cover', 'Cover'], ['tile', 'Tile']]))}
           ${pickRow('Keep in View', posGrid('rbbgpos', s.rbBgPos), ' data-rbbg="cover"')}
           ${pickRow('Tile Size', rangeSlider(s, 'rbBgTile'), ' data-rbbg="tile"')}
-          ${pickRow('Picture Opacity', rangeSlider(s, 'rbBgOpacity') + '<div class="cb_hint">If your Box CSS makes the box scroll, the picture scrolls with the text.</div>')}
-          ${ovRow(s, 'rbBgTintOn', 'Readability Tint', rangeSlider(s, 'rbBgTint') + '<div class="cb_hint">Darkens the picture behind light text, or lightens it behind dark text.</div>')}
+          ${pickRow('Picture Opacity', rangeSlider(s, 'rbBgOpacity') + hint('If your Box CSS makes the box scroll, the picture scrolls with the text.'))}
+          ${ovRow(s, 'rbBgTintOn', 'Readability Tint', rangeSlider(s, 'rbBgTint') + hint('Darkens the picture behind light text, or lightens it behind dark text.'))}
           </div>
           </div>
           ${subHead('rb_pattern', 'Background Pattern')}
@@ -716,31 +711,31 @@
             + '<button class="menu_button" id="m_rb_patreset" style="margin:6px 0 0;">Reset Lines</button>', ' data-rbpat="lines"')}
           ${pickRow('Pattern Shade', ovPick(s, 'rbPatShade', [['light', 'Lighter'], ['dark', 'Darker']]), ' data-rbpat="drawn"')}
           <div data-rbpat="drawn">${ovRow(s, 'rbPatColorOn', 'Pattern Color', ovColor(s, 'rbPatColor'))}</div>
-          ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div><div class="cb_hint">Line thickness, or dot size. Checkers doesn't use it.</div>`, ' data-rbpat="drawn"')}
-          ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div><div class="cb_hint">Notebook and Horizontal lines follow the text lines instead.</div>`, ' data-rbpat="drawn"')}
-          ${ovRow(s, 'rbPatFadeOn', 'Fade', '<div class="cb_hint">Fades the Box Color, pattern and picture toward one side. The text stays.</div><div class="cb_hint m_rb_fadeneed">Nothing to fade yet. Pick a Box Color, a pattern or a Background Picture.</div>')}
+          ${pickRow('Thickness', `<div class="m_rb_patdim" data-for="thick">${rangeSlider(s, 'rbPatThick')}</div>${hint('Line thickness, or dot size. Checkers doesn\'t use it.')}`, ' data-rbpat="drawn"')}
+          ${pickRow('Pattern Size', `<div class="m_rb_patdim" data-for="size">${rangeSlider(s, 'rbPatSize')}</div>${hint('Notebook and Horizontal lines follow the text lines instead.')}`, ' data-rbpat="drawn"')}
+          ${ovRow(s, 'rbPatFadeOn', 'Fade', hint('Fades the Box Color, pattern and picture toward one side. The text stays.') + '<div class="cb_hint m_rb_fadeneed">Nothing to fade yet. Pick a Box Color, a pattern or a Background Picture.</div>')}
           <div class="m_rb_fade ${s.rbPatFadeOn ? '' : 'cb_dim'}">
-          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + '<div class="cb_hint">Center fades from the middle out.</div>')}
-          ${pickRow('Reach', rangeSlider(s, 'rbPatFadeReach') + '<div class="cb_hint">How far the fade goes, in lines of text.</div>')}
-          ${pickRow('Softness', rangeSlider(s, 'rbPatFadeSoft') + '<div class="cb_hint">Lower stays see-through longer, with a sharper edge.</div>')}
+          ${pickRow('Fade From', posGrid('rbpatfade', s.rbPatFade) + hint('Center fades from the middle out.'))}
+          ${pickRow('Reach', rangeSlider(s, 'rbPatFadeReach') + hint('How far the fade goes, in lines of text.'))}
+          ${pickRow('Softness', rangeSlider(s, 'rbPatFadeSoft') + hint('Lower stays see-through longer, with a sharper edge.'))}
           </div>
           </div>`)}
           ${card('Reasoning Arrow', `
           ${pickRow('Arrow', ovPick(s, 'rbArrow', [['default', 'Default', 'ST\'s default'], ['none', 'None'], ['symbol', 'Symbol'], ['image', 'Picture']]))}
-          ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼') + '<div class="cb_hint">Empty shows ST\'s arrow.</div>', ' data-rbarrow="symbol"')}
+          ${pickRow('Symbol', ovText(s, 'rbArrowSym', '▼') + hint('Empty shows ST\'s arrow.'), ' data-rbarrow="symbol"')}
           ${picSlotHtml(RB_ARROW_PIC)}
-          <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + '<div class="cb_hint">Color emoji keep their own colors.</div>')}</div>
+          <div data-rbarrow="color">${ovRow(s, 'rbArrowColorOn', 'Arrow Color', ovColor(s, 'rbArrowColor') + hint('Color emoji keep their own colors.'))}</div>
           <div data-rbarrow="shown">
           ${ovRow(s, 'rbArrowSizeOn', 'Arrow Size', rangeSlider(s, 'rbArrowSize'))}
-          ${pickRow('Turn', ovPick(s, 'rbArrowTurn', [['flip', 'Flip', 'ST\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']]) + '<div class="cb_hint">When the block closes. Quarter Turn suits symbols that point right, like ▶.</div>')}
-          ${pickRow('While Thinking', ovPick(s, 'rbArrowAnim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']]) + '<div class="cb_hint">Off with ST\'s Reduced Motion.</div>')}
+          ${pickRow('Turn', ovPick(s, 'rbArrowTurn', [['flip', 'Flip', 'ST\'s default'], ['quarter', 'Quarter Turn'], ['none', 'None']]) + hint('When the block closes. Quarter Turn suits symbols that point right, like ▶.'))}
+          ${pickRow('While Thinking', ovPick(s, 'rbArrowAnim', [['off', 'Off'], ['spin', 'Spin'], ['pulse', 'Pulse'], ['bounce', 'Bounce']]) + hint('Off with ST\'s Reduced Motion.'))}
           </div>`)}
           ${subHead('rb_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
-            ${ovRow(s, 'rbBtnCssOn', 'Button CSS', cssBox('rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;'))}
-            ${ovRow(s, 'rbCssOn', 'Box CSS', cssBox('rbCss', 'letter-spacing: 1px;&#10;& em { color: gold; }') + '<div class="cb_hint">Use <code>&amp; em { }</code> for italics.</div>')}
-            ${ovRow(s, 'rbArrowCssOn', 'Arrow CSS', cssBox('rbArrowCss', 'opacity: .7;') + '<div class="cb_hint">Use <code>&amp;::before { }</code> for a Symbol.</div>')}
-            <div class="cb_hint">${CSS_NOTE}</div>
+            ${ovRow(s, 'rbBtnCssOn', 'Button CSS', customCssBox(s, 'rbBtnCss', 'text-transform: uppercase;&#10;letter-spacing: 1px;'))}
+            ${ovRow(s, 'rbCssOn', 'Box CSS', customCssBox(s, 'rbCss', 'letter-spacing: 1px;&#10;& em { color: gold; }') + hint('Use <code>&amp; em { }</code> for italics.'))}
+            ${ovRow(s, 'rbArrowCssOn', 'Arrow CSS', customCssBox(s, 'rbArrowCss', 'opacity: .7;') + hint('Use <code>&amp;::before { }</code> for a Symbol.'))}
+            ${hint(CSS_NOTE)}
           </div>
     `, 'fa-brain');
   }
@@ -751,8 +746,7 @@
     const cells = [...overlay.querySelectorAll('.m_md_cell')];
     const sync = () => {
       cells.forEach((c) => { c.checked = s[c.dataset.key].includes(c.dataset.item); });
-      const r = overlay.querySelector(`input[name="cbr_mdpreset"][value="${mdPreset(s)}"]`);
-      if (r) r.checked = true;
+      overlay.querySelector(`input[name="cbr_mdpreset"][value="${mdPreset(s)}"]`).checked = true;
     };
     const apply = () => { save(); updateAvatarStyle(); sync(); };
     cells.forEach((c) => {
@@ -769,30 +763,29 @@
   }
 
   function scrollbarPartHtml(s) {
-    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     return pagePart('Scrollbar', ['m_scroll_enable', s.ovScrollOn], 'el_scroll', `
-          <div class="cb_hint">Phones mostly keep their own scrollbars.</div>
-          ${row('ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
-          ${row('ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + '<div class="cb_hint">The strip behind the scrollbar.</div>')}
+          ${hint('Phones mostly keep their own scrollbars.')}
+          ${ovRow(s, 'ovScrollColorOn', 'Scrollbar Color', ovColor(s, 'ovScrollColor'))}
+          ${ovRow(s, 'ovScrollTrackOn', 'Track Color', ovColor(s, 'ovScrollTrack') + hint('The strip behind the scrollbar.'))}
           ${subHead('ov_scroll_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
-            ${row('ovScrollCssOn', 'Scrollbar CSS', customCssBox(s, 'ovScrollCss', '::-webkit-scrollbar { width: 6px; height: 6px; }&#10;::-webkit-scrollbar-thumb { border-radius: 0; }')
-              + `<div class="cb_hint">Whole CSS rules. Firefox ignores <code>::-webkit-scrollbar</code>. ${CSS_NOTE}</div>`)}
+            ${ovRow(s, 'ovScrollCssOn', 'Scrollbar CSS', customCssBox(s, 'ovScrollCss', '::-webkit-scrollbar { width: 6px; height: 6px; }&#10;::-webkit-scrollbar-thumb { border-radius: 0; }')
+              + hint(`Whole CSS rules. Firefox ignores <code>::-webkit-scrollbar</code>. ${CSS_NOTE}`))}
           </div>
     `, 'fa-arrows-up-down');
   }
 
   function cursorPartHtml(s) {
     return pagePart('Cursor', ['m_cur_enable', s.ovCursorOn], 'el_cursor', `
-          <div class="cb_hint">Phones and tablets have no cursor.</div>
+          ${hint('Phones and tablets have no cursor.')}
           ${CURSOR_PICS.map(picSlotHtml).join('')}
-          <div class="cb_hint">The top-left corner clicks; for Text, the middle.</div>
+          ${hint('The top-left corner clicks; for Text, the middle.')}
           ${ovLabel('Size', rangeSlider(s, 'ovCursorSize'))}
-          <div class="cb_hint">Browsers may cut off cursors over 32 px near screen edges. GIFs show their first frame only. If Size does nothing for a link, upload the picture.</div>
+          ${hint('Browsers may cut off cursors over 32 px near screen edges. GIFs show their first frame only. If Size does nothing for a link, upload the picture.')}
           ${subHead('ov_cursor_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
             ${ovRow(s, 'ovCursorCssOn', 'Cursor CSS', customCssBox(s, 'ovCursorCss', '.mes_buttons .mes_button { cursor: help; }&#10;.swipe_left, .swipe_right { cursor: grab; }')
-              + `<div class="cb_hint">Whole CSS rules. ${CSS_NOTE}</div>`)}
+              + hint(`Whole CSS rules. ${CSS_NOTE}`))}
           </div>
     `, 'fa-arrow-pointer');
   }
@@ -869,8 +862,7 @@
         const clr = el.querySelector('.m_mb_clr');
         if (clr) clr.disabled = !e;
         el.querySelector('.m_mb_mode').hidden = !e || r.gone;
-        const pick = e && el.querySelector(`input[name="cbr_mbmode${i}"][value="${e.mode}"]`);
-        if (pick) pick.checked = true;
+        if (e) el.querySelector(`input[name="cbr_mbmode${i}"][value="${e.mode}"]`).checked = true;
       });
     };
     const set = (i, img, mode) => {
@@ -883,12 +875,13 @@
       render();
       deleteFileIfUnused(old);
     };
+    const setPic = async (i, url) => set(i, url, await hasClear(url) ? 'tint' : 'full');
     overlay.querySelectorAll('.m_mb_up').forEach((b) => { b.onclick = () => { pending = Number(b.dataset.mb); file.click(); }; });
     overlay.querySelectorAll('.m_mb_url').forEach((b) => {
       b.onclick = async () => {
         const i = Number(b.dataset.mb);
         const url = await askImageUrl(`${mbRows[i].name} icon`, b, false);
-        if (url) set(i, url, await hasClear(url) ? 'tint' : 'full');
+        if (url) setPic(i, url);
       };
     });
     overlay.querySelectorAll('.m_mb_clr').forEach((b) => { b.onclick = () => set(Number(b.dataset.mb), ''); });
@@ -901,15 +894,12 @@
       // The row is kept from before the upload: picking another icon meanwhile changes pending.
       const i = pending;
       if (i < 0) return;
-      const url = await uploadImage(f, 'baricon', { max: 128 });
-      set(i, url, await hasClear(url) ? 'tint' : 'full');
+      await setPic(i, await uploadImage(f, 'baricon', { max: 128 }));
     });
     render();
   }
 
   function mdPartHtml(s) {
-    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
-    const pickRow = (title, inner) => `<div class="cb_ovrow"><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
     // A tick for each detail in each spot. A detail can show in more than one.
     const grid = `<div class="ntr_mdgrid"><span></span>${MD_SPOTS.map(([, , label]) => `<span class="ntr_mdh">${label}</span>`).join('')}
       ${MD_ITEMS.map(([id, label]) => `<span>${label}</span>${MD_SPOTS.map(([, key, spot]) => `<label title="${label}: ${spot}"><input type="checkbox" class="m_md_cell" data-key="${key}" data-item="${id}" ${s[key].includes(id) ? 'checked' : ''}></label>`).join('')}`).join('')}</div>`;
@@ -921,32 +911,31 @@
           ${hint('Corner sits at the end of the text, inside the bubble with Speech Bubbles. A message ending in a table or HTML moves it to the end of Below. Tokens show only while ST\'s Message Token Count is on.')}
           ${pickRow('Date', ovPick(s, 'mdDate', [['long', 'Long'], ['short', 'Short']]))}
           ${pickRow('Separator', ovPick(s, 'mdSep', [['dot', '·'], ['bar', '|'], ['slash', '/'], ['space', 'Space']]) + hint('Avatar stacks them one per line. Date and time stay together.'))}
-          ${row('mdSizeOn', 'Size', rangeSlider(s, 'mdSize'))}
-          ${row('mdColorOn', 'Color', ovColor(s, 'mdColor'))}
-          ${row('mdOpacityOn', 'Opacity', rangeSlider(s, 'mdOpacity') + hint('ST\'s is 70%.'))}
-          ${row('mdPillOn', 'Background', ovColor(s, 'mdPill'))}
+          ${ovRow(s, 'mdSizeOn', 'Size', rangeSlider(s, 'mdSize'))}
+          ${ovRow(s, 'mdColorOn', 'Color', ovColor(s, 'mdColor'))}
+          ${ovRow(s, 'mdOpacityOn', 'Opacity', rangeSlider(s, 'mdOpacity') + hint('ST\'s is 70%.'))}
+          ${ovRow(s, 'mdPillOn', 'Background', ovColor(s, 'mdPill'))}
     `, 'fa-clock');
   }
 
   function qrPartHtml(s) {
-    const row = (onKey, label, inner) => ovRow(s, onKey, label, inner);
     return pagePart('Quick Replies', ['m_qr_enable', s.ovQrOn], 'el_qr', `
           ${hint('Restyles ST\'s Quick Reply bar and pop-out. A set\'s own color still shows behind its buttons.')}
           ${card('Buttons', `
           ${ovShapeRow(s, 'Qr')}
           ${ovBgRow(s, 'Qr')}
           ${ovBorderRow(s, 'Qr')}
-          ${row('ovQrTextOn', 'Text Color', ovColor(s, 'ovQrText'))}
-          ${row('ovQrHoverOn', 'Hover Background', ovColor(s, 'ovQrHover'))}
-          ${row('ovQrSizeOn', 'Text Size', rangeSlider(s, 'ovQrSize'))}`)}
+          ${ovRow(s, 'ovQrTextOn', 'Text Color', ovColor(s, 'ovQrText'))}
+          ${ovRow(s, 'ovQrHoverOn', 'Hover Background', ovColor(s, 'ovQrHover'))}
+          ${ovRow(s, 'ovQrSizeOn', 'Text Size', rangeSlider(s, 'ovQrSize'))}`)}
           ${card('Bar', `
-          ${row('ovQrWrapOn', 'Rows', ovPick(s, 'ovQrWrap', [['wrap', 'Wrap into Rows'], ['scroll', 'One Scrolling Row']]))}
-          ${row('ovQrGapOn', 'Gap', rangeSlider(s, 'ovQrGap'))}
-          ${row('ovQrAlignOn', 'Alignment', ovPick(s, 'ovQrAlign', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']]))}
-          ${row('ovQrOpacityOn', 'Bar Opacity', rangeSlider(s, 'ovQrOpacity') + hint('ST\'s is 70%.'))}`)}
+          ${ovRow(s, 'ovQrWrapOn', 'Rows', ovPick(s, 'ovQrWrap', [['wrap', 'Wrap into Rows'], ['scroll', 'One Scrolling Row']]))}
+          ${ovRow(s, 'ovQrGapOn', 'Gap', rangeSlider(s, 'ovQrGap'))}
+          ${ovRow(s, 'ovQrAlignOn', 'Alignment', ovPick(s, 'ovQrAlign', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']]))}
+          ${ovRow(s, 'ovQrOpacityOn', 'Bar Opacity', rangeSlider(s, 'ovQrOpacity') + hint('ST\'s is 70%.'))}`)}
           ${subHead('ov_qr_css', 'Advanced: Custom CSS')}
           <div class="cb_collapse_content">
-            ${row('ovQrCssOn', 'Quick Replies CSS', customCssBox(s, 'ovQrCss', '#qr--bar .qr--button { font-weight: bold; }&#10;#qr--bar .qr--button:hover { transform: scale(1.05); }')
+            ${ovRow(s, 'ovQrCssOn', 'Quick Replies CSS', customCssBox(s, 'ovQrCss', '#qr--bar .qr--button { font-weight: bold; }&#10;#qr--bar .qr--button:hover { transform: scale(1.05); }')
               + hint(`Whole CSS rules. The bar is <code>#qr--bar</code>, the pop-out <code>#qr--popout</code>, each button <code>.qr--button</code>. ${CSS_NOTE}`))}
           </div>
     `, 'fa-reply');

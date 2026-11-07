@@ -1862,7 +1862,7 @@ await (async () => {
   const LAYOUT_OV_KEYS = ['ovWidthOn', 'ovWidth', 'ovMesGapOn', 'ovMesGap', 'ovSendPosOn', 'ovSendPos', 'ovSendGap', 'ovNamesOn'];
   const ELEMENT_OV_KEYS = Object.keys(DEFAULTS).filter((k) => k.startsWith('ovScroll') || k.startsWith('ovCursor') || k.startsWith('ovQr'));
   const MOVED_OV_KEYS = [...FONT_SCALE_KEYS, ...LAYOUT_OV_KEYS, ...ELEMENT_OV_KEYS];
-  // In menu order. Elements keeps the section name 'reasoning' that saved themes and theme files already use.
+  // In menu order.
   const LOOK = {
     layout: { label: 'Layout', keys: [...Object.keys(DEFAULTS).filter((k) => k.startsWith('lay')), ...LAYOUT_OV_KEYS] },
     display: { label: 'UI Decor', keys: Object.keys(DEFAULTS).filter((k) => k.startsWith('ov') && !MOVED_OV_KEYS.includes(k)) },

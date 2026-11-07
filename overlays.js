@@ -11,13 +11,11 @@
       #cb_banner { width: 100%; height: var(--cb-h, 120px); position: relative; overflow: hidden; display: block; border-radius: 10px; margin-bottom: var(--cb-gap, 10px); }
       #cb_banner.cb_overlap { position: absolute !important; top: 0; left: 0; right: 0; z-index: 100; margin-bottom: 0 !important; }
       #cb_banner .cb_nav { position: absolute; right: 8px; bottom: 8px; z-index: 2; display: none; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,0.55); color: #fff; font-size: 12px; line-height: 1.2; opacity: 0; transition: opacity .15s; }
-      #cb_banner:hover .cb_nav { opacity: 1; }
-      @media (hover: none) { #cb_banner .cb_nav { opacity: 1; } }
       #cb_banner .cb_nav_btn { background: none; border: none; color: inherit; cursor: pointer; padding: 2px 5px; line-height: 1; }
       #cb_banner .cb_vid { position: relative; z-index: 1; display: block; }
       #cb_banner .cb_snd { position: absolute; left: 8px; bottom: 8px; z-index: 2; padding: 5px 9px; border-radius: 999px; background: rgba(0,0,0,0.55); color: #fff; font-size: 12px; opacity: 0; transition: opacity .15s; }
-      #cb_banner:hover .cb_snd { opacity: 1; }
-      @media (hover: none) { #cb_banner .cb_snd { opacity: 1; } }
+      #cb_banner:hover .cb_nav, #cb_banner:hover .cb_snd { opacity: 1; }
+      @media (hover: none) { #cb_banner .cb_nav, #cb_banner .cb_snd { opacity: 1; } }
       .cb_thumbs { position: relative; display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 6px; }
       .cb_thumb { flex: none; width: 64px; height: 40px; object-fit: cover; border-radius: 4px; border: 2px solid transparent; cursor: pointer; opacity: 0.7; }
       .cb_thumbbtn { flex: none; padding: 0; margin: 0; border: 0; background: none; line-height: 0; cursor: pointer; }
@@ -44,11 +42,14 @@
     const L = document.getElementById('cb_fg_left');
     const C = document.getElementById('cb_fg_center');
     const R = document.getElementById('cb_fg_right');
-    if (L) L.style.width = Math.max(0, r.left) + 'px';
-    if (R) R.style.width = Math.max(0, window.innerWidth - r.right) + 'px';
-    if (C) { C.style.left = r.left + 'px'; C.style.width = r.width + 'px'; }
+    L.style.width = Math.max(0, r.left) + 'px';
+    R.style.width = Math.max(0, window.innerWidth - r.right) + 'px';
+    C.style.left = r.left + 'px';
+    C.style.width = r.width + 'px';
     drawPlace();
   }
+
+  const applyFgOpacity = () => document.documentElement.style.setProperty('--cb-fg-op', rangeNum(settings(), 'fgOpacity') / 100);
 
   function ensureFg() {
     const s = settings();
@@ -67,18 +68,16 @@
       document.body.appendChild(layer);
       const chat = document.getElementById('chat');
       if (chat) new ResizeObserver(() => layoutFg()).observe(chat);
+      const f = document.createElement('div');
+      f.id = 'cb_fg_front';
+      document.body.appendChild(f);
     }
-    let front = document.getElementById('cb_fg_front');
-    if (!front) {
-      front = document.createElement('div');
-      front.id = 'cb_fg_front';
-      document.body.appendChild(front);
-    }
+    const front = document.getElementById('cb_fg_front');
 
     const F = fgData();
     layer.style.display = show ? 'block' : 'none';
     front.style.display = show ? 'block' : 'none';
-    document.documentElement.style.setProperty('--cb-fg-op', rangeNum(s, 'fgOpacity') / 100);
+    applyFgOpacity();
 
     for (const pos of FG_POS) {
       const el = document.getElementById(`cb_fg_${pos.toLowerCase()}`);
@@ -114,9 +113,8 @@
   function syncWallpaper() {
     if (!banner) return;
     const wall = banner.querySelector('.cb_wall');
-    if (!wall) return;
     let bg = null;
-    if (currentLook().backdrop === 'wallpaper' && banner.style.display !== 'none') {
+    if (banner.style.display !== 'none' && currentLook().backdrop === 'wallpaper') {
       for (const id of ['bg_custom', 'bg1']) {
         const el = document.getElementById(id);
         const v = el ? getComputedStyle(el).backgroundImage : '';
@@ -169,29 +167,29 @@
     const key = currentKey();
     return key ? peek(key) : null;
   }
+  // The kind a banner record shows while the banner is on: its own (Char) or the Global kind.
+  const kindOf = (r) => (r.scope === 'char' && r.mode ? r.mode : settings().bannerMode);
   function bannerKind(r) {
-    const s = settings();
-    if (!s.bannerOn || !r) return 'off';
-    return r.scope === 'char' && r.mode ? r.mode : s.bannerMode;
+    if (!settings().bannerOn || !r) return 'off';
+    return kindOf(r);
   }
 
   // A hidden YouTube player keeps playing its sound, so it's unloaded whenever the banner doesn't show it.
   function stopBannerYt() {
-    const yt = banner?.querySelector('.cb_yt');
-    if (yt && yt.src && yt.src !== 'about:blank') yt.src = 'about:blank';
+    const yt = banner.querySelector('.cb_yt');
+    if (yt.src && yt.src !== 'about:blank') yt.src = 'about:blank';
   }
 
   function stopBannerVid() {
-    const v = banner?.querySelector('.cb_vid');
-    if (!v || !v.getAttribute('src')) return;
+    const v = banner.querySelector('.cb_vid');
+    if (!v.getAttribute('src')) return;
     v.pause();
     v.removeAttribute('src');
     v.load();
     banner.querySelector('.cb_snd').style.display = 'none';
   }
   function setSndIcon(muted) {
-    const b = banner?.querySelector('.cb_snd');
-    if (!b) return;
+    const b = banner.querySelector('.cb_snd');
     b.innerHTML = `<i class="fa-solid ${muted ? 'fa-volume-xmark' : 'fa-volume-high'}"></i>`;
     b.title = muted ? 'Sound on' : 'Mute';
   }
@@ -209,8 +207,7 @@
     });
   }
   function toggleBannerSound() {
-    const v = banner?.querySelector('.cb_vid');
-    if (!v) return;
+    const v = banner.querySelector('.cb_vid');
     const r = currentBannerRec();
     const want = v.muted;
     if (r && r.scope === 'char') r.videoSound = want;
@@ -280,10 +277,11 @@
     rot.timer = null;
   }
   function hideBanner() {
+    if (!banner) return;
     stopRotation();
     stopBannerYt();
     stopBannerVid();
-    if (banner) banner.style.display = 'none';
+    banner.style.display = 'none';
   }
   function armRotation(sec) {
     if (rot.timer && rot.sec === sec) return;
@@ -295,12 +293,13 @@
     rot.timer = null;
     const key = currentKey();
     const r = key ? peek(key) : null;
-    if (!r || key !== rot.key || !banner || banner.style.display === 'none' || bannerKind(r) !== 'image') return;
+    if (key !== rot.key || banner.style.display === 'none' || bannerKind(r) !== 'image') return;
     const o = rotation(r);
-    const n = bannerSrc(r).images.length;
+    const src = bannerSrc(r);
+    const n = src.images.length;
     if (!o.rotate || n < 2) return;
     if (!rotPaused()) {
-      const cur = shownIdx(key, bannerSrc(r));
+      const cur = shownIdx(key, src);
       let next = (cur + 1) % n;
       if (o.rotateOrder === 'shuffle') { next = Math.floor(Math.random() * (n - 1)); if (next >= cur) next++; }
       rot.idx = next;
@@ -345,19 +344,23 @@
     const vid = banner.querySelector('.cb_vid');
 
     const src = bannerSrc(r);
+    const n = src.images.length;
+    const videoId = kind === 'youtube' ? getYouTubeId(src.youtubeUrl) : null;
+    const vu = kind === 'video' ? media(src.video) : '';
+    if (kind === 'image' ? !n : kind === 'youtube' ? !videoId : !vu) { hideBanner(); return; }
+    if (kind !== 'image') stopRotation();
+    if (kind !== 'youtube') stopBannerYt();
+    if (kind !== 'video') stopBannerVid();
+    banner.style.display = 'block';
+    img.style.display = kind === 'image' ? 'block' : 'none';
+    yt.style.display = kind === 'youtube' ? 'block' : 'none';
+    vid.style.display = kind === 'video' ? 'block' : 'none';
+    nav.style.display = kind === 'image' && n > 1 ? 'flex' : 'none';
+
     if (kind === 'image') {
-      const n = src.images.length;
-      if (!n) { hideBanner(); return; }
       const i = shownIdx(key, src);
       const im = src.images[i];
       const u = media(im.url);
-      stopBannerYt();
-      stopBannerVid();
-      vid.style.display = 'none';
-      banner.style.display = 'block';
-      yt.style.display = 'none';
-      img.style.display = 'block';
-
       const pos = `50% ${cardNum(im.pos, 'bannerPos', 45)}%`;
       if (img.getAttribute('src') !== u && fade && img.getAttribute('src')) crossfade(img, u, pos);
       else {
@@ -365,49 +368,20 @@
         if (img.getAttribute('src') !== u) img.src = u;
         img.style.objectPosition = pos;
       }
-      nav.style.display = n > 1 ? 'flex' : 'none';
       nav.querySelector('.cb_nav_count').textContent = `${i + 1} / ${n}`;
       const o = rotation(r);
       if (o.rotate && n > 1) armRotation(o.rotateSec); else stopRotation();
-
     } else if (kind === 'youtube') {
-      const videoId = getYouTubeId(src.youtubeUrl || '');
-      if (!videoId) { hideBanner(); return; }
-      stopRotation();
-      stopBannerVid();
-      vid.style.display = 'none';
-      banner.style.display = 'block';
-      img.style.display = 'none';
-      yt.style.display = 'block';
-      nav.style.display = 'none';
-
       const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=0&mute=0&loop=1&playlist=${videoId}&controls=1&modestbranding=1`;
       if (yt.getAttribute('src') !== embedUrl) yt.src = embedUrl;
-    } else if (kind === 'video') {
-      const u = media(src.video);
-      if (!u) { hideBanner(); return; }
-      stopRotation();
-      stopBannerYt();
-      banner.style.display = 'block';
-      img.style.display = 'none';
-      yt.style.display = 'none';
-      nav.style.display = 'none';
-      vid.style.display = 'block';
+    } else {
       vid.style.objectPosition = `50% ${cardNum(src.videoPos, 'bannerVideoPos', 50)}%`;
       banner.querySelector('.cb_snd').style.display = '';
-      if (vid.getAttribute('src') !== u) { vid.src = u; playBannerVid(vid); }
+      if (vid.getAttribute('src') !== vu) { vid.src = vu; playBannerVid(vid); }
       // Same video, other character: their sound setting may differ.
       else if (vid.paused || newChar) playBannerVid(vid);
     }
     syncWallpaper();
-  }
-
-  function attachBanner(chat, locked) {
-    if (locked) {
-      if (banner.nextElementSibling !== chat) chat.before(banner);
-    } else if (chat.firstElementChild !== banner) {
-      chat.prepend(banner);
-    }
   }
 
   // The chat's own listeners, set once: the wallpaper behind see-through banner areas follows scrolling, and an unlocked
@@ -418,9 +392,9 @@
     hooked = chat;
     chat.addEventListener('scroll', () => syncWallpaper(), { passive: true });
     new MutationObserver(() => {
+      if (!banner || chat.firstElementChild === banner || !settings().bannerOn) return;
       const r = currentBannerRec();
-      if (!banner || !r || !settings().bannerOn) return;
-      if (!r.locked && !A.banFree() && chat.firstElementChild !== banner) chat.prepend(banner);
+      if (r && !r.locked && !A.banFree()) chat.prepend(banner);
     }).observe(chat, { childList: true });
   }
 
@@ -429,7 +403,11 @@
   function placeBanner(chat, r) {
     const free = A.banFree();
     banner.classList.toggle('cb_overlap', !!r.overlap && !free);
-    attachBanner(chat, r.locked || free);
+    if (r.locked || free) {
+      if (banner.nextElementSibling !== chat) chat.before(banner);
+    } else if (chat.firstElementChild !== banner) {
+      chat.prepend(banner);
+    }
     chat.style.paddingTop = r.overlap && !free ? cardNum(r.overlapOffset, 'bannerOffset', 0) + 'px' : '';
   }
 
@@ -444,9 +422,9 @@
       chat.style.paddingTop = ''; // placeBanner sets it again when the banner overlaps
       if (!isOn()) { hideBanner(); syncWallpaper(); return; }
 
-      if (!banner) buildBanner();
       const r = currentBannerRec();
       if (bannerKind(r) === 'off') { hideBanner(); return; }
+      if (!banner) buildBanner();
 
       placeBanner(chat, r);
       updateBanner();
@@ -488,7 +466,6 @@
         toastr.error(e.message || 'Failed to upload', 'Banner');
       }
     }
-    save();
     updateBanner();
     if (added) toastr.success(`Added ${added} of ${files.length} pictures.`, 'Banner');
   }
@@ -529,13 +506,13 @@
     const F = fgData();
     const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
-    const r = key ? peek(key) : { images: [], locked: true, overlap: false, overlapOffset: 0, youtubeUrl: '' };
-    const ownBanner = !!key && r.scope === 'char';
-    const kind = ownBanner && r.mode ? r.mode : s.bannerMode;
-    const ro = rotation(ownBanner ? r : null);
-    const bl = bannerLook(ownBanner ? r : null);
+    const r = key ? peek(key) : { locked: true, overlap: false, overlapOffset: 0 };
+    const ownBanner = r.scope === 'char';
+    const kind = kindOf(r);
+    const ro = rotation(r);
+    const bl = bannerLook(r);
     const btag = ownBanner ? ' ' + TAG : '';
-    const src = bannerSrc(ownBanner ? r : null);
+    const src = bannerSrc(r);
     const n = src.images.length;
     const picked = pickedIdx(src);
     const curImg = src.images[picked] || null;
@@ -553,7 +530,7 @@
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
             ${card('Source', `
               ${ovLabel('Banner', pills('bscope', [['global', 'Global', BANNER_NOTE.global], ['char', 'This Character', BANNER_NOTE.char]], ownBanner ? 'char' : 'global'))}
-              ${ovLabel('Kind' + (ownBanner ? ' ' + TAG : ''), pills('bmode', [['image', 'Pictures'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind))}
+              ${ovLabel('Kind' + btag, pills('bmode', [['image', 'Pictures'], ['youtube', 'YouTube Loop'], ['video', 'Video']], kind))}
               ${ownBanner ? '' : '<div class="cb_hint" style="margin-bottom: 0;">Banner changes show on every character set to Global.</div>'}`, 'fa-photo-film')}
 
             <div id="m_b_img_controls" style="display: ${kind === 'image' ? 'block' : 'none'};">
@@ -575,7 +552,7 @@
 
               ${curImg ? sl('m_b_p', `Crop Position${btag}`, cardNum(curImg.pos, 'bannerPos', 45), 'bannerPos') : ''}`, 'fa-images')}
 
-              ${card('Rotation' + (ownBanner ? ' ' + TAG : ''), `
+              ${card('Rotation' + btag, `
                 ${A.checkBox('m_b_rot', ro.rotate, 'Rotate Pictures')}
                 <div id="m_b_rot_body" class="${ro.rotate ? '' : 'cb_dim'}">
                   ${sl('m_b_rot_sec', 'Every', ro.rotateSec, 'bannerRotateSec')}
@@ -587,13 +564,13 @@
 
             <div id="m_b_yt_controls" style="display: ${kind === 'youtube' ? 'block' : 'none'};">
               ${card('YouTube Loop' + btag, `
-              ${ovLabel('YouTube Link', `<input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl || '')}">`)}`, 'fa-circle-play')}
+              ${ovLabel('YouTube Link', `<input type="text" id="m_b_yt_url" class="text_pole" style="width: 100%; margin-top: 5px;" placeholder="https://youtube.com/watch?v=..." value="${escapeHTML(src.youtubeUrl)}">`)}`, 'fa-circle-play')}
             </div>
 
             <div id="m_b_vid_controls" style="display: ${kind === 'video' ? 'block' : 'none'};">
               ${card('Video' + btag, `
               <div class="cb_row">
-                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${src.video ? escapeHTML(String(src.video).split('/').pop()) : '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${src.video ? escapeHTML(src.video.split('/').pop()) : '<span class="cb_hint">No video yet (mp4 or webm)</span>'}</span>
                 <button id="m_b_vup" class="menu_button" style="margin:0;" title="Upload a video" aria-label="Upload a video"><i class="fa-solid fa-upload"></i></button>
                 <button id="m_b_vurl" class="menu_button" style="margin:0;" title="Use a link to a video" aria-label="Use a link to a video"><i class="fa-solid fa-link"></i></button>
                 <button id="m_b_vdel" class="menu_button danger_button" style="margin:0;" title="Remove the video" aria-label="Remove the video" ${!src.video ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
@@ -631,7 +608,7 @@
 
           ${pagePart('Foreground Pictures', ['m_f_enable', s.fgEnabled], 'fg_fore', `
             ${card('', `
-            ${sl('m_f_o', 'Opacity', rangeNum(s, 'fgOpacity'), 'fgOpacity')}
+            ${sl('m_f_o', 'Opacity', rangeNum(s, 'fgOpacity'), 'fgOpacity', 'data-key="fgOpacity"')}
             <label class="checkbox_label" style="margin-top: 8px;"><input type="checkbox" id="m_f_hidevn" ${s.fgHideVN ? 'checked' : ''}><span>Hide in Visual Novel Mode</span></label>
             ${menuBtn('m_f_place', 'fa-up-down-left-right', 'Edit Layout', { margin: '8px 0 0' })}
             <div class="cb_hint" style="margin-bottom: 0;">Hides the menu while you drag the pictures. Each stays tied to its side.</div>`)}
@@ -652,8 +629,8 @@
                     <button class="menu_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Remove picture" aria-label="Remove ${pos} picture" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-rotate-left"></i></button>
                   </div>
                   <div style="width:100%; text-align:left;">
-                  ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_scale" data-pos="${pos}"`, ' style="width:100%;"')}
-                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_move" data-pos="${pos}" data-ax="${ax}"`, ' style="width:100%;"')).join('')}
+                  ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_num" data-key="${pos}Scale"`, ' style="width:100%;"')}
+                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_num" data-key="${pos}${ax}"`, ' style="width:100%;"')).join('')}
                   ${ovLabel('In Visual Novel Mode', pills('fgl' + pos, [['behind', 'Behind Sprites'], ['front', 'In Front']], F[pos + 'Layer']))}
                   </div>
                 </div>
@@ -764,14 +741,12 @@
       };
 
       const bo = overlay.querySelector('#m_b_offset');
-      if (bo) {
-        bo.oninput = function() {
-          r.overlapOffset = Number(this.value);
-          const chat = document.getElementById('chat');
-          if (chat && r.overlap) chat.style.paddingTop = r.overlapOffset + 'px';
-        };
-        bo.onchange = save;
-      }
+      bo.oninput = function() {
+        r.overlapOffset = Number(this.value);
+        const chat = document.getElementById('chat');
+        if (chat && r.overlap) chat.style.paddingTop = r.overlapOffset + 'px';
+      };
+      bo.onchange = save;
     }
 
     const fi = overlay.querySelector('#m_b_file');
@@ -783,16 +758,16 @@
       save(); updateBanner(); openMenu();
     };
     fi.onchange = async () => { if (fi.files.length) { await addFiles([...fi.files]); openMenu(); }};
-    if (n) overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openMenu(); };
-    if (n > 0) {
+    if (n) {
+      overlay.querySelector('#m_b_del').onclick = async function() { await removeCurrentBanner(this); openMenu(); };
       overlay.querySelector('#m_b_prev').onclick = () => step(-1);
       overlay.querySelector('#m_b_next').onclick = () => step(1);
       overlay.querySelectorAll('.cb_thumbbtn').forEach((t) => {
         t.onclick = () => { src.idx = Number(t.dataset.i); save(); updateBanner(); openMenu(); };
       });
       const strip = overlay.querySelector('.cb_thumbs');
-      const act = strip?.querySelector('.active');
-      if (strip && act) strip.scrollLeft = act.offsetLeft - strip.clientWidth / 2 + act.offsetWidth / 2;
+      const act = strip.querySelector('.active');
+      strip.scrollLeft = act.offsetLeft - strip.clientWidth / 2 + act.offsetWidth / 2;
     }
     if (curImg) {
       const bp = overlay.querySelector('#m_b_p');
@@ -815,31 +790,9 @@
     for (const pos of FG_POS) onPills(overlay, 'fgl' + pos, (val) => { F[pos + 'Layer'] = val; save(); ensureFg(); });
     A.bindCheck(overlay, '#m_f_enable', s, 'fgEnabled', ensureFg);
 
-    const fo = overlay.querySelector('#m_f_o');
-    fo.oninput = function() {
-      s.fgOpacity = Number(this.value);
-      document.documentElement.style.setProperty('--cb-fg-op', this.value / 100);
-    };
-    fo.onchange = save;
-
+    A.bindSliders(overlay, '#m_f_o', s, applyFgOpacity);
     overlay.querySelector('#m_f_place').onclick = () => startPlacement('fg');
-    overlay.querySelectorAll('.m_f_move').forEach((sl) => {
-      sl.oninput = function() {
-        const { pos, ax } = this.dataset;
-        F[pos + ax] = Number(this.value);
-        ensureFg();
-      };
-      sl.onchange = save;
-    });
-
-    overlay.querySelectorAll('.m_f_scale').forEach(sl => {
-      sl.oninput = function() {
-        const pos = this.dataset.pos;
-        F[pos + 'Scale'] = Number(this.value);
-        ensureFg();
-      };
-      sl.onchange = save;
-    });
+    A.bindSliders(overlay, '.m_f_num', F, ensureFg);
 
     const setFg = (pos, url) => {
       const old = F[pos];

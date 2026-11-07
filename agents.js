@@ -67,6 +67,9 @@
   const num = (k, v, d) => A.cardNum(v, k, d);
   const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const pick = (v, list, d) => (list.some(([x]) => x === v) ? v : d);
+  const okId = (v) => typeof v === 'string' && /^[\w-]{1,40}$/.test(v);
+  // A freeName test: the name is taken in `l`, whatever the capitals.
+  const nameIn = (l) => (n) => l.some((x) => x.name.toLowerCase() === n.toLowerCase());
   // Answer: Fields. Each field is a named value the agent keeps; a heading groups the fields under it in a Dashboard.
   // A field's name is how the answer is read, so it can't hold a colon, a line break or Markdown marks, start like a
   // list item or end in an underscore. Names in an answer go through the same cleaning, so every name kept reads back.
@@ -78,7 +81,7 @@
   }
   const fieldName = (v, d) => (typeof v === 'string' ? nameText(v) : '') || d;
   function cleanField(f) {
-    const id = typeof f?.id === 'string' && /^[\w-]{1,40}$/.test(f.id) ? f.id : newId('fd');
+    const id = okId(f?.id) ? f.id : newId('fd');
     if (f?.kind === 'heading') return { id, kind: 'heading', name: fieldName(f.name, 'Heading') };
     const top = A.numRange('agFieldNum')[1];
     const min = Math.min(num('agFieldNum', f?.min, 0), top - 1);
@@ -104,7 +107,7 @@
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
   function clean(a) {
     const d = fresh('Agent');
-    const o = { ...d, id: typeof a?.id === 'string' && /^[\w-]{1,40}$/.test(a.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
+    const o = { ...d, id: okId(a?.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
       title: str(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
       pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
       runOn: Array.isArray(a?.runOn) ? KINDS.map(([k]) => k).filter((k) => a.runOn.includes(k)) : d.runOn, every: num('agEvery', a?.every, d.every),
@@ -119,7 +122,7 @@
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
       answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields),
-      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter((x) => typeof x === 'string' && /^[\w-]{1,40}$/.test(x)))].slice(0, AGENT_MAX) : [] };
+      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter(okId))].slice(0, AGENT_MAX) : [] };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
@@ -152,7 +155,7 @@
       const seen = new Set();
       const used = new Set();
       s.agDepts = s.agDepts.filter((d) => d && typeof d === 'object').slice(0, DEPT_MAX).map((d) => {
-        let id = typeof d.id === 'string' && /^[\w-]{1,40}$/.test(d.id) ? d.id : newId('dp');
+        let id = okId(d.id) ? d.id : newId('dp');
         if (used.has(id)) id = newId('dp');
         used.add(id);
         // An agent listed twice stays where it's listed first.
@@ -263,7 +266,7 @@
       o.reportsFrom = o.reportsFrom.map((id) => ids.get(id)).filter((id) => id && id !== o.id);
       if (pics[i] === null) picFails++;
       o.pic = pics[i] || '';
-      o.name = freeName(o.name, (n) => l.some((y) => y.name.toLowerCase() === n.toLowerCase()), 60);
+      o.name = freeName(o.name, nameIn(l), 60);
       l.push(o);
     }
     let deptsOut = 0;
@@ -272,7 +275,7 @@
       const mine = [...new Set((Array.isArray(d.ids) ? d.ids : []).map((id) => ids.get(id)).filter(Boolean))].filter((id) => !dl.some((x) => x.ids.includes(id)));
       if (!mine.length) continue;
       if (dl.length >= DEPT_MAX) { deptsOut++; continue; }
-      dl.push({ id: newId('dp'), name: freeName(str(d.name, 60).trim() || 'Department', (n) => dl.some((x) => x.name.toLowerCase() === n.toLowerCase()), 60), ids: mine });
+      dl.push({ id: newId('dp'), name: freeName(str(d.name, 60).trim() || 'Department', nameIn(dl), 60), ids: mine });
     }
     sortAgents();
     return { added: adds, skipped: items.length - take.length, picFails, deptsOut };
@@ -393,7 +396,7 @@
     return out;
   }
   // The values in a saved result, with any it doesn't have at their start.
-  const valuesOf = (a, text) => mergeFields(a, startValues(a), text, false) || startValues(a);
+  const valuesOf = (a, text) => { const start = startValues(a); return mergeFields(a, start, text, false) || start; };
   function writeFields(a, vals) {
     return fieldsOf(a).flatMap((f) => (f.type === 'list' ? [`${f.name}:`, ...(vals[f.name] || []).map((x) => `- ${x}`)] : [`${f.name}: ${vals[f.name]}`])).join('\n');
   }
@@ -418,7 +421,7 @@
   // SillyTavern's macros. Same as Chat's request fills in macros again, chat messages included.
   const TAG = /\{\{\s*messagesRead\s*\}\}/gi;
   const TAG_MARK = '\u0000ntr_messagesRead\u0000';
-  const hasTag = (a) => /\{\{\s*messagesRead\s*\}\}/i.test(a.job);
+  const hasTag = (a) => a.job.search(TAG) >= 0;
   function withLast(a, at, read = '') {
     const fields = usesFields(a);
     let job = (fields ? [a.job.trim(), fieldRules(a)].filter(Boolean).join('\n\n') : a.job).replace(TAG, TAG_MARK);
@@ -436,7 +439,7 @@
   // there, under its name. A swipe or Regenerate replaces the last reply, so the result sent is the one from before that
   // reply. At this point the reply is still in the chat (Regenerate removes it afterwards).
   const injKey = (id) => `ntr_agent_${id}`;
-  const injected = new Set();
+  let injected = new Set();
   // An agent's own run with the chat's full prompt leaves its own result out, so it doesn't get it twice.
   let fullRun = null;
   // A run reads the agents it doesn't wait for as they were when it was asked for (o.snap: by agent id, the text, which
@@ -485,9 +488,8 @@
         try { c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${text}`, where, a.sendDepth, a.sendScan, role); sent.add(a.id); } catch (e) { console.error('[NTR] Could not send an agent result', e); }
       }
     }
-    for (const id of injected) if (!sent.has(id)) { c.setExtensionPrompt(injKey(id), '', 1, 0); }
-    injected.clear();
-    sent.forEach((id) => injected.add(id));
+    for (const id of injected) if (!sent.has(id)) c.setExtensionPrompt(injKey(id), '', 1, 0);
+    injected = sent;
   }
 
   // ----- Running -----
@@ -643,6 +645,7 @@
     const { test } = o;
     const c = ctx();
     const max = test ? 20 : a.maxTokens;
+    const build = () => readingAs(o, () => prompt(a, test, test ? null : aim(o)));
     if (a.kind === 'chat') {
       if (!o.early) await abortable(chatIdle(), signal);
       stillAllowed(a, test);
@@ -670,7 +673,7 @@
             return String(await abortable(c.generateQuietPrompt({ quietPrompt: readingAs(o, () => withLast(a, i)), responseLength: max }), signal) ?? '');
           } finally { fullRun = null; fullSnap = null; }
         }
-        const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
+        const messages = build();
         // The speaker's name is already in each message, so SillyTavern doesn't add one (name: '').
         const chatPart = splits(a) && !test ? messages.slice(1).map((m) => ({ ...m, name: '' })) : messages[1].content;
         return String(await abortable(c.generateRaw({ prompt: chatPart, systemPrompt: messages[0].content, responseLength: max }), signal) ?? '');
@@ -681,7 +684,7 @@
     }
     if (a.kind === 'cc') {
       if (!a.ccModel.trim()) throw new Error('Type a model name first.');
-      const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
+      const messages = build();
       if (a.ccSource === 'custom' && !a.ccUrl.trim()) throw new Error('Type the Custom link first.');
       const r = await c.ChatCompletionService.processRequest({
         stream: false, messages, model: a.ccModel.trim(), chat_completion_source: a.ccSource, max_tokens: max,
@@ -692,7 +695,7 @@
     }
     if (!a.tcUrl.trim()) throw new Error('Type the server link first.');
     if (sharesChatServer(a) && !o.early) { await abortable(chatIdle(), signal); stillAllowed(a, test); }
-    const messages = readingAs(o, () => prompt(a, test, test ? null : aim(o)));
+    const messages = build();
     const r = await c.TextCompletionService.processRequest({
       stream: false, prompt: messages, max_tokens: max, api_type: a.tcType, api_server: a.tcUrl.trim(),
       model: TC_MODEL.has(a.tcType) && a.tcModel.trim() ? a.tcModel.trim() : undefined, ...samplers(a, true),
@@ -705,6 +708,7 @@
   // under its name, in roster order. An agent that's off sends none. Reports To is the same link seen from the other end.
   const sendersOf = (a) => list().filter((x) => a.reportsFrom.includes(x.id));
   const readersOf = (a) => list().filter((x) => x.reportsFrom.includes(a.id));
+  const nameList = (l) => l.map((x) => x.name).join(', ');
   function reportsText(a, at) {
     return sendersOf(a).filter((x) => x.on).map((x) => {
       const t = seenText(x.id, at);
@@ -873,8 +877,8 @@
     return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
       : `<i class="fa-solid fa-fw fa-robot" style="width:${size}px;text-align:center;opacity:.7;flex:none;"></i>`;
   };
-  const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${(CC.find(([v]) => v === a.ccSource) || [, ''])[1]}${a.ccModel ? ' · ' + a.ccModel : ''}`
-    : `${(TC.find(([v]) => v === a.tcType) || [, ''])[1]} (local)`);
+  const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${nameOf(CC, a.ccSource)}${a.ccModel ? ' · ' + a.ccModel : ''}`
+    : `${nameOf(TC, a.tcType)} (local)`);
   // A sampler's slider, and the number box every number setting has. A whole-number box gets the number pad on phones;
   // one that can go below 0 gets the full keyboard, since phone number pads may have no minus key.
   const slider = (a, f, k, name) => `<input type="range" class="m_ag_num" data-f="${f}" data-k="${k}" aria-label="${esc(name)}" ${A.rangeAttrs(k)} value="${a[f]}" style="width:100%;">`;
@@ -892,6 +896,9 @@
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
+  // A More menu's Move Up and Move Down, for item i of n.
+  const moveBtns = (i, n) => `<button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
+    <button type="button" data-act="down"${i >= n - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>`;
 
   function sectionHtml(s) {
     const note = '<div class="cb_hint ntr_pnote">Each agent is a separate request to a model that does one job you give it. Each run costs tokens. Nothing runs while this page is off.</div>';
@@ -911,7 +918,7 @@
         <button type="button" class="m_ag_pick"${a.id === s.agPick ? ' aria-current="true"' : ''}>
           ${picHtml(a, 30)}
           <span class="m_ag_rtext"><span class="m_ag_rline"><strong class="m_ag_rname">${esc(a.name)}</strong><span class="m_ag_rtitle">${a.title ? ` · ${esc(a.title)}` : ''}</span></span>
-            <span class="m_ag_rsub${busy(a.id) ? ' m_ag_rst' : ''}">${rowSub(a)}</span></span>
+            <span class="m_ag_rsub"></span></span>
           <span class="ntr_sr m_ag_rsr"></span>
         </button>
       </div>`;
@@ -960,12 +967,11 @@
   // ----- Reports, on the page -----
   // What screen readers hear for each roster row: who it gets reports from and who it reports to.
   function rowNotes() {
-    const names = (l) => l.map((x) => x.name).join(', ');
     root?.querySelectorAll('.m_ag_roster .m_ag_row').forEach((row) => {
       const a = byId(row.dataset.id);
       const from = sendersOf(a);
       const to = readersOf(a);
-      row.querySelector('.m_ag_rsr').textContent = [from.length ? `Gets reports from ${names(from)}.` : '', to.length ? `Reports to ${names(to)}.` : ''].join(' ').trim();
+      row.querySelector('.m_ag_rsr').textContent = [from.length ? `Gets reports from ${nameList(from)}.` : '', to.length ? `Reports to ${nameList(to)}.` : ''].join(' ').trim();
     });
   }
   // The Reports drawer: Gets Reports From and Reports To, each with a chip per linked agent (picking it, with a button
@@ -997,7 +1003,6 @@
   // runs and on what, and Run Now, Expand All or Collapse All, and More.
   // Its switch is in the roster. The title shows here, in the roster and on a Dashboard set to Tabs.
   function headHtml(a, allOpen) {
-    const going = busy(a.id);
     return `<div class="m_ag_head">
       <div class="m_ag_headrow">
         <button type="button" id="m_ag_pic" title="Change picture" aria-label="Change picture" aria-expanded="false" style="all:unset;cursor:pointer;border-radius:50%;flex:none;display:flex;">${picHtml(a, 44)}</button>
@@ -1010,7 +1015,7 @@
           </div>
           <div class="m_ag_line">
             <span class="m_ag_status">${esc(status(a))}</span>
-            ${headBtn('m_ag_hrun', going ? 'fa-stop' : 'fa-play', going ? 'Stop' : 'Run Now')}
+            ${headBtn('m_ag_hrun', 'fa-play', 'Run Now')}
             ${headBtn('m_ag_all', allOpen ? 'fa-angles-up' : 'fa-angles-down', allOpen ? 'Collapse All' : 'Expand All')}
             <span class="ntr_menu">${headBtn('m_ag_more', 'fa-ellipsis', 'More', ' aria-haspopup="menu" aria-expanded="false"')}</span>
           </div>
@@ -1052,7 +1057,7 @@
       reads: usesFull(a) ? { text: `Your Chat's Full Prompt${last}` }
         : a.readBy === 'num' && !readMsgs(a).length ? { warn: `${rangeName(a)} · Not in This Chat Yet` }
           : { text: `${a.readBy === 'num' ? rangeName(a) : `${a.readBy === 'since' ? 'Since Its Last Result · At Most ' : ''}${a.context} ${a.context === 1 ? 'Message' : 'Messages'}`} · ${hasTag(a) ? 'In Instructions' : a.split ? 'As Separate Messages' : 'As One Block'}${last}` },
-      rep: { text: `From ${sendersOf(a).map((x) => x.name).join(', ') || 'No One'} · To ${readersOf(a).map((x) => x.name).join(', ') || 'No One'}` },
+      rep: { text: `From ${nameList(sendersOf(a)) || 'No One'} · To ${nameList(readersOf(a)) || 'No One'}` },
       test: testSum(a),
     };
   }
@@ -1187,7 +1192,7 @@
         <div class="cb_hint">Counts only the ticked messages.</div>
         ${lab('Only From', `<input type="text" class="text_pole m_ag_txt" data-f="runFrom" data-redraw="1" value="${esc(a.runFrom)}" maxlength="500" placeholder="Anyone" style="width:100%;">`)}
         <div class="cb_hint">Names, separated by commas. Macros like {{char}} work.</div>
-        ${(a.kind === 'chat' || a.send) && (a.runOn.includes('user') || a.runOn.includes('sys')) ? hint(usesFull(a) ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : a.send ? 'Your reply waits for its answer, so the answer reaches that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.') : ''}` : ''}
+        ${(a.kind === 'chat' || a.send) && (a.runOn.includes('user') || a.runOn.includes('sys')) ? hint(full ? 'With your chat\'s full prompt, it runs once the AI\'s reply is in and saves its answer on that reply.' : a.send ? 'Your reply waits for its answer, so the answer reaches that reply.' : 'With Same as Chat, it waits until the AI\'s reply is done.') : ''}` : ''}
         <div class="cb_hint" style="margin-bottom:0;">To show its answers, add a Dashboard on the Layout page.</div>`],
       ['main', 'Main AI', `
         <label class="checkbox_label"><input type="checkbox" class="m_ag_chk" data-f="send" data-redraw="1" ${a.send ? 'checked' : ''}><span>Send to Main AI</span></label>
@@ -1211,7 +1216,7 @@
       ['reads', 'What It Reads', `
         ${a.kind === 'chat' ? `${lab('What It Sends', pills('agfull', [['own', 'Its Own Prompt'], ['full', 'Your Chat\'s Full Prompt']], a.full ? 'full' : 'own'))}
         <div class="cb_hint">Full Prompt sends everything your chat sends for a reply, with its instructions at the end. It costs more tokens.</div>` : ''}
-        ${usesFull(a) ? '' : `<div id="m_ag_splitwrap" class="${hasTag(a) ? 'cb_dim' : ''}">${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
+        ${full ? '' : `<div id="m_ag_splitwrap" class="${hasTag(a) ? 'cb_dim' : ''}">${lab('Chat Messages', pills('agsplit', [['block', 'As One Block'], ['split', 'As Separate Messages']], a.split ? 'split' : 'block'))}
         <div class="cb_hint">Separate Messages sends yours as user and the rest as AI. Names are kept either way.${a.kind === 'cc' ? ' If your API rejects the message order, set Prompt Post-Processing to Semi-strict.' : ''}</div></div>`}
         ${full ? `<div class="cb_hint"${fields ? ' style="margin-bottom:0;"' : ''}>With your chat's full prompt, it reads as much of the chat as your chat does.</div>`
           : `${lab('Messages Read', pills('agreadby', [['recent', 'Most Recent'], ['since', 'Since Its Last Result'], ['num', 'By Number']], a.readBy))}
@@ -1224,7 +1229,7 @@
       ['rep', 'Reports', '<div id="m_ag_rep"></div>'],
       ['test', 'Test and Activity', `
         <div class="cb_actions" style="margin:0;">${btn('m_ag_run', 'fa-play', 'Run Now')}${btn('m_ag_test', 'fa-plug-circle-check', 'Test Connection')}${btn('m_ag_stop', 'fa-stop', 'Stop')}</div>
-        <div id="m_ag_act">${activityHtml(a)}</div>`],
+        <div id="m_ag_act"></div>`],
     ];
     const sum = sums(a);
     return `<div class="m_ag_frame">
@@ -1288,7 +1293,8 @@
     syncPanel(PREV_PANEL, open, prevBtn(), () => previewHtml(a));
   }
 
-  function activityHtml(a, l = runs.get(a.id) || []) {
+  function activityHtml(a) {
+    const l = runs.get(a.id) || [];
     const st = runState(a.id);
     const now = st ? `<div class="cb_hint" style="margin:8px 0 0;"><i class="fa-solid fa-fw ${st[0] === 'fa-play' ? 'fa-spinner fa-spin' : st[0]}"></i> ${esc(st[1])}</div>` : '';
     const rows = l.map((r) => {
@@ -1339,13 +1345,14 @@
     let state = {};
     try {
       const r = await fetch('/api/secrets/read', { method: 'POST', headers: ctx().getRequestHeaders() });
-      state = r.ok ? await r.json() : {};
-    } catch (e) { state = {}; }
+      if (r.ok) state = await r.json();
+    } catch (e) { /* no keys */ }
     const keys = Array.isArray(state[`api_key_${a.ccSource}`]) ? state[`api_key_${a.ccSource}`] : [];
     if (!sel.isConnected) return;
+    const gone = a.ccKey && !keys.some((k) => k.id === a.ccKey);
     sel.innerHTML = `<option value="">ST's Active Key</option>` + keys.map((k, i) => `<option value="${esc(k.id)}"${k.id === a.ccKey ? ' selected' : ''}>${esc(k.label || `Key ${i + 1}`)}${k.active ? ' (active)' : ''}</option>`).join('')
-      + (a.ccKey && !keys.some((k) => k.id === a.ccKey) ? '<option value="" disabled>The key this agent used is gone</option>' : '');
-    if (a.ccKey && !keys.some((k) => k.id === a.ccKey)) sel.value = '';
+      + (gone ? '<option value="" disabled>The key this agent used is gone</option>' : '');
+    if (gone) sel.value = '';
   }
 
   // After a change that draws the page again, focus goes back to the button that made it (focusAfter, a selector).
@@ -1360,6 +1367,7 @@
     const a = byId(s.agPick);
     root.innerHTML = listHtml(s) + editorHtml(a);
     bindAll(s, a);
+    // Fills in what runs are doing: the activity, Run Now or Stop, and each roster row's second line.
     renderActivity();
     syncLinks(a);
     if (a?.kind === 'cc') fillKeys(a);
@@ -1434,7 +1442,7 @@
       const dl = depts();
       const order = [...d.scope.querySelectorAll('.m_ag_dept')].map((el) => el.dataset.dept);
       dl.sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id));
-      for (const x of dl) x.ids = [...d.scope.querySelectorAll(`${deptSel(x, '.m_ag_row')}`)].map((r) => r.dataset.id);
+      for (const x of dl) x.ids = [...d.scope.querySelectorAll(deptSel(x, '.m_ag_row'))].map((r) => r.dataset.id);
       setLoose([...d.scope.querySelectorAll('.m_ag_loose > .m_ag_row')].map((r) => r.dataset.id));
       const into = d.into && dl.find((x) => x.id === d.into);
       if (into) {
@@ -1451,10 +1459,11 @@
   // SillyTavern's crop box, square, on the picture at src. Returns the cropped part as a PNG file (transparency kept), or
   // null on Cancel. A picture from another site that doesn't allow reading it can't be cropped.
   async function cropFile(src, revoke = false) {
+    const blocked = () => new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.');
     try {
       const img = new Image();
       if (!src.startsWith('blob:')) img.crossOrigin = 'anonymous';
-      await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.')); img.src = src; });
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(blocked()); img.src = src; });
       const c = ctx();
       const p = new c.Popup('', c.POPUP_TYPE.CROP, '', { cropImage: src, cropAspect: 1, okButton: 'Crop' });
       // On Crop it answers with its own JPEG of the crop (no transparency), on Cancel with null: only its box is used.
@@ -1465,7 +1474,7 @@
       cv.width = w; cv.height = h;
       cv.getContext('2d').drawImage(img, Math.round(box.x), Math.round(box.y), w, h, 0, 0, w, h);
       let blob;
-      try { blob = await new Promise((ok) => cv.toBlob(ok, 'image/png')); } catch (e) { throw new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.'); }
+      try { blob = await new Promise((ok) => cv.toBlob(ok, 'image/png')); } catch (e) { throw blocked(); }
       if (!blob) throw new Error('The cropped picture couldn\'t be made.');
       return new File([blob], 'agent.png', { type: 'image/png' });
     } finally { if (revoke) URL.revokeObjectURL(src); }
@@ -1553,8 +1562,7 @@
         const pop = popMenu(dmore, `
           <button type="button" data-act="ren"><i class="fa-solid fa-pen fa-fw"></i>Rename</button>
           <button type="button" data-act="exp"${d.ids.length ? '' : ' disabled'}><i class="fa-solid fa-file-export fa-fw"></i>Export</button>
-          <button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
-          <button type="button" data-act="down"${i >= depts().length - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>
+          ${moveBtns(i, depts().length)}
           <button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete</button>`);
         if (!pop) return;
         pop.onclick = async (e) => {
@@ -1675,8 +1683,7 @@
       const pop = popMenu(more, `
         <button type="button" data-act="dup"><i class="fa-solid fa-copy fa-fw"></i>Duplicate</button>
         <button type="button" data-act="exp"><i class="fa-solid fa-file-export fa-fw"></i>Export</button>
-        <button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
-        <button type="button" data-act="down"${i >= ids.length - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>
+        ${moveBtns(i, ids.length)}
         <button type="button" data-act="to"><i class="fa-solid fa-share fa-fw"></i>${depts().length ? 'Move to Department…' : 'Move to New Department…'}</button>
         <button type="button" data-act="del" class="ntr_danger"><i class="fa-solid fa-trash-can fa-fw"></i>Delete</button>`);
       if (!pop) return;
@@ -1732,16 +1739,15 @@
         if (row) {
           row.querySelector('.m_ag_rname').textContent = a.name;
           row.querySelector('.m_ag_rtitle').textContent = a.title ? ` · ${a.title}` : '';
-        }
-        root.querySelectorAll(`.m_ag_row[data-id="${a.id}"] .m_ag_on`).forEach((sw) => {
+          const sw = row.querySelector('.m_ag_on');
           sw.title = `Turn ${a.name} on or off`;
           sw.setAttribute('aria-label', sw.title);
-        });
+        }
         refreshBoxes();
       };
     });
     const del = async () => {
-      if (!(await askYes(root.querySelector('.m_ag_headrow'), `Delete "${a.name}"? This can't be undone.`, 'Delete', { danger: true }))) return;
+      if (!(await askYes(ask(), `Delete "${a.name}"? This can't be undone.`, 'Delete', { danger: true }))) return;
       stopRuns((j) => j.id === a.id);
       s.agents = list().filter((x) => x !== a);
       checked.add(s.agents);
@@ -1904,7 +1910,7 @@
       changed(true);
       refreshBoxes();
     };
-    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', (n) => a.fields.some((f) => f.name.toLowerCase() === n.toLowerCase())) }));
+    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', nameIn(a.fields)) }));
     root.querySelector('#m_agf_head')?.addEventListener('click', () => add({ kind: 'heading', name: 'New Heading' }));
     if (!box) return;
     const at = (el) => a.fields.find((f) => f.id === el.closest('[data-fd]')?.dataset.fd);
@@ -2103,7 +2109,8 @@
       key,
       fill: (body) => {
         // Text being typed in an edit box survives a redraw, in the box for the same result or value only.
-        const kept = [...body.querySelectorAll('.ntr_agres_edit, .ntr_agf_input')].map((el) => [el.dataset.for, el.value]);
+        const boxes = () => body.querySelectorAll('.ntr_agres_edit, .ntr_agf_input');
+        const kept = new Map([...boxes()].map((el) => [el.dataset.for, el.value]));
         for (const x of parts) x.fv = x.a.on && x.r && usesFields(x.a) && !x.edit ? fieldsHtml(x.a, x.r, x.prev, pin, x.fedit) : null;
         const tabBar = isTabs ? `<div class="ntr_agres_tabs" role="tablist">${parts.map(({ a, fv }) => {
           const sel = a.id === tab;
@@ -2112,10 +2119,7 @@
         const shown = isTabs ? parts.filter((x) => x.a.id === tab) : parts;
         body.innerHTML = tabBar + shown.map((x) => pinPart(x, last, pin, isTabs)).join('')
           + (asOf != null ? `<div class="ntr_agres_asof cb_hint"><span>As of message #${asOf}</span><button type="button" class="menu_button" data-act="newest">Newest</button></div>` : '');
-        for (const [k, v] of kept) {
-          const el = [...body.querySelectorAll('.ntr_agres_edit, .ntr_agf_input')].find((x) => x.dataset.for === k);
-          if (el) el.value = v;
-        }
+        for (const el of boxes()) if (kept.has(el.dataset.for)) el.value = kept.get(el.dataset.for);
         const inp = body.querySelector('.ntr_agf_input');
         if (inp && focusEdit) { inp.focus(); inp.select(); }
         focusEdit = false;

@@ -1,11 +1,11 @@
 (() => {
-  const CAST_VERSION = '2.86.69';
+  const CAST_VERSION = '2.86.70';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
 
   // A speaker's pictures live in the card's Visual Novel data (or per group): emoImgs holds the faces (speaker, then
-  // emotion id), sprites the full bodies (one per speaker). The names stay as they are so saved cards keep working.
+  // emotion id), sprites the full bodies (one per speaker).
   function D() {
     const v = A.vnData();
     // A character with faces keeps its own emotion list, so a later change to the template can't strand its faces.

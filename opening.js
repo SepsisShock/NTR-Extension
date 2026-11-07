@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.69';
+  const OP_VERSION = '2.86.70';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;

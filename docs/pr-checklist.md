@@ -1,5 +1,5 @@
 - Mention `Checklist: received` in chat, so the user can tell this checklist came up.
-- **Comments:** Have a new independent Sonnet subagent audit comments against `docs/code-comment-guidelines.md`:
+- **Comments:** Have a new independent Opus 5.5 subagent, high reasoning, audit comments against `docs/code-comment-guidelines.md`:
   - Scope: every comment added or changed in `git diff origin/main...HEAD`, plus comments anywhere that mention names this PR renamed or removed.
   - Verdicts: one per comment (keep, edit, shorten, or delete), citing the guideline number.
   - Apply and commit its fixes, unless one deletes a constraint the code needs or is incorrect.

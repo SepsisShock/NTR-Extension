@@ -16,6 +16,7 @@
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
   const vnOn = () => A.isOn() && settings().nodeEnabled;
+  const newDiv = (id, html = '') => Object.assign(document.createElement('div'), { id, innerHTML: html });
 
   // ----- Built-in art kit: original SVG drawn in code, no outside art, and picking built-in or custom art -----
   function rng(seed) {
@@ -226,22 +227,13 @@
   let nodeQ = null, nodeQAnim = false;
 
   // Scene tags inside the narrator delimiters: [[Location:X]], [[Choice: A | B]], [[Effect:X]], [[Weather:X]], [[CG:X]], [[Enter:X | left]], [[Exit:X]]
-  function dirKind(word, s) {
-    const w = lc(word);
-    if (w === lc(s.locWord)) return 'loc';
-    if (w === lc(s.choiceWord)) return 'choice';
-    if (w === lc(s.effectWord)) return 'fx';
-    if (w === lc(s.weatherWord)) return 'wx';
-    if (w === lc(s.cgWord)) return 'cg';
-    if (w === lc(s.enterWord)) return 'enter';
-    if (w === lc(s.exitWord)) return 'exit';
-    return null;
-  }
+  const DIR_WORDS = [['loc', 'locWord'], ['choice', 'choiceWord'], ['fx', 'effectWord'], ['wx', 'weatherWord'], ['cg', 'cgWord'], ['enter', 'enterWord'], ['exit', 'exitWord']];
   function dirOf(inner, s) {
-    const str = String(inner).trim();
+    const str = inner.trim();
     const i = str.indexOf(':');
     if (i <= 0) return null;
-    const kind = dirKind(str.slice(0, i), s);
+    const w = lc(str.slice(0, i));
+    const kind = DIR_WORDS.find(([, k]) => lc(s[k]) === w)?.[0];
     const arg = str.slice(i + 1).trim();
     return kind && arg ? { kind, arg } : null;
   }
@@ -282,7 +274,7 @@
     const msgEmo = C.stripEmo(String(raw || ''));
     raw = msgEmo.text;
     const re = tagRe(s);
-    const nar = String(s.narratorWord).trim().toLowerCase();
+    const nar = lc(s.narratorWord);
     const segs = [];
     let last = 0, cur = null, m, sawTag = false;
     const lead = (text) => (leadAsSpeaker ? { kind: 'char', name: fallbackName || '', emo: '', text } : { kind: 'narrator', name: '', emo: '', text });
@@ -329,7 +321,7 @@
 
   function parseMsg(m) {
     const c = ctx();
-    return m.is_user ? parseSegments(m.mes, m.name || c.name1, true) : parseSegments(m.mes, m.name || c.name2, false);
+    return parseSegments(m.mes, m.name || (m.is_user ? c.name1 : c.name2), m.is_user);
   }
 
   // Who is on stage: castNew and castStep (cast.js) keep the list. A snapshot goes on each line.
@@ -374,9 +366,9 @@
     // Effects and CGs belong to the next line; choices to the line before them.
     let fx = [], cg = null, choice = null;
     for (const seg of parts) {
-      if (seg.kind === 'loc') { loc = seg.name; continue; }
-      if (seg.kind === 'enter' || seg.kind === 'exit') { castStep(cast, seg); continue; }
       castStep(cast, seg);
+      if (seg.kind === 'loc') { loc = seg.name; continue; }
+      if (seg.kind === 'enter' || seg.kind === 'exit') continue;
       if (seg.kind === 'wx') { wx = wxKind(seg.name, s) || wx; continue; }
       if (seg.kind === 'fx') { const k = fxKind(seg.name, s); if (k) fx.push(k); continue; }
       if (seg.kind === 'cg') { cg = seg.name; continue; }
@@ -638,24 +630,18 @@
       box.innerHTML = guideHtml(s);
       box.querySelectorAll('.m_g_cp').forEach((b) => { b.onclick = () => copyText(b.dataset.c); });
     }
-    // Tags & Delimiters are on the Avatars page, under Emotions (cast.js): emotion tags work with Visual Novel Mode off too.
-    const gotoDelims = (e) => {
-      if (e) e.preventDefault();
-      s.uiPage = 'pfp'; s.uiOpen.av_emo = true; s.uiOpen.av_tags = true; save();
+    // Opens the Avatars page's Emotions part (cast.js) with section `sec` open, scrolled to it. Tags & Delimiters are
+    // there: emotion tags work with Visual Novel Mode off too.
+    const toCast = (sec) => (e) => {
+      e.preventDefault();
+      s.uiPage = 'pfp'; s.uiOpen.av_emo = true; s.uiOpen[sec] = true; save();
       A.openMenu();
-      setTimeout(() => document.querySelector('#cb_modal_overlay [data-sec="av_tags"]')?.scrollIntoView({ block: 'start' }), 60);
+      setTimeout(() => document.querySelector(`#cb_modal_overlay [data-sec="${sec}"]`)?.scrollIntoView({ block: 'start' }), 60);
     };
-    overlay.querySelectorAll('.m_g_goto').forEach((b) => { b.onclick = gotoDelims; });
+    overlay.querySelectorAll('.m_g_goto').forEach((b) => { b.onclick = toCast('av_tags'); });
+    overlay.querySelectorAll('.m_n_tocast').forEach((b) => { b.onclick = toCast('av_emo'); });
     const refreshAll = () => { renderGuide(); refreshPrompt(); updateInjection(); if (s.nodeEnabled) nodeLoad({ animate: false }); };
     menuRefresh = refreshAll;
-    overlay.querySelectorAll('.m_n_tocast').forEach((b) => {
-      b.onclick = (e) => {
-        e.preventDefault();
-        s.uiPage = 'pfp'; s.uiOpen.av_emo = true; save();
-        A.openMenu();
-        setTimeout(() => document.querySelector('#cb_modal_overlay [data-sec="av_emo"]')?.scrollIntoView({ block: 'start' }), 60);
-      };
-    });
 
     const chk = (sel, key, after) => A.bindCheck(overlay, sel, s, key, after);
     chk('#m_n_user', 'nodeUserMsgs', () => { refreshPrompt(); nodeLoad({ animate: false }); });
@@ -714,12 +700,7 @@
         });
         box.querySelectorAll(`.m_${L.c}_clr`).forEach((b) => {
           b.onclick = async () => {
-            if (!(await A.askYes(b, REMOVE_PIC, 'Remove', { danger: true }))) return;
-            let old;
-            if (b.dataset.id === DEF_ID) { old = v[L.def.key]; v[L.def.key] = ''; }
-            else { const x = find(b.dataset.id); if (!x) return; old = x.url; x.url = ''; }
-            save(); render(); refreshAll();
-            A.deleteFileIfUnused(old);
+            if (await A.askYes(b, REMOVE_PIC, 'Remove', { danger: true })) setImage(b.dataset.id, '');
           };
         });
         box.querySelectorAll(`.m_${L.c}_del`).forEach((b) => {
@@ -744,7 +725,6 @@
       };
       A.onFilePick(file, 'Visual Novel', async (f) => {
         const id = pending;
-        if (!id) return;
         const url = await A.uploadHere(() => uploadImage(f, L.prefix, { max: 2560 }));
         if (url) setImage(id, url);
       });
@@ -802,7 +782,6 @@
     });
     A.onFilePick(artFile, 'Visual Novel', async (f) => {
       const k = artPending;
-      if (!k) return;
       setArtImage(k, await uploadImage(f, 'vnart', { max: k === 'artBgImg' ? 2560 : 1600 }));
     });
 
@@ -899,9 +878,7 @@
   function ensureNodeLayer() {
     let ov = document.getElementById('cb_node');
     if (ov) return ov;
-    ov = document.createElement('div');
-    ov.id = 'cb_node';
-    ov.innerHTML = `
+    ov = newDiv('cb_node', `
       <div class="cb_n_port"><img alt=""><i class="fa-solid fa-user"></i></div>
       <div class="cb_n_box">
         <div class="cb_n_choices"></div>
@@ -916,7 +893,7 @@
           <button type="button" data-a="next" title="Next line"><i class="fa-solid fa-angle-right"></i></button>
           <button type="button" data-a="newer" title="Newer message (Page Down)"><i class="fa-solid fa-angles-right"></i></button>
         </div>
-      </div>`;
+      </div>`);
     document.body.appendChild(ov);
     ov.querySelector('.cb_n_box').addEventListener('click', (e) => {
       if (e.target.closest('.cb_n_ctrl, .cb_n_choices')) return;
@@ -997,12 +974,12 @@
     node.typer = requestAnimationFrame(step);
   }
 
-  // Marks a part as just shown, for looks that play once when it appears (Text Formatting's Shimmer). Taking the mark
-  // off and putting it back starts them over.
-  function justShown(el) {
-    el.classList.remove('cb_shown');
+  // Takes class `cls` off and puts it back, so the animations it starts play again. cb_shown marks a part as just shown,
+  // for looks that play once when it appears (Text Formatting's Shimmer).
+  function replayClass(el, cls) {
+    el.classList.remove(cls);
     void el.offsetWidth;
-    el.classList.add('cb_shown');
+    el.classList.add(cls);
   }
 
   function nodeShow(animate, shown = 0) {
@@ -1022,7 +999,7 @@
     const nameEl = ov.querySelector('.cb_n_name');
     const newName = nameEl.textContent !== (seg.name || '');
     nameEl.textContent = seg.name || '';
-    if (newName && seg.name) justShown(nameEl);
+    if (newName && seg.name) replayClass(nameEl, 'cb_shown');
     nameEl.style.display = seg.name ? '' : 'none';
 
     const port = ov.querySelector('.cb_n_port');
@@ -1044,10 +1021,10 @@
     const more = node.i < node.segs.length - 1;
     const html = nodeFmt(seg.text);
     arrow.textContent = '';
-    const waits = !!(s.nodeChoices && seg.choices && seg.choices.length);
+    const waits = s.nodeChoices && seg.choices;
     const done = () => {
       node.typing = false; node.finish = null;
-      justShown(text);
+      replayClass(text, 'cb_shown');
       arrow.textContent = more ? '\u25BC' : '';
       renderChoices(seg);
       if (s.nodeAuto && more && !waits && !node.held) node.auto = setTimeout(() => nodeStep(1), A.rangeNum(s, 'nodeAutoDelay'));
@@ -1058,7 +1035,7 @@
     setLocation(seg.loc);
     setWeather(seg.wx);
     setCG(seg.cg);
-    if (animate && s.nodeEffects) (seg.fx || []).forEach(fireFx);
+    if (animate && s.nodeEffects) seg.fx.forEach(fireFx);
     updateStage();
   }
 
@@ -1082,7 +1059,6 @@
     box.querySelectorAll('.cb_n_choice').forEach((b) => {
       b.onclick = (e) => {
         e.stopPropagation();
-        if (b.disabled) return;
         renderChoices(null);
         putInInput(opts[Number(b.dataset.i)], settings().choiceSend);
       };
@@ -1093,16 +1069,15 @@
   function putInInput(text, send) {
     const ta = document.getElementById('send_textarea');
     if (!ta) return false;
-    const cur = ta.value || '';
-    if (!cur.trim()) text = noSlash(text);
-    ta.value = cur.trim() ? cur.replace(/\s+$/, '') + '\n' + text : text;
+    const cur = ta.value.trimEnd();
+    ta.value = cur ? cur + '\n' + text : noSlash(text);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
     if (send) {
       const b = document.getElementById('send_but');
       if (b) { b.click(); return true; }
     }
     ta.focus();
-    try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+    ta.setSelectionRange(ta.value.length, ta.value.length);
     return true;
   }
 
@@ -1114,16 +1089,14 @@
     if ((kind === 'shake' || kind === 'flash') && A.reducedMotion()) return;
     if (kind === 'shake') {
       const els = SHAKE_IDS.map((id) => document.getElementById(id)).filter(Boolean);
-      els.forEach((el) => { el.classList.remove('ntr_shake'); void el.offsetWidth; el.classList.add('ntr_shake'); });
+      els.forEach((el) => replayClass(el, 'ntr_shake'));
       clearTimeout(shakeT);
       shakeT = setTimeout(() => els.forEach((el) => el.classList.remove('ntr_shake')), 600);
       return;
     }
     let L = document.getElementById('ntr_fx');
     if (!L) {
-      L = document.createElement('div');
-      L.id = 'ntr_fx';
-      document.body.appendChild(L);
+      L = document.body.appendChild(newDiv('ntr_fx'));
       L.addEventListener('animationend', () => { L.className = ''; });
     }
     L.className = '';
@@ -1137,9 +1110,7 @@
     let L = document.getElementById('ntr_wx');
     if (!L) {
       if (!k) return;
-      L = document.createElement('div');
-      L.id = 'ntr_wx';
-      document.body.appendChild(L);
+      L = document.body.appendChild(newDiv('ntr_wx'));
     }
     L.classList.toggle('ntr_rain', k === 'rain');
     L.classList.toggle('ntr_snow', k === 'snow');
@@ -1168,10 +1139,7 @@
     let L = document.getElementById('ntr_cg');
     if (!L) {
       if (!url) return;
-      L = document.createElement('div');
-      L.id = 'ntr_cg';
-      L.innerHTML = '<div class="ntr_cg_bg"></div><img alt="">';
-      document.body.appendChild(L);
+      L = document.body.appendChild(newDiv('ntr_cg', '<div class="ntr_cg_bg"></div><img alt="">'));
       L.addEventListener('click', () => nodeAdvance());
     }
     if (url === cgCur) return;
@@ -1194,8 +1162,7 @@
   function syncMapBtn() {
     const b = document.querySelector('#cb_node .cb_n_mapbtn');
     if (!b) return;
-    const s = settings();
-    b.style.display = s.nodeMaps && A.store() && (V().maps || []).some((m) => m.url) ? '' : 'none';
+    b.style.display = settings().nodeMaps && A.store() && V().maps.some((m) => m.url) ? '' : 'none';
   }
 
   function openMap() {
@@ -1207,13 +1174,11 @@
   function ensureLocLayer() {
     let L = document.getElementById('ntr_loc');
     if (L) return L;
-    L = document.createElement('div');
-    L.id = 'ntr_loc';
-    L.innerHTML = '<div></div><div></div>';
+    L = newDiv('ntr_loc', '<div></div><div></div>');
     const bgs = ['bg1', 'bg_custom'].map((id) => document.getElementById(id)).filter(Boolean);
     bgs.sort((a, b) => (a.compareDocumentPosition(b) & 4 ? -1 : 1));
     const lastBg = bgs[bgs.length - 1];
-    if (lastBg && lastBg.parentNode) {
+    if (lastBg) {
       lastBg.parentNode.insertBefore(L, lastBg.nextSibling);
       const zs = bgs.map((b) => parseInt(getComputedStyle(b).zIndex, 10)).filter((z) => !Number.isNaN(z));
       if (zs.length) L.style.zIndex = String(Math.max(...zs));
@@ -1228,7 +1193,7 @@
     const v = V();
     const n = normLoc(name);
     const hit = n ? v.locations.find((l) => normLoc(l.name) === n) : null;
-    return media(hit && hit.url) || media(v.locDefault) || artBgUrl() || '';
+    return media(hit && hit.url) || media(v.locDefault) || artBgUrl();
   }
 
   function setLocation(name) {
@@ -1257,17 +1222,14 @@
   function ensureStage() {
     let st = document.getElementById('ntr_stage');
     if (st) return st;
-    st = document.createElement('div');
-    st.id = 'ntr_stage';
-    st.innerHTML = ['left', 'center', 'right'].map((p) => `<img class="ntr_spr" data-spot="${p}" alt="">`).join('');
-    document.body.appendChild(st);
+    st = document.body.appendChild(newDiv('ntr_stage', ['left', 'center', 'right'].map((p) => `<img class="ntr_spr" data-spot="${p}" alt="">`).join('')));
     st.querySelectorAll('img').forEach((i) => { i.onerror = () => { i.style.display = 'none'; }; });
     return st;
   }
 
   // Stage sprites: the speaker's full body or face (cast.js), else the silhouette.
   function spriteSrc(name, emoName) {
-    return C.bodySrc(name, emoName) || silhouetteFor(String(name || '').trim().toLowerCase());
+    return C.bodySrc(name, emoName) || silhouetteFor(lc(name));
   }
 
   function updateStage() {
@@ -1384,7 +1346,7 @@
   function nodeLoad(opts = {}) {
     const s = settings();
     const ov = ensureNodeLayer();
-    syncNodeToggle();
+    A.syncVNToggle();
     // SillyTavern clears every extension prompt when a chat opens or reloads, so the tag instructions go back in each time.
     updateInjection();
     // Taken right away, so a Continue that ends while Visual Novel Mode is off doesn't apply later.
@@ -1492,8 +1454,6 @@
   }
 
   // ----- Redrawing and switching off -----
-  const syncNodeToggle = () => A.syncVNToggle();
-
   // While Visual Novel Mode is off, new messages, edits and swipes are left alone: switching it on loads the chat again.
   function nodeQueue(animate) {
     if (!vnOn()) return;
@@ -1533,7 +1493,7 @@
     node.contJump = null;
     updateInjection();
     C.refresh();
-    syncNodeToggle();
+    A.syncVNToggle();
     A.refreshFg();
   }
 
@@ -1550,7 +1510,7 @@
     genStarted: nodeGenStarted,
     continued: nodeContinued,
     // For Reader Mode's Page Up and Page Down.
-    goMsg: (d) => nodeGoMsg(d),
+    goMsg: nodeGoMsg,
     // For Pinned Blocks (through Reader Mode): the message on screen, or null on the newest.
     shownMsg: () => (vnOn() && node.list.length && !node.follow ? node.list[node.pos] : null),
     // For map.js and opening.js

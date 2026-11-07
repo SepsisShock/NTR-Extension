@@ -19,7 +19,7 @@
   const ellipse = (shape) => shape === 'round' || shape === 'oval';
   // A side's Shape, or null for None.
   const shapeOf = (s, prefix) => (SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null);
-  // The Frame's sliders' ids and settings, which are remembered together for each frame.
+  // The Frame's slider ids and settings. The settings are remembered together for each frame.
   const FRAME_SLIDERS = [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']];
   const FRAME_KEYS = FRAME_SLIDERS.map(([, k]) => k);
 

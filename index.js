@@ -359,7 +359,7 @@ await (async () => {
     if (isOn()) {
       const chatCss = layoutChatCss(s) + namesCss(s) + (callModule('decor', 'css', s) || '');
       // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
-      // repainted all of it, avatar fades included.
+      // would repaint all of it, avatar fades included.
       cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + (chatCss ? chatCss + '\n' : '') + '\n      #chat { will-change: transform; }\n';
     }
 
@@ -2368,8 +2368,8 @@ await (async () => {
   // `loading`.
   const moduleNote = (name, loading) => (modError[name] ? `${MOD_LABEL[name]} failed to load: ` + escapeHTML(modError[name])
     : window.NTR[name] ? `${MOD_LABEL[name]} couldn't be drawn. The browser console has the details.` : loading);
-  // A look module's page, or a note saying why it isn't there. Without avatars.js, Avatar Management keeps Emotions
-  // (cast.js), which saves some things per character.
+  // A look module's page, or a note saying why it isn't there. Without avatars.js, Avatar Management keeps
+  // Emotions (cast.js).
   function lookPageHtml(name, s) {
     const html = callModule(name, 'sectionHtml', s);
     if (html !== undefined) return html;
@@ -2838,7 +2838,7 @@ await (async () => {
     LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, normFile, uploadDataUrl, isObj, stColor,
     // Exported files, and names for imported or new items
     downloadJson, freeName, uniqueName,
-    // For agents.js: its sliders' ranges
+    // NUM_RANGE ranges and slider attributes, for modules' own sliders and number boxes
     numRange: (k) => NUM_RANGE[k], rangeAttrs,
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
     peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, card, pagePart,

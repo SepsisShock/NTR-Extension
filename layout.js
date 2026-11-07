@@ -57,7 +57,6 @@
     : it.pin ? document.querySelector(`#ntr_pin_layer > .ntr_pin[data-pin="${it.pin}"]`)
       : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_popf_${it.id}`));
 
-  // r if it has a size, or null.
   const sized = (r) => (r && r.width > 0 && r.height > 0 ? r : null);
   // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar, page bar and
   // banner only while they're Floating, since Attached they follow the chat panel. The page bar is there in Reader

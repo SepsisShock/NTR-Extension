@@ -896,7 +896,6 @@
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const headBtn = (id, icon, title, extra = '') => `<button type="button" class="menu_button m_ag_hbtn" id="${id}" title="${title}" aria-label="${title}"${extra}><i class="fa-solid fa-fw ${icon}"></i></button>`;
   const nameSize = (v) => Math.min(30, Math.max(4, v.length + 1));
-  // A More menu's Move Up and Move Down, for item i of n.
   const moveBtns = (i, n) => `<button type="button" data-act="up"${i <= 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up fa-fw"></i>Move Up</button>
     <button type="button" data-act="down"${i >= n - 1 ? ' disabled' : ''}><i class="fa-solid fa-arrow-down fa-fw"></i>Move Down</button>`;
 

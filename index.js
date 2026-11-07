@@ -767,11 +767,6 @@ await (async () => {
   function pills(name, opts, cur) {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
-  // Tiles: pick-one choices shown as pictures. Each option is [value, name, face]; the face is its picture's HTML, or
-  // the name is shown when it has none. Named tiles also show the name under the picture. Bound with onPills, like pills.
-  function tiles(name, label, opts, cur, named = false) {
-    return `<div class="ntr_tiles${named ? ' ntr_named' : ''}" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span>${named ? `<span class="ntr_tile_name">${escapeHTML(l)}</span>` : ''}</label>`).join('')}</div>`;
-  }
   const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
   function posGrid(name, cur) {
     return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" aria-label="${l}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
@@ -2833,7 +2828,7 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: openCombinedModal, fillIn,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn').click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,

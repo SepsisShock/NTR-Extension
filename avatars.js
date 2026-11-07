@@ -3,7 +3,7 @@
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, menuBtn, newId, numRange, onPills, pageHtml, pills,
-    popMenu, posGrid, openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, tiles, uploadImage } = A;
+    popMenu, posGrid, openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, uploadImage } = A;
   const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow,
     restyle: updateAvatarStyle, setSlider, svgMask } = A.look;
 
@@ -41,8 +41,14 @@
     round: 'width: 22px; height: 22px; border-radius: 50%;', oval: 'width: 15px; height: 22px; border-radius: 50%;', rectangle: 'width: 15px; height: 22px; border-radius: 2px;', square: 'width: 20px; height: 20px; border-radius: 2px;',
     heart: `width: 24px; height: 24px; ${OUTLINE_CUT.heart}`, star: `width: 24px; height: 24px; ${OUTLINE_CUT.star}`,
   };
+  // Tiles: pick-one choices shown as pictures. Each option is [value, name, face]; the face is its picture's HTML, or
+  // the name is shown when it has none. Named tiles also show the name under the picture; cls adds a class to the grid.
+  // Bound with onPills, like pills.
+  function tiles(name, label, opts, cur, named = false, cls = '') {
+    return `<div class="ntr_tiles${named ? ' ntr_named' : ''}${cls ? ' ' + cls : ''}" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span>${named ? `<span class="ntr_tile_name">${escapeHTML(l)}</span>` : ''}</label>`).join('')}</div>`;
+  }
   const shapeTiles = (prefix, cur) => tiles(`${prefix}shape`, 'Shape', SHAPE_OPTS.map(([v, l]) => [v, l,
-    SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur).replace('class="ntr_tiles', 'class="ntr_tiles ntr_shapes');
+    SHAPE_FACES[v] ? `<span style="display: block; background: currentColor; ${escapeHTML(SHAPE_FACES[v])}"></span>` : '']), cur, false, 'ntr_shapes');
 
   // Filters, at a Filter Strength s from 0 to 1, as the picture's CSS filter. k sizes Dreamy's blur for a smaller
   // picture (the menu's previews).
@@ -690,7 +696,7 @@
         <div style="flex: 1; min-width: 0;">${pills(`${prefix}frf`, shown.map((x) => [x.id, escapeHTML(x.name)]), f.id)}</div>
         <span class="ntr_menu"><button type="button" class="menu_button" id="m_${prefix}_frmore" style="margin: 0;" title="More" aria-label="More for ${escapeHTML(f.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
       </div>
-      ${tiles(`${prefix}frame`, 'Frame', opts, cur).replace('class="ntr_tiles', 'class="ntr_tiles ntr_frtiles')}
+      ${tiles(`${prefix}frame`, 'Frame', opts, cur, false, 'ntr_frtiles')}
       ${f.own ? `${menuBtn(`m_${prefix}_frup`, 'fa-upload', 'Upload Frame')}
         ${f.frames.length ? '' : '<div class="cb_hint" style="margin: 0;">Use a picture with a see-through middle, like a PNG.</div>'}` : ''}`;
   }

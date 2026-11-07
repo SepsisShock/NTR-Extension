@@ -48,19 +48,16 @@
   const locById = (id) => D().locations.find((l) => l.id === id) || null;
   const rootMap = () => mapById(D().mapRoot) || maps()[0] || null;
   const norm = (x) => VN().normLoc(x);
-  const pinName = (p) => {
-    const l = p.loc && locById(p.loc);
-    if (l) return l.name;
-    const m = p.map && mapById(p.map);
-    return m ? m.name : '';
-  };
+  const pinLoc = (p) => p.loc && locById(p.loc);
+  const pinMap = (p) => p.map && mapById(p.map);
+  const pinName = (p) => (pinLoc(p) || pinMap(p))?.name || '';
 
   // Visited / "you are here", following map links (a building counts as visited if any room in it does).
   function pinState(pin, st, seen = new Set()) {
     let visited = false, here = false;
-    const l = pin.loc && locById(pin.loc);
+    const l = pinLoc(pin);
     if (l) { const n = norm(l.name); visited = st.visited.has(n); here = !!st.cur && n === st.cur; }
-    const sub = pin.map && !seen.has(pin.map) && mapById(pin.map);
+    const sub = !seen.has(pin.map) && pinMap(pin);
     if (sub) {
       seen.add(sub.id);
       for (const p of sub.pins) {
@@ -80,10 +77,10 @@
     const walk = (m, path) => {
       if (seen.has(m.id)) return null;
       seen.add(m.id);
-      if (m.pins.some((p) => { const l = p.loc && locById(p.loc); return l && norm(l.name) === st.cur; })) return [...path, m.id];
+      if (m.pins.some((p) => { const l = pinLoc(p); return l && norm(l.name) === st.cur; })) return [...path, m.id];
       for (const p of m.pins) {
-        const sub = p.map && mapById(p.map);
-        if (sub && !path.includes(sub.id) && sub.id !== m.id) { const r = walk(sub, [...path, m.id]); if (r) return r; }
+        const sub = pinMap(p);
+        if (sub) { const r = walk(sub, [...path, m.id]); if (r) return r; }
       }
       return null;
     };
@@ -132,7 +129,7 @@
   }
 
   function onKey(e) {
-    if (e.key !== 'Escape' || !view) return;
+    if (e.key !== 'Escape') return;
     if (view.sel) { view.sel = null; prune(); render(); } else close();
   }
 
@@ -158,7 +155,6 @@
   }
 
   function render() {
-    if (!view) return;
     const el = view.el;
     const stack = view.stack.filter((id) => mapById(id));
     if (!stack.length) { const r = rootMap(); if (!r) { close(); return; } stack.push(r.id); }
@@ -172,11 +168,12 @@
       ? 'Editing: click the map to drop a pin, drag pins to move them, click a pin to link it.'
       : 'Faded pins are places the story hasn\'t visited yet.';
     const box = el.querySelector('.ntr_map_view');
-    if (!media(m.url)) { box.innerHTML = '<div class="ntr_map_empty">This map has no picture yet. Upload one on the Reader Mode page, under Visual Novel.</div>'; return; }
+    const url = media(m.url);
+    if (!url) { box.innerHTML = '<div class="ntr_map_empty">This map has no picture yet. Upload one on the Reader Mode page, under Visual Novel.</div>'; return; }
     box.innerHTML = `<div class="ntr_map_canvas"><img alt="" draggable="false"><div class="ntr_map_pins"></div><div class="ntr_map_pop"></div></div>`;
     const canvas = box.querySelector('.ntr_map_canvas');
     const img = canvas.querySelector('img');
-    img.src = media(m.url);
+    img.src = url;
     img.onerror = () => { box.innerHTML = '<div class="ntr_map_empty">The map picture failed to load.</div>'; };
     img.addEventListener('click', (e) => {
       if (!view.edit) { hidePop(); return; }
@@ -194,31 +191,28 @@
   const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
   function drawPins(m) {
-    if (!view) return;
     const host = view.el.querySelector('.ntr_map_pins');
     if (!host) return;
     const st = state();
     host.innerHTML = '';
     for (const p of m.pins) {
       const name = pinName(p);
-      const sub = p.map && mapById(p.map);
+      const subOnly = pinMap(p) && !pinLoc(p);
       if (!view.edit && !name) continue;
       const { visited, here } = pinState(p, st);
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'ntr_pin' + (sub && !(p.loc && locById(p.loc)) ? ' ntr_sub' : '') + (here ? ' ntr_here' : '')
+      b.className = 'ntr_pin' + (subOnly ? ' ntr_sub' : '') + (here ? ' ntr_here' : '')
         + (!view.edit && !visited && !here ? ' ntr_unseen' : '') + (view.edit && !name ? ' ntr_bad' : '') + (view.sel === p.id ? ' ntr_sel' : '');
       b.style.left = (p.x * 100) + '%';
       b.style.top = (p.y * 100) + '%';
-      b.innerHTML = `<i class="fa-solid ${sub && !(p.loc && locById(p.loc)) ? 'fa-map' : 'fa-location-dot'}"></i>${name ? `<span>${escapeHTML(name)}</span>` : ''}`;
+      b.innerHTML = `<i class="fa-solid ${subOnly ? 'fa-map' : 'fa-location-dot'}"></i>${name ? `<span>${escapeHTML(name)}</span>` : ''}`;
       b.title = name || 'Unlinked pin';
       bindPin(b, p, m);
       host.appendChild(b);
     }
-    if (view.sel) {
-      const p = m.pins.find((x) => x.id === view.sel);
-      if (p) showPop(p, m); else hidePop();
-    }
+    const sel = view.sel && m.pins.find((x) => x.id === view.sel);
+    if (sel) showPop(sel, m); else hidePop();
   }
 
   function bindPin(b, p, m) {
@@ -244,12 +238,11 @@
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       if (moved) { moved = false; return; }
-      const sub = p.map && mapById(p.map);
-      if (!view.edit && sub && !(p.loc && locById(p.loc))) { goMap(sub.id); return; }
+      const sub = pinMap(p);
+      if (!view.edit && sub && !pinLoc(p)) { goMap(sub.id); return; }
       view.sel = view.sel === p.id ? null : p.id;
       if (view.edit && !view.sel) prune();
       drawPins(m);
-      if (!view.sel) hidePop();
     });
   }
 
@@ -261,13 +254,13 @@
   }
 
   function hidePop() {
-    const pop = view && view.el.querySelector('.ntr_map_pop');
-    if (pop) { pop.style.display = 'none'; pop.innerHTML = ''; }
+    const pop = view.el.querySelector('.ntr_map_pop');
+    pop.style.display = 'none';
+    pop.innerHTML = '';
   }
 
   function showPop(p, m) {
     const pop = view.el.querySelector('.ntr_map_pop');
-    if (!pop) return;
     pop.style.left = (Math.min(0.85, Math.max(0.15, p.x)) * 100) + '%';
     pop.style.top = (p.y * 100) + '%';
     pop.style.display = 'block';
@@ -286,14 +279,13 @@
         </div>`;
       onPills(pop, 'mappl', (v) => { p.loc = v; save(); drawPins(m); });
       onPills(pop, 'mapmp', (v) => { p.map = v; save(); drawPins(m); });
-      pop.querySelector('[data-a="del"]').onclick = () => { m.pins = m.pins.filter((x) => x !== p); view.sel = null; save(); drawPins(m); hidePop(); };
-      pop.querySelector('[data-a="done"]').onclick = () => { view.sel = null; prune(); drawPins(m); hidePop(); };
+      pop.querySelector('[data-a="del"]').onclick = () => { m.pins = m.pins.filter((x) => x !== p); view.sel = null; save(); drawPins(m); };
+      pop.querySelector('[data-a="done"]').onclick = () => { view.sel = null; prune(); drawPins(m); };
       return;
     }
-    const st = state();
-    const { visited, here } = pinState(p, st);
-    const l = p.loc && locById(p.loc);
-    const sub = p.map && mapById(p.map);
+    const { visited, here } = pinState(p, state());
+    const l = pinLoc(p);
+    const sub = pinMap(p);
     pop.innerHTML = `
       <div class="ntr_pop_t">${escapeHTML(pinName(p))}</div>
       <div class="ntr_pop_s">${here ? 'You are here' : visited ? 'Visited' : 'Not visited yet'}</div>
@@ -310,7 +302,7 @@
   // "*heads to the {place}*" without doubling "the" for places like "The Docks".
   function goText(place) {
     const t = settings().mapGoText;
-    let name = String(place).trim();
+    let name = place.trim();
     if (/\bthe\s*\{place\}/i.test(t)) name = name.replace(/^the\s+/i, '');
     return t.includes('{place}') ? t.split('{place}').join(name) : `${t} ${name}`;
   }

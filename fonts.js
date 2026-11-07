@@ -86,7 +86,6 @@
     // full height, but never past the box's top, so what's typed stays in sight in a short menu.
     const fit = (p) => {
       const body = el.closest('.ntr_body');
-      if (!body) return;
       const full = Math.min(300, innerHeight * 0.4);
       const room = () => body.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom - 8;
       const short = full - room();

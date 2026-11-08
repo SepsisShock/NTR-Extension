@@ -13,8 +13,7 @@
 - Omit unless a setting's behavior is not obvious from its label.
 
 ### Source Code Comments
-- Use literal and succinct language. 3rd person if perspective is needed.
-- Avoid writing when code is obvious; comments are read only by LLMs, not humans.
+- Follow: docs/code-comment-guidelines.md
 
 ## Before Outputting, Think First
 - My Input: if it could be read different ways, use the conversation context & common sense to determine what I mean.

@@ -1,6 +1,6 @@
 # ChatGPT Instructions
 
-[unreleased] Nitwit Tavern Redesign (NTR) is a non-profit SillyTavern extension being developed for public release, using minimal, lightweight code for users on slower devices.
+[unreleased] Nitwit Tavern Redesign (NTR) is a non-profit SillyTavern extension being developed.
 
 ## Communication
 

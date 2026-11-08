@@ -53,10 +53,9 @@ Use plain, literal language. No em dashes; use a colon or a semicolon.
 
 ### Submitting Reviews (For Open PRs)
 
-1. Submit using authentication that makes GitHub record the ChatGPT/Codex bot as the actual author. Only if bot-authenticated posting is unavailable, use SepsisShock.
-2. Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
-3. Never leave the review pending.
-4. In chat, give a short summary and the review link.
+1. Submit as Comment, not as Approve or Request changes, because GitHub rejects those.
+2. Never leave the review pending.
+3. In chat, give a short summary and the review link.
 
 ## Special Review Skills
 

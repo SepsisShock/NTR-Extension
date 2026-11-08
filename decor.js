@@ -1,5 +1,5 @@
 (() => {
-  const DECOR_VERSION = '2.86.72';
+  const DECOR_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
@@ -59,11 +59,8 @@
     if (picked(s, 'ovPanelBg', 'clear')) css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...NO_BLUR, border: 'none', 'box-shadow': 'none' });
     else if (on(s, 'ovPanelBg')) css += cssRule('#chat', { 'background-color': bgColor(s, 'Panel') });
     // No line along the top, which stays flush with SillyTavern's top bar. The corners and the bottom line follow joinCss.
-    const line = on(s, 'ovPanelBorder') && s.ovPanelBorder !== 'none';
-    css += cssRule('#chat', {
-      border: on(s, 'ovPanelBorder') ? ovBorderVal(s, 'Panel') : '',
-      'border-top': line ? 'none' : '',
-    });
+    const border = on(s, 'ovPanelBorder');
+    css += cssRule('#chat', { border: border ? ovBorderVal(s, 'Panel') : '', 'border-top': border ? 'none' : '' });
     css += joinCss(s, separate) + uiShapeCss(s);
 
     // AI and User messages. A message with its own background or border gets the room ST's Bubbles style gives it,

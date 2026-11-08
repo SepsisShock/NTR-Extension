@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.72';
+  const REGEX_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson, switchHtml } = A;
@@ -381,7 +381,6 @@ try {
   }
 
   async function onClick(e) {
-    if (!e.target.closest('.ntr_menu')) closePops();
     const b = e.target.closest('[data-act]');
     const secEl = e.target.closest('.rx_sec');
     const sec = secEl ? secOf(secEl.dataset.sec) : null;

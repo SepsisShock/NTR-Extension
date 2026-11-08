@@ -1,10 +1,10 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.72';
+  const OVERLAYS_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
-  const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
+  const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum,
     media, escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
-    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, openMenu, menuBtn } = A;
+    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, openMenu, menuBtn, sliderAbove } = A;
   const { ovLabel, cssTag, setSlider } = A.look;
 
   const CSS = `
@@ -522,10 +522,8 @@
   function sectionHtml(s) {
     const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
     const free = A.banFree();
-    // A slider for the NUM_RANGE key k; attrs are extra attributes for the input.
-    const sl = (id, label, val, k, attrs = '', extra = '') => `
-              <div class="cb_row" style="margin-top: 10px;"><label for="${id}">${label}</label><span><span class="ntr_slval">${val}</span>${numRange(k)[3]}</span></div>
-              <input type="range" id="${id}" ${attrs}${attrs ? ' ' : ''}${rangeAttrs(k)} value="${val}"${extra}>`;
+    // A slider for the NUM_RANGE key k; attrs are the input's other attributes.
+    const sl = (id, label, val, k, attrs = '') => sliderAbove(label, k, val, `id="${id}" ${attrs}`, '10px');
     return pageHtml('fg', `
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
             ${card('Source', `
@@ -599,7 +597,7 @@
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
-              ${sl('m_b_offset', `Push Messages Down ${TAG}`, cardNum(r.overlapOffset, 'bannerOffset', 0), 'bannerOffset', '', !key ? ' disabled' : '')}
+              ${sl('m_b_offset', `Push Messages Down ${TAG}`, cardNum(r.overlapOffset, 'bannerOffset', 0), 'bannerOffset', !key ? 'disabled' : '')}
             </div>
             </div>
 
@@ -629,7 +627,7 @@
                     <button class="menu_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Remove picture" aria-label="Remove ${pos} picture" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-rotate-left"></i></button>
                   </div>
                   <div style="width:100%; text-align:left;">
-                  ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_num" data-key="${pos}Scale"`, ' style="width:100%;"')}
+                  ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_num" data-key="${pos}Scale" style="width:100%;"`)}
                   ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_num" data-key="${pos}${ax}"`, ' style="width:100%;"')).join('')}
                   ${ovLabel('In Visual Novel Mode', pills('fgl' + pos, [['behind', 'Behind Sprites'], ['front', 'In Front']], F[pos + 'Layer']))}
                   </div>

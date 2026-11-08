@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.72';
+  const ELEMENTS_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -56,7 +56,6 @@
   // redrawing is used as it is.
   const cursorCache = new Map();
   const cursorLast = new Map();
-  const loadCors = (u) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
   function cursorImg(src, size) {
     const key = `${size}|${src}`;
     if (cursorCache.has(key)) return cursorCache.get(key) || cursorLast.get(src) || null;
@@ -70,7 +69,7 @@
       c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
       done({ url: c.toDataURL('image/png'), w: c.width, h: c.height });
     };
-    loadCors(src).then(draw).catch(() => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}));
+    loadImg(src, true).then(draw).catch(() => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}));
     return cursorLast.get(src) || null;
   }
   const TEXT_CURSOR_SEL = 'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], [contenteditable="true"]';
@@ -130,7 +129,7 @@
     if (mbLoaded.has(src)) return mbLoaded.get(src);
     if (mbLoaded.size > 60) { mbLoaded.clear(); mbWait.clear(); }
     mbLoaded.set(src, null);
-    const p = loadCors(src).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
+    const p = loadImg(src, true).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
     mbWait.set(src, p.then((st) => { mbLoaded.set(src, st); updateAvatarStyle(); return st; }));
     return null;
   }
@@ -549,7 +548,7 @@
   // The Style presets: which details each spot shows. ST is SillyTavern's own placement.
   const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
   const MD_PRESETS = {
-    st: ['ST', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
+    st: ['ST', mdSpots(DEFAULTS.mdAv, DEFAULTS.mdRow, DEFAULTS.mdCorner, DEFAULTS.mdBelow)],
     messenger: ['Messenger', mdSpots([], [], ['time'], [])],
     row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
     footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],
@@ -834,7 +833,7 @@
       const c = document.createElement('canvas');
       c.width = c.height = 32;
       const g = c.getContext('2d');
-      g.drawImage(await loadCors(src), 0, 0, 32, 32);
+      g.drawImage(await loadImg(src, true), 0, 0, 32, 32);
       const d = g.getImageData(0, 0, 32, 32).data;
       for (let k = 3; k < d.length; k += 4) if (d[k] < 250) return true;
       return false;

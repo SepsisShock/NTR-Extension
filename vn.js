@@ -1,5 +1,5 @@
 (() => {
-  const VN_VERSION = '2.86.72';
+  const VN_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
   const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
@@ -14,7 +14,6 @@
   const V = () => A.vnData();
 
   const normLoc = (x) => String(x || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  const safe = (fn) => { try { return fn(); } catch (e) { console.error('[NTR]', e); return undefined; } };
   const vnOn = () => A.isOn() && settings().nodeEnabled;
   const newDiv = (id, html = '') => Object.assign(document.createElement('div'), { id, innerHTML: html });
 
@@ -228,15 +227,6 @@
 
   // Scene tags inside the narrator delimiters: [[Location:X]], [[Choice: A | B]], [[Effect:X]], [[Weather:X]], [[CG:X]], [[Enter:X | left]], [[Exit:X]]
   const DIR_WORDS = [['loc', 'locWord'], ['choice', 'choiceWord'], ['fx', 'effectWord'], ['wx', 'weatherWord'], ['cg', 'cgWord'], ['enter', 'enterWord'], ['exit', 'exitWord']];
-  function dirOf(inner, s) {
-    const str = inner.trim();
-    const i = str.indexOf(':');
-    if (i <= 0) return null;
-    const w = lc(str.slice(0, i));
-    const kind = DIR_WORDS.find(([, k]) => lc(s[k]) === w)?.[0];
-    const arg = str.slice(i + 1).trim();
-    return kind && arg ? { kind, arg } : null;
-  }
   // Loose keyword match: "Heavy rain" still counts as rain.
   function wordKind(name, pairs) {
     const n = normLoc(name);
@@ -292,7 +282,7 @@
         cur = { kind: 'char', name: t.name, emo: t.emo };
         continue;
       }
-      const dir = dirOf(m[2], s);
+      const dir = A.tagOf(m[2], DIR_WORDS, s);
       if (dir) {
         segs.push({ kind: dir.kind, name: dir.arg, emo: '', text: '' });
         // A scene tag inside someone's line doesn't end it: the rest of the line is still theirs.
@@ -477,10 +467,8 @@
   const SUB_LABEL = { map: 'Maps', opening: 'Opening Video' };
   const SUB_ICON = { map: 'fa-map', opening: 'fa-clapperboard' };
   function subSection(name, sec, title, s) {
-    const m = window.NTR[name];
-    if (m) {
-      try { return m.sectionHtml(s); } catch (e) { console.error(`[NTR] ${name} menu crashed`, e); }
-    }
+    const html = A.callModule(name, 'sectionHtml', s);
+    if (html !== undefined) return html;
     const err = A.moduleError(name);
     const off = name === 'map' && !s.nodeMaps;
     const toggle = name === 'map' ? A.checkBox('m_map_on', s.nodeMaps, 'Show Maps') : '';
@@ -786,10 +774,7 @@
     });
 
     renderLoc(); renderCg(); renderArt(); refreshPrompt(); renderGuide();
-    for (const name of ['map', 'opening']) {
-      const m = window.NTR[name];
-      if (m) { try { m.bind(overlay, s); } catch (e) { console.error(`[NTR] ${name} menu crashed`, e); } }
-    }
+    for (const name of ['map', 'opening']) A.callModule(name, 'bind', overlay, s);
   }
 
   // Locations and CG Scenes are the same kind of list: each entry is a name that tags match, plus a picture.
@@ -802,8 +787,7 @@
     loc: {
       c: 'l', key: 'locations', idp: 'loc', name: 'location', label: 'Location', names: 'Locations', pic: 'background', picDel: 'background', prefix: 'vnloc',
       def: { key: 'locDefault', label: 'Default Background', hint: 'When nothing matches' },
-      // Map pins lose the deleted place, and go if they don't open another map either.
-      onDelete: (v, l) => { for (const mp of v.maps) mp.pins = mp.pins.filter((p) => p.loc !== l.id || p.map).map((p) => (p.loc === l.id ? { ...p, loc: '' } : p)); },
+      onDelete: (v, l) => A.unlinkPins(v, 'loc', l.id),
     },
     cg: { c: 'c', key: 'cgs', idp: 'cg', name: 'CG', label: 'CG', names: 'CGs', pic: 'illustration', picDel: 'picture', prefix: 'vncg' },
   };
@@ -1100,8 +1084,7 @@
       L.addEventListener('animationend', () => { L.className = ''; });
     }
     L.className = '';
-    void L.offsetWidth;
-    L.className = 'ntr_fx_' + kind;
+    replayClass(L, 'ntr_fx_' + kind);
   }
 
   function setWeather(kind) {
@@ -1166,7 +1149,7 @@
   }
 
   function openMap() {
-    loadSub('map', true).then((m) => { if (m) safe(() => m.open()); });
+    loadSub('map', true).then(() => A.callModule('map', 'open'));
   }
 
   // ----- Location backgrounds -----
@@ -1355,7 +1338,7 @@
     const sig = chatSig();
     const opened = sig !== lastSig;
     lastSig = sig;
-    if (opened) { node.waitId = null; node.cont = null; jump = null; safe(() => window.NTR.map?.close()); }
+    if (opened) { node.waitId = null; node.cont = null; jump = null; A.callModule('map', 'close'); }
     if (!vnOn()) { stopNode(ov); return; }
     watchLayout(true);
     if (opened) node.held = false; // opening.js stops a video that belongs to the previous chat
@@ -1482,8 +1465,8 @@
     node.cont = null;
     setLocation(null);
     clearScene();
-    safe(() => window.NTR.map?.close());
-    safe(() => window.NTR.opening?.abort());
+    A.callModule('map', 'close');
+    A.callModule('opening', 'abort');
     updateStage();
   }
 

@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.72';
+  const OP_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -130,7 +130,7 @@
     };
     document.addEventListener('keydown', st.onKey, true);
 
-    try { st.hooks.onStart(); } catch (e) { console.error('[NTR opening]', e); }
+    safeCall(() => st.hooks.onStart());
     requestAnimationFrame(() => root.classList.add('ntr_in'));
 
     if (o.title) showTitle();
@@ -150,8 +150,8 @@
     const st = cur;
     const box = document.createElement('div');
     box.className = 'ntr_op_title';
-    const bg = gate ? '' : safeCall(() => VN().sceneBg());
-    const art = gate ? '' : safeCall(() => VN().titleArt());
+    const bg = gate ? '' : A.callModule('vn', 'sceneBg');
+    const art = gate ? '' : A.callModule('vn', 'titleArt');
     const name = gate ? '' : A.chatName();
     box.innerHTML = `
       ${bg ? '<div class="ntr_op_bg"></div>' : ''}
@@ -472,8 +472,8 @@
     // The story starts once the transition has finished, not underneath it.
     setTimeout(() => {
       if (cur) return; // Another opening took over in the meantime.
-      try { st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
-      try { st.onEnd?.(); } catch (e) { console.error('[NTR opening]', e); }
+      safeCall(() => st.hooks.onDone());
+      safeCall(() => st.onEnd?.());
     }, st.outMs);
   }
 
@@ -488,7 +488,7 @@
     st.pin?.remove();
   }
 
-  function safeCall(fn) { try { return fn(); } catch (e) { console.error('[NTR opening]', e); return ''; } }
+  function safeCall(fn) { try { fn(); } catch (e) { console.error('[NTR opening]', e); } }
 
   // ----- Menu section -----
   function sectionHtml(s) {
@@ -515,7 +515,7 @@
             <button type="button" id="m_op_vclr" class="menu_button danger_button" style="margin:0;" title="Remove video" aria-label="Remove video" ${o.file ? '' : 'disabled'}><i class="fa-solid fa-trash"></i></button>
           </div>
         <div id="m_op_body" class="${hasSource(o) ? '' : 'cb_dim'}">
-          <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title Screen First</span></label>
+          <div style="margin-top:8px;">${A.checkBox('m_op_title', o.title, 'Title Screen First')}</div>
           <div class="cb_hint">Shows the scene, the character's picture and name, and a Start button.</div>
           ${ovLabel('Plays', pills('opwhen', [['newchat', 'Once per New Chat'], ['open', 'Each Time the Chat Opens'], ['vn', 'Each Time Visual Novel Starts']], o.when))}
           ${ovLabel('Logo', pills('oplogo', [['upload', 'Picture'], ['none', 'None']], o.logo))}

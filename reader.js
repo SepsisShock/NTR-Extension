@@ -1,11 +1,11 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.72';
+  const READER_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn, askNumber } = A;
-  const { cssTag } = A.look;
+  const { cssReaders, cssTag } = A.look;
 
   // How long a page flip takes (Book, see flip).
   const FLIP_MS = 450;
@@ -198,7 +198,7 @@
 
   // ----- Book -----
   // A picture link as it goes into the CSS. Links with characters that could break out of url("") use the built-in book.
-  const cssUrl = (s) => (s.rdBookImg && !/["\\\n\r]/.test(s.rdBookImg) ? `url("${s.rdBookImg}")` : `url("${A.bookUrl(s.rdBook)}")`);
+  const cssUrl = (s) => `url("${A.bookSrc(s)}")`;
   const px = (v) => `${Math.round(v * 10) / 10}px`;
   // A custom picture keeps its own shape, known once it has loaded.
   const ratios = new Map();
@@ -249,7 +249,7 @@
     const below = (pageFree ? 0 : document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form?.offsetHeight || 0);
     const room = { w: right - left, h: bottom - top - below - 16 };
     const ratio = ratioOf(s.rdBookImg);
-    if (s.rdFlip) decodeBook(s.rdBookImg ? A.media(s.rdBookImg) : A.bookUrl(s.rdBook));
+    if (s.rdFlip) decodeBook(A.bookSrc(s));
     let w = room.w * n('rdBookW') / 100, h = w / ratio;
     if (h > room.h) { h = Math.max(160, room.h); w = h * ratio; }
     const g = { x: left + (room.w - w) / 2, y: top + 8, w, h, pt: h * n('rdBookTop') / 100, pb: h * n('rdBookBottom') / 100, po: w * n('rdBookOuter') / 100, gap: w * n('rdBookSpine') / 100 };
@@ -257,7 +257,7 @@
     g.col = (w - 2 * g.po - g.gap) / 2;
     geom = g;
 
-    const font = s.rdBookFontOn ? A.cleanFont(s.rdBookFont) : '';
+    const font = cssReaders(s).font('rdBookFont');
     const B = 'html body.ntr_book';
     const css = `
     ${B} #sheld { position: fixed !important; left: ${px(g.x)} !important; top: ${px(g.y)} !important; width: ${px(g.w)} !important; max-width: none !important;
@@ -281,7 +281,7 @@
     ${B} #chat > .mes .mes_buttons { opacity: .35; transition: opacity .15s; }
     ${B} #chat > .mes:hover .mes_buttons { opacity: 1; }
     ${B} #chat .mes .name_text { color: ${s.rdInk} !important; }
-    ${B} #chat .mes .mes_text { color: ${s.rdInk} !important;${font ? ` font-family: "${font}", var(--mainFontFamily) !important;` : ''} }
+    ${B} #chat .mes .mes_text { color: ${s.rdInk} !important;${font ? ` font-family: ${font} !important;` : ''} }
     ${B} #chat .mes .mes_text :is(i, em) { color: ${s.rdInkEm} !important; }
     ${B} #chat .mes .mes_text q { color: ${s.rdInkQuote} !important; }
     ${B} #chat .mes .mes_text q :is(i, em) { color: inherit !important; }

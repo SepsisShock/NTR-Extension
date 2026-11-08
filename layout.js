@@ -1,10 +1,10 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.72';
+  const LAYOUT_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
-  const { askYes, card, cardNum, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, menuBtn: btn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
-  const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, clamp, cleanPins, cssRule, cssTag, decorOn, joinCss, lk, ovLabel, ovPick,
+  const { askYes, bindCheck, card, cardNum, clamp, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, menuBtn: btn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
+  const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, cleanPins, cssRule, cssTag, decorOn, joinCss, lk, ovLabel, ovPick,
     ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle } = A.look;
 
   // ===== Edit Layout =====
@@ -659,17 +659,11 @@
 
   let layCssNow = null;
   function applyLayout() {
-    let el = document.getElementById('ntr_layout_style');
-    if (!el) {
-      el = document.createElement('style');
-      el.id = 'ntr_layout_style';
-      document.head.appendChild(el);
-    }
     const s = settings();
     const css = layOn(s) ? layoutBlock(s, false) + layoutBlock(s, true) : '';
     if (css === layCssNow) return;
     layCssNow = css;
-    el.textContent = css;
+    cssTag('ntr_layout_style', css);
     relayoutAll();
   }
 
@@ -741,7 +735,7 @@
 
   function bindLayout(overlay, s) {
     const changed = () => { save(); updateAvatarStyle(); syncLayoutPage(overlay); };
-    overlay.querySelector('#m_l_enable').onchange = function() { s.layEnabled = this.checked; changed(); };
+    bindCheck(overlay, '#m_l_enable', s, 'layEnabled', () => { updateAvatarStyle(); syncLayoutPage(overlay); });
     overlay.querySelector('#m_l_edit').onclick = () => startPlacement('lay');
     bindPins(overlay, s);
     onPills(overlay, 'lbaredge', (v) => {

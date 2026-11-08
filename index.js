@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.72';
+  const VERSION = '2.86.73';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -11,6 +11,8 @@ await (async () => {
     ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
   const bookId = (k) => (BOOKS.some(([v]) => v === k) ? k : 'brown');
   const bookUrl = (k) => `${NTR_BASE}assets/books/${bookId(k)}.webp`;
+  // The book's picture: the user's own, or the built-in book picked.
+  const bookSrc = (s) => s.rdBookImg || bookUrl(s.rdBook);
   // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
   const FRAME_SERIES = [
     { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
@@ -441,7 +443,8 @@ await (async () => {
   }
 
   const readDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-  const loadImg = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+  // With `cors`, a picture from another site loads only if that site lets it be drawn onto a canvas and read back.
+  const loadImg = (u, cors = false) => new Promise((res, rej) => { const i = new Image(); if (cors) i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
 
   // Images over `max` px on their longer side (or `maxWidth` wide) are shrunk first: photos stay JPEG, the rest become
   // PNG so transparency survives. Other image types become PNG too, so the file always matches its name. GIFs go as
@@ -633,10 +636,11 @@ await (async () => {
     'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
 
   // A small menu under a button, like Move to folder on the Regexes page. The button sits in a .ntr_menu box, and `html`
-  // is the menu's buttons. A second click on the same button closes it; a page closes it on any other click.
+  // is the menu's buttons. A second click on the same button closes it, and so does a click on the page outside a menu.
   function popMenu(anchor, html) {
+    const scope = anchor.closest('.ntr_page') || document;
     const had = anchor.parentElement.querySelector('.ntr_pop');
-    closePops(anchor.closest('.ntr_page') || document);
+    closePops(scope);
     if (had) return null;
     const pop = document.createElement('div');
     pop.className = 'ntr_pop';
@@ -644,6 +648,12 @@ await (async () => {
     pop.ntrAnchor = anchor;
     anchor.parentElement.appendChild(pop);
     anchor.setAttribute('aria-expanded', 'true');
+    const out = (e) => {
+      if (pop.isConnected && e.target.closest('.ntr_menu')) return;
+      scope.removeEventListener('click', out);
+      if (pop.isConnected) closePops(scope);
+    };
+    scope.addEventListener('click', out);
     return pop;
   }
   function closePops(scope = document) {
@@ -1193,13 +1203,19 @@ await (async () => {
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
   // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
   // radio group, anything else on its first control. A pill keeps its own text as its name.
+  const plainLabel = (label) => escapeHTML(label.replace(/<[^>]*>/g, '').trim());
   const ovLabel = (label, inner) => {
-    const n = escapeHTML(label.replace(/<[^>]*>/g, '').trim());
+    const n = plainLabel(label);
     const named = /^\s*<div class="cb_pills"/.test(inner)
       ? inner.replace('<div class="cb_pills"', `<div class="cb_pills" role="radiogroup" aria-label="${n}"`)
       : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
     return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
   };
+  // A slider under a row with its label and value, for a module that binds its own sliders. `input` is the input's own
+  // attributes (id, class, data-key) and `top` the row's top margin.
+  const sliderAbove = (label, k, v, input, top = '') => `
+    <div class="cb_row"${top ? ` style="margin-top: ${top};"` : ''}><label>${label}</label><span><span class="ntr_slval">${v}</span>${NUM_RANGE[k][3]}</span></div>
+    <input type="range" ${input} aria-label="${plainLabel(label)}" ${rangeAttrs(k)} value="${v}">`;
 
   // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
   const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
@@ -1343,7 +1359,8 @@ await (async () => {
     return COLOR_RE.test(v) ? v : 'rgba(220, 220, 210, 1)';
   }
 
-  // What the Reasoning Block and Text Formatting CSS read from a setting: its tick, and its color, font or size while ticked.
+  // What the Reasoning Block and Text Formatting CSS read from a setting: its tick, and while it's ticked its plain value
+  // (col: a color, or a pick like an alignment), its font or its size.
   function cssReaders(s) {
     const on = (k) => s[k + 'On'];
     return {
@@ -1435,14 +1452,16 @@ await (async () => {
     cleaned.add(out);
     return out;
   }
-  // Each side's remembered fits, by built-in frame or picture link: [Frame Size, Left/Right, Up/Down] in their ranges.
+  // The settings a remembered Frame fit holds, in their saved order.
+  const FRAME_FIT = ['FrameSize', 'FrameX', 'FrameY'];
+  // Each side's remembered fits, by built-in frame or picture link: the FRAME_FIT values in their ranges.
   function cleanFrameFits(v) {
     const out = { ai: {}, us: {} };
     for (const p of ['ai', 'us']) {
       const m = isObj(v) && isObj(v[p]) ? v[p] : {};
       for (const k of Object.keys(m).slice(0, 300)) {
         if (k.length > 2048 || !Array.isArray(m[k]) || m[k].length !== 3) continue;
-        out[p][k] = ['FrameSize', 'FrameX', 'FrameY'].map((n, i) => Math.round(cNum(m[k][i], DEFAULTS[p + n], NUM_RANGE[p + n][0], NUM_RANGE[p + n][1])));
+        out[p][k] = FRAME_FIT.map((n, i) => Math.round(cNum(m[k][i], DEFAULTS[p + n], NUM_RANGE[p + n][0], NUM_RANGE[p + n][1])));
       }
     }
     cleaned.add(out);
@@ -1623,7 +1642,7 @@ await (async () => {
   const chatGroup = (c) => (c.groups || []).find((g) => g.id === c.groupId);
   function chatCards() {
     const c = ctx();
-    if (c.groupId) return (chatGroup(c)?.members || []).map((av) => (c.characters || []).find((x) => x.avatar === av)).filter(Boolean);
+    if (c.groupId) return (chatGroup(c)?.members || []).map(charByAvatar).filter(Boolean);
     const ch = c.characterId != null ? c.characters?.[c.characterId] : null;
     return ch ? [ch] : [];
   }
@@ -1654,6 +1673,22 @@ await (async () => {
     st.vn ||= {};
     for (const k of Object.keys(def)) if (st.vn[k] === undefined) st.vn[k] = def[k];
     return st.vn;
+  }
+  // Map pins lose a deleted location or map (`field` 'loc' or 'map', `id` its id), and go if they don't link the other either.
+  function unlinkPins(v, field, id) {
+    const other = field === 'loc' ? 'map' : 'loc';
+    for (const mp of v.maps) mp.pins = mp.pins.filter((p) => p[field] !== id || p[other]).map((p) => (p[field] === id ? { ...p, [field]: '' } : p));
+  }
+  // A narrator tag's keyword and text, like "Enter: Mia": { kind, arg } from the `words` entry ([kind, settings key]) whose
+  // keyword it uses, or null.
+  function tagOf(inner, words, s) {
+    const str = inner.trim();
+    const i = str.indexOf(':');
+    if (i <= 0) return null;
+    const w = lc(str.slice(0, i));
+    const kind = words.find(([, k]) => lc(s[k]) === w)?.[0];
+    const arg = str.slice(i + 1).trim();
+    return kind && arg ? { kind, arg } : null;
   }
 
   function scheduleCardFlush(key) {
@@ -1861,7 +1896,6 @@ await (async () => {
       'opLead', 'opFade', 'opSize', 'opPos', 'opExit', 'opTrans', 'opTransColor', 'opTransMs', 'opEarly', 'nodeMaps', 'mapGoText'] },
   };
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  const readText = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f); });
   // Saves `obj` as a JSON file: <name><ext>, named <kind> if `name` has no letters or numbers.
   function downloadJson(obj, name, kind, ext = `.ntr-${kind}.json`) {
     const a = document.createElement('a');
@@ -1872,12 +1906,13 @@ await (async () => {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
-  // An askText check for a name no other item in `list` has, whatever the capitals. It's cut to 60 characters first, so
-  // the name checked is the one saved.
+  // A freeName test: an item in `list` other than `self` has the name, whatever the capitals.
+  const nameTaken = (list, self = null) => (n) => list.some((x) => x !== self && x.name.toLowerCase() === n.toLowerCase());
+  // An askText check for a name no other item in `list` has. It's cut to 60 characters first, so the name checked is the
+  // one saved.
   const uniqueName = (list, self, what) => (v) => {
     const name = v.slice(0, 60).trim();
-    return !name ? { error: 'Type a name first.' }
-      : list.some((x) => x !== self && x.name.toLowerCase() === name.toLowerCase()) ? { error: `A ${what} with that name already exists.` } : { value: name };
+    return !name ? { error: 'Type a name first.' } : nameTaken(list, self)(name) ? { error: `A ${what} with that name already exists.` } : { value: name };
   };
   // `base`, or "base (2)", "(3)" and so on, the first one `taken` says is free, cut to `max` characters with its number kept.
   function freeName(base, taken, max = Infinity) {
@@ -1978,21 +2013,23 @@ await (async () => {
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
   const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbArrowSym: 16, rbCss: 2000, rbBtnCss: 2000, rbArrowCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, aiCss: 2000, usCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
-  // An emotion list cut down to what validEmotions takes: good ids, names up to 100 characters, no repeats, 100 at most.
+  // The most emotions a list holds, and the longest emotion name.
+  const EMO_LIMITS = { count: 100, name: 100 };
+  // An emotion list cut down to what validEmotions takes: good ids, names within EMO_LIMITS, no repeats.
   function fixEmotions(v) {
     const ids = new Set(), names = new Set();
     const out = (Array.isArray(v) ? v : []).filter(isObj)
-      .map((e) => ({ id: cRef(e.id), name: typeof e.name === 'string' ? e.name.trim().slice(0, 100) : '' }))
+      .map((e) => ({ id: cRef(e.id), name: typeof e.name === 'string' ? e.name.trim().slice(0, EMO_LIMITS.name) : '' }))
       .filter((e) => e.id && e.name && !ids.has(e.id) && !names.has(e.name.toLowerCase()) && ids.add(e.id) && names.add(e.name.toLowerCase()))
-      .slice(0, 100);
+      .slice(0, EMO_LIMITS.count);
     return out.length ? out : structuredClone(DEFAULTS.emotions);
   }
   function validEmotions(v) {
-    if (!Array.isArray(v) || !v.length || v.length > 100) return false;
+    if (!Array.isArray(v) || !v.length || v.length > EMO_LIMITS.count) return false;
     const ids = new Set(), names = new Set();
     for (const e of v) {
       const name = e && typeof e.name === 'string' ? e.name.trim().toLowerCase() : '';
-      if (!e || !cRef(e.id) || !name || e.name.length > 100 || ids.has(e.id) || names.has(name)) return false;
+      if (!e || !cRef(e.id) || !name || e.name.length > EMO_LIMITS.name || ids.has(e.id) || names.has(name)) return false;
       ids.add(e.id);
       names.add(name);
     }
@@ -2346,10 +2383,10 @@ await (async () => {
   // loadLookModules). This lists each one's file name and the menu page it draws. Each call into one is guarded, so a
   // failure there leaves the rest of NTR running with SillyTavern's look for those parts. So is each menu call into the
   // modules that load later (Themes, Agents, Overlays, Emotions, Regexes and Visual Novel's settings): one that breaks
-  // while drawing or binding leaves the rest of the menu working. A failure is logged once per module and kind of call,
-  // since css and sync run on every restyle.
+  // while drawing or binding leaves the rest of the menu working, and so is each call between Visual Novel Mode, Maps and
+  // Opening Video. A failure is logged once per module and kind of call, since css and sync run on every restyle.
   const LOOK_MODULES = { elements: 'elements', text: 'text', avatars: 'pfp', decor: 'display', layout: 'layout' };
-  const lookFailed = new Set();
+  const callFailed = new Set();
   function callModule(name, fn, ...args) {
     const m = window.NTR[name];
     if (!m) return undefined;
@@ -2357,7 +2394,7 @@ await (async () => {
       return m[fn](...args);
     } catch (e) {
       const k = `${name}.${fn}`;
-      if (!lookFailed.has(k)) { lookFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
+      if (!callFailed.has(k)) { callFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
       return undefined;
     }
   }
@@ -2536,7 +2573,7 @@ await (async () => {
     const file = overlay.querySelector('#m_rd_file');
     if (!file) return;
     const renderPic = () => {
-      const src = s.rdBookImg ? media(s.rdBookImg) : bookUrl(s.rdBook);
+      const src = bookSrc(s);
       overlay.querySelector('#m_rd_pic').innerHTML = `<img src="${escapeHTML(src)}" alt="">`;
       overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === bookId(s.rdBook))[1]}`;
       overlay.querySelector('#m_rd_clr').disabled = !s.rdBookImg;
@@ -2827,17 +2864,19 @@ await (async () => {
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
-    openMenu: openCombinedModal, fillIn,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, bookSrc, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
+    pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, unlinkPins, tagOf, EMO_LIMITS, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    openMenu: openCombinedModal, fillIn, callModule, clamp, sliderAbove,
+    // Card data cleaning, for agents.js's own data
+    cStr, cId, cRef,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn').click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
     refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum, cleanFont, fontName,
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
-    LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, normFile, uploadDataUrl, isObj, stColor,
+    LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, normFile, uploadDataUrl, isObj, stColor,
     // Exported files, and names for imported or new items
-    downloadJson, freeName, uniqueName,
+    downloadJson, freeName, nameTaken, uniqueName,
     // NUM_RANGE ranges, slider attributes and theme text limits, for modules' own sliders, number boxes and text boxes
     numRange: (k) => NUM_RANGE[k], rangeAttrs, strMax,
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
@@ -2860,10 +2899,10 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, joinCss, ovWhen, sendSeparate,
       FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel, hint,
       RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
-      cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: updateAvatarStyle,
+      cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, FRAME_FIT, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: updateAvatarStyle,
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
-      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, decorOn, clamp,
+      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, decorOn,
     },
   };
 

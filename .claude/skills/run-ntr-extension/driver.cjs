@@ -93,7 +93,7 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
     // Clicks through the DOM, so it works inside collapsed sections. A disabled button ignores it, like for a user.
     async click(sel) {
       await need(sel);
-      const disabled = await page.evaluate((sel) => { const el = document.querySelector(sel); el.click(); return !!el.disabled; }, sel);
+      const disabled = await page.evaluate((sel) => { const el = document.querySelector(sel); const was = !!el.disabled; el.click(); return was; }, sel);
       await sleep(300);
       return disabled ? 'clicked (it is disabled, so nothing happened)' : 'clicked';
     },

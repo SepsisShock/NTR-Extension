@@ -1,5 +1,5 @@
 (() => {
-  const OP_VERSION = '2.86.70';
+  const OP_VERSION = '2.86.71';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -39,9 +39,6 @@
   const setOp = (k, val) => { raw()[k] = val; save(); };
   const ytId = (o) => o.yt && A.getYouTubeId(o.yt);
   const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!media(o.file) : false);
-  function logoSrc(o) {
-    return o.logo === 'none' ? '' : media(o.logoUrl);
-  }
 
   // ----- When to play -----
   function markSeen(sig) {
@@ -62,12 +59,10 @@
     if (!A.isOn() || !s.nodeEnabled || !A.store()) return;
     const o = op();
     if (!hasSource(o)) return;
-    let go = false;
-    if (o.when === 'vn') go = reason === 'vn';
-    else if (o.when === 'open') go = reason === 'open';
-    else go = info.fresh && !s.opSeen[info.sig];
-    if (!go) return;
-    if (o.when === 'newchat') markSeen(info.sig);
+    if (o.when === 'newchat') {
+      if (!info.fresh || s.opSeen[info.sig]) return;
+      markSeen(info.sig);
+    } else if (reason !== o.when) return;
     play({ sig: info.sig });
   }
 
@@ -86,8 +81,7 @@
 
   function play(opts) {
     const o = op();
-    if (cur) abort();
-    unpin();
+    abort();
     cssTag('ntr_op_style', CSS);
     const s = settings();
     const st = {
@@ -105,10 +99,10 @@
     root.style.background = s.opTransColor;
     st.root = root;
     document.body.appendChild(root);
-    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) {}
+    document.activeElement?.blur?.();
 
     // Logo layer (sits above the video so it can drop in before the end).
-    const lsrc = logoSrc(o);
+    const lsrc = o.logo === 'none' ? '' : media(o.logoUrl);
     if (lsrc) {
       const img = document.createElement('img');
       img.className = 'ntr_op_logo';
@@ -130,15 +124,9 @@
 
     st.onKey = (e) => {
       if (cur !== st) return;
-      if (e.key === 'Escape') {
-        e.preventDefault(); e.stopPropagation();
-        if (st.phase === 'title') finish();
-        else if (st.phase === 'video') skip();
-        else if (st.phase === 'logo') clickLogo();
-      } else if ((e.key === 'Enter' || e.key === ' ') && st.phase !== 'title') {
-        e.preventDefault(); e.stopPropagation();
-        if (st.phase === 'video') skip(); else if (st.phase === 'logo') clickLogo();
-      }
+      if (e.key !== 'Escape' && ((e.key !== 'Enter' && e.key !== ' ') || st.phase === 'title')) return;
+      e.preventDefault(); e.stopPropagation();
+      if (st.phase === 'title') finish(); else advance(st);
     };
     document.addEventListener('keydown', st.onKey, true);
 
@@ -154,7 +142,7 @@
   // by itself, so without this the opening would start muted.
   const needsClick = () => !!(navigator.userActivation && !navigator.userActivation.hasBeenActive);
 
-  const later = (fn, ms) => { const st = cur; const t = setTimeout(() => { if (cur === st) fn(); }, ms); if (st) st.timers.push(t); return t; };
+  const later = (fn, ms) => { const st = cur; const t = setTimeout(() => { if (cur === st) fn(); }, ms); st.timers.push(t); return t; };
   const setPhase = (p) => { cur.phase = p; cur.phaseAt = Date.now(); };
 
   // gate: just a Play button, shown when the browser would otherwise block the sound.
@@ -162,8 +150,8 @@
     const st = cur;
     const box = document.createElement('div');
     box.className = 'ntr_op_title';
-    const bg = gate ? '' : safeCall(() => VN().sceneBg()) || '';
-    const art = gate ? '' : safeCall(() => VN().titleArt()) || '';
+    const bg = gate ? '' : safeCall(() => VN().sceneBg());
+    const art = gate ? '' : safeCall(() => VN().titleArt());
     const name = gate ? '' : A.chatName();
     box.innerHTML = `
       ${bg ? '<div class="ntr_op_bg"></div>' : ''}
@@ -173,7 +161,7 @@
         <button type="button" class="ntr_op_btn">${gate ? '<i class="fa-solid fa-play"></i> PLAY' : 'START'}</button>
       </div>`;
     const bgEl = box.querySelector('.ntr_op_bg');
-    if (bgEl) bgEl.style.backgroundImage = `url(${JSON.stringify(String(bg))})`;
+    if (bgEl) bgEl.style.backgroundImage = `url(${JSON.stringify(bg)})`;
     st.root.appendChild(box);
     const btn = box.querySelector('.ntr_op_btn');
     btn.onclick = (e) => {
@@ -182,7 +170,7 @@
       box.remove();
       startVideo(); // Runs inside the click, so the browser lets the video play with sound.
     };
-    setTimeout(() => { try { btn.focus(); } catch (e) {} }, 50);
+    setTimeout(() => btn.focus(), 50);
   }
 
   function startVideo() {
@@ -198,7 +186,7 @@
     const catcher = document.createElement('div');
     catcher.className = 'ntr_op_catch';
     catcher.title = 'Click to skip';
-    catcher.onclick = () => { if (st.phase === 'video') skip(); else if (st.phase === 'logo') clickLogo(); };
+    catcher.onclick = () => advance(st);
     st.root.appendChild(catcher);
 
     const bar = document.createElement('div');
@@ -207,7 +195,7 @@
       <button type="button" class="ntr_op_small" data-a="skip">Skip <i class="fa-solid fa-forward"></i></button>`;
     st.root.appendChild(bar);
     st.bar = bar;
-    bar.querySelector('[data-a="skip"]').onclick = (e) => { e.stopPropagation(); if (st.phase === 'video') skip(); else if (st.phase === 'logo') clickLogo(); };
+    bar.querySelector('[data-a="skip"]').onclick = (e) => { e.stopPropagation(); advance(st); };
     const snd = bar.querySelector('[data-a="snd"]');
     st.snd = snd;
     setSnd(st, st.muted);
@@ -234,14 +222,13 @@
   function startFile(st) {
     const v = document.createElement('video');
     v.src = media(st.o.file);
-    v.playsInline = true;
     v.setAttribute('playsinline', '');
     v.preload = 'auto';
     v.muted = st.muted;
     st.video = v;
     st.media.appendChild(v);
     v.addEventListener('timeupdate', () => tick(v.currentTime, v.duration));
-    v.addEventListener('ended', () => { if (cur === st && st.phase === 'video') end(); });
+    v.addEventListener('ended', () => { if (cur === st) end(); });
     v.addEventListener('error', () => {
       if (cur !== st || st.phase !== 'video') return;
       toastr.warning('The opening video could not be played.', 'Opening Video');
@@ -258,9 +245,7 @@
 
   // YouTube without loading its API script: the embed talks to the page through postMessage.
   function ytCmd(func, args = []) {
-    const f = cur && cur.iframe;
-    if (!f || !f.contentWindow) return;
-    try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch (e) {}
+    cur?.iframe?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
   }
 
   function startYouTube(st) {
@@ -272,9 +257,7 @@
     f.title = 'Opening Video';
     st.iframe = f;
     st.media.appendChild(f);
-    const hello = () => {
-      try { f.contentWindow && f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'ntr_op', channel: 'widget' }), '*'); } catch (e) {}
-    };
+    const hello = () => f.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'ntr_op', channel: 'widget' }), '*');
     f.addEventListener('load', hello);
     st.hello = setInterval(() => { if (cur !== st || st.ytReady) { clearInterval(st.hello); return; } hello(); }, 400);
     st.onMsg = (e) => {
@@ -290,7 +273,7 @@
       if (typeof info.playerState === 'number') {
         st.ytState = info.playerState;
         if (info.playerState === 1) st.ytPlayed = true;
-        if (info.playerState === 0 && st.phase === 'video') { end(); return; }
+        if (info.playerState === 0) { end(); return; }
       }
       if (typeof info.duration === 'number' && info.duration > 0) st.ytDur = info.duration;
       if (typeof info.currentTime === 'number') tick(info.currentTime, st.ytDur);
@@ -313,16 +296,16 @@
 
   function tick(t, dur) {
     const st = cur;
-    if (!st || st.phase !== 'video') return;
+    if (!st || st.phase !== 'video' || !(dur > 0 && isFinite(dur))) return;
     // YouTube swaps the last frame for its end screen, so stop just before the end: the fade (to the color
     // or straight into the story) then starts from the real last frame. A timer keeps it precise because
     // YouTube only reports the time a few times a second.
-    if (st.iframe && dur > 0 && isFinite(dur) && !st.ytStop) {
+    if (st.iframe && !st.ytStop) {
       const left = dur - t;
       if (left <= 1.5) st.ytStop = later(() => { if (st.phase !== 'video') return; ytCmd('pauseVideo'); end(); }, Math.max(0, (left - 0.15) * 1000));
     }
     // "Fade out the ending": the color starts covering the video while it still plays and is full at the last frame.
-    if (settings().opEarly && !st.cross && !st.cover && dur > 0 && isFinite(dur)) {
+    if (settings().opEarly && !st.cross && !st.cover) {
       const left = (st.iframe ? dur - 0.15 : dur) - t;
       if (left * 1000 <= transMs()) {
         fadeCover(st, Math.max(0, left * 1000));
@@ -331,12 +314,12 @@
     }
     if (!st.logo || st.logoShown) return;
     const lead = A.rangeNum(settings(), 'opLead');
-    if (dur > 0 && isFinite(dur) && lead > 0 && t >= dur - lead) showLogo();
+    if (lead > 0 && t >= dur - lead) showLogo();
   }
 
   function showLogo() {
     const st = cur;
-    if (!st || !st.logo || st.logoShown) return;
+    if (st.logoShown) return;
     st.logoShown = true;
     st.logoAt = Date.now();
     requestAnimationFrame(() => requestAnimationFrame(() => st.logo.classList.add('ntr_in')));
@@ -361,7 +344,6 @@
   // A color layer fades in over the video. Fading the video itself is unreliable: with hardware video decoding
   // some browsers drop the video at once instead of fading it. Linear, so the fade is even across its length.
   function fadeCover(st, ms) {
-    if (!st.media) return;
     let c = st.cover;
     if (!c) {
       c = document.createElement('div');
@@ -377,20 +359,22 @@
   }
 
   function holdMedia(st) {
-    if (st.hello) clearInterval(st.hello);
-    if (st.video) { try { st.video.pause(); } catch (e) {} }
+    clearInterval(st.hello);
+    st.video?.pause();
     if (st.iframe) ytCmd('pauseVideo');
-    if (st.snd) st.snd.style.display = 'none';
+    st.snd.style.display = 'none';
   }
 
-  const skip = () => {
-    if (cur && cur.phase === 'video') cur.skipped = true;
-    end();
-  };
+  // Click, Skip button or key: skips the video, or ends the logo's moment.
+  function advance(st) {
+    if (st.phase === 'video') { st.skipped = true; end(); }
+    // So a double click on Skip doesn't also jump past the logo.
+    else if (st.phase === 'logo' && Date.now() - st.phaseAt >= 450) finish();
+  }
 
   // Drifts the logo up until its top edge sits near the top of the screen.
   function rise(st) {
-    if (st.rising || !st.logo || !st.pin || !st.pin.isConnected) return;
+    if (st.rising || !st.pin.isConnected) return;
     const img = st.logo;
     st.rising = true;
     const dy = Math.min(0, 12 - (img.offsetTop - img.offsetHeight / 2));
@@ -412,12 +396,15 @@
     img.style.opacity = '1';
     low.appendChild(img);
     document.body.appendChild(low);
-    if (st.riseAnim) img.animate(st.riseKf, st.riseOpts).startTime = st.riseAnim.startTime;
+    img.animate(st.riseKf, st.riseOpts).startTime = st.riseAnim.startTime;
     pinned = { el: low, sig: st.sig };
-    const top = st.pin;
-    top.style.transition = `opacity ${st.outMs}ms linear`;
-    top.classList.add('ntr_gone');
-    setTimeout(() => top.remove(), st.outMs + 50);
+    fadePin(st);
+  }
+
+  function fadePin(st) {
+    st.pin.style.transition = `opacity ${st.outMs}ms linear`;
+    st.pin.classList.add('ntr_gone');
+    setTimeout(() => st.pin.remove(), st.outMs + 50);
   }
 
   // Video finished or skipped: the logo (if any) gets its moment, then the story starts.
@@ -436,36 +423,28 @@
     showLogo();
     const left = was ? Math.max(0, fade - (Date.now() - st.logoAt)) : fade;
     if (st.exit === 'rise' && !st.skipped) setTimeout(() => rise(st), left);
-    if (st.bar) st.bar.remove();
+    st.bar.remove();
     later(finish, Math.max(left + 2000, wait));
   }
 
-  function clickLogo() {
-    const st = cur;
-    if (!st || st.phase !== 'logo') return;
-    if (Date.now() - st.phaseAt < 450) return; // So a double click on Skip doesn't also jump past the logo.
-    finish();
-  }
-
-  function cleanup(st) {
+  function cleanup(st, keepVideo) {
     st.timers.forEach(clearTimeout);
-    if (st.hello) clearInterval(st.hello);
-    if (st.onKey) document.removeEventListener('keydown', st.onKey, true);
-    if (st.onMsg) window.removeEventListener('message', st.onMsg);
-    unloadVideo(st);
+    clearInterval(st.hello);
+    document.removeEventListener('keydown', st.onKey, true);
+    window.removeEventListener('message', st.onMsg);
+    if (!keepVideo) unloadVideo(st);
   }
 
   function unloadVideo(st) {
-    if (st.video) { try { st.video.pause(); st.video.removeAttribute('src'); st.video.load(); } catch (e) {} }
+    if (st.video) { st.video.pause(); st.video.removeAttribute('src'); st.video.load(); }
   }
 
   function finish() {
     const st = cur;
-    if (!st || st.phase === 'out') return;
+    if (st.phase === 'out') return;
     // "Fade out": the logo leaves first, then the black screen.
     if (st.exit === 'fade' && st.logo && st.logoShown) {
       st.phase = 'out';
-      if (st.bar) st.bar.remove();
       st.logo.style.opacity = '0';
       later(close, A.rangeNum(settings(), 'opFade') + 100);
       return;
@@ -475,18 +454,11 @@
 
   function close() {
     const st = cur;
-    if (!st) return;
     st.phase = 'done';
     cur = null;
     // A skipped opening gets the quick fade; otherwise the chosen transition length.
     st.outMs = st.skipped ? 400 : transMs();
-    const keep = st.cross && !st.skipped; // The frozen last frame fades out with the opening.
-    if (keep) {
-      const v = st.video;
-      st.video = null;
-      cleanup(st);
-      st.video = v;
-    } else cleanup(st);
+    cleanup(st, st.cross && !st.skipped); // The frozen last frame fades out with the opening.
     st.root.style.transition = `opacity ${st.outMs}ms linear`;
     st.root.classList.remove('ntr_in');
     st.root.style.pointerEvents = 'none';
@@ -495,18 +467,13 @@
       if (st.logoShown && !st.skipped) {
         rise(st);
         settlePin(st);
-      } else {
-        st.pin.style.transition = `opacity ${st.outMs}ms linear`;
-        st.pin.classList.add('ntr_gone');
-        const pin = st.pin;
-        setTimeout(() => pin.remove(), st.outMs + 50);
-      }
+      } else fadePin(st);
     }
     // The story starts once the transition has finished, not underneath it.
     setTimeout(() => {
       if (cur) return; // Another opening took over in the meantime.
       try { st.hooks.onDone(); } catch (e) { console.error('[NTR opening]', e); }
-      if (st.onEnd) { try { st.onEnd(); } catch (e) { console.error('[NTR opening]', e); } }
+      try { st.onEnd?.(); } catch (e) { console.error('[NTR opening]', e); }
     }, st.outMs);
   }
 
@@ -518,23 +485,24 @@
     cur = null;
     cleanup(st);
     st.root.remove();
-    if (st.pin) st.pin.remove();
+    st.pin?.remove();
   }
 
   function safeCall(fn) { try { return fn(); } catch (e) { console.error('[NTR opening]', e); return ''; } }
 
   // ----- Menu section -----
   function sectionHtml(s) {
+    const head = subHead('vn_open', 'Opening Video ' + TAG, 'fa-clapperboard');
     if (!A.store()) {
-      return `${subHead('vn_open', 'Opening Video ' + TAG, 'fa-clapperboard')}
+      return `${head}
         <div class="cb_collapse_content"><div class="cb_hint">Open a character chat first. The opening is saved per character.</div></div>`;
     }
     const o = op();
     // opFade and opTransMs are saved in ms and shown in seconds.
     const sl = (key, label, scale) => ovLabel(label, rangeSlider(s, key, 'm_op_sl', scale));
-    const fileName = o.file ? escapeHTML(String(o.file).split('/').pop()) : '';
+    const fileName = o.file ? escapeHTML(o.file.split('/').pop()) : '';
     return `
-      ${subHead('vn_open', 'Opening Video ' + TAG, 'fa-clapperboard')}
+      ${head}
       <div class="cb_collapse_content">
         ${ovLabel('Source', pills('opsrc', [['off', 'Off'], ['youtube', 'YouTube'], ['file', 'Video']], o.src))}
           <div id="m_op_yt" style="margin-top:8px;${o.src === 'youtube' ? '' : 'display:none;'}">
@@ -550,7 +518,7 @@
           <label class="checkbox_label" style="margin-top:8px;"><input type="checkbox" id="m_op_title" ${o.title ? 'checked' : ''}><span>Title Screen First</span></label>
           <div class="cb_hint">Shows the scene, the character's picture and name, and a Start button.</div>
           ${ovLabel('Plays', pills('opwhen', [['newchat', 'Once per New Chat'], ['open', 'Each Time the Chat Opens'], ['vn', 'Each Time Visual Novel Starts']], o.when))}
-          ${ovLabel('Logo', pills('oplogo', [['upload', 'Picture'], ['none', 'None']], o.logo === 'none' ? 'none' : 'upload'))}
+          ${ovLabel('Logo', pills('oplogo', [['upload', 'Picture'], ['none', 'None']], o.logo))}
           <div id="m_op_lrow" class="cb_row cb_cur_row" style="margin-top:6px;${o.logo === 'none' ? 'display:none;' : ''}">
             <div class="cb_thumbbox cb_wide">${A.thumbHtml(o.logoUrl, 'fa-image')}</div>
             <span style="flex:1;"></span>
@@ -592,10 +560,9 @@
     if (!overlay.querySelector('#m_op_body')) return;
     const q = (sel) => overlay.querySelector(sel);
     const syncBody = () => {
-      const o = op();
-      q('#m_op_body')?.classList.toggle('cb_dim', !hasSource(o));
-      const pb = q('#m_op_play');
-      if (pb) pb.disabled = !hasSource(o);
+      const on = hasSource(op());
+      q('#m_op_body').classList.toggle('cb_dim', !on);
+      q('#m_op_play').disabled = !on;
     };
     onPills(overlay, 'opsrc', (v) => {
       setOp('src', v);
@@ -604,7 +571,7 @@
       syncBody();
     });
     const url = q('#m_op_url');
-    if (url) url.onchange = () => {
+    url.onchange = () => {
       const v = url.value.trim();
       if (v && !A.getYouTubeId(v)) toastr.warning('That doesn\'t look like a YouTube link.', 'Opening Video');
       setOp('yt', v);
@@ -612,12 +579,12 @@
     };
     A.bindCheck(overlay, '#m_op_mute', s, 'opMute');
     const ttl = q('#m_op_title');
-    if (ttl) ttl.onchange = () => setOp('title', ttl.checked);
+    ttl.onchange = () => setOp('title', ttl.checked);
     onPills(overlay, 'opwhen', (v) => setOp('when', v));
     onPills(overlay, 'oplogo', (v) => {
       setOp('logo', v);
       q('#m_op_lrow').style.display = v === 'none' ? 'none' : '';
-      q('#m_op_lbody')?.classList.toggle('cb_dim', v === 'none');
+      q('#m_op_lbody').classList.toggle('cb_dim', v === 'none');
     });
     onPills(overlay, 'oppos', (v) => { s.opPos = v; save(); });
     onPills(overlay, 'opexit', (v) => { s.opExit = v; save(); });
@@ -629,10 +596,8 @@
     });
     A.bindCheck(overlay, '#m_op_early', s, 'opEarly');
     const col = q('#m_op_color');
-    if (col) {
-      col.oninput = () => { s.opTransColor = col.value; };
-      col.onchange = save;
-    }
+    col.oninput = () => { s.opTransColor = col.value; };
+    col.onchange = save;
     A.bindSliders(overlay, '.m_op_sl', s);
 
     // The video (sent as is, no re-encoding) and the logo. The menu is redrawn after each change, which also re-enables
@@ -666,8 +631,7 @@
       removeText: 'Remove the logo? Its file is deleted unless something else uses it.', removeAnchor: q('#m_op_lrow'),
     });
 
-    const pb = q('#m_op_play');
-    if (pb) pb.onclick = () => {
+    q('#m_op_play').onclick = () => {
       if (!hasSource(op())) return;
       A.closeMenu();
       play({ sig: '', onEnd: () => A.openMenu() });

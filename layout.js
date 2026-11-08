@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.70';
+  const LAYOUT_VERSION = '2.86.71';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, card, cardNum, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, menuBtn: btn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -39,9 +39,9 @@
   // A floating Pinned Block resizes like the chat panel; a docked one only from its inner edge.
   function grips(it) {
     if (it.pin) {
-      const p = pinOf(it), pl = p?.place;
+      const p = pinOf(it);
       // A Fit Content box gets its height from what it shows.
-      return pl === 'left' ? ['e'] : pl === 'right' ? ['w'] : p?.height === 'fit' ? ['e', 'w'] : GRIPS;
+      return p.place === 'left' ? ['e'] : p.place === 'right' ? ['w'] : p.height === 'fit' ? ['e', 'w'] : GRIPS;
     }
     if (it.lay === 'chat' || it.lay === 'ban') return GRIPS;
     if (it.lay === 'bar' && barUpright(settings()[lk(phoneNow(), 'BarEdge')])) return ['n', 's'];
@@ -57,6 +57,7 @@
     : it.pin ? document.querySelector(`#ntr_pin_layer > .ntr_pin[data-pin="${it.pin}"]`)
       : document.getElementById(it.pos ? `cb_fg_${it.pos.toLowerCase()}` : `cb_popf_${it.id}`));
 
+  const sized = (r) => (r && r.width > 0 && r.height > 0 ? r : null);
   // A Layout part on its screen, in that screen's own pixels. Parts show while Layout is on; the send bar, page bar and
   // banner only while they're Floating, since Attached they follow the chat panel. The page bar is there in Reader
   // Mode's Standard and Book, the banner while the open chat shows one.
@@ -65,8 +66,7 @@
     const el = placeEl(it);
     const att = { send: 'Send', page: 'Page', ban: 'Ban' }[it.lay];
     if (!el || !layOn(s) || (att && !partFree(att, s))) return null;
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 ? r : null;
+    return sized(el.getBoundingClientRect());
   }
 
   // An item's outline on this page.
@@ -74,20 +74,14 @@
     if (it.lay) return layRect(it);
     if (it.pin && !pinBoxed(pinOf(it), phoneNow())) {
       // Still in its message: the copy it shows there, if it's on screen. Pinned Blocks are part of Layout, so none with it off.
-      const r = layOn(settings()) ? pinSource(pinOf(it))?.el.getBoundingClientRect() : null;
-      return r && r.width > 0 && r.height > 0 ? r : null;
+      return layOn(settings()) ? sized(pinSource(pinOf(it))?.el.getBoundingClientRect()) : null;
     }
     const el = placeEl(it);
-    if (it.pin) {
-      if (!el || el.hidden) return null;
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 ? r : null;
-    }
+    if (it.pin) return el && !el.hidden ? sized(el.getBoundingClientRect()) : null;
     // A pop-out moves by its frame, which shows once its picture has a source.
     if (!el || el.style.display === 'none' || !(it.pos ? el : el.querySelector('img'))?.getAttribute('src')) return null;
     if (it.pos && el.parentNode?.style.display === 'none') return null;
-    const r = it.pos ? window.NTR.overlays.fgRect(el) : el.getBoundingClientRect();
-    return r && r.width > 0 && r.height > 0 ? r : null;
+    return sized(it.pos ? window.NTR.overlays.fgRect(el) : el.getBoundingClientRect());
   }
 
   // Where an item is, in the form placeSet takes: an offset for a picture, the part's settings for a Layout part.
@@ -111,8 +105,7 @@
 
   function placeSet(it, v) {
     if (it.pin) {
-      const p = pinOf(it);
-      if (p) p[pinPhone(phoneNow())] = pinRect(v, PIN_START[pinPhone(phoneNow())]);
+      pinOf(it)[pinPhone(phoneNow())] = pinRect(v, PIN_START[pinPhone(phoneNow())]);
       cssTag('ntr_pin_css', pinCss(settings()));
     } else if (it.lay) {
       Object.assign(settings(), v);
@@ -336,7 +329,7 @@
   // An item's places in both layouts: a Layout part's settings, a Pinned Block's two boxes. Pictures have one place.
   function placeBoth(it) {
     if (it.lay) return Object.fromEntries([false, true].flatMap((ph) => LAY_PART[it.lay].keys.map((k) => [lk(ph, k), settings()[lk(ph, k)]])));
-    if (it.pin) { const p = pinOf(it); return p ? { desk: { ...p.desk }, phone: { ...p.phone } } : null; }
+    if (it.pin) { const p = pinOf(it); return { desk: { ...p.desk }, phone: { ...p.phone } }; }
     return null;
   }
 
@@ -385,7 +378,6 @@
     place.dirty = false;
     if (!place.on) return;
     const layer = document.getElementById('cb_place_layer');
-    if (!layer) return;
     const s = settings();
     const small = [];
     // Every outline is measured before any is moved: measuring after a move makes the browser work out the layout again.
@@ -449,7 +441,6 @@
       toastr.info('Nothing to move yet. Set an avatar to Pop Out, add a foreground image, or pick a Pinned Block with Layout on, first.', 'Edit Layout');
       return;
     }
-    place.undo = [];
     place.sel = (shown.find((it) => it.id === first) || shown.find((it) => placeKind(it) === first) || shown[0]).id;
     const ov = document.getElementById('cb_modal_overlay');
     if (ov) ov.style.display = 'none';
@@ -473,7 +464,7 @@
     if (d?.fg && d.fg.owner !== fgOwner()) Object.assign(d.fg.data, { [d.it.pos + 'X']: d.start.x, [d.it.pos + 'Y']: d.start.y });
     else if (d?.it.pin) {
       const p = pinOf(d.it);
-      if (p) { Object.assign(p, structuredClone(d.both)); cssTag('ntr_pin_css', pinCss(settings())); }
+      if (p) { Object.assign(p, d.both); cssTag('ntr_pin_css', pinCss(settings())); }
     } else if (d) placeSet(d.it, d.both || d.start);
     place.on = false;
     place.drag = null;
@@ -521,10 +512,6 @@
     const h = probe.getBoundingClientRect().height;
     probe.remove();
     return h || 35;
-  }
-
-  function layoutCss(s) {
-    return layOn(s) ? layoutBlock(s, false) + layoutBlock(s, true) : '';
   }
 
   // One layout's CSS, for the screens it's used on.
@@ -678,7 +665,8 @@
       el.id = 'ntr_layout_style';
       document.head.appendChild(el);
     }
-    const css = layoutCss(settings());
+    const s = settings();
+    const css = layOn(s) ? layoutBlock(s, false) + layoutBlock(s, true) : '';
     if (css === layCssNow) return;
     layCssNow = css;
     el.textContent = css;
@@ -714,7 +702,7 @@
   // and Pinned Blocks' own settings. The page follows the window across 1000px.
   const layScope = (t) => `<span class="ntr_scope">${t}</span>`;
   // Which layout the page is editing. It follows the window across 1000px (syncLayoutPage).
-  const layNowHtml = (ph) => `<span class="ntr_scope"><b>${ph ? 'Phone' : 'Desktop'}</b> · ${ph ? '1000px or Less' : 'Over 1000px'}</span>
+  const layNowHtml = (ph) => `${layScope(`<b>${ph ? 'Phone' : 'Desktop'}</b> · ${ph ? '1000px or Less' : 'Over 1000px'}`)}
     <span class="cb_hint">${ph ? 'Wider windows use Desktop.' : 'Narrower windows use Phone.'}</span>`;
 
   function layoutSectionHtml(s) {
@@ -795,8 +783,8 @@
     if (!overlay) return;
     const s = settings();
     const ph = phoneNow();
-    for (const [name, val] of [['lbaredge', s[lk(ph, 'BarEdge')]], ['lsend', s[lk(ph, 'Send')]], ['lpage', s[lk(ph, 'Page')]], ['lban', s[lk(ph, 'Ban')]]]) {
-      const r = overlay.querySelector(`input[name="cbr_${name}"][value="${val}"]`);
+    for (const [name, k] of [['lbaredge', 'BarEdge'], ['lsend', 'Send'], ['lpage', 'Page'], ['lban', 'Ban']]) {
+      const r = overlay.querySelector(`input[name="cbr_${name}"][value="${s[lk(ph, k)]}"]`);
       if (r) r.checked = true;
     }
     overlay.querySelectorAll('.m_l_now').forEach((el) => { el.innerHTML = layNowHtml(ph); });
@@ -1010,7 +998,7 @@
       tab.title = `Show or hide ${p.name}`;
       tab.setAttribute('aria-label', tab.title);
       const body = box.querySelector('.ntr_pin_body');
-      let src;
+      let src, key = '';
       if (p.from === 'agents') {
         // In Reader Mode, the results up to the current page; with Where You're Reading, up to the message being read.
         // While a result is being edited in the box, the box stays on that result's message, so scrolling, turning the
@@ -1020,20 +1008,16 @@
         // As of: the message being read, while it isn't the newest (pinRead stays null in Reader Mode and Visual
         // Novel Mode, which pick the message themselves).
         src = pinPicking ? null : window.NTR.agents?.pinView(p.agents, upTo, { pin: p.id, view: p.view, asOf: !ed && p.show === 'reading' ? pinRead : null });
-        const key = src ? 'ag:' + src.key : '';
-        if (pinLast.get(p.id) !== key) {
-          pinLast.set(p.id, key);
-          if (src) src.fill(body);
-          else body.replaceChildren();
-        }
+        if (src) key = 'ag:' + src.key;
       } else {
         src = pinPicking ? null : pinSource(p);
-        const key = src ? src.el.outerHTML + src.styles.map((x) => x.textContent).join('') : '';
-        if (pinLast.get(p.id) !== key) {
-          pinLast.set(p.id, key);
-          if (src) pinFill(body, src, p);
-          else body.replaceChildren();
-        }
+        if (src) key = src.el.outerHTML + src.styles.map((x) => x.textContent).join('');
+      }
+      if (pinLast.get(p.id) !== key) {
+        pinLast.set(p.id, key);
+        if (!src) body.replaceChildren();
+        else if (p.from === 'agents') src.fill(body);
+        else pinFill(body, src, p);
       }
       // While Edit Layout is open, a block with nothing to show yet still gets its box, so it can be placed.
       box.classList.toggle('ntr_pin_empty', !src);
@@ -1149,12 +1133,14 @@
 
   // The Pinned Blocks card on the Layout page: the list, and the settings of the one that's open.
   let pinOpen = null;
+  const agentList = (s) => (Array.isArray(s.agents) ? s.agents : []);
   function pinListHtml(s) {
     if (!s.layPins.length) return '<div class="cb_hint">No Pinned Blocks yet.</div>';
     const pick = (p, name, opts, cur) => pills(`pin${name}-${p.id}`, opts, cur);
+    const agents = agentList(s);
     return s.layPins.map((p) => {
       const sel = pinSel(p);
-      const names = p.agents.map((id) => (Array.isArray(s.agents) ? s.agents : []).find((a) => a?.id === id)?.name).filter(Boolean);
+      const names = p.agents.map((id) => agents.find((a) => a?.id === id)?.name).filter(Boolean);
       const what = p.from === 'agents' ? (names.length ? `Agents: ${names.join(', ')}` : 'No agents picked yet')
         : sel ? `${p.tag}.${p.classes.join('.')}` : 'Nothing picked yet';
       const row = `
@@ -1173,7 +1159,7 @@
             ${pick(p, 'from', [['chat', 'A Block From the Chat'], ['agents', 'Agent Results']], p.from)}
             ${p.from === 'agents' ? `
             <div class="cb_plab">Agents</div>
-            ${(Array.isArray(s.agents) ? s.agents : []).map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
+            ${agents.map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
             <div class="cb_hint">Needs the Agents page on. They show in the Agents page's order.</div>
             <div class="cb_plab">Show Agents</div>
             ${pick(p, 'view', [['stacked', 'Stacked'], ['tabs', 'Tabs']], p.view)}
@@ -1218,7 +1204,7 @@
     // block's agent limit, agents that are on go in first.
     overlay.querySelector('#m_pin_dash').onclick = () => {
       if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Dashboard'); return; }
-      const all = (Array.isArray(s.agents) ? s.agents : []).filter((a) => a?.id);
+      const all = agentList(s).filter((a) => a?.id);
       if (!all.length) { toastr.info('Hire an agent on the Agents page first.', 'Dashboard'); return; }
       const agents = [...all.filter((a) => a.on), ...all.filter((a) => !a.on)].slice(0, PIN_LIMITS.agents).map((a) => a.id);
       if (all.length > agents.length) toastr.info(`A Dashboard holds up to ${PIN_LIMITS.agents} agents. Agents that are on went in first; change them in its settings.`, 'Dashboard');

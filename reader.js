@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.70';
+  const READER_VERSION = '2.86.71';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn, askNumber } = A;
@@ -61,10 +61,9 @@
   let spread = 0, spreads = 1, geom = null;
 
   const chatEl = () => document.getElementById('chat');
-  const drawnMes = () => [...document.querySelectorAll('#chat > .mes[mesid]')];
   const mesNum = (el) => Number(el.getAttribute('mesid'));
   // The first message SillyTavern has drawn.
-  const drawnFrom = () => { const d = drawnMes(); return d.length ? mesNum(d[0]) : Infinity; };
+  const drawnFrom = () => { const d = document.querySelector('#chat > .mes[mesid]'); return d ? mesNum(d) : Infinity; };
   const editing = () => document.body.classList.contains('ntr_bk_edit');
   const booked = () => !!geom && !editing();
 
@@ -72,7 +71,7 @@
   // message and holds the replies after it; the messages before the first one (the opening) are page 1.
   function build() {
     const chat = ctx().chat || [];
-    const drawn = drawnMes();
+    const drawn = document.querySelectorAll('#chat > .mes[mesid]');
     // A reply being written can be drawn a moment before it's in the chat.
     const n = Math.max(chat.length, drawn.length ? mesNum(drawn[drawn.length - 1]) + 1 || 0 : 0);
     const one = settings().rdPer === 'one';
@@ -93,10 +92,11 @@
     shownMsg = ctx().chat?.[a] || null;
     const ids = [];
     for (let i = a; i <= b; i++) ids.push(`[mesid="${i}"]`);
+    const sel = ids.join(', ');
     cssTag('ntr_rd_css', `
-    #chat > .mes:not(${ids.join(', ')}) { display: none !important; }
+    #chat > .mes:not(${sel}) { display: none !important; }
     #chat > #show_more_messages { display: none !important; }
-    body.ntr_book #chat > .mes:is(${ids.join(', ')}) { display: block !important; }
+    body.ntr_book #chat > .mes:is(${sel}) { display: block !important; }
     `);
     watchText();
   }
@@ -159,9 +159,9 @@
     if (!bar) return 0;
     const cs = getComputedStyle(bar);
     const kids = [...bar.children];
-    const px = (k) => parseFloat(cs[k]) || 0;
-    return Math.ceil(kids.reduce((a, k) => a + k.getBoundingClientRect().width, 0) + px('columnGap') * Math.max(0, kids.length - 1)
-      + px('paddingLeft') + px('paddingRight') + px('borderLeftWidth') + px('borderRightWidth'));
+    const val = (k) => parseFloat(cs[k]) || 0;
+    return Math.ceil(kids.reduce((a, k) => a + k.getBoundingClientRect().width, 0) + val('columnGap') * Math.max(0, kids.length - 1)
+      + val('paddingLeft') + val('paddingRight') + val('borderLeftWidth') + val('borderRightWidth'));
   }
 
   // Clicking the page number turns it into a box to type a page in. Enter goes there (the start of the page), Escape or
@@ -198,7 +198,8 @@
 
   // ----- Book -----
   // A picture link as it goes into the CSS. Links with characters that could break out of url("") use the built-in book.
-  const cssUrl = (u, s) => (u && !/["\\\n\r]/.test(u) ? `url("${u}")` : `url("${A.bookUrl(s.rdBook)}")`);
+  const cssUrl = (s) => (s.rdBookImg && !/["\\\n\r]/.test(s.rdBookImg) ? `url("${s.rdBookImg}")` : `url("${A.bookUrl(s.rdBook)}")`);
+  const px = (v) => `${Math.round(v * 10) / 10}px`;
   // A custom picture keeps its own shape, known once it has loaded.
   const ratios = new Map();
   function ratioOf(u) {
@@ -248,7 +249,7 @@
     const below = (pageFree ? 0 : document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form?.offsetHeight || 0);
     const room = { w: right - left, h: bottom - top - below - 16 };
     const ratio = ratioOf(s.rdBookImg);
-    if (s.rdFlip !== false) decodeBook(s.rdBookImg ? A.media(s.rdBookImg) : A.bookUrl(s.rdBook));
+    if (s.rdFlip) decodeBook(s.rdBookImg ? A.media(s.rdBookImg) : A.bookUrl(s.rdBook));
     let w = room.w * n('rdBookW') / 100, h = w / ratio;
     if (h > room.h) { h = Math.max(160, room.h); w = h * ratio; }
     const g = { x: left + (room.w - w) / 2, y: top + 8, w, h, pt: h * n('rdBookTop') / 100, pb: h * n('rdBookBottom') / 100, po: w * n('rdBookOuter') / 100, gap: w * n('rdBookSpine') / 100 };
@@ -256,7 +257,6 @@
     g.col = (w - 2 * g.po - g.gap) / 2;
     geom = g;
 
-    const px = (v) => `${Math.round(v * 10) / 10}px`;
     const font = s.rdBookFontOn ? A.cleanFont(s.rdBookFont) : '';
     const B = 'html body.ntr_book';
     const css = `
@@ -264,7 +264,7 @@
       height: auto !important; max-height: none !important; right: auto !important; bottom: auto !important; margin: 0 !important; resize: none !important; }
     ${B} #sheld > #sheldheader { display: none !important; }
     ${B} #chat { flex: none !important; height: ${px(g.h)} !important; max-height: none !important; box-sizing: border-box !important; overflow: hidden !important;
-      padding: ${px(g.pt)} ${px(g.po)} ${px(g.pb)} !important; background: ${cssUrl(s.rdBookImg, s)} center / 100% 100% no-repeat !important;
+      padding: ${px(g.pt)} ${px(g.po)} ${px(g.pb)} !important; background: ${cssUrl(s)} center / 100% 100% no-repeat !important;
       border: none !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
       text-shadow: none !important; scrollbar-width: none; will-change: auto !important; color: ${s.rdInk};
       --SmartThemeBodyColor: ${s.rdInk}; --SmartThemeEmColor: ${s.rdInkEm}; --SmartThemeQuoteColor: ${s.rdInkQuote}; --SmartThemeUnderlineColor: ${s.rdInk}; }
@@ -330,7 +330,8 @@
     syncBar();
   }
 
-  // A picture that loads late, or the Book Font arriving, can change how many spreads the page fills.
+  // A picture that loads late, the Book Font arriving, or a reasoning block opening or closing can change how many spreads
+  // the page fills.
   let countQueued = false;
   function recount() {
     if (countQueued) return;
@@ -345,8 +346,6 @@
     });
   }
   const onLoad = (e) => { if (e.target instanceof HTMLImageElement) recount(); };
-  // Opening or closing a reasoning block does too.
-  const onToggle = () => recount();
 
   // Next and Previous: in the book, the next or previous two pages of the same messages first.
   function turn(d) {
@@ -387,14 +386,15 @@
 
   // Editing a message shows it like Standard until the edit is done, so the edit box has room.
   function syncEdit() {
-    const on = !!geom && !!document.querySelector('#chat .edit_textarea');
+    const box = geom && document.querySelector('#chat .edit_textarea');
+    const on = !!box;
     if (on === editing()) return;
     document.body.classList.toggle('ntr_bk_edit', on);
     const chat = chatEl();
-    if (on) { if (chat) chat.scrollLeft = 0; document.querySelector('#chat .edit_textarea')?.scrollIntoView({ block: 'nearest' }); }
+    if (on) { if (chat) chat.scrollLeft = 0; box.scrollIntoView({ block: 'nearest' }); }
     else showSpread(spread);
   }
-  const checkEdit = () => { if (!geom) return; requestAnimationFrame(syncEdit); setTimeout(syncEdit, 300); };
+  const checkEdit = () => { requestAnimationFrame(syncEdit); setTimeout(syncEdit, 300); };
 
   // SillyTavern scrolls the chat down for new messages. The book's pages never scroll up and down, so it stays at the top.
   const keepTop = (e) => { if (booked() && e.target.scrollTop) e.target.scrollTop = 0; };
@@ -407,7 +407,7 @@
     if (bookChat) {
       bookChat.removeEventListener('scroll', keepTop);
       bookChat.removeEventListener('load', onLoad, true);
-      bookChat.removeEventListener('toggle', onToggle, true);
+      bookChat.removeEventListener('toggle', recount, true);
     } else if (chat) {
       document.addEventListener('click', checkEdit, true);
       document.addEventListener('keyup', checkEdit, true);
@@ -416,7 +416,7 @@
     if (chat) {
       chat.addEventListener('scroll', keepTop, { passive: true });
       chat.addEventListener('load', onLoad, true);
-      chat.addEventListener('toggle', onToggle, true);
+      chat.addEventListener('toggle', recount, true);
     } else {
       document.removeEventListener('click', checkEdit, true);
       document.removeEventListener('keyup', checkEdit, true);
@@ -433,7 +433,15 @@
     layoutBook();
     placeBar();
     if (geom) { requestAnimationFrame(() => showSpread(was ? spread : 0)); watchText(); }
-    else { spread = 0; spreads = 1; textObs?.disconnect(); textObs = null; const chat = chatEl(); if (chat) chat.scrollLeft = 0; syncBar(); }
+    else { unbook(); syncBar(); }
+  }
+  // Out of the book (geom is null): one page that scrolls up and down.
+  function unbook() {
+    spread = 0;
+    spreads = 1;
+    watchText();
+    const chat = chatEl();
+    if (chat) chat.scrollLeft = 0;
   }
   const onResize = () => { if (live()) relayout(); };
 
@@ -449,18 +457,15 @@
   // happened yet, for First, Last, a typed page and the like, which go straight to their page.
   let flipEnd = null;
   const dropFlip = () => flipEnd?.(false);
-  const flipOn = () => booked() && settings().rdFlip !== false && !A.reducedMotion();
+  const flipOn = () => booked() && settings().rdFlip && !A.reducedMotion();
+  // turn() finishes a flip still going before it calls this.
   function flip(d, act) {
-    // A turn while one is still going finishes that one at once.
-    flipEnd?.();
     const chat = chatEl();
     const r = chat?.getBoundingClientRect();
     if (!flipOn() || !r?.width) { act(); return; }
-    const s = settings();
     const W = r.width, H = r.height;
-    const px = (v) => `${Math.round(v * 10) / 10}px`;
     const t = px(geom.pt * PAPER), b = px(geom.pb * PAPER), o = px(geom.po * PAPER);
-    const img = cssUrl(s.rdBookImg, s);
+    const img = cssUrl(settings());
     const div = (cls) => { const el = document.createElement('div'); el.className = cls; return el; };
     // A half of the book's paper, as in the picture: the right half (1) or the left (0).
     const paper = (el, side) => Object.assign(el.style, {
@@ -594,7 +599,6 @@
     opened++;
     openedMd = ctx().chatMetadata;
     const at = savedMsg();
-    follow = true;
     rebuild(true, true);
     const to = at == null ? -1 : pages.findLastIndex(([a]) => a <= at);
     if (to < 0 || to >= pages.length - 1) return false;
@@ -646,8 +650,6 @@
     }
   }
 
-  const typingIn = (el) => !!el && el.matches?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
-
   // Page Up and Page Down turn pages: a page taller than the chat scrolls first, and in the book they go through the
   // page's spreads first. They're left alone while the user types in a text box with text in it, and in the NTR menu and
   // SillyTavern's popups.
@@ -661,7 +663,7 @@
     const el = document.activeElement;
     if (el && el !== document.body && el.closest('#cb_modal_overlay, .popup, dialog')) return;
     const send = document.getElementById('send_textarea');
-    const typing = typingIn(el) && !(el === send && !send.value);
+    const typing = !!el?.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]') && !(el === send && !send.value);
     if (vn) {
       if ((k !== 'PageUp' && k !== 'PageDown') || typing || !window.NTR.vn?.goMsg) return;
       e.preventDefault();
@@ -704,19 +706,13 @@
     } else {
       formRo?.disconnect();
       formRo = null;
-      textObs?.disconnect();
-      textObs = null;
       const first = pages[cur]?.[0];
       pages = [];
       cur = 0;
-      spread = 0;
-      spreads = 1;
-      follow = true;
+      unbook();
       paint();
       syncBar();
       A.refreshPins();
-      const chat = chatEl();
-      if (chat) chat.scrollLeft = 0;
       if (wasLive && first != null) document.querySelector(`#chat > .mes[mesid="${first}"]`)?.scrollIntoView({ block: 'start' });
     }
     wasLive = on;

@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.70';
+  const REGEX_VERSION = '2.86.71';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson, switchHtml } = A;
@@ -21,7 +21,7 @@ try {
   ];
   const secOf = (k) => SECS.find((x) => x.k === k);
   const stList = (sec) => document.getElementById(sec.list);
-  const stRow = (sec, id) => [...(stList(sec)?.children || [])].find((el) => el.id === id) || null;
+  const stRow = (sec, id) => [...(stList(sec)?.children || [])].find((el) => el.id === id);
   const ready = () => !!E && !!stList(SECS[0]);
   const scripts = (sec) => E.getScriptsByType(E.SCRIPT_TYPES[sec.type]);
   const presetName = () => E.getCurrentPresetName() || '';
@@ -82,15 +82,18 @@ try {
     const row = stRow(sec, id);
     if (row) $(row).find('.disable_regex').prop('checked', !on).trigger('input');
   }
-  // Several at once with SillyTavern's Bulk Edit, so the chat reloads once.
+  // Switches SillyTavern's rows on or off with its Bulk Edit, so the chat reloads once.
+  function bulkClick(rows, on) {
+    $('#regex_container .regex_bulk_checkbox').prop('checked', false);
+    for (const r of rows) $(r).find('.regex_bulk_checkbox').prop('checked', true);
+    stClick(document.getElementById(on ? 'bulk_enable_regex' : 'bulk_disable_regex'));
+  }
   function setMany(sec, ids, on) {
     const list = scripts(sec);
     const todo = ids.filter((id) => { const x = list.find((y) => y.id === id); return x && !x.disabled !== on; });
     if (!todo.length) return;
-    if (todo.length === 1) { setOn(sec, todo[0], on); return; }
-    $('#regex_container .regex_bulk_checkbox').prop('checked', false);
-    for (const id of todo) $(stRow(sec, id)).find('.regex_bulk_checkbox').prop('checked', true);
-    stClick(document.getElementById(on ? 'bulk_enable_regex' : 'bulk_disable_regex'));
+    if (todo.length === 1) setOn(sec, todo[0], on);
+    else bulkClick(todo.map((id) => stRow(sec, id)), on);
   }
   // Runs SillyTavern's Bulk Edit on regexes from any section and waits until its panel has redrawn.
   function bulk(ids, on) {
@@ -104,9 +107,7 @@ try {
       const obs = new MutationObserver(() => { clearTimeout(t); t = setTimeout(done, 400); });
       const cap = setTimeout(done, 8000);
       obs.observe(box, { childList: true, subtree: true });
-      $('#regex_container .regex_bulk_checkbox').prop('checked', false);
-      for (const r of rows) $(r).find('.regex_bulk_checkbox').prop('checked', true);
-      stClick(document.getElementById(on ? 'bulk_enable_regex' : 'bulk_disable_regex'));
+      bulkClick(rows, on);
     });
   }
 
@@ -243,10 +244,11 @@ try {
 
   function rowHtml(x) {
     const on = !x.disabled;
-    const n = esc(x.scriptName || 'Untitled');
+    const name = x.scriptName || 'Untitled';
+    const n = esc(name);
     return `<div class="rx_row${on ? '' : ' rx_dim'}${query ? '' : ' rx_drag'}" data-id="${esc(x.id)}">
-      ${switchHtml({ cls: 'rx_rsw', box: 'rx_swbox', on, title: `Turn ${x.scriptName || 'Untitled'} on or off` })}
-      <span class="rx_name" title="${esc(x.scriptName || '')}">${esc(x.scriptName || 'Untitled')}</span>
+      ${switchHtml({ cls: 'rx_rsw', box: 'rx_swbox', on, title: `Turn ${name} on or off` })}
+      <span class="rx_name" title="${esc(x.scriptName || '')}">${n}</span>
       <span class="ntr_menu">${btn('mvmenu', 'fa-share', `Move ${n} to a folder`)}</span>
       ${btn('edit', 'fa-pen', `Edit ${n}`)}
       ${btn('del', 'fa-trash', `Delete ${n}`, ' danger_button')}
@@ -337,11 +339,8 @@ try {
   // Puts a regex in a folder (or No Folder) at the end of it, and SillyTavern's run order follows.
   function moveRegex(sec, id, fid) {
     const fl = folders(sec, true);
-    for (const f of fl) {
-      if (!f.ids.includes(id)) continue;
-      f.ids = f.ids.filter((x) => x !== id);
-    }
-    const to = fid ? fl.find((f) => f.id === fid) || null : null;
+    for (const f of fl) f.ids = f.ids.filter((x) => x !== id);
+    const to = fl.find((f) => f.id === fid);
     if (to) to.ids.push(id);
     save();
     const v = view(sec);
@@ -513,11 +512,12 @@ try {
     if (!d.moved) { refresh(); return; }
     const sec = secOf(d.scope.dataset.sec);
     const fl = folders(sec, true);
-    const fids = [...d.scope.querySelectorAll('.rx_folder')].map((el) => el.dataset.fid);
+    const fels = [...d.scope.querySelectorAll('.rx_folder')];
+    const fids = fels.map((el) => el.dataset.fid);
     fl.sort((a, b) => fids.indexOf(a.id) - fids.indexOf(b.id));
     const ids = [];
     for (const f of fl) {
-      const fb = [...d.scope.querySelectorAll('.rx_folder')].find((el) => el.dataset.fid === f.id)?.querySelector('.rx_fbody');
+      const fb = fels[fids.indexOf(f.id)]?.querySelector('.rx_fbody');
       if (fb) f.ids = [...fb.querySelectorAll('.rx_row')].map((r) => r.dataset.id);
       if (f.was) f.was = f.was.filter((id) => f.ids.includes(id));
       ids.push(...f.ids);
@@ -581,8 +581,8 @@ try {
     return applying;
   }
   async function switchFolders(map, gen) {
-    const live = () => gen === applyGen && settings().rxEnabled !== false;
-    if (!ready() || !map || !live()) return;
+    const live = () => gen === applyGen && settings().rxEnabled;
+    if (!ready() || !live()) return;
     const on = [], off = [];
     for (const sec of SECS.filter(shown)) {
       for (const { f, items } of view(sec).groups) {

@@ -1,6 +1,6 @@
 // If this file breaks, the font boxes stay plain text boxes and the chat's fonts still load, so loading them stays in index.js.
 (() => {
-  const FONTS_VERSION = '2.86.70';
+  const FONTS_VERSION = '2.86.71';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] fonts.js loaded without the core (index.js).'); return; }
   const { cleanFont, closePops, fontName, popMenu } = A;
@@ -86,7 +86,6 @@
     // full height, but never past the box's top, so what's typed stays in sight in a short menu.
     const fit = (p) => {
       const body = el.closest('.ntr_body');
-      if (!body) return;
       const full = Math.min(300, innerHeight * 0.4);
       const room = () => body.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom - 8;
       const short = full - room();

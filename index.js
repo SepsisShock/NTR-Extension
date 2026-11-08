@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.70';
+  const VERSION = '2.86.71';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -9,8 +9,8 @@ await (async () => {
   // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
   const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
     ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
-  const bookKey = (s) => (BOOKS.some(([v]) => v === s.rdBook) ? s.rdBook : 'brown');
-  const bookUrl = (k) => `${NTR_BASE}assets/books/${BOOKS.some(([v]) => v === k) ? k : 'brown'}.webp`;
+  const bookId = (k) => (BOOKS.some(([v]) => v === k) ? k : 'brown');
+  const bookUrl = (k) => `${NTR_BASE}assets/books/${bookId(k)}.webp`;
   // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
   const FRAME_SERIES = [
     { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
@@ -219,11 +219,8 @@ await (async () => {
   // ST's own Reduced Motion (User Settings) or the device's setting.
   const reducedMotion = () => !!ctx().powerUserSettings.reduced_motion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const escapeHTML = (str) => {
-    return String(str).replace(/[&<>'"]/g, match => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-    }[match]));
-  };
+  const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+  const escapeHTML = (str) => String(str).replace(/[&<>'"]/g, (m) => HTML_ESC[m]);
   // Names compared the way tags are matched: trimmed, any case. reEsc makes text safe to put in a regex.
   const lc = (x) => String(x || '').trim().toLowerCase();
   const reEsc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -361,11 +358,10 @@ await (async () => {
     const elCss = callModule('elements', 'css', s) || '';
     if (isOn()) {
       const chatCss = layoutChatCss(s) + namesCss(s) + (callModule('decor', 'css', s) || '');
-      cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + (chatCss ? chatCss + '\n' : '');
+      // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
+      // would repaint all of it, avatar fades included.
+      cssString += overrideCss(s) + elCss + (callModule('text', 'css', s) || '') + (chatCss ? chatCss + '\n' : '') + '\n      #chat { will-change: transform; }\n';
     }
-    // The chat gets its own layer. A see-through chat has none on most screens, so every key, streamed word and scroll
-    // repainted all of it, avatar fades included.
-    if (isOn()) cssString += '\n      #chat { will-change: transform; }\n';
 
     cssString += callModule('avatars', 'css', s) || '';
 
@@ -407,11 +403,10 @@ await (async () => {
 
   // ===== Drawing everything =====
   // The header banner and foreground images live in overlays.js, loaded once either is on (or the menu opens).
-  const overlaysWanted = (s = settings()) => isOn() && !!(s.bannerOn || s.fgEnabled);
   function renderOverlays() {
     const m = window.NTR.overlays;
     if (m) m.render();
-    else if (overlaysWanted()) loadModule('overlays').then((x) => x?.render());
+    else if (isOn() && (settings().bannerOn || settings().fgEnabled)) loadModule('overlays').then((x) => x?.render());
   }
 
   function renderAll() {
@@ -454,8 +449,8 @@ await (async () => {
   async function uploadImage(f, prefix, { max = 0, maxWidth = 0 } = {}) {
     let url = String(await readDataURL(f));
     if (f.type !== 'image/gif') {
-      const i = await loadImg(url).catch(() => { throw new Error('That file didn\'t load as an image.'); });
-      if (!i.width || !i.height) throw new Error('That file didn\'t load as an image.');
+      const i = await loadImg(url).catch(() => null);
+      if (!i?.width || !i.height) throw new Error('That file didn\'t load as an image.');
       const k = Math.min(1, max ? max / Math.max(i.width, i.height) : 1, maxWidth ? maxWidth / i.width : 1);
       if (k < 1 || !['image/png', 'image/jpeg', 'image/webp'].includes(f.type)) {
         const c = document.createElement('canvas');
@@ -772,11 +767,6 @@ await (async () => {
   function pills(name, opts, cur) {
     return `<div class="cb_pills">${opts.map(([v, l, t]) => `<label class="cb_pill"${t ? ` title="${escapeHTML(t)}"` : ''}><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" ${v === cur ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
   }
-  // Tiles: pick-one choices shown as pictures. Each option is [value, name, face]; the face is its picture's HTML, or
-  // the name is shown when it has none. Named tiles also show the name under the picture. Bound with onPills, like pills.
-  function tiles(name, label, opts, cur, named = false) {
-    return `<div class="ntr_tiles${named ? ' ntr_named' : ''}" role="radiogroup" aria-label="${escapeHTML(label)}">${opts.map(([v, l, face]) => `<label class="ntr_tile" title="${escapeHTML(l)}"><input type="radio" name="cbr_${name}" value="${escapeHTML(v)}" aria-label="${escapeHTML(l)}" ${v === cur ? 'checked' : ''}><span class="ntr_tile_face">${face || `<span class="ntr_tile_text">${escapeHTML(l)}</span>`}</span>${named ? `<span class="ntr_tile_name">${escapeHTML(l)}</span>` : ''}</label>`).join('')}</div>`;
-  }
   const POS_GRID = [['tl', 'Top Left'], ['tc', 'Top Center'], ['tr', 'Top Right'], ['cl', 'Center Left'], ['cc', 'Center'], ['cr', 'Center Right'], ['bl', 'Bottom Left'], ['bc', 'Bottom Center'], ['br', 'Bottom Right']];
   function posGrid(name, cur) {
     return `<div class="cb_posgrid">${POS_GRID.map(([v, l]) =>`<label title="${l}"><input type="radio" name="cbr_${name}" value="${v}" aria-label="${l}" ${v === cur ? 'checked' : ''}></label>`).join('')}</div>`;
@@ -835,7 +825,6 @@ await (async () => {
   // A switched-off section greys out: its icon in the column, its title, and its settings. A page made of parts greys
   // out each part on its own, and its icon only when every part is off.
   function syncPageOff(overlay) {
-    if (!overlay) return;
     overlay.querySelectorAll('.ntr_part').forEach((p) => p.classList.toggle('ntr_off', !p.querySelector('.ntr_pswitch').checked));
     overlay.querySelectorAll('.ntr_page').forEach((p) => {
       const sw = p.querySelector('.ntr_phead .ntr_pswitch');
@@ -1057,7 +1046,7 @@ await (async () => {
   // top corners.
   function joinCss(s, separate, pre = '') {
     const on = (k) => s[k + 'On'];
-    const pr = on('ovShape') ? (s.ovShape === 'square' ? 0 : rangeNum(s, 'ovRound')) : null;
+    const pr = on('ovShape') ? ovRadius(s, '') : null;
     const line = on('ovPanelBorder') && s.ovPanelBorder !== 'none';
     const sr = on('ovSendShape') ? ovRadius(s, 'Send') : null;
     return cssRule(`${pre}#chat`, {
@@ -1122,11 +1111,10 @@ await (async () => {
     const el = (prev?.matches('.cb_row') ? prev : sl.closest('.cb_row, .cb_place_gridset'))?.querySelector('.ntr_slval');
     return el && slFor(el) === sl ? el : null;
   }
+  const slText = (v, scale) => (scale ? (v / scale).toFixed(1) : v);
   function showSlider(sl, v) {
     const el = slNum(sl);
-    if (!el) return;
-    const scale = Number(el.dataset.scale);
-    el.textContent = scale ? (v / scale).toFixed(1) : v;
+    if (el) el.textContent = slText(v, Number(el.dataset.scale));
   }
   // Shows v even when the slider clamps it: a value set from code can be past the slider's ends.
   function setSlider(sl, v) {
@@ -1179,7 +1167,7 @@ await (async () => {
   function ovSlider(s, key, unit, min, max, step, cls, scale) {
     const v = rangeNum(s, key);
     return `
-      <div class="cb_row"><input type="range" class="${cls}" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${scale ? ` data-scale="${scale}"` : ''}>${scale ? (v / scale).toFixed(1) : v}</span>${unit}</span></div>`;
+      <div class="cb_row"><input type="range" class="${cls}" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${v}" style="flex:1;"><span style="min-width:60px;text-align:right;"><span class="ntr_slval"${scale ? ` data-scale="${scale}"` : ''}>${slText(v, scale)}</span>${unit}</span></div>`;
   }
   function ovColor(s, key) {
     return `<toolcool-color-picker class="m_o_col" data-key="${key}" color="${escapeHTML(s[key])}"></toolcool-color-picker>`;
@@ -1306,6 +1294,7 @@ await (async () => {
     ['tok', 'Tokens'], ['tps', 'Tokens per Second'], ['model', 'Model']];
   const MD_ITEM_IDS = MD_ITEMS.map(([i]) => i);
   const MD_SPOTS = [['av', 'mdAv', 'Avatar'], ['row', 'mdRow', 'Name Row'], ['corner', 'mdCorner', 'Corner'], ['below', 'mdBelow', 'Below']];
+  const MD_KEYS = MD_SPOTS.map(([, k]) => k);
   const MD_SEP = { dot: ' · ', bar: ' | ', slash: ' / ', space: '   ' };
 
   // Quick Replies' Alignment. Safe keeps the first buttons in reach when one scrolling row is wider than the bar.
@@ -1531,12 +1520,13 @@ await (async () => {
     const emo = Object.create(null);
     if (isObj(v.emoImgs)) for (const k of Object.keys(v.emoImgs).slice(0, 500)) if (k.length <= 200) emo[k] = cUrlMap(v.emoImgs[k]);
     v.emoImgs = emo;
-    v.customSpk = Array.isArray(v.customSpk) ? v.customSpk.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : [];
-    v.hiddenSpk = Array.isArray(v.hiddenSpk) ? v.hiddenSpk.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : [];
+    const names = (a) => (Array.isArray(a) ? a.filter((n) => typeof n === 'string' && n.trim()).slice(0, 200).map((n) => n.slice(0, 200)) : []);
+    v.customSpk = names(v.customSpk);
+    v.hiddenSpk = names(v.hiddenSpk);
     // This character's own emotion list (see emoSet), checked like a theme's. A list that doesn't pass is dropped, so
     // the character follows the template. Cleaned in place: the menu edits these objects.
     if (validEmotions(v.emotions)) {
-      for (const e of v.emotions) { for (const k of Object.keys(e)) if (k !== 'id' && k !== 'name') delete e[k]; e.name = e.name.trim(); }
+      for (const e of v.emotions) { keepOnly(e, ['id', 'name']); e.name = e.name.trim(); }
       if (!v.emotions.some((e) => e.id === v.emoDefault)) v.emoDefault = v.emotions[0].id;
     } else { delete v.emotions; delete v.emoDefault; }
     v.locations = cList(v.locations, 500, (l) => cNamed(l, 'loc'));
@@ -1564,7 +1554,7 @@ await (async () => {
   // Regex folders (regex.js): only names and the ids of the card's own regexes.
   function cleanRegex(r) {
     const ids = (a) => (Array.isArray(a) ? a : []).filter((x) => typeof x === 'string' && x && x.length <= 64).slice(0, 1000);
-    r.folders = (Array.isArray(r.folders) ? r.folders : []).filter(isObj).slice(0, 100).map((f) => ({
+    r.folders = cList(r.folders, 100, (f) => ({
       id: cStr(f.id, 40) || newId('rxf'), name: cStr(f.name, 60) || 'Folder', ids: ids(f.ids), was: Array.isArray(f.was) ? ids(f.was) : null,
     }));
     keepOnly(r, ['folders']);
@@ -1623,16 +1613,10 @@ await (async () => {
   function store() {
     const c = ctx();
     const s = settings();
-    if (c.groupId) {
-      if (!s.groupData[c.groupId]) s.groupData[c.groupId] = {};
-      return cleanStore(s.groupData[c.groupId]);
-    }
+    if (c.groupId) return cleanStore(s.groupData[c.groupId] ||= {});
     const key = currentKey();
     if (!key) return null;
-    const st = cardData(key);
-    if (st) return st;
-    if (!s.charData[key]) s.charData[key] = {};
-    return cleanStore(s.charData[key]);
+    return cardData(key) || cleanStore(s.charData[key] ||= {});
   }
 
   // The cards in the open chat: a group's members, or the open character. chatName is the group's or character's name.
@@ -1656,9 +1640,7 @@ await (async () => {
 
   function fgData() {
     const st = store();
-    if (!st) return FG_DEF();
-    if (!st.fg) st.fg = FG_DEF();
-    return st.fg;
+    return st ? (st.fg ||= FG_DEF()) : FG_DEF();
   }
 
   // The open chat's Visual Novel data, for cast.js and vn.js: speakers and their pictures, locations, CGs, maps and the
@@ -1667,9 +1649,9 @@ await (async () => {
     locations: [], locDefault: '', cgs: [], maps: [], mapRoot: '', opening: {} });
   function vnData() {
     const st = store();
-    if (!st) return VN_DEF();
-    if (!st.vn) st.vn = VN_DEF();
     const def = VN_DEF();
+    if (!st) return def;
+    st.vn ||= {};
     for (const k of Object.keys(def)) if (st.vn[k] === undefined) st.vn[k] = def[k];
     return st.vn;
   }
@@ -1981,9 +1963,8 @@ await (async () => {
       [p + 'FilterStr']: [0, 100, 1, '%'], [p + 'TextureStr']: [0, 100, 1, '%'],
       [p + 'FrameSize']: [100, 300, 1, '%'], [p + 'FrameX']: [-50, 50, 1, '%'], [p + 'FrameY']: [-50, 50, 1, '%'],
       [p + 'PopX']: [-10000, 10000, 5, 'px', -1500, 1500], [p + 'PopY']: [-10000, 10000, 5, 'px', -1500, 1500],
-      [p + 'FadeTop']: [0, 100, 1, '%'], [p + 'FadeBot']: [0, 100, 1, '%'], [p + 'FadeLeft']: [0, 100, 1, '%'], [p + 'FadeRight']: [0, 100, 1, '%'],
-      [p + 'FadeTL']: [0, 100, 1, '%'], [p + 'FadeTR']: [0, 100, 1, '%'], [p + 'FadeBL']: [0, 100, 1, '%'], [p + 'FadeBR']: [0, 100, 1, '%'], [p + 'FadeStr']: [0, 100, 1, '%'],
     });
+    for (const f of ['Top', 'Bot', 'Left', 'Right', 'TL', 'TR', 'BL', 'BR', 'Str']) NUM_RANGE[`${p}Fade${f}`] = [0, 100, 1, '%'];
   }
   // A number setting kept to its range, or its default if it isn't a number.
   const rangeNum = (s, k) => cNum(s[k], DEFAULTS[k], NUM_RANGE[k][0], NUM_RANGE[k][1]);
@@ -2022,14 +2003,12 @@ await (async () => {
     // Default art and cursors follow the rules for card images: an uploaded file, a web link or an embedded image.
     if (IMG_KEYS.has(k)) return typeof v === 'string' && (v === '' || (cUrl(v) === v && !v.startsWith('data:video/')));
     if (k in COLOR_FROM) return typeof v === 'string' && (v === '' || COLOR_RE.test(v));
-    if (k === 'ovScrollTrack' || k === 'ovQrHover') return typeof v === 'string' && COLOR_RE.test(v);
+    if (k === 'ovScrollTrack' || k === 'ovQrHover' || INK_KEYS.includes(k)) return typeof v === 'string' && COLOR_RE.test(v);
     if (FONT_KEYS.includes(k)) return typeof v === 'string' && FONT_RE.test(v);
-    if (INK_KEYS.includes(k)) return typeof v === 'string' && COLOR_RE.test(v);
     if (PICK_KEYS[k]) return PICK_KEYS[k].includes(v);
-    if (k === 'bannerGlobal') return isObj(v);
+    if (k === 'bannerGlobal' || k === 'mbIcons') return isObj(v);
     if (k === 'layPins') return Array.isArray(v);
-    if (k === 'mbIcons') return isObj(v);
-    if (MD_SPOTS.some(([, key]) => key === k)) return Array.isArray(v) && v.every((i) => MD_ITEM_IDS.includes(i));
+    if (MD_KEYS.includes(k)) return Array.isArray(v) && v.every((i) => MD_ITEM_IDS.includes(i));
     if (k === 'emotions') return validEmotions(v);
     if (k === 'emoDefault') return !!cRef(v);
     if (k === 'opTransColor') return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
@@ -2042,11 +2021,11 @@ await (async () => {
   // A theme's value as it gets saved or applied, or undefined to leave it out. Numbers outside their range are pulled in.
   function lookValue(k, v) {
     if (!validLookValue(k, v)) return undefined;
-    if (NUM_RANGE[k]) return Math.min(NUM_RANGE[k][1], Math.max(NUM_RANGE[k][0], v));
+    if (NUM_RANGE[k]) return cardNum(v, k);
     if (k === 'emotions') return v.map((e) => ({ id: e.id, name: e.name.trim() }));
     if (k === 'layPins') return cleanPins(v);
     if (k === 'mbIcons') return cleanMbIcons(v);
-    if (MD_SPOTS.some(([, key]) => key === k)) return MD_ITEM_IDS.filter((i) => v.includes(i));
+    if (MD_KEYS.includes(k)) return MD_ITEM_IDS.filter((i) => v.includes(i));
     if (TAG_KEYS.includes(k)) return v.trim(); // as the menu's Apply saves them
     return structuredClone(v);
   }
@@ -2089,8 +2068,8 @@ await (async () => {
 
   // ===== The menu and its floating, dockable panel =====
   function openCombinedModal() {
-    const prevScroll = document.querySelector('#cb_modal_overlay .ntr_body')?.scrollTop || 0;
     const old = document.getElementById('cb_modal_overlay');
+    const prevScroll = old?.querySelector('.ntr_body')?.scrollTop || 0;
     cancelAsks(old);
     old?.remove();
     const s = settings();
@@ -2180,29 +2159,29 @@ await (async () => {
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const isNarrow = () => window.innerWidth < 700;
+  const panelW = (w) => clamp(w, 320, Math.round(window.innerWidth * 0.9));
 
   function panelLayout(overlay) {
     const content = overlay.querySelector('.cb_popup_content');
     const edge = overlay.querySelector('#ntr_edge');
-    if (!content || !edge) return;
     const P = settings().uiPanel;
+    const narrow = isNarrow();
     content.classList.remove('ntr_dock_left', 'ntr_dock_right', 'ntr_float', 'ntr_sheet');
     Object.assign(content.style, { left: '', right: '', top: '', bottom: '', width: '', height: '' });
     edge.style.display = 'none';
     overlay.querySelectorAll('.ntr_dockbtn').forEach((b) => {
-      b.style.display = isNarrow() ? 'none' : '';
+      b.style.display = narrow ? 'none' : '';
       b.classList.toggle('on', b.dataset.dock === P.dock);
     });
-    if (isNarrow()) { content.classList.add('ntr_sheet'); syncCompact(content); return; }
-    const maxW = Math.round(window.innerWidth * 0.9);
+    if (narrow) { content.classList.add('ntr_sheet'); syncCompact(content); return; }
     if (P.dock === 'left' || P.dock === 'right') {
-      const w = clamp(P.w || 440, 320, maxW);
+      const w = panelW(P.w || 440);
       content.classList.add('ntr_dock_' + P.dock);
       content.style.width = w + 'px';
       edge.style.display = 'block';
       edge.style.left = (P.dock === 'right' ? window.innerWidth - w - 4 : w - 4) + 'px';
     } else {
-      const w = clamp(P.fw || 560, 320, maxW);
+      const w = panelW(P.fw || 560);
       const h = clamp(P.fh || Math.round(window.innerHeight * 0.75), 240, window.innerHeight);
       const x = clamp(P.x ?? Math.round((window.innerWidth - w) / 2), 80 - w, window.innerWidth - 80);
       const y = clamp(P.y ?? 60, 0, window.innerHeight - 50);
@@ -2244,7 +2223,7 @@ await (async () => {
       let w = r.width, offX = e.clientX - r.left;
       const offY = e.clientY - r.top;
       if (P.dock !== 'float') {
-        w = clamp(P.fw || 560, 320, Math.round(window.innerWidth * 0.9));
+        w = panelW(P.fw || 560);
         offX = Math.min(offX, w - 40);
         P.dock = 'float';
         P.x = e.clientX - offX;
@@ -2257,7 +2236,7 @@ await (async () => {
         content.style.top = clamp(ev.clientY - offY, 0, window.innerHeight - 50) + 'px';
         zone = ev.clientX <= 24 ? 'left' : ev.clientX >= window.innerWidth - 24 ? 'right' : null;
         if (zone) {
-          const pw = clamp(P.w || 440, 320, Math.round(window.innerWidth * 0.9));
+          const pw = panelW(P.w || 440);
           Object.assign(preview.style, { display: 'block', width: pw + 'px', left: zone === 'left' ? '0px' : (window.innerWidth - pw) + 'px' });
         } else preview.style.display = 'none';
       };
@@ -2276,7 +2255,7 @@ await (async () => {
       e.preventDefault();
       const move = (ev) => {
         const w = P.dock === 'right' ? window.innerWidth - ev.clientX : ev.clientX;
-        P.w = clamp(Math.round(w), 320, Math.round(window.innerWidth * 0.9));
+        P.w = panelW(Math.round(w));
         panelLayout(overlay);
       };
       const up = () => {
@@ -2389,15 +2368,13 @@ await (async () => {
   // `loading`.
   const moduleNote = (name, loading) => (modError[name] ? `${MOD_LABEL[name]} failed to load: ` + escapeHTML(modError[name])
     : window.NTR[name] ? `${MOD_LABEL[name]} couldn't be drawn. The browser console has the details.` : loading);
-  // What a look module's page keeps without the module: parts from other modules, like Emotions (cast.js) on Avatar
-  // Management, which saves some things per character.
-  const LOOK_KEEP = { avatars: () => castPartHtml() };
-  // A look module's page, or a note saying why it isn't there.
+  // A look module's page, or a note saying why it isn't there. Without avatars.js, Avatar Management keeps
+  // Emotions (cast.js).
   function lookPageHtml(name, s) {
     const html = callModule(name, 'sectionHtml', s);
     if (html !== undefined) return html;
     const msg = moduleNote(name, `Loading ${MOD_LABEL[name]}.`);
-    return pageHtml(LOOK_MODULES[name], LOOK_KEEP[name]?.() || '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>`, });
+    return pageHtml(LOOK_MODULES[name], name === 'avatars' ? castPartHtml() : '', { note: `<div class="cb_hint ntr_pnote">${msg}</div>` });
   }
   // Waits for the look modules, side by side and at most 5 seconds in all. SillyTavern waits for them behind its loading
   // screen, this wait included, so their styles are there from the first draw. One that takes longer arrives after NTR
@@ -2512,7 +2489,7 @@ await (async () => {
             <button class="menu_button" id="m_rd_clr" title="Use the built-in book" aria-label="Use the built-in book"><i class="fa-solid fa-rotate-left"></i></button>
           </div>
           <div class="cb_hint" style="margin:6px 0 0;">Cover Color</div>
-          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookKey(s) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
+          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookId(s.rdBook) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
           <div class="cb_hint">Also puts back the built-in page areas and replaces your own picture.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
@@ -2561,9 +2538,10 @@ await (async () => {
     const renderPic = () => {
       const src = s.rdBookImg ? media(s.rdBookImg) : bookUrl(s.rdBook);
       overlay.querySelector('#m_rd_pic').innerHTML = `<img src="${escapeHTML(src)}" alt="">`;
-      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === bookKey(s))[1]}`;
+      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === bookId(s.rdBook))[1]}`;
       overlay.querySelector('#m_rd_clr').disabled = !s.rdBookImg;
     };
+    const uncheckBooks = () => overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; });
     const setPic = (url) => {
       const old = s.rdBookImg;
       s.rdBookImg = url;
@@ -2572,7 +2550,7 @@ await (async () => {
       updateAvatarStyle();
       deleteFileIfUnused(old);
       // A custom picture: no cover dot stays picked, so any dot can be picked to go back.
-      if (url) { overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; }); renderPic(); } else openCombinedModal();
+      if (url) { uncheckBooks(); renderPic(); } else openCombinedModal();
     };
     overlay.querySelector('#m_rd_up').onclick = () => file.click();
     overlay.querySelector('#m_rd_url').onclick = async function() {
@@ -2584,10 +2562,7 @@ await (async () => {
       || askYes(anchor, 'Go back to the built-in book? Your picture is removed and the page areas reset.', 'Use Built-In Book', { danger: true });
     overlay.querySelector('#m_rd_clr').onclick = async function() { if (await backToBook(this)) setPic(''); };
     onPills(overlay, 'rdbook', async (v) => {
-      if (!(await backToBook(overlay.querySelector('.ntr_rd_books')))) {
-        overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; });
-        return;
-      }
+      if (!(await backToBook(overlay.querySelector('.ntr_rd_books')))) { uncheckBooks(); return; }
       s.rdBook = v;
       setPic('');
     });
@@ -2692,10 +2667,12 @@ await (async () => {
     const rd = on && s.rdEnabled ? await loadModule('reader', true) : window.NTR.reader;
     rd?.refresh();
     if (on) {
-      if (s.nodeEnabled) { const vn = await loadVN(); if (vn) vn.refresh(); }
-    } else if (window.NTR.vn) window.NTR.vn.teardown();
-    if (on) (await loadModule('cast'))?.refresh();
-    else window.NTR.cast?.teardown();
+      if (s.nodeEnabled) (await loadVN())?.refresh();
+      (await loadModule('cast'))?.refresh();
+    } else {
+      window.NTR.vn?.teardown();
+      window.NTR.cast?.teardown();
+    }
     if (document.getElementById('cb_modal_overlay')) openCombinedModal();
   }
 
@@ -2724,7 +2701,7 @@ await (async () => {
         </div>
       </div>`;
     host.appendChild(wrap);
-    wrap.querySelector('#ntr_ext_open').onclick = () => openCombinedModal();
+    wrap.querySelector('#ntr_ext_open').onclick = openCombinedModal;
     wrap.querySelector('#ntr_power').onclick = () => setMaster(!isOn());
     bindRemove(wrap.querySelector('.ntr_ext_fold .inline-drawer-content'));
     syncExtBar();
@@ -2819,7 +2796,7 @@ await (async () => {
     b.tabIndex = 0;
     b.title = 'Open the Nitwit Tavern Redesign menu';
     b.innerHTML = '<div class="extensionsMenuExtensionButton"><span class="ntr_icon"></span></div><span>Nitwit Tavern Redesign</span>';
-    b.onclick = () => openCombinedModal();
+    b.onclick = openCombinedModal;
     keyClick(b);
     menu.appendChild(b);
   }
@@ -2851,18 +2828,18 @@ await (async () => {
   window.NTR = window.NTR || {};
   window.NTR.api = {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, tiles, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
-    openMenu: () => openCombinedModal(), fillIn,
-    closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn')?.click(); return true; },
+    pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    openMenu: openCombinedModal, fillIn,
+    closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn').click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
-    refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum: (s, k) => rangeNum(s, k), cleanFont: (v) => cleanFont(v), fontName: (v) => fontName(v),
+    refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum, cleanFont, fontName,
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
     LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, normFile, uploadDataUrl, isObj, stColor,
     // Exported files, and names for imported or new items
     downloadJson, freeName, uniqueName,
-    // For agents.js: its sliders' ranges
-    numRange: (k) => NUM_RANGE[k], rangeAttrs: (k) => rangeAttrs(k),
+    // NUM_RANGE ranges and slider attributes, for modules' own sliders and number boxes
+    numRange: (k) => NUM_RANGE[k], rangeAttrs,
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
     peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, card, pagePart,
     // Edit Layout (layout.js), for avatars.js and overlays.js. Without layout.js, the pictures keep their place and
@@ -2883,7 +2860,7 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, joinCss, ovWhen, sendSeparate,
       FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel, hint,
       RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
-      cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: () => updateAvatarStyle(),
+      cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: updateAvatarStyle,
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
       LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, decorOn, clamp,
@@ -2975,13 +2952,14 @@ await (async () => {
     }
     renderAll();
     const s0 = settings();
+    const on = isOn();
     // cast.js hides tags in the chat and draws emotions, so it loads whenever NTR is on. VN loads it first anyway.
-    if (isOn()) loadModule('cast').then((c) => c?.refresh());
+    if (on) loadModule('cast').then((c) => c?.refresh());
     // Reader Mode first: Visual Novel opens on the message saved through it.
-    const rdLoad = isOn() && s0.rdEnabled ? loadModule('reader').then((rd) => rd?.refresh()) : Promise.resolve();
+    const rdLoad = on && s0.rdEnabled ? loadModule('reader').then((rd) => rd?.refresh()) : Promise.resolve();
     // Visual Novel Mode loads when it's switched on (see setReader).
-    if (isOn() && s0.nodeEnabled) rdLoad.catch(() => {}).then(() => loadVN()).then((vn) => { if (vn) vn.refresh(); });
-    if (isOn() && s0.agEnabled) loadModule('agents');
+    if (on && s0.nodeEnabled) rdLoad.catch(() => {}).then(() => loadVN()).then((vn) => vn?.refresh());
+    if (on && s0.agEnabled) loadModule('agents');
     // The Themes page works with NTR on or off.
     loadModule('themes');
   });

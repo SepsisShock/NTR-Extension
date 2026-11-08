@@ -1,5 +1,5 @@
 (() => {
-  const THEMES_VERSION = '2.86.70';
+  const THEMES_VERSION = '2.86.71';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
@@ -18,7 +18,7 @@
     ['pfp', ['usCss'], 'the User avatar', 'Avatars, User Avatar'],
   ];
 
-  const applyLook = (data) => setLook((s) => { for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data && data[sec])); });
+  const applyLook = (data) => setLook((s) => { for (const sec of Object.keys(LOOK)) Object.assign(s, cleanLookSection(sec, data[sec])); });
   const resetLook = () => setLook((s) => {
     for (const sec of Object.keys(LOOK)) for (const k of LOOK[sec].keys) s[k] = structuredClone(DEFAULTS[k]);
     s.themeActive = null;
@@ -55,7 +55,6 @@
     return { data, fails };
   }
 
-  const hasEmbedded = (obj) => JSON.stringify(obj || {}).includes(';base64,');
   async function unpackFiles(obj) {
     let fails = 0;
     const data = await mapStrings(obj, async (v) => {
@@ -67,13 +66,7 @@
 
   function lookMatches(data) {
     const s = settings();
-    for (const sec of Object.keys(data || {})) {
-      if (!LOOK[sec]) continue;
-      for (const k of Object.keys(data[sec])) {
-        if (LOOK[sec].keys.includes(k) && JSON.stringify(s[k]) !== JSON.stringify(data[sec][k])) return false;
-      }
-    }
-    return true;
+    return Object.keys(LOOK).every((sec) => !data[sec] || LOOK[sec].keys.every((k) => !(k in data[sec]) || JSON.stringify(s[k]) === JSON.stringify(data[sec][k])));
   }
 
   // The theme in use, or null for Default Look.
@@ -116,16 +109,27 @@
     const panel = overlay.querySelector('#m_t_panel');
     const list = page.querySelector('.ntr_tlist');
     const nameTaken = (name) => s.themes.some((t) => t.name.toLowerCase() === name.toLowerCase());
-    // The ticked sections, or null with a warning when none is.
-    const chosenSecs = () => {
-      const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
-      if (chosen.length) return chosen;
-      toastr.warning('Tick at least one section.', 'Themes');
-      return null;
+    const secBoxes = (secs) => '<div class="cb_plab">Sections</div>'
+      + secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
+    // Export and Import open their options under the row or bar they came from. The button [id, label] runs `run` with
+    // the ticked sections, then closes the options; with none ticked, it warns instead.
+    const showPanel = (after, html, [id, label], run) => {
+      after.after(panel);
+      panel.innerHTML = `
+        <div class="ntr_tpanel">${html}
+          <div class="cb_actions">
+            <button class="menu_button" id="${id}">${label}</button>
+            <button class="menu_button" id="m_t_cancel">Cancel</button>
+          </div>
+        </div>`;
+      panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
+      panel.querySelector('#' + id).onclick = async () => {
+        const chosen = [...panel.querySelectorAll('.m_t_sec:checked')].map((c) => c.value);
+        if (!chosen.length) { toastr.warning('Tick at least one section.', 'Themes'); return; }
+        await run(chosen);
+        panel.innerHTML = '';
+      };
     };
-    const secBoxes = (secs) => secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
-    // Export and Import open their options under the row or bar they came from.
-    const showPanel = (after, html) => { after.after(panel); panel.innerHTML = html; };
 
     // Other pages change the look while this one is hidden, so the line is filled again each time it's opened.
     const stat = page.querySelector('.ntr_tstat');
@@ -151,13 +155,15 @@
 
     // Which regex folders are on (regex.js) is kept with a theme, outside its look settings, and never exported.
     // With the Regexes page off, themes leave regex folders alone.
-    const regexStates = async () => (s.rxEnabled ? (await loadModule('regex'))?.states?.() || null : null);
+    const keepRegex = async (t) => {
+      const rs = s.rxEnabled && (await loadModule('regex'))?.states();
+      if (rs) t.regex = rs;
+    };
     const saveNew = async () => {
       const name = await askName(tbar, `Theme ${s.themes.length + 1}`);
       if (!name) return;
       const t = { id: newId('th'), name, data: lookSnapshot() };
-      const rs = await regexStates();
-      if (rs) t.regex = rs;
+      await keepRegex(t);
       s.themes.push(t);
       s.themeActive = t.id;
       save();
@@ -176,7 +182,7 @@
       s.themeActive = t.id;
       applyLook(t.data);
       openMenu();
-      if (t.regex && s.rxEnabled) (await loadModule('regex'))?.applyStates?.(t.regex);
+      if (t.regex && s.rxEnabled) (await loadModule('regex'))?.applyStates(t.regex);
     };
 
     const rename = async (t, row) => {
@@ -226,8 +232,7 @@
       if (!(await askYes(tbar, `Save your current look over "${t.name}"?`, 'Save'))) return;
       const oldRefs = collectFileRefs(t.data);
       t.data = lookSnapshot();
-      const rs = await regexStates();
-      if (rs) t.regex = rs;
+      await keepRegex(t);
       save();
       oldRefs.forEach((p) => deleteFileIfUnused(p));
       openMenu();
@@ -239,31 +244,18 @@
       const secs = Object.keys(LOOK).filter((k) => data[k]);
       const nImg = collectFileRefs(data).size;
       showPanel(row, `
-        <div class="ntr_tpanel">
           <strong><i class="fa-solid fa-fw fa-file-export ntr_glab_icon"></i>Export "${escapeHTML(name)}"</strong>
-          <div class="cb_plab">Sections</div>
           ${secBoxes(secs)}
           ${nImg ? `<label class="checkbox_label" style="margin-top:4px;"><input type="checkbox" id="m_t_img" checked><span>Include Pictures (${nImg})</span></label>
-          <div class="cb_hint">Needed on another install.</div>` : ''}
-          <div class="cb_actions">
-            <button class="menu_button" id="m_t_dl"><i class="fa-solid fa-download"></i> Download</button>
-            <button class="menu_button" id="m_t_cancel">Cancel</button>
-          </div>
-        </div>`);
-      panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
-      panel.querySelector('#m_t_dl').onclick = async () => {
-        const chosen = chosenSecs();
-        if (!chosen) return;
+          <div class="cb_hint">Needed on another install.</div>` : ''}`, ['m_t_dl', '<i class="fa-solid fa-download"></i> Download'], async (chosen) => {
         let sections = Object.fromEntries(chosen.map((k) => [k, data[k]]));
         if (panel.querySelector('#m_t_img')?.checked && collectFileRefs(sections).size) {
           const r = await embedFiles(sections);
           sections = r.data;
           if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be read and were left as links.`, 'Themes');
         }
-        const out = { ntrTheme: 1, version: VERSION, name, sections };
-        downloadJson(out, name, 'theme');
-        panel.innerHTML = '';
-      };
+        downloadJson({ ntrTheme: 1, version: VERSION, name, sections }, name, 'theme');
+      });
     }
 
     const tf = overlay.querySelector('#m_t_file');
@@ -286,27 +278,17 @@
       const cssIn = CSS_PARTS.map(([sec, keys, name, where, text = (get) => (get(keys[0]) || '').trim()]) => [name, where, text((k) => cleaned[sec][k])])
         .filter(([, , css]) => css);
       showPanel(tbar, `
-        <div class="ntr_tpanel">
           <strong><i class="fa-solid fa-fw fa-file-import ntr_glab_icon"></i>Import Theme</strong>
           <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported Theme'))}"></label>
-          <div class="cb_plab">Sections</div>
           ${secBoxes(secs)}
           ${cssIn.map(([name, where, css]) => `<div class="cb_hint">This theme has Custom CSS for ${name}. It comes in switched off: check it under ${where}, Advanced: Custom CSS, then tick it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>`).join('')}
-          ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Avatars, Emotions, Tags and Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}
-          <div class="cb_actions">
-            <button class="menu_button" id="m_t_add"><i class="fa-solid fa-plus"></i> Add Theme</button>
-            <button class="menu_button" id="m_t_cancel">Cancel</button>
-          </div>
-        </div>`);
-      panel.querySelector('#m_t_cancel').onclick = () => { panel.innerHTML = ''; };
-      panel.querySelector('#m_t_add').onclick = async () => {
-        const chosen = chosenSecs();
-        if (!chosen) return;
+          ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Avatars, Emotions, Tags and Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}`,
+      ['m_t_add', '<i class="fa-solid fa-plus"></i> Add Theme'], async (chosen) => {
         const name = freeName(panel.querySelector('#m_t_iname').value.slice(0, 60).trim() || 'Imported Theme', nameTaken, 60);
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [sec, keys] of CSS_PARTS) for (const k of keys) if (data[sec] && (data[sec][k] || '').trim()) data[sec][k + 'On'] = false;
-        if (hasEmbedded(data)) {
+        if (JSON.stringify(data).includes(';base64,')) {
           toastr.info('Uploading the theme\'s pictures...', 'Themes');
           const r = await unpackFiles(data);
           data = r.data;
@@ -316,7 +298,7 @@
         save();
         openMenu();
         toastr.success(`Added "${name}". Pick it in the list to apply it.`, 'Themes');
-      };
+      });
     });
   }
 

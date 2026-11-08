@@ -703,7 +703,7 @@ input.text_pole.ntr_slbox { display: inline-block; width: 7ch; min-height: 0; he
 .cb_place_box > span { position: absolute; left: 4px; top: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font-size: 12px; white-space: nowrap; display: none; }
 .cb_place_box.cb_sel { z-index: 1; cursor: grab; outline: 2px solid var(--SmartThemeQuoteColor, #6cf); background: rgba(255,255,255,.08); }
 .cb_place_box.cb_sel > span { display: block; }
-.cb_place_box[data-id^="lay"] > span { left: 20px; }
+.cb_place_box:is([data-id^="lay"], [data-id^="pin"]) > span { left: 20px; }
 .cb_place_box.cb_dragging { cursor: grabbing; }
 .cb_place_grip { position: absolute; display: none; width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 2px solid #000; background: var(--SmartThemeQuoteColor, #6cf); touch-action: none; }
 .cb_place_grip.cb_on { display: block; }

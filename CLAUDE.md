@@ -1,9 +1,15 @@
 # NTR-Extension
 
+Nitwit Tavern Redesign (NTR), non-profit and open-source SillyTavern extension, being developed for public release.
+
 ## Project Goals
-- Nitwit Tavern Redesign (NTR), non-profit and open-source SillyTavern extension, being developed for public release.
 - Lightweight code matters because some users will be on slower devices.
-- Clean codebase matters, EVEN WHEN USERS WON'T SEE THE DIFFERENCE, because code cruft increases maintenance costs.
+- Clean and organized codebase matters, EVEN WHEN USERS WON'T SEE THE DIFFERENCE, because code cruft increases maintenance costs.
+
+## Before Outputting, Think First
+- My Input: if it could be read different ways, use the conversation context & common sense to determine what I mean.
+- Tools, APIs, Library: Whenever stating how they behave, check official docs, then search proven community patterns.
+- Pushback: Don't automatically agree or become defensive; may reconsider when evidence or overlooked factors warrant it, but evaluate on its own merits.
 
 ## Communication
 - Everywhere: No em dashes; use semicolons or colons instead.
@@ -15,19 +21,16 @@
 ### Source Code Comments
 - Follow: docs/code-comment-guidelines.md
 
-## Before Outputting, Think First
-- My Input: if it could be read different ways, use the conversation context & common sense to determine what I mean.
-- Tools, APIs, Library: Whenever stating how they behave, check official docs, then search proven community patterns.
-- Criticisms: Don't automatically agree or become defensive; may reconsider when evidence or overlooked factors warrant it, but evaluate on its own merits.
-
 ## Workflow
 - Ignore `README.md` and `LICENSE*` unless explicitly requested.
 - One Rule, One Help File: don't restate a rule from another *help* file (CLAUDE.md, AGENTS.md, `docs/`, skills); point to its path instead if needed.
-- Writing Rules: a help-file rule says what to do (or what's fine) and names what to use, not how the code works; cut an explanation that proves incomplete instead of extending it.
+  - Help-file rules say what to do (or what's allowed) and name what to use, rather than explaining how the code works. Cut an incomplete explanation instead of extending it.
 - If a repo skill, test, or `CLAUDE.md` rule has issues or is outdated, flag it in chat and suggest when & where to address it.
 - Group related changes into one PR; split them when separate PRs are easier to review or revert, and justify why in chat before splitting.
 - After implementing, check the result against the request and approved plan, not just test runs. Report any differences.
-- Other LLMs: Thoroughly verify each claim and evidence. Even when a conclusion is correct, assess whether it's a good judgment for the project.
+
+### Other LLMs
+- Thoroughly verify each claim and its evidence. Even when a conclusion is correct, assess whether it's a good judgment for the project.
 
 ### Architecture & Module Routing
 - **Core Boundary:** `index.js` is core. Modules never import other NTR files; they communicate only through `window.NTR`: core's helpers in `window.NTR.api` (look helpers in `window.NTR.api.look`), and other modules' exports in `window.NTR.<module>`.

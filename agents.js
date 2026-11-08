@@ -1680,8 +1680,8 @@
       if (!pop) return;
       fitPop(pop);
       pop.onclick = (e) => {
-        // Kept from the page's own click, which closes a menu when the click lands outside it: the department list
-        // takes the place of the button that was clicked.
+        // Kept from popMenu's close on a click outside a menu: the department list replaces the clicked button, which
+        // then sits in no menu.
         e.stopPropagation();
         const b = e.target.closest('button[data-act]');
         if (!b || b.disabled) return;

@@ -235,10 +235,10 @@
   }
 
   // ----- The chat with Visual Novel Mode off: faces on chat avatars, the stage behind the chat -----
+  const STAGE_WORDS = [['emo', 'emoWord'], ['enter', 'enterWord'], ['exit', 'exitWord']];
   // A message's speakers and stage tags, in order. Its writer speaks first, with the message's emotion: the last
   // Emotion tag or speaker tag with their own name that gives one. Kept per message until its text changes.
   const beats = new Map();
-  const STAGE_WORDS = [['emo', 'emoWord'], ['enter', 'enterWord'], ['exit', 'exitWord']];
   function msgInfo(m, i) {
     const text = String(m.mes || ''), name = String(m.name || '');
     const had = beats.get(i);
@@ -616,7 +616,8 @@
     if (!emoBox || !spkBox) return;
 
     // Emotion list. Edits go to the open chat's own list, which starts as a copy of the template on its first edit, or
-    // to the template itself with no chat open. A card checks its list on the way in (cleanVn), against EMO_LIMITS.
+    // to the template itself with no chat open. The menu keeps to EMO_LIMITS, since a card's list outside them is
+    // dropped on the way in (cleanVn).
     const T = () => {
       if (!A.store()) return s;
       const v = D();

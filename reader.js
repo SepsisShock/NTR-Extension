@@ -197,7 +197,6 @@
   }
 
   // ----- Book -----
-  // A picture link as it goes into the CSS. Links with characters that could break out of url("") use the built-in book.
   const cssUrl = (s) => `url("${A.bookSrc(s)}")`;
   const px = (v) => `${Math.round(v * 10) / 10}px`;
   // A custom picture keeps its own shape, known once it has loaded.

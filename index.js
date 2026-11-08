@@ -11,7 +11,6 @@ await (async () => {
     ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
   const bookId = (k) => (BOOKS.some(([v]) => v === k) ? k : 'brown');
   const bookUrl = (k) => `${NTR_BASE}assets/books/${bookId(k)}.webp`;
-  // The book's picture: the user's own, or the built-in book picked.
   const bookSrc = (s) => s.rdBookImg || bookUrl(s.rdBook);
   // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
   const FRAME_SERIES = [
@@ -636,7 +635,8 @@ await (async () => {
     'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
 
   // A small menu under a button, like Move to folder on the Regexes page. The button sits in a .ntr_menu box, and `html`
-  // is the menu's buttons. A second click on the same button closes it, and so does a click on the page outside a menu.
+  // is the menu's buttons. A second click on the same button closes it, and so does a click in its .ntr_page outside
+  // every .ntr_menu box. A click on its own buttons doesn't, so callers close it on a pick.
   function popMenu(anchor, html) {
     const scope = anchor.closest('.ntr_page') || document;
     const had = anchor.parentElement.querySelector('.ntr_pop');
@@ -1212,7 +1212,7 @@ await (async () => {
     return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
   };
   // A slider under a row with its label and value, for a module that binds its own sliders. `input` is the input's own
-  // attributes (id, class, data-key) and `top` the row's top margin.
+  // attributes, like its id or class.
   const sliderAbove = (label, k, v, input, top = '') => `
     <div class="cb_row"${top ? ` style="margin-top: ${top};"` : ''}><label>${label}</label><span><span class="ntr_slval">${v}</span>${NUM_RANGE[k][3]}</span></div>
     <input type="range" ${input} aria-label="${plainLabel(label)}" ${rangeAttrs(k)} value="${v}">`;
@@ -1359,8 +1359,8 @@ await (async () => {
     return COLOR_RE.test(v) ? v : 'rgba(220, 220, 210, 1)';
   }
 
-  // What the Reasoning Block and Text Formatting CSS read from a setting: its tick, and while it's ticked its plain value
-  // (col: a color, or a pick like an alignment), its font or its size.
+  // What look CSS reads from a setting: its tick, and while it's ticked its plain value (col: a color, or a pick like an
+  // alignment), its font or its size.
   function cssReaders(s) {
     const on = (k) => s[k + 'On'];
     return {
@@ -1460,7 +1460,7 @@ await (async () => {
     for (const p of ['ai', 'us']) {
       const m = isObj(v) && isObj(v[p]) ? v[p] : {};
       for (const k of Object.keys(m).slice(0, 300)) {
-        if (k.length > 2048 || !Array.isArray(m[k]) || m[k].length !== 3) continue;
+        if (k.length > 2048 || !Array.isArray(m[k]) || m[k].length !== FRAME_FIT.length) continue;
         out[p][k] = FRAME_FIT.map((n, i) => Math.round(cNum(m[k][i], DEFAULTS[p + n], NUM_RANGE[p + n][0], NUM_RANGE[p + n][1])));
       }
     }
@@ -1906,7 +1906,7 @@ await (async () => {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
-  // A freeName test: an item in `list` other than `self` has the name, whatever the capitals.
+  // A name test, also freeName's `taken`: an item in `list` other than `self` has the name, whatever the capitals.
   const nameTaken = (list, self = null) => (n) => list.some((x) => x !== self && x.name.toLowerCase() === n.toLowerCase());
   // An askText check for a name no other item in `list` has. It's cut to 60 characters first, so the name checked is the
   // one saved.
@@ -2015,7 +2015,7 @@ await (async () => {
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
   // The most emotions a list holds, and the longest emotion name.
   const EMO_LIMITS = { count: 100, name: 100 };
-  // An emotion list cut down to what validEmotions takes: good ids, names within EMO_LIMITS, no repeats.
+  // An emotion list cut down to what validEmotions takes: good ids, no repeats, within EMO_LIMITS.
   function fixEmotions(v) {
     const ids = new Set(), names = new Set();
     const out = (Array.isArray(v) ? v : []).filter(isObj)
@@ -2383,8 +2383,9 @@ await (async () => {
   // loadLookModules). This lists each one's file name and the menu page it draws. Each call into one is guarded, so a
   // failure there leaves the rest of NTR running with SillyTavern's look for those parts. So is each menu call into the
   // modules that load later (Themes, Agents, Overlays, Emotions, Regexes and Visual Novel's settings): one that breaks
-  // while drawing or binding leaves the rest of the menu working, and so is each call between Visual Novel Mode, Maps and
-  // Opening Video. A failure is logged once per module and kind of call, since css and sync run on every restyle.
+  // while drawing or binding leaves the rest of the menu working, and so is each call Visual Novel Mode makes into Maps and
+  // Opening Video, and Opening Video into Visual Novel Mode. callModule logs a failure once per module and kind of call,
+  // since css and sync run on every restyle.
   const LOOK_MODULES = { elements: 'elements', text: 'text', avatars: 'pfp', decor: 'display', layout: 'layout' };
   const callFailed = new Set();
   function callModule(name, fn, ...args) {
@@ -2867,7 +2868,7 @@ await (async () => {
     VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, bookSrc, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
     pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, unlinkPins, tagOf, EMO_LIMITS, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: openCombinedModal, fillIn, callModule, clamp, sliderAbove,
-    // Card data cleaning, for agents.js's own data
+    // Data cleaning, for agents.js's saved agents
     cStr, cId, cRef,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn').click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,

@@ -522,7 +522,6 @@
   function sectionHtml(s) {
     const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
     const free = A.banFree();
-    // A slider for the NUM_RANGE key k; attrs are the input's other attributes.
     const sl = (id, label, val, k, attrs = '') => sliderAbove(label, k, val, `id="${id}" ${attrs}`, '10px');
     return pageHtml('fg', `
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
@@ -628,7 +627,7 @@
                   </div>
                   <div style="width:100%; text-align:left;">
                   ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_num" data-key="${pos}Scale" style="width:100%;"`)}
-                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_num" data-key="${pos}${ax}"`, ' style="width:100%;"')).join('')}
+                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_num" data-key="${pos}${ax}" style="width:100%;"`)).join('')}
                   ${ovLabel('In Visual Novel Mode', pills('fgl' + pos, [['behind', 'Behind Sprites'], ['front', 'In Front']], F[pos + 'Layer']))}
                   </div>
                 </div>

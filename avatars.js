@@ -19,7 +19,7 @@
   const ellipse = (shape) => shape === 'round' || shape === 'oval';
   // A side's Shape, or null for None.
   const shapeOf = (s, prefix) => (SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null);
-  // The Frame's slider ids and settings. The settings are remembered together for each frame.
+  // The Frame's slider ids and settings.
   const FRAME_SLIDERS = [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']];
 
   // Heart and Star are outlines that cut the picture (a mask), drawn in a 100 x 100 box stretched over the frame. The

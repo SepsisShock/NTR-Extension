@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.74';
+  const READER_VERSION = '2.86.75';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn, askNumber } = A;
@@ -24,7 +24,6 @@
     #ntr_rd_bar .ntr_rd_num[role="button"]:hover { background: var(--ntr-hover); }
     #ntr_rd_bar .ntr_rd_num input { width: 4em; margin: 0 4px; padding: 1px 4px; text-align: center; font: inherit; color: inherit;
       background: var(--ntr-well-deep); border: 1px solid var(--SmartThemeBorderColor); border-radius: 4px; }
-    #ntr_rd_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
     #ntr_flip { position: fixed; z-index: 32; pointer-events: none; }
     #ntr_flip .ntr_flip_half { position: absolute; top: 0; width: 50%; height: 100%; }
     #ntr_flip .ntr_flip_sheet { transform-style: preserve-3d; animation: ntr_flip_next ${FLIP_MS}ms ease-in-out forwards; }

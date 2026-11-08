@@ -1,7 +1,7 @@
 (() => {
-  const TEXT_VERSION = '2.86.73';
+  const TEXT_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
-  if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
+  if (!A) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, subHead } = A;
   const { FONT_NOTE, FX_PARTS, NAME_WEIGHT, bubblesOn, bubRight, cssReaders, cssRule, ntrAvatars,
     restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel, ovPick, hint } = A.look;
@@ -46,7 +46,8 @@
     // Three times the text's width keeps the widest band (30% of it) off the text at both ends of the sweep.
     return { shimmer: true, size: '300% 100%', image: `linear-gradient(90deg, currentColor ${50 - n * 1.5}%, ${c} 50%, currentColor ${50 + n * 1.5}%)` };
   }
-  // The paint, under a Nameplate's picture and color when there is one (layer: the picture's url()).
+  // The paint, over a Nameplate's picture or color when there is one (layer: the picture's url(), or none for a color
+  // only, which keeps the color on the whole box).
   function paintProps(paint, layer) {
     return {
       'background-image': layer ? `${paint.image}, ${layer}` : paint.image,

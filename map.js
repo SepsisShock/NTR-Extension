@@ -1,12 +1,12 @@
 (() => {
-  const MAP_VERSION = '2.86.73';
+  const MAP_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead, vnData, newId, strMax } = A;
+  const { save, settings, escapeHTML, askImageUrl, uploadImage, pills, onPills, subHead, vnData, newId, strMax, TAG } = A;
   const { ovLabel, cssTag } = A.look;
-  const TAG = A.TAG || '';
+  const NO_CHAT = 'Open a character chat first. Maps are saved per character.';
 
   const CSS = `
     #ntr_map { position: fixed; inset: 0; z-index: 2550; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); }
@@ -72,7 +72,7 @@
   // Path of map ids from the start map down to the map that holds the current location.
   function pathToCurrent(st) {
     const root = rootMap();
-    if (!root || !st.cur) return root ? [root.id] : [];
+    if (!st.cur) return [root.id];
     const seen = new Set(); // Each map is searched once, so maps that link in circles can't hang it.
     const walk = (m, path) => {
       if (seen.has(m.id)) return null;
@@ -91,12 +91,11 @@
   let view = null; // { stack, edit, el, sel, fromMenu }
 
   function state() {
-    const cur = VN().currentLoc();
-    return { visited: VN().visitedLocs(), cur: cur ? norm(cur) : '' };
+    return { visited: VN().visitedLocs(), cur: norm(VN().currentLoc()) };
   }
 
   function open(opts = {}) {
-    if (!A.store()) { toastr.info('Open a character chat first. Maps are saved per character.', 'Maps'); return; }
+    if (!A.store()) { toastr.info(NO_CHAT, 'Maps'); return; }
     const all = maps();
     if (!all.length) { toastr.info('No maps yet. Add one on the Reader Mode page, under Visual Novel.', 'Maps'); return; }
     if (!opts.edit && !all.some((m) => m.url)) { toastr.info('Upload a map picture first.', 'Maps'); return; }
@@ -168,7 +167,7 @@
       ? 'Editing: click the map to drop a pin, drag pins to move them, click a pin to link it.'
       : 'Faded pins are places the story hasn\'t visited yet.';
     const box = el.querySelector('.ntr_map_view');
-    const url = media(m.url);
+    const url = m.url;
     if (!url) { box.innerHTML = '<div class="ntr_map_empty">This map has no picture yet. Upload one on the Reader Mode page, under Visual Novel.</div>'; return; }
     box.innerHTML = `<div class="ntr_map_canvas"><img alt="" draggable="false"><div class="ntr_map_pins"></div><div class="ntr_map_pop"></div></div>`;
     const canvas = box.querySelector('.ntr_map_canvas');
@@ -192,7 +191,6 @@
 
   function drawPins(m) {
     const host = view.el.querySelector('.ntr_map_pins');
-    if (!host) return;
     const st = state();
     host.innerHTML = '';
     for (const p of m.pins) {
@@ -225,7 +223,7 @@
       try { b.setPointerCapture(e.pointerId); } catch (err) {}
     });
     b.addEventListener('pointermove', (e) => {
-      if (!start || !view.edit) return;
+      if (!start) return;
       if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 5) return;
       moved = true;
       const r = view.el.querySelector('.ntr_map_canvas img').getBoundingClientRect();
@@ -294,7 +292,7 @@
         ${sub ? `<button type="button" class="menu_button" data-a="sub"><i class="fa-solid fa-map"></i> Open ${escapeHTML(sub.name || 'map')}</button>` : ''}
       </div>`;
     const go = pop.querySelector('[data-a="go"]');
-    if (go) go.onclick = () => { if (VN().putInInput(goText(l.name), false)) close(true); };
+    if (go) go.onclick = () => { VN().putInInput(goText(l.name), false); close(true); };
     const sb = pop.querySelector('[data-a="sub"]');
     if (sb) sb.onclick = () => goMap(sub.id);
   }
@@ -309,7 +307,7 @@
 
   // ----- Menu section -----
   function rowsHtml() {
-    if (!A.store()) return '<div class="cb_hint">Open a character chat first. Maps are saved per character.</div>';
+    if (!A.store()) return `<div class="cb_hint">${NO_CHAT}</div>`;
     const all = maps();
     if (!all.length) return '<div class="cb_hint">No maps yet.</div>';
     const root = rootMap();
@@ -407,7 +405,6 @@
     };
     if (file) A.onFilePick(file, 'Maps', async (f) => {
       const id = pending;
-      if (!id) return;
       const url = await A.uploadHere(() => uploadImage(f, 'vnmap', { max: 3072 }));
       if (url) setMapImage(id, url);
     });
@@ -415,7 +412,7 @@
       const inp = overlay.querySelector('#m_m_new');
       const nm = inp.value.trim();
       if (!nm) { toastr.info('Type a name first.', 'Maps'); inp.focus(); return; }
-      if (!A.store()) { toastr.warning('Open a character chat first. Maps are saved per character.', 'Maps'); return; }
+      if (!A.store()) { toastr.warning(NO_CHAT, 'Maps'); return; }
       const m = { id: newId('map'), name: nm, url: '', pins: [] };
       maps().push(m);
       if (!D().mapRoot) D().mapRoot = m.id;

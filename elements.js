@@ -654,9 +654,9 @@
           <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
 
   function reasoningPartHtml(s) {
-    // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const flatRow = (title, inner, cls = '') => `
             <div class="cb_ovrow${cls}"><div>${title}</div><div class="m_o_body cb_flat">${inner}</div></div>`;
+    // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
     const label = (key, title, hint = '') => flatRow(title, ovText(s, key, RB_ST_LABEL[key]) + hint);
     const borders = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']];
     const patLine = (k, label) => `<label class="checkbox_label"><input type="checkbox" class="m_rb_patline" data-key="${k}" ${s[k] ? 'checked' : ''}><span>${label}</span></label>`;

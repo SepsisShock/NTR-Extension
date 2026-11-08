@@ -161,7 +161,6 @@
     return k ? E().emotions.find((e) => lc(e.name) === k) : null;
   }
 
-  // Face for the emotion, else the base face (baseFace), else null.
   function faceSrc(name, emoName) {
     const imgs = D().emoImgs[lc(name)] || {};
     const e = findEmo(emoName);

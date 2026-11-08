@@ -258,8 +258,8 @@
 
     const font = cssReaders(s).font('rdBookFont');
     const B = 'html body.ntr_book';
-    // The core's will-change on the chat would make it hold the swipe arrows, which are fixed in place; the book never
-    // scrolls up and down.
+    // `will-change: auto` on #chat: the core's `will-change: transform` would make the chat the containing block of the
+    // swipe arrows, which are position: fixed here; the book never scrolls up and down.
     const css = `
     ${B} #sheld { position: fixed !important; left: ${px(g.x)} !important; top: ${px(g.y)} !important; width: ${px(g.w)} !important; max-width: none !important;
       height: auto !important; max-height: none !important; right: auto !important; bottom: auto !important; margin: 0 !important; resize: none !important; }

@@ -705,8 +705,8 @@ await (async () => {
       </section>`;
   }
   // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
-  // dimmed (see syncPageOff). It starts folded and opens from its title (`fold` is its fold name), with a Font Awesome
-  // icon before the title.
+  // dimmed (see syncPageOff). Its title folds and opens it (`fold`: its key in uiOpen, folded until first opened), with a
+  // Font Awesome icon before the title.
   function pagePart(title, sw, fold, body, icon) {
     return `
       <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">

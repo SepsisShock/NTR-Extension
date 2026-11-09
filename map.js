@@ -1,10 +1,10 @@
 (() => {
-  const MAP_VERSION = '2.86.71';
+  const MAP_VERSION = '2.86.72';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] map.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead, vnData, newId } = A;
+  const { save, settings, escapeHTML, askImageUrl, uploadImage, media, pills, onPills, subHead, vnData, newId, strMax } = A;
   const { ovLabel, cssTag } = A.look;
   const TAG = A.TAG || '';
 
@@ -340,7 +340,7 @@
             <input type="text" id="m_m_new" class="text_pole" placeholder="New Map" aria-label="New Map" style="flex:1;margin:0;">
             <button id="m_m_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
           </div>
-          ${ovLabel('Go Here Text', `<input type="text" id="m_m_go" class="text_pole" style="width:100%;margin:0;" value="${escapeHTML(s.mapGoText)}">`)}
+          ${ovLabel('Go Here Text', `<input type="text" id="m_m_go" class="text_pole" maxlength="${strMax('mapGoText')}" style="width:100%;margin:0;" value="${escapeHTML(s.mapGoText)}">`)}
           <div class="cb_hint" style="margin-bottom:0;">{place} becomes the location's name. Picking Go Here puts this in the input box. Shared by all characters.</div>
         </div>
         <input type="file" id="m_m_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>

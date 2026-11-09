@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.71';
+  const VERSION = '2.86.72';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -2838,8 +2838,8 @@ await (async () => {
     LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, normFile, uploadDataUrl, isObj, stColor,
     // Exported files, and names for imported or new items
     downloadJson, freeName, uniqueName,
-    // NUM_RANGE ranges and slider attributes, for modules' own sliders and number boxes
-    numRange: (k) => NUM_RANGE[k], rangeAttrs,
+    // NUM_RANGE ranges, slider attributes and theme text limits, for modules' own sliders, number boxes and text boxes
+    numRange: (k) => NUM_RANGE[k], rangeAttrs, strMax,
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
     peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, card, pagePart,
     // Edit Layout (layout.js), for avatars.js and overlays.js. Without layout.js, the pictures keep their place and

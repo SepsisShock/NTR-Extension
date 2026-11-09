@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.71';
+  const REGEX_VERSION = '2.86.72';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson, switchHtml } = A;
@@ -232,7 +232,7 @@ try {
     #cb_modal_overlay .rx_row:last-child { border-bottom: 0; }
     #cb_modal_overlay .rx_name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_dim .rx_name { opacity: .45; text-decoration: line-through; }
-    #cb_modal_overlay .ntr_dragging + .rx_empty { display: none; }
+    #cb_modal_overlay :is(.rx_fbody, .rx_loose):has(> .rx_row) > .rx_empty { display: none; }
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
     #cb_modal_overlay .rx_swbox .ntr_pswitch { margin: 0; }
     #cb_modal_overlay .rx_guide { display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; border: 0; background: none;
@@ -338,7 +338,7 @@ try {
 
   // Puts a regex in a folder (or No Folder) at the end of it, and SillyTavern's run order follows.
   function moveRegex(sec, id, fid) {
-    const fl = folders(sec, true);
+    const fl = folders(sec);
     for (const f of fl) f.ids = f.ids.filter((x) => x !== id);
     const to = fl.find((f) => f.id === fid);
     if (to) to.ids.push(id);
@@ -511,7 +511,7 @@ try {
   function dragDone(d) {
     if (!d.moved) { refresh(); return; }
     const sec = secOf(d.scope.dataset.sec);
-    const fl = folders(sec, true);
+    const fl = folders(sec);
     const fels = [...d.scope.querySelectorAll('.rx_folder')];
     const fids = fels.map((el) => el.dataset.fid);
     fl.sort((a, b) => fids.indexOf(a.id) - fids.indexOf(b.id));

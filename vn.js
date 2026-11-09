@@ -1024,7 +1024,7 @@
   // ----- Choices -----
   function lastChatIdx() {
     const chat = ctx().chat;
-    for (let i = chat.length - 1; i >= 0; i--) if (chat[i] && !chat[i].is_system) return i;
+    for (let i = chat.length - 1; i >= 0; i--) if (!chat[i].is_system) return i;
     return -1;
   }
 

@@ -522,7 +522,7 @@
   function readMsgs(a, at = null) {
     const all = ctx().chat;
     const end = at ?? all.length - 1;
-    const ok = (m) => m && !m.is_system && typeof m.mes === 'string';
+    const ok = (m) => !m.is_system && typeof m.mes === 'string';
     if (a.readBy !== 'num') return all.slice(a.readBy === 'since' ? sinceFrom(a, end) ?? 0 : 0, end + 1).filter(ok).slice(-a.context);
     const [lo, hi] = span(a);
     return all.slice(lo, Math.min(hi ?? end, end) + 1).filter(ok);
@@ -1565,7 +1565,7 @@
             d.name = name;
             focusAfter = deptSel(d, '.m_ag_dmore');
             changed(true);
-          } else if (act === 'exp') exportAgents(d.ids.map(byId).filter(Boolean), d, d.name);
+          } else if (act === 'exp') exportAgents(d.ids.map(byId), d, d.name);
           else if (act === 'del') {
             const n = d.ids.length;
             const q = !n ? `Delete the department "${d.name}"?`

@@ -512,7 +512,7 @@
   function sectionHtml(s) {
     const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState();
     const free = A.banFree();
-    const sl = (id, label, val, k, attrs = '') => sliderAbove(label, k, val, `id="${id}" ${attrs}`, '10px');
+    const sl = (id, label, val, k, attrs = '') => sliderAbove(label, k, val, id, attrs, '10px');
     return pageHtml('fg', `
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
             ${card('Source', `

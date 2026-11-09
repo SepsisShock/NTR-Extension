@@ -731,8 +731,9 @@
     barMin,
     // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.
     drawTo: (first) => loadUpTo(first, opened),
-    // For Pinned Blocks: the last message on the current page, or the message Visual Novel shows, or null when Reader
-    // Mode is off or Visual Novel shows the newest.
+    // For Pinned Blocks and the stage behind the chat: the last message on the current page, or the message Visual
+    // Novel shows. Null when Reader Mode is off or Visual Novel shows the newest; undefined while Visual Novel is on
+    // without vn.js.
     upTo: () => (vnNow() ? window.NTR.vn?.shownMsg() : live() && pages.length ? pages[cur][1] : null),
     // For Speech Bubbles: the first and last message on the page on screen, or null when Reader Mode is off.
     page: () => (live() && pages.length ? pages[cur] : null),

@@ -505,7 +505,7 @@ await (async () => {
   // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
   // One question at a time: a new question closes the open one as if Cancel was pressed, and so does closing or
   // redrawing the menu it's in, so code waiting on it never hangs.
-  const cancelAsks = (root) => root?.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
+  const cancelAsks = (root) => root?.querySelectorAll('.ntr_ask').forEach((el) => el.ntrCancel());
   function askBox(anchor, html, cancel) {
     cancelAsks(document);
     // Below the button's whole row, not inside it, so a row of buttons keeps its layout.
@@ -655,7 +655,7 @@ await (async () => {
     return pop;
   }
   function closePops(scope = document) {
-    scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
+    scope.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor.setAttribute('aria-expanded', 'false'); p.remove(); });
   }
 
   // ===== Shared UI helpers =====
@@ -1202,19 +1202,18 @@ await (async () => {
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
   // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
   // radio group, anything else on its first control. A pill keeps its own text as its name.
-  const plainLabel = (label) => escapeHTML(label.replace(/<[^>]*>/g, '').trim());
   const ovLabel = (label, inner) => {
-    const n = plainLabel(label);
+    const n = escapeHTML(label.replace(/<[^>]*>/g, '').trim());
     const named = /^\s*<div class="cb_pills"/.test(inner)
       ? inner.replace('<div class="cb_pills"', `<div class="cb_pills" role="radiogroup" aria-label="${n}"`)
       : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
     return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
   };
-  // A slider under a row with its label and value, for a module that binds its own sliders. `input` is the input's own
-  // attributes, like its id or class.
-  const sliderAbove = (label, k, v, input, top = '') => `
-    <div class="cb_row"${top ? ` style="margin-top: ${top};"` : ''}><label>${label}</label><span><span class="ntr_slval">${v}</span>${NUM_RANGE[k][3]}</span></div>
-    <input type="range" ${input} aria-label="${plainLabel(label)}" ${rangeAttrs(k)} value="${v}">`;
+  // A slider under a row with its label and value, for a module that binds its own sliders. `attrs` are the input's
+  // other attributes, like its class.
+  const sliderAbove = (label, k, v, id, attrs = '', top = '') => `
+    <div class="cb_row"${top ? ` style="margin-top: ${top};"` : ''}><label for="${id}">${label}</label><span><span class="ntr_slval">${v}</span>${NUM_RANGE[k][3]}</span></div>
+    <input type="range" id="${id}" ${attrs} ${rangeAttrs(k)} value="${v}">`;
 
   // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
   const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])

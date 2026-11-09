@@ -176,9 +176,9 @@
     img.onerror = () => { box.innerHTML = '<div class="ntr_map_empty">The map picture failed to load.</div>'; };
     img.addEventListener('click', (e) => {
       if (!view.edit) { hidePop(); return; }
-      const r = img.getBoundingClientRect();
-      if (!r.width || !r.height) return;
-      const p = { id: newId('pin'), x: clamp01((e.clientX - r.left) / r.width), y: clamp01((e.clientY - r.top) / r.height), loc: '', map: '' };
+      const at = spotOn(img, e);
+      if (!at) return;
+      const p = { id: newId('pin'), ...at, loc: '', map: '' };
       m.pins.push(p);
       view.sel = p.id;
       save();
@@ -187,7 +187,12 @@
     drawPins(m);
   }
 
-  const clamp01 = (v) => A.clamp(v, 0, 1);
+  // Where the pointer is on the map picture, from 0 to 1 each way; null while the picture has no size.
+  function spotOn(img, e) {
+    const r = img.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    return { x: A.clamp((e.clientX - r.left) / r.width, 0, 1), y: A.clamp((e.clientY - r.top) / r.height, 0, 1) };
+  }
 
   function drawPins(m) {
     const host = view.el.querySelector('.ntr_map_pins');
@@ -226,9 +231,9 @@
       if (!start) return;
       if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 5) return;
       moved = true;
-      const r = view.el.querySelector('.ntr_map_canvas img').getBoundingClientRect();
-      p.x = clamp01((e.clientX - r.left) / r.width);
-      p.y = clamp01((e.clientY - r.top) / r.height);
+      const at = spotOn(view.el.querySelector('.ntr_map_canvas img'), e);
+      if (!at) return;
+      Object.assign(p, at);
       b.style.left = (p.x * 100) + '%';
       b.style.top = (p.y * 100) + '%';
     });

@@ -324,7 +324,7 @@
     // In Reader Mode the stage follows the page being read: nothing after its last message counts.
     const upTo = window.NTR.reader?.upTo();
     ctx().chat.forEach((m, i) => {
-      if (!m || m.is_system || !m.mes || (upTo != null && i > upTo)) return;
+      if (m.is_system || !m.mes || (upTo != null && i > upTo)) return;
       for (const b of msgInfo(m, i).beats) { castStep(st, b); if (b.kind === 'char' && b.name) recent.push(b); }
     });
     const info = new Map();
@@ -525,7 +525,7 @@
   // The emotion data stays editable with Avatar Management switched off (ntr_keepon), since Visual Novel Mode uses it too.
   // What In the Chat shows on SillyTavern's chat follows the page's switch (ntr_pagefx), like the rest of the page.
   function partHtml(s) {
-    const sl = (key, label) => A.sliderAbove(label, key, A.rangeNum(s, key), `class="m_emo_sl" data-key="${key}"`, '8px');
+    const sl = (key, label) => A.sliderAbove(label, key, A.rangeNum(s, key), `m_${key}`, `class="m_emo_sl" data-key="${key}"`, '8px');
     const df = (key, label) => `<label class="cb_dfield"><span>${label}</span><input type="text" class="text_pole m_d_in" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="${A.strMax(key)}"></label>`;
     const tag = escapeHTML(`${s.delimNarOpen}${s.emoWord}:Happy${s.delimNarClose}`);
     return `<div class="ntr_keepon">

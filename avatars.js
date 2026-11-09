@@ -721,7 +721,7 @@
     const { shaped, own, cornersOn, scaleOff } = colState(s, prefix);
     const show = (on) => (on ? '' : ' style="display: none;"');
 
-    const slider = (id, key, label) => sliderAbove(label, prefix + key, rangeNum(s, prefix + key), `id="m_${prefix}_${id}"`);
+    const slider = (id, key, label) => sliderAbove(label, prefix + key, rangeNum(s, prefix + key), `m_${prefix}_${id}`);
     // A group shows for the styles it lists (data-only, space-separated).
     const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${only.split(' ').includes(style) ? 'flex' : 'none'};">${inner}</div>`;
     // The fade grid starts on the first fade that's on, or Bottom.

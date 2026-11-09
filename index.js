@@ -1200,8 +1200,8 @@ await (async () => {
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
   // Shown only while a pick has a certain value, like Roundness under Rounded.
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
-  // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
-  // radio group, anything else on its first control. A pill keeps its own text as its name.
+  // A small label above a control. Its text is also the control's name: a pills group gets it as a radio group,
+  // anything else on its first control. A pill keeps its own text as its name.
   const ovLabel = (label, inner) => {
     const n = escapeHTML(label.replace(/<[^>]*>/g, '').trim());
     const named = /^\s*<div class="cb_pills"/.test(inner)
@@ -1209,8 +1209,7 @@ await (async () => {
       : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
     return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
   };
-  // A slider under a row with its label and value, for a module that binds its own sliders. `attrs` are the input's
-  // other attributes, like its class.
+  // A slider under a row with its label and value, for a module that binds its own sliders. `attrs` go on the input.
   const sliderAbove = (label, k, v, id, attrs = '', top = '') => `
     <div class="cb_row"${top ? ` style="margin-top: ${top};"` : ''}><label for="${id}">${label}</label><span><span class="ntr_slval">${v}</span>${NUM_RANGE[k][3]}</span></div>
     <input type="range" id="${id}" ${attrs} ${rangeAttrs(k)} value="${v}">`;

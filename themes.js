@@ -1,10 +1,10 @@
 (() => {
-  const THEMES_VERSION = '2.86.72';
+  const THEMES_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
-    lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, readDataURL, normFile, uploadDataUrl,
-    isObj, stColor, downloadJson, freeName, openMenu } = A;
+    lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readDataURL, normFile, uploadDataUrl,
+    isObj, stColor, downloadJson, freeName, nameTaken, openMenu } = A;
   const { COLOR_FROM, rbCssText, RB_CSS } = A.look;
 
   // The parts with Custom CSS: their theme section, keys, name, where they're set, and the CSS shown on import (by
@@ -108,7 +108,6 @@
     const page = overlay.querySelector('.ntr_page[data-page="themes"]');
     const panel = overlay.querySelector('#m_t_panel');
     const list = page.querySelector('.ntr_tlist');
-    const nameTaken = (name) => s.themes.some((t) => t.name.toLowerCase() === name.toLowerCase());
     const secBoxes = (secs) => '<div class="cb_plab">Sections</div>'
       + secs.map((k) => `<label class="checkbox_label"><input type="checkbox" class="m_t_sec" value="${k}" checked><span>${LOOK[k].label}</span></label>`).join('');
     // Export and Import open their options under the row or bar they came from. The button [id, label] runs `run` with
@@ -204,7 +203,6 @@
     };
 
     page.addEventListener('click', (e) => {
-      if (!e.target.closest('.ntr_menu')) closePops(page);
       const row = e.target.closest('.ntr_trow');
       if (!row) return;
       const t = s.themes.find((x) => x.id === row.dataset.id) || null;
@@ -262,7 +260,7 @@
     overlay.querySelector('#m_t_imp').onclick = () => tf.click();
     A.onFilePick(tf, 'Themes', async (f) => {
       let j;
-      try { j = JSON.parse(await readText(f)); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
+      try { j = JSON.parse(await f.text()); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
       if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
       // Cleaned once for the preview. Adding cleans again, since the clash checks follow the settings, which can change meanwhile.
       const cleaned = Object.fromEntries(Object.keys(LOOK).map((k) => [k, cleanLookSection(k, j.sections[k])]));
@@ -285,7 +283,7 @@
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>`).join('')}
           ${tagsOut ? '<div class="cb_hint">This theme\'s tag symbols and keywords (Avatars, Emotions, Tags and Delimiters) clash with each other or with yours, so they\'re left out and yours stay.</div>' : ''}`,
       ['m_t_add', '<i class="fa-solid fa-plus"></i> Add Theme'], async (chosen) => {
-        const name = freeName(panel.querySelector('#m_t_iname').value.slice(0, 60).trim() || 'Imported Theme', nameTaken, 60);
+        const name = freeName(panel.querySelector('#m_t_iname').value.slice(0, 60).trim() || 'Imported Theme', nameTaken(s.themes), 60);
         let data = Object.fromEntries(chosen.map((k) => [k, cleanLookSection(k, j.sections[k])]));
         for (const [sec, keys] of CSS_PARTS) for (const k of keys) if (data[sec] && (data[sec][k] || '').trim()) data[sec][k + 'On'] = false;
         if (JSON.stringify(data).includes(';base64,')) {

@@ -1,10 +1,10 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.72';
+  const AGENTS_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, loadImg, downloadJson, freeName, nameTaken, menuBtn: btn, switchHtml, cStr, cId, cRef } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -65,11 +65,7 @@
   const MARGI_PIC = asset('margi.webp');
   const FULL_PIC = { [MARGI_PIC]: asset('margi-full.webp') };
   const num = (k, v, d) => A.cardNum(v, k, d);
-  const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const pick = (v, list, d) => (list.some(([x]) => x === v) ? v : d);
-  const okId = (v) => typeof v === 'string' && /^[\w-]{1,40}$/.test(v);
-  // A freeName test: the name is taken in `l`, whatever the capitals.
-  const nameIn = (l) => (n) => l.some((x) => x.name.toLowerCase() === n.toLowerCase());
   // Answer: Fields. Each field is a named value the agent keeps; a heading groups the fields under it in a Dashboard.
   // A field's name is how the answer is read, so it can't hold a colon, a line break or Markdown marks, start like a
   // list item or end in an underscore. Names in an answer go through the same cleaning, so every name kept reads back.
@@ -81,14 +77,14 @@
   }
   const fieldName = (v, d) => (typeof v === 'string' ? nameText(v) : '') || d;
   function cleanField(f) {
-    const id = okId(f?.id) ? f.id : newId('fd');
+    const id = cId(f?.id, 'fd');
     if (f?.kind === 'heading') return { id, kind: 'heading', name: fieldName(f.name, 'Heading') };
     const top = A.numRange('agFieldNum')[1];
     const min = Math.min(num('agFieldNum', f?.min, 0), top - 1);
     let max = num('agFieldNum', f?.max, 10);
     if (max <= min) max = min + 1;
     return {
-      id, kind: 'field', name: fieldName(f?.name, 'Field'), type: pick(f?.type, FTYPES, 'text'), hint: str(f?.hint, 200).trim(),
+      id, kind: 'field', name: fieldName(f?.name, 'Field'), type: pick(f?.type, FTYPES, 'text'), hint: cStr(f?.hint, 200).trim(),
       min, max, start: Math.min(max, Math.max(min, num('agFieldNum', f?.start, min))), step: num('agFieldStep', f?.step, 0),
       numShow: f?.numShow === 'number' ? 'number' : 'bar', listShow: f?.listShow === 'chips' ? 'chips' : 'lines', cap: num('agFieldCap', f?.cap, 10),
     };
@@ -107,14 +103,14 @@
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
   function clean(a) {
     const d = fresh('Agent');
-    const o = { ...d, id: okId(a?.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
-      title: str(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
-      pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
+    const o = { ...d, id: cRef(a?.id) || d.id, name: cStr(a?.name, 60).trim() || 'Agent',
+      title: cStr(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
+      pic: cStr(a?.pic, 2048), job: cStr(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
       runOn: Array.isArray(a?.runOn) ? KINDS.map(([k]) => k).filter((k) => a.runOn.includes(k)) : d.runOn, every: num('agEvery', a?.every, d.every),
-      runFrom: str(a?.runFrom, 500),
+      runFrom: cStr(a?.runFrom, 500),
       kind: ['chat', 'cc', 'tc'].includes(a?.kind) ? a.kind : 'chat',
-      ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: str(a?.ccModel, 200), ccUrl: str(a?.ccUrl, 500), ccKey: str(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
-      tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
+      ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: cStr(a?.ccModel, 200), ccUrl: cStr(a?.ccUrl, 500), ccKey: cStr(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
+      tcType: pick(a?.tcType, TC, d.tcType), tcUrl: typeof a?.tcUrl === 'string' ? cStr(a.tcUrl, 500) : d.tcUrl, tcModel: cStr(a?.tcModel, 200), tcInstruct: cStr(a?.tcInstruct, 200),
       effOn: a?.effOn === true, eff: pick(a?.eff, EFFORT, 'auto'),
       maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context),
       readBy: ['since', 'num'].includes(a?.readBy) ? a.readBy : 'recent', readFrom: Math.round(num('agMsgNum', a?.readFrom, 0)), readTo: a?.readTo == null ? null : Math.round(num('agMsgNum', a.readTo, 0)),
@@ -122,7 +118,7 @@
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
       answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields),
-      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter(okId))].slice(0, AGENT_MAX) : [] };
+      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter(cRef))].slice(0, AGENT_MAX) : [] };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
@@ -155,12 +151,12 @@
       const seen = new Set();
       const used = new Set();
       s.agDepts = s.agDepts.filter((d) => d && typeof d === 'object').slice(0, DEPT_MAX).map((d) => {
-        let id = okId(d.id) ? d.id : newId('dp');
+        let id = cId(d.id, 'dp');
         if (used.has(id)) id = newId('dp');
         used.add(id);
         // An agent listed twice stays where it's listed first.
         const ids = (Array.isArray(d.ids) ? d.ids : []).filter((x) => have.has(x) && !seen.has(x) && seen.add(x));
-        return { id, name: str(d.name, 60).trim() || 'Department', ids };
+        return { id, name: cStr(d.name, 60).trim() || 'Department', ids };
       });
       deptChecked.add(s.agDepts);
     }
@@ -266,7 +262,7 @@
       o.reportsFrom = o.reportsFrom.map((id) => ids.get(id)).filter((id) => id && id !== o.id);
       if (pics[i] === null) picFails++;
       o.pic = pics[i] || '';
-      o.name = freeName(o.name, nameIn(l), 60);
+      o.name = freeName(o.name, nameTaken(l), 60);
       l.push(o);
     }
     let deptsOut = 0;
@@ -275,7 +271,7 @@
       const mine = [...new Set((Array.isArray(d.ids) ? d.ids : []).map((id) => ids.get(id)).filter(Boolean))].filter((id) => !dl.some((x) => x.ids.includes(id)));
       if (!mine.length) continue;
       if (dl.length >= DEPT_MAX) { deptsOut++; continue; }
-      dl.push({ id: newId('dp'), name: freeName(str(d.name, 60).trim() || 'Department', nameIn(dl), 60), ids: mine });
+      dl.push({ id: newId('dp'), name: freeName(cStr(d.name, 60).trim() || 'Department', nameTaken(dl), 60), ids: mine });
     }
     sortAgents();
     return { added: adds, skipped: items.length - take.length, picFails, deptsOut };
@@ -1460,9 +1456,7 @@
   async function cropFile(src, revoke = false) {
     const blocked = () => new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.');
     try {
-      const img = new Image();
-      if (!src.startsWith('blob:')) img.crossOrigin = 'anonymous';
-      await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(blocked()); img.src = src; });
+      const img = await loadImg(src, !src.startsWith('blob:')).catch(() => { throw blocked(); });
       const c = ctx();
       const p = new c.Popup('', c.POPUP_TYPE.CROP, '', { cropImage: src, cropAspect: 1, okButton: 'Crop' });
       // On Crop it answers with its own JPEG of the crop (no transparency), on Cancel with null: only its box is used.
@@ -1493,8 +1487,6 @@
   function bindAll(s, a) {
     const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); syncTag(a); syncLinks(a); if (prevOpen) syncPreview(a); } };
     const pick = (id) => { s.agPick = id; changed(true); showHead(); };
-    // A click anywhere but in a menu closes it.
-    root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
       row.querySelector('.m_ag_pick').onclick = () => pick(row.dataset.id);
       row.querySelector('.m_ag_on').onchange = function() {
@@ -1519,7 +1511,7 @@
     root.querySelector('#m_ag_imp').onclick = () => impFile.click();
     A.onFilePick(impFile, 'Agents', async (f) => {
       let j;
-      try { j = JSON.parse(await readText(f)); } catch (e) { j = null; }
+      try { j = JSON.parse(await f.text()); } catch (e) { j = null; }
       if (list().length >= AGENT_MAX) { fullNote(); return; }
       const r = await addFile(j);
       if (!r) { toastr.error('That isn\'t a Nitwit Tavern Redesign agents file.', 'Agents'); return; }
@@ -1688,8 +1680,8 @@
       if (!pop) return;
       fitPop(pop);
       pop.onclick = (e) => {
-        // Kept from the page's own click, which closes a menu when the click lands outside it: the department list
-        // takes the place of the button that was clicked.
+        // Kept from popMenu's close on a click outside a menu: the department list replaces the clicked button, which
+        // then sits in no menu.
         e.stopPropagation();
         const b = e.target.closest('button[data-act]');
         if (!b || b.disabled) return;
@@ -1909,7 +1901,7 @@
       changed(true);
       refreshBoxes();
     };
-    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', nameIn(a.fields)) }));
+    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', nameTaken(a.fields)) }));
     root.querySelector('#m_agf_head')?.addEventListener('click', () => add({ kind: 'heading', name: 'New Heading' }));
     if (!box) return;
     const at = (el) => a.fields.find((f) => f.id === el.closest('[data-fd]')?.dataset.fd);
@@ -1950,7 +1942,7 @@
       if (t.classList.contains('m_agf_txt')) {
         if (t.dataset.k === 'name') {
           f.name = fieldName(t.value, f.name);
-          if (f.kind === 'field' && a.fields.some((x) => x !== f && x.kind === 'field' && x.name.toLowerCase() === f.name.toLowerCase())) {
+          if (f.kind === 'field' && nameTaken(a.fields.filter((x) => x.kind === 'field'), f)(f.name)) {
             toastr.warning(`Another field is already called "${f.name}". Only the first one gets values.`, 'Agents');
           }
         } else f.hint = t.value.trim().slice(0, 200);

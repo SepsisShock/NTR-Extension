@@ -1,5 +1,5 @@
 (() => {
-  const MAP_VERSION = '2.86.72';
+  const MAP_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] map.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
@@ -188,7 +188,7 @@
     drawPins(m);
   }
 
-  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+  const clamp01 = (v) => A.clamp(v, 0, 1);
 
   function drawPins(m) {
     const host = view.el.querySelector('.ntr_map_pins');
@@ -391,7 +391,7 @@
           if (!m || !(await A.askYes(b, `Delete the map "${m.name}"${m.url ? ', its picture' : ''} and its pins?`, 'Delete', { danger: true }))) return;
           const v = D();
           v.maps = maps().filter((x) => x !== m);
-          for (const x of v.maps) x.pins = x.pins.filter((p) => p.map !== m.id || p.loc).map((p) => (p.map === m.id ? { ...p, map: '' } : p));
+          A.unlinkPins(v, 'map', m.id);
           if (v.mapRoot === m.id) v.mapRoot = '';
           save(); render(); VN().refresh();
           A.deleteFileIfUnused(m.url);

@@ -1,10 +1,10 @@
 (() => {
-  const AVATARS_VERSION = '2.86.72';
+  const AVATARS_VERSION = '2.86.73';
   const A = window.NTR && window.NTR.api;
   if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
-  const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, menuBtn, newId, numRange, onPills, pageHtml, pills,
-    popMenu, posGrid, openMenu, rangeAttrs, rangeNum, save, settings, startPlacement, subHead, uploadImage } = A;
-  const { CSS_NOTE, FILTER_OPTS, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow,
+  const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, menuBtn, newId, onPills, pageHtml, pills,
+    popMenu, posGrid, openMenu, rangeAttrs, rangeNum, save, settings, sliderAbove, startPlacement, subHead, uploadImage } = A;
+  const { CSS_NOTE, FILTER_OPTS, FRAME_FIT, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow,
     restyle: updateAvatarStyle, setSlider, svgMask } = A.look;
 
   // The avatar fades by their place on the fade grid (the Position grid's cells): [setting, name]. The middle has none.
@@ -19,9 +19,8 @@
   const ellipse = (shape) => shape === 'round' || shape === 'oval';
   // A side's Shape, or null for None.
   const shapeOf = (s, prefix) => (SHAPES[s[`${prefix}Shape`]] ? s[`${prefix}Shape`] : null);
-  // The Frame's slider ids and settings. The settings are remembered together for each frame.
+  // The Frame's slider ids and settings.
   const FRAME_SLIDERS = [['frs', 'FrameSize'], ['frx', 'FrameX'], ['fry', 'FrameY']];
-  const FRAME_KEYS = FRAME_SLIDERS.map(([, k]) => k);
 
   // Heart and Star are outlines that cut the picture (a mask), drawn in a 100 x 100 box stretched over the frame. The
   // star's points are thick, so it keeps more of the picture.
@@ -725,9 +724,7 @@
     const { shaped, own, cornersOn, scaleOff } = colState(s, prefix);
     const show = (on) => (on ? '' : ' style="display: none;"');
 
-    const slider = (id, key, label) => `
-      <div class="cb_row"><label>${label}</label><span><span class="ntr_slval">${rangeNum(s, prefix + key)}</span>${numRange(prefix + key)[3]}</span></div>
-      <input type="range" id="m_${prefix}_${id}" ${rangeAttrs(prefix + key)} value="${rangeNum(s, prefix + key)}">`;
+    const slider = (id, key, label) => sliderAbove(label, prefix + key, rangeNum(s, prefix + key), `id="m_${prefix}_${id}"`);
     // A group shows for the styles it lists (data-only, space-separated).
     const grp = (only, inner) => `<div class="cb_grp" data-only="${only}" style="display: ${only.split(' ').includes(style) ? 'flex' : 'none'};">${inner}</div>`;
     // The fade grid starts on the first fade that's on, or Bottom.
@@ -871,7 +868,7 @@
       // The fit is remembered for this side and frame, so picking the frame again puts it back.
       const keepFit = () => {
         const k = fitKey(s, prefix);
-        if (k) s.frameFits[prefix][k] = FRAME_KEYS.map((n) => rangeNum(s, prefix + n));
+        if (k) s.frameFits[prefix][k] = FRAME_FIT.map((n) => rangeNum(s, prefix + n));
       };
       // The fit lands only if this side still has the frame it was worked out for.
       const fit = async () => {
@@ -882,7 +879,7 @@
           toastr.warning('Couldn\'t find the frame\'s middle. Set it with the sliders.', 'Frame');
           return;
         }
-        for (const n of FRAME_KEYS) s[prefix + n] = got[n];
+        for (const n of FRAME_FIT) s[prefix + n] = got[n];
         keepFit();
         save();
         frameSliders();
@@ -896,7 +893,7 @@
         s[prefix + 'Frame'] = FRAME_IDS.includes(v) ? v : '';
         s[prefix + 'FrameImg'] = own ? own.img : '';
         const k = fitKey(s, prefix), was = k && s.frameFits[prefix][k];
-        if (was) FRAME_KEYS.forEach((n, i) => { s[prefix + n] = was[i]; });
+        if (was) FRAME_FIT.forEach((n, i) => { s[prefix + n] = was[i]; });
         save();
         frameSliders();
         drawFrame();
@@ -982,7 +979,6 @@
           libChanged();
         };
       };
-      col.addEventListener('click', (e) => { if (!e.target.closest('.ntr_menu')) closePops(col); });
       part('frdel').onclick = async function() {
         const now = frameNow(s, prefix);
         if (!now?.folder?.own) return;

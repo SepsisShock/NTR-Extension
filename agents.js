@@ -1,10 +1,10 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.73';
+  const AGENTS_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, loadImg, downloadJson, freeName, nameTaken, menuBtn: btn, switchHtml, cStr, cId, cRef } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, readDataURL, loadImg, downloadJson, freeName, nameTaken, menuBtn: btn, switchHtml, cStr, cId, cRef } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -226,7 +226,7 @@
     try { return await uploadImage(await (await fetch(pic)).blob(), 'agent', { max: 128 }); } catch (e) { console.error('[NTR agent import]', e); return null; }
   }
   // The file for these agents (and their department), and how many pictures were left out.
-  async function fileFor(as, dept = null) {
+  async function fileFor(as, dept) {
     let fails = 0;
     const agents = [];
     for (const a of as) {
@@ -296,11 +296,9 @@
   const OVER = `over ${MAX_SAVED.toLocaleString('en-US')} characters`;
   // Which chat is open: its file name, with whose chat it is, since a duplicated card starts with the same chat name.
   const chatId = () => {
-    try {
-      const c = ctx();
-      const id = c.getCurrentChatId();
-      return id == null ? '' : `${c.groupId || c.characters[c.characterId]?.avatar || ''}/${id}`;
-    } catch (e) { return ''; }
+    const c = ctx();
+    const id = c.getCurrentChatId();
+    return id == null ? '' : `${c.groupId || c.characters[c.characterId]?.avatar || ''}/${id}`;
   };
   function savedAt(m, id) {
     const v = m?.extra?.[KEY]?.[id];
@@ -321,7 +319,7 @@
   }
   // The newest saved result at or before message upTo (the last message when null), and which message it's on.
   function latest(id, upTo = null) {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     for (let i = Math.min(upTo ?? chat.length - 1, chat.length - 1); i >= 0; i--) {
       const r = savedAt(chat[i], id);
       if (r) return { ...r, mes: i };
@@ -454,19 +452,19 @@
   function seenText(id, upTo, from = snap || (!chatBusy && fullSnap)) {
     const v = from ? from.get(id) : undefined;
     if (v === null) return null;
-    if (v && v.i <= upTo && (ctx().chat || [])[v.i]?.send_date === v.date) return v.text;
+    if (v && v.i <= upTo && ctx().chat[v.i]?.send_date === v.date) return v.text;
     return latest(id, upTo)?.text ?? null;
   }
   // What's saved now for each agent not in `waiting`, on message `at` (the last one when null).
   function snapshot(waiting, at) {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     return new Map(list().filter((x) => !waiting.has(x.id)).map((x) => {
       const r = latest(x.id, at);
       return [x.id, r ? { text: r.text, i: r.mes, date: chat[r.mes].send_date } : null];
     }));
   }
   function upToFor(type) {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const last = chat.length - 1;
     return (type === 'swipe' || type === 'regenerate') && chat[last] && !chat[last].is_user ? last - 1 : last;
   }
@@ -481,10 +479,11 @@
         if (text == null) continue;
         const where = WHERE.find(([v]) => v === a.sendWhere)[2];
         const role = a.sendWhere === 'chat' ? ROLES.find(([v]) => v === a.sendRole)[2] : 0;
-        try { c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${text}`, where, a.sendDepth, a.sendScan, role); sent.add(a.id); } catch (e) { console.error('[NTR] Could not send an agent result', e); }
+        c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${text}`, where, a.sendDepth, a.sendScan, role);
+        sent.add(a.id);
       }
     }
-    for (const id of injected) if (!sent.has(id)) c.setExtensionPrompt(injKey(id), '', 1, 0);
+    for (const id of injected) if (!sent.has(id)) A.setInjection(injKey(id), '');
     injected = sent;
   }
 
@@ -504,7 +503,7 @@
   function sharesChatServer(a) {
     const c = ctx();
     const t = c.textCompletionSettings;
-    return a.kind === 'tc' && c.mainApi === 'textgenerationwebui' && !!t && sameUrl(t.server_urls?.[t.type]) === sameUrl(a.tcUrl);
+    return a.kind === 'tc' && c.mainApi === 'textgenerationwebui' && sameUrl(t.server_urls[t.type]) === sameUrl(a.tcUrl);
   }
 
   // What the agent reads: its instructions, then the chat messages Messages Read picks (the most recent ones, or a range
@@ -521,7 +520,7 @@
   // The messages it reads, up to message `at` (the last one when null). By Number never reads past it either.
   // Since Its Last Result reads like Most Recent, from the message after its last result.
   function readMsgs(a, at = null) {
-    const all = ctx().chat || [];
+    const all = ctx().chat;
     const end = at ?? all.length - 1;
     const ok = (m) => m && !m.is_system && typeof m.mes === 'string';
     if (a.readBy !== 'num') return all.slice(a.readBy === 'since' ? sinceFrom(a, end) ?? 0 : 0, end + 1).filter(ok).slice(-a.context);
@@ -546,7 +545,7 @@
   function due(a, at, from) {
     if (a.every <= 1) return true;
     if (busy(a.id)) return false;
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const r = latest(a.id, at);
     let n = 0;
     for (let i = r ? r.mes + 1 : chat[0]?.is_user ? 0 : 1; i <= at; i++) {
@@ -557,7 +556,7 @@
   }
   function prompt(a, test, at = null) {
     if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];
-    const end = at ?? (ctx().chat || []).length - 1;
+    const end = at ?? ctx().chat.length - 1;
     const chat = readMsgs(a, end);
     const said = (m) => `${m.name || (m.is_user ? 'User' : 'Character')}: ${m.mes}`;
     if (splits(a)) {
@@ -600,7 +599,7 @@
     let used = false;
     const hook = (data) => {
       restore();
-      if (used || (chatBusy && !holding) || !data || typeof data !== 'object') return;
+      if (used || (chatBusy && !holding)) return;
       used = true;
       for (const [k, v] of Object.entries(own)) if (k in data) data[k] = v;
     };
@@ -630,7 +629,7 @@
   // it's still that message (o.date), in case a swipe or a deleted message moved things while it waited.
   function aim(o) {
     if (chatId() !== o.chat) throw new Error('Skipped: you switched chats before it could run.');
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const i = o.at ?? chat.length - 1;
     const m = chat[i];
     if (o.at != null && m?.send_date !== o.date) throw new Error('Skipped: the message it was for changed before it could run.');
@@ -659,7 +658,7 @@
         // newer reply runs it again.
         if (full) {
           const i = aim(o);
-          if (i !== (c.chat || []).length - 1) {
+          if (i !== c.chat.length - 1) {
             throw new Error(o.auto ? 'Skipped: newer messages came in first, and with your chat\'s full prompt it only runs on the newest message.'
               : 'With your chat\'s full prompt, it can only run on the last message.');
           }
@@ -778,7 +777,7 @@
   function keep(a, t, text) {
     if (!t) return 'Not saved: the chat has no messages.';
     if (!text) return 'Not saved: empty answer.';
-    const m = (ctx().chat || [])[t.i];
+    const m = ctx().chat[t.i];
     if (chatId() !== t.chat || !m || m.swipe_id !== t.swipe || m.send_date !== t.date) return 'Not saved: the chat changed while it ran.';
     if (m.mes !== t.mes) return 'Not saved: the message was edited while it ran.';
     if (usesFields(a)) {
@@ -798,7 +797,7 @@
     const first = byId(id);
     if (!first) return;
     const from = chatId();
-    const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
+    const date = at == null ? null : ctx().chat[at]?.send_date;
     const job = { id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, early, ctrl: new AbortController(), state: 'queue', waitFor: null };
     // Who it waits for, from the runs already asked for.
     const skip = (j) => early && j.late && j.state !== 'run';
@@ -870,7 +869,7 @@
   const { ovLabel: lab, hint } = A.look;
   // An agent's picture is a circle; Avatar Management's Shape doesn't apply.
   const picHtml = (a, size) => {
-    return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
+    return a.pic ? `<img src="${esc(a.pic)}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
       : `<i class="fa-solid fa-fw fa-robot" style="width:${size}px;text-align:center;opacity:.7;flex:none;"></i>`;
   };
   const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${nameOf(CC, a.ccSource)}${a.ccModel ? ' · ' + a.ccModel : ''}`
@@ -932,7 +931,7 @@
           <span class="ntr_menu"><button type="button" class="menu_button m_ag_hbtn m_ag_dmore" title="More" aria-label="More for ${esc(d.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
         </div>
         <div class="m_ag_dbody" role="group" aria-label="${esc(d.name)}"${open ? '' : ' hidden'}>
-          ${d.ids.map(byId).filter(Boolean).map((a) => rowHtml(a, s)).join('') || '<div class="m_ag_empty">No agents yet. Drag one here.</div>'}
+          ${d.ids.map(byId).map((a) => rowHtml(a, s)).join('') || '<div class="m_ag_empty">No agents yet. Drag one here.</div>'}
         </div>
       </div>`;
   }
@@ -1145,7 +1144,7 @@
       </div>`;
   }
 
-  const instructNames = () => { try { return ctx().getPresetManager('instruct')?.getAllPresets() || []; } catch (e) { return []; } };
+  const instructNames = () => ctx().getPresetManager('instruct').getAllPresets();
   function editorHtml(a) {
     if (!a) return '';
     const fields = a.answer === 'fields';
@@ -1237,7 +1236,7 @@
   // show: SillyTavern adds the rest. Keys and links are never part of it.
   function previewHtml(a) {
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
-    if (usesFull(a)) return `<div class="cb_hint" style="margin:0;"><strong>Instructions</strong>${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
+    if (usesFull(a)) return `<div class="cb_hint" style="margin:0;"><strong>Instructions</strong>${box(withLast(a, ctx().chat.length - 1))}</div>`;
     return prompt(a).map((m) => `<div class="cb_hint" style="margin:0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('');
   }
   // By Number's From and To boxes. To left empty reads up to the most recent message.
@@ -1512,10 +1511,9 @@
     A.onFilePick(impFile, 'Agents', async (f) => {
       let j;
       try { j = JSON.parse(await f.text()); } catch (e) { j = null; }
-      if (list().length >= AGENT_MAX) { fullNote(); return; }
       const r = await addFile(j);
       if (!r) { toastr.error('That isn\'t a Nitwit Tavern Redesign agents file.', 'Agents'); return; }
-      // Agents hired meanwhile can take the room.
+      // No room: the roster was full, or agents were hired meanwhile.
       if (!r.added.length) { fullNote(); return; }
       pick(r.added[0].id);
       const n = r.added.length;
@@ -1768,7 +1766,7 @@
     root.querySelector('#m_ag_clr').disabled = !a.pic;
     root.querySelector('#m_ag_crop').disabled = !a.pic;
     root.querySelector('#m_ag_crop').onclick = async () => {
-      try { const f = await cropFile(FULL_PIC[a.pic] || media(a.pic)); if (f) setPic(await uploadImage(f, 'agent', { max: 128 })); } catch (e) { fail(e); }
+      try { const f = await cropFile(FULL_PIC[a.pic] || a.pic); if (f) setPic(await uploadImage(f, 'agent', { max: 128 })); } catch (e) { fail(e); }
     };
     A.onFilePick(file, 'Agent picture', async (f) => {
       // A GIF goes as it is, to keep its animation.
@@ -2079,7 +2077,7 @@
     if (!agents.length) return null;
     const pin = o.pin || '';
     const cid = chatId();
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const last = chat.length - 1;
     const isTabs = o.view === 'tabs' && agents.length > 1;
     const tab = agents.some((a) => a.id === tabs.get(pin)) ? tabs.get(pin) : agents[0].id;
@@ -2124,16 +2122,16 @@
     const act = b.dataset.act;
     if (act === 'fold') { const k = b.dataset.fold; if (folds.has(k)) folds.delete(k); else folds.add(k); refreshBoxes(); return; }
     if (act === 'tab') { tabs.set(b.closest('.ntr_pin')?.dataset.pin || '', b.dataset.ag); refreshBoxes(); return; }
-    if (act === 'newest') { const c = document.getElementById('chat'); if (c) c.scrollTop = c.scrollHeight; return; }
+    if (act === 'newest') { const c = document.getElementById('chat'); c.scrollTop = c.scrollHeight; return; }
     const box = b.closest('.ntr_agres');
     const a = box && byId(box.dataset.ag);
     if (!a) return;
     const mes = box.dataset.mes === '' ? null : Number(box.dataset.mes);
-    const m = mes == null ? null : (ctx().chat || [])[mes];
+    const m = mes == null ? null : ctx().chat[mes];
     const r = m ? savedAt(m, a.id) : null;
     // An edit is saved only onto the result it was started on, in case the message or swipe changed meanwhile.
     const same = (ed) => r && ed && ed.id === a.id && ed.mes === mes && ed.chat === chatId() && ed.date === m.send_date;
-    if (act === 'run') { enqueue(a.id, false, false, mes === (ctx().chat || []).length - 1 ? null : mes); return; }
+    if (act === 'run') { enqueue(a.id, false, false, mes === ctx().chat.length - 1 ? null : mes); return; }
     if (act === 'edit' && r) {
       editing = editing && same(editing) ? null : { id: a.id, mes, chat: chatId(), date: m.send_date, key: `${a.id}:${mes}:${m.send_date}` };
       fieldEdit = null;
@@ -2194,7 +2192,7 @@
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
       sortAgents();
-      const chat = ctx().chat || [];
+      const chat = ctx().chat;
       const m = chat[at ?? chat.length - 1];
       if (!m || m.is_system) return;
       const kind = kindOf(m);
@@ -2225,9 +2223,9 @@
     genEnded: () => { chatBusy = false; holding = false; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
     // For Pinned Blocks set to Agent Results (layout.js).
     pinView,
-    // An agent's current answer: its newest saved one in this chat.
-    answer: (id) => (byId(id) ? latest(id)?.text ?? '' : ''),
-    // Export and import's files, without the menu (for the tests).
+    // For the tests: export and import's files without the menu, and an agent's current answer (its newest saved one in
+    // this chat).
     fileFor, addFile,
+    answer: (id) => (byId(id) ? latest(id)?.text ?? '' : ''),
   };
 })();

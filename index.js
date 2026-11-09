@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.73';
+  const VERSION = '2.86.74';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -9,8 +9,7 @@ await (async () => {
   // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
   const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
     ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
-  const bookId = (k) => (BOOKS.some(([v]) => v === k) ? k : 'brown');
-  const bookUrl = (k) => `${NTR_BASE}assets/books/${bookId(k)}.webp`;
+  const bookUrl = (k) => `${NTR_BASE}assets/books/${k}.webp`;
   const bookSrc = (s) => s.rdBookImg || bookUrl(s.rdBook);
   // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
   const FRAME_SERIES = [
@@ -383,15 +382,14 @@ await (async () => {
   function currentKey() {
     const c = ctx();
     if (c.groupId) return null;
-    const ch = c.characters?.[c.characterId];
-    return ch?.avatar || null;
+    return c.characters[c.characterId]?.avatar || null;
   }
 
   const peek = (key) => {
     const d = cardData(key);
     if (d) return d.banner ||= defaultBanner();
     const r = settings().chars[key] ||= defaultBanner();
-    if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
+    if (!cleaned.has(r)) cleanBanner(r);
     return r;
   };
 
@@ -449,7 +447,7 @@ await (async () => {
   // PNG so transparency survives. Other image types become PNG too, so the file always matches its name. GIFs go as
   // they are, to keep their animation.
   async function uploadImage(f, prefix, { max = 0, maxWidth = 0 } = {}) {
-    let url = String(await readDataURL(f));
+    let url = await readDataURL(f);
     if (f.type !== 'image/gif') {
       const i = await loadImg(url).catch(() => null);
       if (!i?.width || !i.height) throw new Error('That file didn\'t load as an image.');
@@ -485,7 +483,7 @@ await (async () => {
     if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    const data = String(await readDataURL(f));
+    const data = await readDataURL(f);
     return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
   }
 
@@ -707,14 +705,14 @@ await (async () => {
       </section>`;
   }
   // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
-  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title. An optional Font
-  // Awesome icon goes before the title.
-  function pagePart(title, sw, fold, body, icon = '') {
+  // dimmed (see syncPageOff). Its title folds and opens it (`fold`: its key in uiOpen, folded until first opened), with a
+  // Font Awesome icon before the title.
+  function pagePart(title, sw, fold, body, icon) {
     return `
       <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
-        <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
-          ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
-          ${icon ? `<i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>` : ''}
+        <div class="ntr_parthead cb_collapse_toggle" data-sec="${fold}" tabindex="0" role="button">
+          <i class="fa-solid fa-chevron-right cb_chevron"></i>
+          <i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>
           <h4 class="ntr_parttitle">${title}</h4>
           ${switchHtml({ id: sw[0], on: sw[1], title: `Turn ${title} on or off` })}
         </div>
@@ -723,7 +721,7 @@ await (async () => {
   }
   // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
-  const thumbHtml = (src, icon) => (media(src) ? `<img src="${escapeHTML(media(src))}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
+  const thumbHtml = (src, icon) => (src ? `<img src="${escapeHTML(src)}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
   // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
   // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
   // optionally label (the name; Picture by default), icon (the empty preview's), wide (a wide preview), hint (under the
@@ -1028,7 +1026,7 @@ await (async () => {
   const namesHidden = (s) => isOn() && layoutOn(s) && s.ovNamesOn;
   // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar. Without avatars.js they
   // stay off, whatever is saved, and other pages stop making room for NTR's avatars.
-  const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
+  const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] && !namesHidden(s);
 
   // One CSS rule, each property !important. Empty properties are left out, and a rule with none left is no rule.
   function cssRule(sel, props) {
@@ -1126,6 +1124,7 @@ await (async () => {
     const el = slNum(sl);
     if (el) el.textContent = slText(v, Number(el.dataset.scale));
   }
+  const showRange = (e) => { if (e.target.type === 'range') showSlider(e.target, e.target.value); };
   // Shows v even when the slider clamps it: a value set from code can be past the slider's ends.
   function setSlider(sl, v) {
     sl.value = v;
@@ -1582,17 +1581,12 @@ await (async () => {
   function cleanStore(st) {
     if (!isObj(st) || cleaned.has(st)) return st;
     cleaned.add(st);
-    keepOnly(st, ['v', 'banner', 'fg', 'vn', 'regex']);
-    if ('v' in st) st.v = 1;
+    keepOnly(st, ['banner', 'fg', 'vn', 'regex']);
     for (const [k, fn] of [['banner', cleanBanner], ['fg', cleanFg], ['vn', cleanVn], ['regex', cleanRegex]]) {
       if (!(k in st)) continue;
       if (isObj(st[k])) fn(st[k]); else delete st[k];
     }
     return st;
-  }
-
-  function media(u) {
-    return typeof u === 'string' ? u : '';
   }
 
   // ===== Per-chat storage =====
@@ -1601,7 +1595,7 @@ await (async () => {
   // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see saveCard.
   const cardFix = new Set();
 
-  const charByAvatar = (av) => (ctx().characters || []).find((c) => c && c.avatar === av);
+  const charByAvatar = (av) => ctx().characters.find((c) => c.avatar === av);
 
   function cardData(key) {
     if (!key) return null;
@@ -1612,7 +1606,7 @@ await (async () => {
     if (!cardSnap.has(key)) cardSnap.set(key, isObj(d) ? JSON.stringify(d) : '');
     if (!isObj(d)) {
       if (d !== undefined) cardFix.add(key);
-      d = { v: 1 };
+      d = {};
       ch.data.extensions.ntr = d;
     }
     return d;
@@ -1639,11 +1633,11 @@ await (async () => {
   }
 
   // The cards in the open chat: a group's members, or the open character. chatName is the group's or character's name.
-  const chatGroup = (c) => (c.groups || []).find((g) => g.id === c.groupId);
+  const chatGroup = (c) => c.groups.find((g) => g.id === c.groupId);
   function chatCards() {
     const c = ctx();
     if (c.groupId) return (chatGroup(c)?.members || []).map(charByAvatar).filter(Boolean);
-    const ch = c.characterId != null ? c.characters?.[c.characterId] : null;
+    const ch = c.characters[c.characterId];
     return ch ? [ch] : [];
   }
   const chatName = () => { const c = ctx(); return (c.groupId ? chatGroup(c)?.name : c.name2) || ''; };
@@ -1734,7 +1728,7 @@ await (async () => {
       if (cardFix.has(key)) {
         const r = await c.writeExtensionFieldBulk([key], 'ntr', unset);
         ch.data.extensions.ntr = d;
-        if (![...(r?.updated || []), ...(r?.skipped || [])].includes(key)) throw new Error('Could not clear the old NTR data in the card');
+        if (![...r.updated, ...r.skipped].includes(key)) throw new Error('Could not clear the old NTR data in the card');
         cardFix.delete(key);
       }
       // Saved here rather than with writeExtensionField, which doesn't say when the server turns a save down. Until a
@@ -1785,7 +1779,7 @@ await (async () => {
   // Every character's card counts, so a file shared by two cards is never deleted out from under one.
   function filesInUse() {
     const set = collectFileRefs(settings());
-    for (const ch of ctx().characters || []) collectFileRefs(ch?.data?.extensions?.ntr, set);
+    for (const ch of ctx().characters) collectFileRefs(ch?.data?.extensions?.ntr, set);
     return set;
   }
 
@@ -1800,7 +1794,7 @@ await (async () => {
     if (!p || !OWN_FILE.test(p)) return 'other';
     if (filesInUse().has(p)) return 'used';
     // With SillyTavern's lazy loading on, cards that haven't been opened yet aren't loaded, so their files can't be checked: keep the file.
-    if ((ctx().characters || []).some((c) => c && c.shallow)) return 'lazy';
+    if (ctx().characters.some((c) => c.shallow)) return 'lazy';
     return (await deleteFile(p)) ? '' : 'failed';
   }
 
@@ -1843,7 +1837,7 @@ await (async () => {
       for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
       // A failed save doesn't throw; the card is in neither `updated` nor `skipped` (no NTR data on file, nothing to remove).
       const r = await c.writeExtensionFieldBulk(null, 'ntr', c.constants.unset);
-      const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
+      const done = new Set([...r.updated, ...r.skipped]);
       const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
       if (missed) {
         throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so removal didn't finish. Check the SillyTavern console.`);
@@ -1859,8 +1853,8 @@ await (async () => {
       collectFileRefs(s, gone);
       delete c.extensionSettings[MODULE];
     }
-    const cs = c.characters || [];
-    if (!cs.some((ch) => ch && ch.shallow)) {
+    const cs = c.characters;
+    if (!cs.some((ch) => ch.shallow)) {
       const keep = look ? new Set() : collectFileRefs(s);
       for (const ch of cs) collectFileRefs(ch?.data?.extensions?.ntr, keep);
       const todo = [...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p));
@@ -1921,10 +1915,10 @@ await (async () => {
     return name;
   }
 
-  function lookSnapshot(secs = Object.keys(LOOK)) {
+  function lookSnapshot() {
     const s = settings();
     const out = {};
-    for (const sec of secs) {
+    for (const sec of Object.keys(LOOK)) {
       out[sec] = {};
       for (const k of LOOK[sec].keys) out[sec][k] = structuredClone(s[k]);
     }
@@ -2110,7 +2104,6 @@ await (async () => {
     cancelAsks(old);
     old?.remove();
     const s = settings();
-    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
 
     const overlay = document.createElement('div');
     overlay.id = 'cb_modal_overlay';
@@ -2161,7 +2154,7 @@ await (async () => {
     // document's slider listener never sees them.
     overlay.addEventListener('input', (e) => {
       e.stopPropagation();
-      if (e.target.type === 'range') showSlider(e.target, e.target.value);
+      showRange(e);
     });
 
     bindCollapses(overlay, s);
@@ -2212,13 +2205,13 @@ await (async () => {
     });
     if (narrow) { content.classList.add('ntr_sheet'); syncCompact(content); return; }
     if (P.dock === 'left' || P.dock === 'right') {
-      const w = panelW(P.w || 440);
+      const w = panelW(P.w);
       content.classList.add('ntr_dock_' + P.dock);
       content.style.width = w + 'px';
       edge.style.display = 'block';
       edge.style.left = (P.dock === 'right' ? window.innerWidth - w - 4 : w - 4) + 'px';
     } else {
-      const w = panelW(P.fw || 560);
+      const w = panelW(P.fw);
       const h = clamp(P.fh || Math.round(window.innerHeight * 0.75), 240, window.innerHeight);
       const x = clamp(P.x ?? Math.round((window.innerWidth - w) / 2), 80 - w, window.innerWidth - 80);
       const y = clamp(P.y ?? 60, 0, window.innerHeight - 50);
@@ -2260,7 +2253,7 @@ await (async () => {
       let w = r.width, offX = e.clientX - r.left;
       const offY = e.clientY - r.top;
       if (P.dock !== 'float') {
-        w = panelW(P.fw || 560);
+        w = panelW(P.fw);
         offX = Math.min(offX, w - 40);
         P.dock = 'float';
         P.x = e.clientX - offX;
@@ -2273,7 +2266,7 @@ await (async () => {
         content.style.top = clamp(ev.clientY - offY, 0, window.innerHeight - 50) + 'px';
         zone = ev.clientX <= 24 ? 'left' : ev.clientX >= window.innerWidth - 24 ? 'right' : null;
         if (zone) {
-          const pw = panelW(P.w || 440);
+          const pw = panelW(P.w);
           Object.assign(preview.style, { display: 'block', width: pw + 'px', left: zone === 'left' ? '0px' : (window.innerWidth - pw) + 'px' });
         } else preview.style.display = 'none';
       };
@@ -2373,7 +2366,7 @@ await (async () => {
       if (head) mark.previousElementSibling?.remove();
       mark.replaceWith(t.content);
       // Bound once it's in the menu: Agents, Emotions and Regexes draw their lists only into a page that's on screen.
-      bind?.(overlay, s);
+      bind(overlay, s);
     } catch (e) {
       console.error(`[NTR] ${MOD_LABEL[name] || name} menu crashed`, e);
     }
@@ -2496,7 +2489,7 @@ await (async () => {
   // Visual Novel Mode is Reader Mode's third style (Visual Novel), next to Standard and Book (rdStyle). It keeps its own
   // switch (nodeEnabled), which is on only while Reader Mode is, so Standard or Book is still picked for when it's off.
   // Standard is saved as 'plain'.
-  const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : s.rdStyle === 'book' ? 'book' : 'plain');
+  const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : s.rdStyle);
   // Only the style in use shows its part of the page: Book or Visual Novel, while Reader Mode is on. Standard has none.
   const readerPart = (s) => (s.rdEnabled ? readerStyle(s) : 'off');
   // The page's Book and Visual Novel parts fold; the picked style's part opens, the other folds.
@@ -2514,7 +2507,7 @@ await (async () => {
           ${pills('rdstyle', [['plain', 'Standard'], ['book', 'Book'], ['vn', 'Visual Novel']], readerStyle(s))}
           <div class="cb_hint" style="margin-bottom: 0;">Picking Visual Novel turns Reader Mode on.</div>`, 'fa-glasses')}
         ${part === 'vn' ? '' : card('Each Page', `
-          ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
+          ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer)}
           <div class="cb_hint" style="margin-bottom: 0;">The opening message is page 1.</div>`, 'fa-file-lines')}
         ${part !== 'book' ? '' : `${subHead('rd_book', 'Book', 'fa-book')}
         <div class="cb_collapse_content">
@@ -2527,7 +2520,7 @@ await (async () => {
             <button class="menu_button" id="m_rd_clr" title="Use the built-in book" aria-label="Use the built-in book"><i class="fa-solid fa-rotate-left"></i></button>
           </div>
           <div class="cb_hint" style="margin:6px 0 0;">Cover Color</div>
-          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookId(s.rdBook) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
+          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === s.rdBook ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
           <div class="cb_hint">Also puts back the built-in page areas and replaces your own picture.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
@@ -2576,7 +2569,7 @@ await (async () => {
     const renderPic = () => {
       const src = bookSrc(s);
       overlay.querySelector('#m_rd_pic').innerHTML = `<img src="${escapeHTML(src)}" alt="">`;
-      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === bookId(s.rdBook))[1]}`;
+      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === s.rdBook)[1]}`;
       overlay.querySelector('#m_rd_clr').disabled = !s.rdBookImg;
     };
     const uncheckBooks = () => overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; });
@@ -2761,7 +2754,7 @@ await (async () => {
       const p = picked();
       go.disabled = !(p.look || p.chars);
       // A question still open was asked about the old ticks.
-      root.querySelector('.ntr_ask')?.ntrCancel?.();
+      root.querySelector('.ntr_ask')?.ntrCancel();
     };
     const ticks = root.querySelectorAll('input[type=checkbox]');
     ticks.forEach((c) => { c.onchange = sync; });
@@ -2841,7 +2834,6 @@ await (async () => {
 
   function registerSlashCommand() {
     const { SlashCommandParser, SlashCommand } = ctx();
-    if (!SlashCommandParser || !SlashCommand) return;
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
       name: 'ntr',
       aliases: ['NTR'],
@@ -2865,7 +2857,7 @@ await (async () => {
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, bookSrc, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, bookUrl, bookSrc, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
     pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, unlinkPins, tagOf, EMO_LIMITS, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
     openMenu: openCombinedModal, fillIn, callModule, clamp, sliderAbove,
     // Data cleaning, for agents.js's saved agents
@@ -2892,7 +2884,7 @@ await (async () => {
       if (!key) return '';
       const r = bannerSrc(peek(key));
       const im = r.images[r.idx] || r.images[0];
-      return im ? media(im.url) : '';
+      return im ? im.url : '';
     },
     // What elements.js, text.js, avatars.js, decor.js and layout.js build from: the row builders, CSS helpers, and the
     // lists their settings are checked against.
@@ -2915,7 +2907,7 @@ await (async () => {
     registerSlashCommand();
     document.addEventListener('click', typeSlider);
     // Sliders outside the menu, like Edit Layout's grid size.
-    document.addEventListener('input', (e) => { if (e.target.type === 'range') showSlider(e.target, e.target.value); });
+    document.addEventListener('input', showRange);
     document.addEventListener('pointerover', (e) => {
       const el = e.target.closest?.('.ntr_slval');
       if (el && !el.title) el.title = 'Click to type a value';
@@ -2980,16 +2972,13 @@ await (async () => {
     eventSource.on(event_types.PRESET_RENAMED, ({ apiId, oldName, newName }) => {
       const all = settings().regexPresetFolders;
       const from = `${apiId}|${oldName}`, to = `${apiId}|${newName}`;
-      if (from === to || !Array.isArray(all[from])) return;
+      if (!Array.isArray(all[from])) return;
       all[to] = [...(Array.isArray(all[to]) ? all[to] : []), ...all[from]];
       delete all[from];
       save();
     });
 
-    const chat = document.getElementById('chat');
-    if (chat) {
-      new MutationObserver(() => { callModule('avatars', 'syncPopouts'); callModule('decor', 'sync'); }).observe(chat, { childList: true });
-    }
+    new MutationObserver(() => { callModule('avatars', 'syncPopouts'); callModule('decor', 'sync'); }).observe(document.getElementById('chat'), { childList: true });
     renderAll();
     const s0 = settings();
     const on = isOn();

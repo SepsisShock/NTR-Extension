@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { api, context } from './env.mjs';
 
 test('a card save already sent finishes before NTR data is removed', async () => {
-  const server = { ntr: { v: 1 } };
-  const ch = { avatar: 'saving.png', data: { extensions: { ntr: { v: 1 } } } };
+  const server = { ntr: { fg: {} } };
+  const ch = { avatar: 'saving.png', data: { extensions: { ntr: { fg: {} } } } };
   Object.assign(context, { groupId: undefined, characters: [ch], characterId: 0 });
   const steps = [];
   let land;

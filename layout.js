@@ -1,17 +1,17 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.73';
+  const LAYOUT_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
-  if (!A || !A.look) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
+  if (!A) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, bindCheck, card, cardNum, clamp, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, menuBtn: btn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
   const { LAY_EDGES, PIN_CLASS, PIN_LIMITS, PIN_MAX, PIN_START, PIN_TAG, cleanPins, cssRule, cssTag, decorOn, joinCss, lk, ovLabel, ovPick,
     ovRow, ovWhen, pinRect, rangeSlider, restyle: updateAvatarStyle } = A.look;
 
   // ===== Edit Layout =====
-  // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar, page bar and banner can be dragged on
-  // screen. Edit Layout hides the menu and outlines what can move; only the picked item drags, and a picked Layout
-  // part also resizes from the handles on its edges. Tapping the picked item picks the one under it. The bar at the
-  // bottom has Snap to Grid, Undo, Reset and Done.
+  // Pop-out avatars, foreground images and, with Layout on, the chat panel, menu bar, send bar, page bar, banner and
+  // Pinned Blocks can be dragged on screen. Edit Layout hides the menu and outlines what can move; only the picked item
+  // drags, and a picked Layout part or Pinned Block also resizes from the handles on its edges. Tapping the picked item
+  // picks the one under it. Its bar has Snap to Grid, Undo, Reset and Done.
   // Layout parts come first, so the pictures' outlines sit on top of theirs.
   const PLACE = [
     { id: 'layChat', lay: 'chat', label: 'Chat Panel' }, { id: 'layBar', lay: 'bar', label: 'ST Menu Bar' }, { id: 'laySend', lay: 'send', label: 'Send Bar' },
@@ -442,8 +442,7 @@
       return;
     }
     place.sel = (shown.find((it) => it.id === first) || shown.find((it) => placeKind(it) === first) || shown[0]).id;
-    const ov = document.getElementById('cb_modal_overlay');
-    if (ov) ov.style.display = 'none';
+    document.getElementById('cb_modal_overlay').style.display = 'none';
     const layer = ensurePlaceLayer();
     // One outline for each item there is now. Pinned Blocks come and go, so they're made fresh each time.
     layer.querySelectorAll('.cb_place_box').forEach((b) => b.remove());
@@ -511,7 +510,7 @@
     document.body.appendChild(probe);
     const h = probe.getBoundingClientRect().height;
     probe.remove();
-    return h || 35;
+    return h;
   }
 
   // One layout's CSS, for the screens it's used on.
@@ -682,7 +681,6 @@
   function syncSendRoom() {
     const chat = document.getElementById('chat');
     const form = document.getElementById('form_sheld');
-    if (!chat || !form) return;
     let room = 0;
     if (sendFree()) {
       if (!sendRo) (sendRo = new ResizeObserver(() => syncSendRoom())).observe(form);
@@ -827,7 +825,7 @@
   // The message a block shows up to: the current page in Reader Mode, and with Where You're Reading, the message
   // being read too. Null for the newest.
   function pinUpTo(p) {
-    const page = window.NTR.reader?.upTo() ?? null;
+    const page = window.NTR.reader?.upTo();
     const read = p.show === 'reading' ? pinRead : null;
     return page == null ? read : read == null ? page : Math.min(page, read);
   }
@@ -904,7 +902,7 @@
   // message themselves (window.NTR.reader.upTo). Messages Reader Mode hides have no height and are skipped.
   function pinReadAt() {
     const chat = document.getElementById('chat');
-    if (!chat || settings().nodeEnabled || window.NTR.reader?.page()) return null;
+    if (settings().nodeEnabled || window.NTR.reader?.page()) return null;
     if (chat.scrollHeight - chat.scrollTop - chat.clientHeight <= 4) return null;
     const r = chat.getBoundingClientRect();
     const line = r.top + r.height / 3;
@@ -945,7 +943,7 @@
   // is live. Streaming changes it many times a second, so the boxes catch up at most five times a second.
   function watchPins(on) {
     const chat = document.getElementById('chat');
-    if (on && !pinObs && chat) {
+    if (on && !pinObs) {
       pinObs = new MutationObserver(queuePins);
       pinObs.observe(chat, { childList: true, subtree: true, characterData: true });
     } else if (!on && pinObs) {
@@ -1019,7 +1017,7 @@
       box.hidden = pinPicking || (vnOn && p.vn === 'hide') || (!src && !place.on);
     }
     for (const box of layer.querySelectorAll(':scope > .ntr_pin')) if (!keep.has(box.dataset.pin)) { pinLast.delete(box.dataset.pin); box.remove(); }
-    if (place.on) drawPlace();
+    drawPlace();
   }
 
   function pinCss(s) {
@@ -1052,7 +1050,7 @@
           // where the bar runs across the whole screen, it also stays clear of a bar along the top or bottom, and it's a
           // drawer that never covers the whole screen width.
           const edge = s[lk(phone, 'BarEdge')];
-          const bt = 'var(--ntr-bt, var(--topBarBlockSize))';
+          const bt = 'var(--ntr-bt)';
           const above = phone && edge === 'top' ? bt : '0px', below = phone && edge === 'bottom' ? bt : '0px';
           const side = edge === p.place ? bt : '0px';
           props = {
@@ -1083,7 +1081,7 @@
     const ov = document.getElementById('cb_modal_overlay');
     pinPicking = true;
     syncPins();
-    if (ov) ov.style.display = 'none';
+    ov.style.display = 'none';
     const bar = document.createElement('div');
     bar.id = 'ntr_pick_bar';
     bar.innerHTML = `<span>Click the block for <b>${escapeHTML(p.name)}</b> in a message. Only blocks your regex gives a class can be picked.</span><button type="button">Cancel</button>`;
@@ -1108,7 +1106,7 @@
         p.classes = [...el.classList].filter((c) => PIN_CLASS.test(c)).slice(0, PIN_LIMITS.classes);
         save();
       }
-      if (ov) ov.style.display = '';
+      ov.style.display = '';
       syncPins();
       done?.();
     };
@@ -1127,14 +1125,12 @@
 
   // The Pinned Blocks card on the Layout page: the list, and the settings of the one that's open.
   let pinOpen = null;
-  const agentList = (s) => (Array.isArray(s.agents) ? s.agents : []);
   function pinListHtml(s) {
     if (!s.layPins.length) return '<div class="cb_hint">No Pinned Blocks yet.</div>';
     const pick = (p, name, opts, cur) => pills(`pin${name}-${p.id}`, opts, cur);
-    const agents = agentList(s);
     return s.layPins.map((p) => {
       const sel = pinSel(p);
-      const names = p.agents.map((id) => agents.find((a) => a?.id === id)?.name).filter(Boolean);
+      const names = p.agents.map((id) => s.agents.find((a) => a.id === id)?.name).filter(Boolean);
       const what = p.from === 'agents' ? (names.length ? `Agents: ${names.join(', ')}` : 'No agents picked yet')
         : sel ? `${p.tag}.${p.classes.join('.')}` : 'Nothing picked yet';
       const row = `
@@ -1153,7 +1149,7 @@
             ${pick(p, 'from', [['chat', 'A Block From the Chat'], ['agents', 'Agent Results']], p.from)}
             ${p.from === 'agents' ? `
             <div class="cb_plab">Agents</div>
-            ${agents.map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
+            ${s.agents.map((a) => `<label class="checkbox_label"><input type="checkbox" class="m_pin_ag" value="${escapeHTML(a.id)}" ${p.agents.includes(a.id) ? 'checked' : ''}><span>${escapeHTML(a.name)}</span></label>`).join('') || '<div class="cb_hint">No agents yet. Make one on the Agents page.</div>'}
             <div class="cb_hint">Needs the Agents page on. They show in the Agents page's order.</div>
             <div class="cb_plab">Show Agents</div>
             ${pick(p, 'view', [['stacked', 'Stacked'], ['tabs', 'Tabs']], p.view)}
@@ -1198,7 +1194,7 @@
     // block's agent limit, agents that are on go in first.
     overlay.querySelector('#m_pin_dash').onclick = () => {
       if (s.layPins.length >= PIN_MAX) { toastr.info(`Up to ${PIN_MAX} Pinned Blocks.`, 'Dashboard'); return; }
-      const all = agentList(s).filter((a) => a?.id);
+      const all = s.agents;
       if (!all.length) { toastr.info('Hire an agent on the Agents page first.', 'Dashboard'); return; }
       const agents = [...all.filter((a) => a.on), ...all.filter((a) => !a.on)].slice(0, PIN_LIMITS.agents).map((a) => a.id);
       if (all.length > agents.length) toastr.info(`A Dashboard holds up to ${PIN_LIMITS.agents} agents. Agents that are on went in first; change them in its settings.`, 'Dashboard');
@@ -1232,7 +1228,7 @@
       const t = e.target;
       const p = pinAt(t);
       if (!p) return;
-      if (t.classList.contains('m_pin_name')) { p.name = t.value.trim().slice(0, PIN_LIMITS.name) || 'Pinned Block'; changed(); render(); return; }
+      if (t.classList.contains('m_pin_name')) { p.name = t.value.trim() || 'Pinned Block'; changed(); render(); return; }
       if (t.classList.contains('m_pin_hide')) { p.hide = t.checked; changed(); return; }
       if (t.classList.contains('m_pin_ag')) {
         p.agents = t.checked ? [...new Set([...p.agents, t.value])].slice(0, PIN_LIMITS.agents) : p.agents.filter((id) => id !== t.value);

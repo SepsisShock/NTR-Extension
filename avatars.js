@@ -1,7 +1,7 @@
 (() => {
-  const AVATARS_VERSION = '2.86.73';
+  const AVATARS_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
-  if (!A || !A.look) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
+  if (!A) { console.error('[NTR] avatars.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, askText, askYes, closePops, currentKey, deleteFileIfUnused, drawPlace, escapeHTML, fullResUrl, loadImg, menuBtn, newId, onPills, pageHtml, pills,
     popMenu, posGrid, openMenu, rangeAttrs, rangeNum, save, settings, sliderAbove, startPlacement, subHead, uploadImage } = A;
   const { CSS_NOTE, FILTER_OPTS, FRAME_FIT, FRAME_IDS, FRAME_SERIES, TEXTURE_OPTS, POS_GRID, SHAPE_OPTS, castPartHtml, cssTag, customCssBox, frameUrl, ntrAvatars, ovRow,
@@ -128,7 +128,7 @@
   // to still fill the turned shape's corners. A circle needs none, and an oval only enough to reach its turned width and
   // height.
   function turnCover(shape, turn) {
-    if (!shape || shape === 'round' || !turn) return 1;
+    if (!shape || shape === 'round') return 1;
     const a = turn * Math.PI / 180, c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a)), h = SHAPES[shape];
     if (shape === 'oval') return Math.max(Math.hypot(c, h * sn), Math.hypot(sn / h, c));
     return Math.max(c + h * sn, sn / h + c);
@@ -427,16 +427,13 @@
 
   // A loaded picture's width for a height of 1, as --cb-ar.
   const arOf = (img) => (img.naturalWidth / img.naturalHeight).toFixed(4);
-  // A chat avatar picture's shape and width, so the image can be sized to the picture (see getAvatarCss). The wrapper
-  // gets them too, for the Frame.
+  // A chat avatar picture's shape and width, so the image can be sized to the picture (see getAvatarCss). They're set on
+  // the wrapper, so the picture and the Frame both inherit them.
   function setAvatarRatio(img) {
     if (!img.naturalWidth || !img.naturalHeight) return;
-    const ar = arOf(img);
-    img.style.setProperty('--cb-ar', ar);
-    for (const box of [img.parentElement, img.closest('.mesAvatarWrapper')]) {
-      box.style.setProperty('--cb-nw', img.naturalWidth + 'px');
-      box.style.setProperty('--cb-ar', ar);
-    }
+    const box = img.closest('.mesAvatarWrapper').style;
+    box.setProperty('--cb-nw', img.naturalWidth + 'px');
+    box.setProperty('--cb-ar', arOf(img));
   }
 
   // The side of a chat avatar picture.
@@ -505,11 +502,11 @@
     for (const prefix of ['ai', 'us']) {
       const el = layer.querySelector(`#cb_pop_${prefix}`);
       el.onerror = () => {
-        if (el.dataset.thumb && el.getAttribute('src') !== el.dataset.thumb) {
+        if (el.getAttribute('src') !== el.dataset.thumb) {
           setPopStatus(prefix, 'Full-size picture didn\'t load. Using the thumbnail.');
           el.src = el.dataset.thumb;
         } else {
-          setPopStatus(prefix, 'Picture failed to load: ' + (el.getAttribute('src') || 'no source'));
+          setPopStatus(prefix, 'Picture failed to load: ' + el.getAttribute('src'));
           console.warn(`[NTR pop out] (${prefix}) ${popMsg[prefix]}`);
         }
       };
@@ -681,7 +678,7 @@
   function frameHome(s, prefix) {
     const shown = frameFolders(s);
     const id = frameNow(s, prefix)?.folder?.id;
-    return (shown.find((f) => f.id === id) || shown[0])?.id || '';
+    return (shown.find((f) => f.id === id) || shown[0]).id;
   }
   // The library under the Frame row: a pill for each folder with the More menu, then the open folder's frames as tiles,
   // None first. The user's own folders get Upload Frame.
@@ -734,9 +731,9 @@
 
     return `
       <div class="ntr_colwrap">
-      <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] !== false ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on">${title} Avatar</label></div>
+      <div class="ntr_glab ntr_avlab"><input type="checkbox" id="m_${prefix}_on" ${s[`${prefix}Enabled`] ? 'checked' : ''} title="Turn ${title} Avatar on or off" aria-label="Turn ${title} Avatar on or off"><label for="m_${prefix}_on">${title} Avatar</label></div>
       <div id="m_${prefix}_col" class="cb_col ntr_card">
-        <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] !== false ? '' : ' cb_dim'}">
+        <div id="m_${prefix}_body" class="cb_col_body${s[`${prefix}Enabled`] ? '' : ' cb_dim'}">
         <div><strong>Style:</strong>${pills(`${prefix}style`, [['inline', 'In Line'], ['backdrop', 'Backdrop'], ['popout', 'Pop Out']], style)}</div>
         <div><strong>Position:</strong>${posGrid(`${prefix}pos`, s[`${prefix}Side`])}</div>
 

@@ -1,7 +1,7 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.72';
+  const ELEMENTS_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
-  if (!A || !A.look) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
+  if (!A) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
     pills, posGrid, onPills, pageHtml, pagePart, subHead, card, picSlotHtml, bindPicSlot, reducedMotion } = A;
   const { FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP,
@@ -56,7 +56,6 @@
   // redrawing is used as it is.
   const cursorCache = new Map();
   const cursorLast = new Map();
-  const loadCors = (u) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
   function cursorImg(src, size) {
     const key = `${size}|${src}`;
     if (cursorCache.has(key)) return cursorCache.get(key) || cursorLast.get(src) || null;
@@ -70,7 +69,7 @@
       c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
       done({ url: c.toDataURL('image/png'), w: c.width, h: c.height });
     };
-    loadCors(src).then(draw).catch(() => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}));
+    loadImg(src, true).then(draw).catch(() => loadImg(src).then((j) => done({ url: src, w: j.width, h: j.height })).catch(() => {}));
     return cursorLast.get(src) || null;
   }
   const TEXT_CURSOR_SEL = 'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], [contenteditable="true"]';
@@ -130,7 +129,7 @@
     if (mbLoaded.has(src)) return mbLoaded.get(src);
     if (mbLoaded.size > 60) { mbLoaded.clear(); mbWait.clear(); }
     mbLoaded.set(src, null);
-    const p = loadCors(src).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
+    const p = loadImg(src, true).then(() => 'mask', () => loadImg(src).then(() => 'plain', () => false));
     mbWait.set(src, p.then((st) => { mbLoaded.set(src, st); updateAvatarStyle(); return st; }));
     return null;
   }
@@ -392,7 +391,7 @@
       // A label still typing is over once the block moves on, from thinking to finished.
       if (a && !a.done && a.state !== state) { clearTimeout(a.timer); a.done = true; }
       // Typing waits until the button shows: ST hides the block until the first reasoning text arrives.
-      if (wants && (a ? a.state !== state : el.closest('.mes_reasoning_details')?.dataset.state === 'thinking') && el.getClientRects().length) {
+      if (wants && (a ? a.state !== state : el.closest('.mes_reasoning_details').dataset.state === 'thinking') && el.getClientRects().length) {
         a = rbNewAnim(full, state);
         rbAnim.set(el, a);
         a.timer = setTimeout(() => rbTick(el), RB_TYPE_MS);
@@ -417,8 +416,8 @@
   // one message many times a second, so only the messages that changed are checked, not the whole chat.
   let mesObs = null, mesQueued = null;
   function watchMessages() {
+    if (mesObs) return;
     const chat = document.getElementById('chat');
-    if (mesObs || !chat) return;
     mesObs = new MutationObserver((recs) => {
       const first = !mesQueued;
       mesQueued ??= new Set();
@@ -486,7 +485,7 @@
   const MD_TEXT_TAGS = ['p', 'ul', 'ol', 'blockquote', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
   const mdEndsInText = (m) => {
     const text = m.querySelector('.mes_text');
-    if (!text || text.classList.contains('inline_media')) return false;
+    if (text.classList.contains('inline_media')) return false;
     const kids = text.children;
     for (let i = kids.length - 1; i >= 0; i--) {
       const tag = kids[i].tagName.toLowerCase();
@@ -499,7 +498,7 @@
   function mdValue(id, mes, mesid, s) {
     const x = mes.extra || {};
     const secs = mes.gen_started && mes.gen_finished ? (new Date(mes.gen_finished) - new Date(mes.gen_started)) / 1000 : NaN;
-    const when = () => { try { const m = ctx().timestampToMoment(mes.send_date); return m && m.isValid() ? m : null; } catch (e) { return null; } };
+    const when = () => { const m = ctx().timestampToMoment(mes.send_date); return m.isValid() ? m : null; };
     switch (id) {
       case 'num': return `#${mesid}`;
       case 'date': { const m = when(); return m ? m.format(s.mdDate === 'short' ? 'L' : 'LL') : ''; }
@@ -525,10 +524,10 @@
   function syncMessageDetails(mes) {
     const s = settings();
     const on = isOn() && s.mdOn;
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     for (const m of mes || document.querySelectorAll('#chat .mes')) {
       const id = Number(m.getAttribute('mesid'));
-      const data = on && Number.isInteger(id) ? chat[id] : null;
+      const data = on ? chat[id] : null;
       const vals = MD_SPOTS.map(([spot, key]) => (data ? mdText(s, data, id, key, spot) : ''));
       // Corner details on a message that doesn't end in text go to the end of Below.
       if (vals[2] && !mdEndsInText(m)) {
@@ -549,7 +548,7 @@
   // The Style presets: which details each spot shows. ST is SillyTavern's own placement.
   const mdSpots = (av, row, corner, below) => ({ mdAv: av, mdRow: row, mdCorner: corner, mdBelow: below });
   const MD_PRESETS = {
-    st: ['ST', mdSpots(['num', 'gen', 'tok'], ['date', 'time'], [], [])],
+    st: ['ST', mdSpots(DEFAULTS.mdAv, DEFAULTS.mdRow, DEFAULTS.mdCorner, DEFAULTS.mdBelow)],
     messenger: ['Messenger', mdSpots([], [], ['time'], [])],
     row: ['Name Row', mdSpots([], ['num', 'date', 'time', 'gen', 'think', 'tok'], [], [])],
     footer: ['Footer', mdSpots([], [], [], ['num', 'date', 'time', 'gen', 'think', 'tok'])],
@@ -650,14 +649,15 @@
   const RB_ARROW_PIC = { id: 'rba', key: 'rbArrowImg', title: 'Arrow Picture', upload: ['arrow', { max: 128 }], icon: 'fa-chevron-up',
     hint: 'Empty shows ST\'s arrow.', attrs: 'data-rbarrow="image"' };
 
-  // A pick-one row with no tick: its default choice is SillyTavern's own look.
+  // A row with no tick: its control is always active.
   const pickRow = (title, inner, attrs = '') => `
           <div class="cb_ovrow"${attrs}><div class="cb_plab">${title}</div><div class="m_o_body">${inner}</div></div>`;
 
   function reasoningPartHtml(s) {
+    const flatRow = (title, inner, cls = '') => `
+            <div class="cb_ovrow${cls}"><div>${title}</div><div class="m_o_body cb_flat">${inner}</div></div>`;
     // A status text box has no tick: an empty box means ST's own text, shown greyed in the box.
-    const label = (key, title, hint = '') => `
-            <div class="cb_ovrow"><div>${title}</div><div class="m_o_body cb_flat">${ovText(s, key, RB_ST_LABEL[key])}${hint}</div></div>`;
+    const label = (key, title, hint = '') => flatRow(title, ovText(s, key, RB_ST_LABEL[key]) + hint);
     const borders = [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']];
     const patLine = (k, label) => `<label class="checkbox_label"><input type="checkbox" class="m_rb_patline" data-key="${k}" ${s[k] ? 'checked' : ''}><span>${label}</span></label>`;
     const fxRow = (k) => pickRow('Border Effects', ovPick(s, k, [['none', 'None', 'ST\'s default'], ['glow', 'Glow'], ['shadow', 'Shadow']])
@@ -672,10 +672,7 @@
             ${label('rbThink', 'While Thinking')}
             ${label('rbDone', 'Finished', hint('{time} becomes the thinking time.'))}
             ${label('rbSome', 'Finished, Time Unknown')}
-            <div class="cb_ovrow cb_sep">
-              <div>Typewriter Effect</div>
-              <div class="m_o_body cb_flat">${ovPick(s, 'rbTyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']])}${hint('Off with ST\'s Reduced Motion.')}</div>
-            </div>
+            ${flatRow('Typewriter Effect', ovPick(s, 'rbTyping', [['off', 'Off'], ['think', 'While Thinking'], ['both', 'Thinking and Finished']]) + hint('Off with ST\'s Reduced Motion.'), ' cb_sep')}
           </div>
           ${card('Reasoning Button', `
           ${ovRow(s, 'rbBtnColorOn', 'Button Color', ovColor(s, 'rbBtnColor'))}
@@ -834,7 +831,7 @@
       const c = document.createElement('canvas');
       c.width = c.height = 32;
       const g = c.getContext('2d');
-      g.drawImage(await loadCors(src), 0, 0, 32, 32);
+      g.drawImage(await loadImg(src, true), 0, 0, 32, 32);
       const d = g.getImageData(0, 0, 32, 32).data;
       for (let k = 3; k < d.length; k += 4) if (d[k] < 250) return true;
       return false;

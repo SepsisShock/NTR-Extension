@@ -1,10 +1,10 @@
 // An agent's connection never changes the chat's connection or Connection Profiles: it sends its own request, or uses the chat's.
 // API keys stay in SillyTavern's secrets; an agent keeps only the id of a saved key (ccKey).
 (() => {
-  const AGENTS_VERSION = '2.86.72';
+  const AGENTS_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] agents.js loaded without the core (index.js).'); return; }
-  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, media, readDataURL, readText, downloadJson, freeName, menuBtn: btn, switchHtml } = A;
+  const { ctx, settings, save, escapeHTML: esc, pageHtml, pills, onPills, askText, askYes, popMenu, closePops, dragSort, newId, uploadImage, askImageUrl, deleteFileIfUnused, readDataURL, loadImg, downloadJson, freeName, nameTaken, menuBtn: btn, switchHtml, cStr, cId, cRef } = A;
 
   // SillyTavern's Chat Completion APIs that need nothing but a key (and a link for Custom). Each one's saved keys are
   // under api_key_<name> in SillyTavern's secrets.
@@ -65,11 +65,7 @@
   const MARGI_PIC = asset('margi.webp');
   const FULL_PIC = { [MARGI_PIC]: asset('margi-full.webp') };
   const num = (k, v, d) => A.cardNum(v, k, d);
-  const str = (v, max, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
   const pick = (v, list, d) => (list.some(([x]) => x === v) ? v : d);
-  const okId = (v) => typeof v === 'string' && /^[\w-]{1,40}$/.test(v);
-  // A freeName test: the name is taken in `l`, whatever the capitals.
-  const nameIn = (l) => (n) => l.some((x) => x.name.toLowerCase() === n.toLowerCase());
   // Answer: Fields. Each field is a named value the agent keeps; a heading groups the fields under it in a Dashboard.
   // A field's name is how the answer is read, so it can't hold a colon, a line break or Markdown marks, start like a
   // list item or end in an underscore. Names in an answer go through the same cleaning, so every name kept reads back.
@@ -81,14 +77,14 @@
   }
   const fieldName = (v, d) => (typeof v === 'string' ? nameText(v) : '') || d;
   function cleanField(f) {
-    const id = okId(f?.id) ? f.id : newId('fd');
+    const id = cId(f?.id, 'fd');
     if (f?.kind === 'heading') return { id, kind: 'heading', name: fieldName(f.name, 'Heading') };
     const top = A.numRange('agFieldNum')[1];
     const min = Math.min(num('agFieldNum', f?.min, 0), top - 1);
     let max = num('agFieldNum', f?.max, 10);
     if (max <= min) max = min + 1;
     return {
-      id, kind: 'field', name: fieldName(f?.name, 'Field'), type: pick(f?.type, FTYPES, 'text'), hint: str(f?.hint, 200).trim(),
+      id, kind: 'field', name: fieldName(f?.name, 'Field'), type: pick(f?.type, FTYPES, 'text'), hint: cStr(f?.hint, 200).trim(),
       min, max, start: Math.min(max, Math.max(min, num('agFieldNum', f?.start, min))), step: num('agFieldStep', f?.step, 0),
       numShow: f?.numShow === 'number' ? 'number' : 'bar', listShow: f?.listShow === 'chips' ? 'chips' : 'lines', cap: num('agFieldCap', f?.cap, 10),
     };
@@ -107,14 +103,14 @@
   // Each saved agent, with anything missing or out of range set back to a new agent's value.
   function clean(a) {
     const d = fresh('Agent');
-    const o = { ...d, id: okId(a?.id) ? a.id : d.id, name: str(a?.name, 60).trim() || 'Agent',
-      title: str(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
-      pic: str(a?.pic, 2048), job: str(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
+    const o = { ...d, id: cRef(a?.id) || d.id, name: cStr(a?.name, 60).trim() || 'Agent',
+      title: cStr(a?.title, 60).trim(), example: a?.example === true, on: a?.on === true,
+      pic: cStr(a?.pic, 2048), job: cStr(a?.job, 8000), runs: a?.runs === 'reply' ? 'reply' : 'button',
       runOn: Array.isArray(a?.runOn) ? KINDS.map(([k]) => k).filter((k) => a.runOn.includes(k)) : d.runOn, every: num('agEvery', a?.every, d.every),
-      runFrom: str(a?.runFrom, 500),
+      runFrom: cStr(a?.runFrom, 500),
       kind: ['chat', 'cc', 'tc'].includes(a?.kind) ? a.kind : 'chat',
-      ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: str(a?.ccModel, 200), ccUrl: str(a?.ccUrl, 500), ccKey: str(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
-      tcType: pick(a?.tcType, TC, d.tcType), tcUrl: str(a?.tcUrl, 500, d.tcUrl), tcModel: str(a?.tcModel, 200), tcInstruct: str(a?.tcInstruct, 200),
+      ccSource: pick(a?.ccSource, CC, d.ccSource), ccModel: cStr(a?.ccModel, 200), ccUrl: cStr(a?.ccUrl, 500), ccKey: cStr(a?.ccKey, 100), ccPost: pick(a?.ccPost, POST, ''),
+      tcType: pick(a?.tcType, TC, d.tcType), tcUrl: typeof a?.tcUrl === 'string' ? cStr(a.tcUrl, 500) : d.tcUrl, tcModel: cStr(a?.tcModel, 200), tcInstruct: cStr(a?.tcInstruct, 200),
       effOn: a?.effOn === true, eff: pick(a?.eff, EFFORT, 'auto'),
       maxTokens: num('agMaxTokens', a?.maxTokens, d.maxTokens), context: num('agContext', a?.context, d.context),
       readBy: ['since', 'num'].includes(a?.readBy) ? a.readBy : 'recent', readFrom: Math.round(num('agMsgNum', a?.readFrom, 0)), readTo: a?.readTo == null ? null : Math.round(num('agMsgNum', a.readTo, 0)),
@@ -122,7 +118,7 @@
       send: a?.send === true, sendWhere: pick(a?.sendWhere, WHERE, 'chat'), sendDepth: num('agSendDepth', a?.sendDepth, d.sendDepth),
       sendRole: pick(a?.sendRole, ROLES, 'system'), sendScan: a?.sendScan === true,
       answer: a?.answer === 'fields' ? 'fields' : 'text', fields: cleanFields(a?.fields),
-      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter(okId))].slice(0, AGENT_MAX) : [] };
+      reportsFrom: Array.isArray(a?.reportsFrom) ? [...new Set(a.reportsFrom.filter(cRef))].slice(0, AGENT_MAX) : [] };
     for (const [f, , k] of SAMP) { o[f + 'On'] = typeof a?.[f + 'On'] === 'boolean' ? a[f + 'On'] : d[f + 'On']; o[f] = num(k, a?.[f], d[f]); }
     return o;
   }
@@ -155,12 +151,12 @@
       const seen = new Set();
       const used = new Set();
       s.agDepts = s.agDepts.filter((d) => d && typeof d === 'object').slice(0, DEPT_MAX).map((d) => {
-        let id = okId(d.id) ? d.id : newId('dp');
+        let id = cId(d.id, 'dp');
         if (used.has(id)) id = newId('dp');
         used.add(id);
         // An agent listed twice stays where it's listed first.
         const ids = (Array.isArray(d.ids) ? d.ids : []).filter((x) => have.has(x) && !seen.has(x) && seen.add(x));
-        return { id, name: str(d.name, 60).trim() || 'Department', ids };
+        return { id, name: cStr(d.name, 60).trim() || 'Department', ids };
       });
       deptChecked.add(s.agDepts);
     }
@@ -230,7 +226,7 @@
     try { return await uploadImage(await (await fetch(pic)).blob(), 'agent', { max: 128 }); } catch (e) { console.error('[NTR agent import]', e); return null; }
   }
   // The file for these agents (and their department), and how many pictures were left out.
-  async function fileFor(as, dept = null) {
+  async function fileFor(as, dept) {
     let fails = 0;
     const agents = [];
     for (const a of as) {
@@ -266,7 +262,7 @@
       o.reportsFrom = o.reportsFrom.map((id) => ids.get(id)).filter((id) => id && id !== o.id);
       if (pics[i] === null) picFails++;
       o.pic = pics[i] || '';
-      o.name = freeName(o.name, nameIn(l), 60);
+      o.name = freeName(o.name, nameTaken(l), 60);
       l.push(o);
     }
     let deptsOut = 0;
@@ -275,7 +271,7 @@
       const mine = [...new Set((Array.isArray(d.ids) ? d.ids : []).map((id) => ids.get(id)).filter(Boolean))].filter((id) => !dl.some((x) => x.ids.includes(id)));
       if (!mine.length) continue;
       if (dl.length >= DEPT_MAX) { deptsOut++; continue; }
-      dl.push({ id: newId('dp'), name: freeName(str(d.name, 60).trim() || 'Department', nameIn(dl), 60), ids: mine });
+      dl.push({ id: newId('dp'), name: freeName(cStr(d.name, 60).trim() || 'Department', nameTaken(dl), 60), ids: mine });
     }
     sortAgents();
     return { added: adds, skipped: items.length - take.length, picFails, deptsOut };
@@ -300,11 +296,9 @@
   const OVER = `over ${MAX_SAVED.toLocaleString('en-US')} characters`;
   // Which chat is open: its file name, with whose chat it is, since a duplicated card starts with the same chat name.
   const chatId = () => {
-    try {
-      const c = ctx();
-      const id = c.getCurrentChatId();
-      return id == null ? '' : `${c.groupId || c.characters[c.characterId]?.avatar || ''}/${id}`;
-    } catch (e) { return ''; }
+    const c = ctx();
+    const id = c.getCurrentChatId();
+    return id == null ? '' : `${c.groupId || c.characters[c.characterId]?.avatar || ''}/${id}`;
   };
   function savedAt(m, id) {
     const v = m?.extra?.[KEY]?.[id];
@@ -325,7 +319,7 @@
   }
   // The newest saved result at or before message upTo (the last message when null), and which message it's on.
   function latest(id, upTo = null) {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     for (let i = Math.min(upTo ?? chat.length - 1, chat.length - 1); i >= 0; i--) {
       const r = savedAt(chat[i], id);
       if (r) return { ...r, mes: i };
@@ -458,19 +452,19 @@
   function seenText(id, upTo, from = snap || (!chatBusy && fullSnap)) {
     const v = from ? from.get(id) : undefined;
     if (v === null) return null;
-    if (v && v.i <= upTo && (ctx().chat || [])[v.i]?.send_date === v.date) return v.text;
+    if (v && v.i <= upTo && ctx().chat[v.i]?.send_date === v.date) return v.text;
     return latest(id, upTo)?.text ?? null;
   }
   // What's saved now for each agent not in `waiting`, on message `at` (the last one when null).
   function snapshot(waiting, at) {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     return new Map(list().filter((x) => !waiting.has(x.id)).map((x) => {
       const r = latest(x.id, at);
       return [x.id, r ? { text: r.text, i: r.mes, date: chat[r.mes].send_date } : null];
     }));
   }
   function upToFor(type) {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const last = chat.length - 1;
     return (type === 'swipe' || type === 'regenerate') && chat[last] && !chat[last].is_user ? last - 1 : last;
   }
@@ -485,10 +479,11 @@
         if (text == null) continue;
         const where = WHERE.find(([v]) => v === a.sendWhere)[2];
         const role = a.sendWhere === 'chat' ? ROLES.find(([v]) => v === a.sendRole)[2] : 0;
-        try { c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${text}`, where, a.sendDepth, a.sendScan, role); sent.add(a.id); } catch (e) { console.error('[NTR] Could not send an agent result', e); }
+        c.setExtensionPrompt(injKey(a.id), `[${a.name}]\n${text}`, where, a.sendDepth, a.sendScan, role);
+        sent.add(a.id);
       }
     }
-    for (const id of injected) if (!sent.has(id)) c.setExtensionPrompt(injKey(id), '', 1, 0);
+    for (const id of injected) if (!sent.has(id)) A.setInjection(injKey(id), '');
     injected = sent;
   }
 
@@ -508,7 +503,7 @@
   function sharesChatServer(a) {
     const c = ctx();
     const t = c.textCompletionSettings;
-    return a.kind === 'tc' && c.mainApi === 'textgenerationwebui' && !!t && sameUrl(t.server_urls?.[t.type]) === sameUrl(a.tcUrl);
+    return a.kind === 'tc' && c.mainApi === 'textgenerationwebui' && sameUrl(t.server_urls[t.type]) === sameUrl(a.tcUrl);
   }
 
   // What the agent reads: its instructions, then the chat messages Messages Read picks (the most recent ones, or a range
@@ -525,9 +520,9 @@
   // The messages it reads, up to message `at` (the last one when null). By Number never reads past it either.
   // Since Its Last Result reads like Most Recent, from the message after its last result.
   function readMsgs(a, at = null) {
-    const all = ctx().chat || [];
+    const all = ctx().chat;
     const end = at ?? all.length - 1;
-    const ok = (m) => m && !m.is_system && typeof m.mes === 'string';
+    const ok = (m) => !m.is_system && typeof m.mes === 'string';
     if (a.readBy !== 'num') return all.slice(a.readBy === 'since' ? sinceFrom(a, end) ?? 0 : 0, end + 1).filter(ok).slice(-a.context);
     const [lo, hi] = span(a);
     return all.slice(lo, Math.min(hi ?? end, end) + 1).filter(ok);
@@ -550,7 +545,7 @@
   function due(a, at, from) {
     if (a.every <= 1) return true;
     if (busy(a.id)) return false;
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const r = latest(a.id, at);
     let n = 0;
     for (let i = r ? r.mes + 1 : chat[0]?.is_user ? 0 : 1; i <= at; i++) {
@@ -561,7 +556,7 @@
   }
   function prompt(a, test, at = null) {
     if (test) return [{ role: 'system', content: 'Reply with the word OK and nothing else.' }, { role: 'user', content: 'Test.' }];
-    const end = at ?? (ctx().chat || []).length - 1;
+    const end = at ?? ctx().chat.length - 1;
     const chat = readMsgs(a, end);
     const said = (m) => `${m.name || (m.is_user ? 'User' : 'Character')}: ${m.mes}`;
     if (splits(a)) {
@@ -604,7 +599,7 @@
     let used = false;
     const hook = (data) => {
       restore();
-      if (used || (chatBusy && !holding) || !data || typeof data !== 'object') return;
+      if (used || (chatBusy && !holding)) return;
       used = true;
       for (const [k, v] of Object.entries(own)) if (k in data) data[k] = v;
     };
@@ -634,7 +629,7 @@
   // it's still that message (o.date), in case a swipe or a deleted message moved things while it waited.
   function aim(o) {
     if (chatId() !== o.chat) throw new Error('Skipped: you switched chats before it could run.');
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const i = o.at ?? chat.length - 1;
     const m = chat[i];
     if (o.at != null && m?.send_date !== o.date) throw new Error('Skipped: the message it was for changed before it could run.');
@@ -663,7 +658,7 @@
         // newer reply runs it again.
         if (full) {
           const i = aim(o);
-          if (i !== (c.chat || []).length - 1) {
+          if (i !== c.chat.length - 1) {
             throw new Error(o.auto ? 'Skipped: newer messages came in first, and with your chat\'s full prompt it only runs on the newest message.'
               : 'With your chat\'s full prompt, it can only run on the last message.');
           }
@@ -782,7 +777,7 @@
   function keep(a, t, text) {
     if (!t) return 'Not saved: the chat has no messages.';
     if (!text) return 'Not saved: empty answer.';
-    const m = (ctx().chat || [])[t.i];
+    const m = ctx().chat[t.i];
     if (chatId() !== t.chat || !m || m.swipe_id !== t.swipe || m.send_date !== t.date) return 'Not saved: the chat changed while it ran.';
     if (m.mes !== t.mes) return 'Not saved: the message was edited while it ran.';
     if (usesFields(a)) {
@@ -802,7 +797,7 @@
     const first = byId(id);
     if (!first) return;
     const from = chatId();
-    const date = at == null ? null : (ctx().chat || [])[at]?.send_date;
+    const date = at == null ? null : ctx().chat[at]?.send_date;
     const job = { id, lane: test ? null : deptOf(id)?.id ?? '', batch, test, early, ctrl: new AbortController(), state: 'queue', waitFor: null };
     // Who it waits for, from the runs already asked for.
     const skip = (j) => early && j.late && j.state !== 'run';
@@ -874,7 +869,7 @@
   const { ovLabel: lab, hint } = A.look;
   // An agent's picture is a circle; Avatar Management's Shape doesn't apply.
   const picHtml = (a, size) => {
-    return a.pic ? `<img src="${esc(media(a.pic))}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
+    return a.pic ? `<img src="${esc(a.pic)}" alt="" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;flex:none;">`
       : `<i class="fa-solid fa-fw fa-robot" style="width:${size}px;text-align:center;opacity:.7;flex:none;"></i>`;
   };
   const conn = (a) => (a.kind === 'chat' ? 'Same as Chat' : a.kind === 'cc' ? `${nameOf(CC, a.ccSource)}${a.ccModel ? ' · ' + a.ccModel : ''}`
@@ -936,7 +931,7 @@
           <span class="ntr_menu"><button type="button" class="menu_button m_ag_hbtn m_ag_dmore" title="More" aria-label="More for ${esc(d.name)}" aria-haspopup="menu" aria-expanded="false"><i class="fa-solid fa-fw fa-ellipsis"></i></button></span>
         </div>
         <div class="m_ag_dbody" role="group" aria-label="${esc(d.name)}"${open ? '' : ' hidden'}>
-          ${d.ids.map(byId).filter(Boolean).map((a) => rowHtml(a, s)).join('') || '<div class="m_ag_empty">No agents yet. Drag one here.</div>'}
+          ${d.ids.map(byId).map((a) => rowHtml(a, s)).join('') || '<div class="m_ag_empty">No agents yet. Drag one here.</div>'}
         </div>
       </div>`;
   }
@@ -1149,7 +1144,7 @@
       </div>`;
   }
 
-  const instructNames = () => { try { return ctx().getPresetManager('instruct')?.getAllPresets() || []; } catch (e) { return []; } };
+  const instructNames = () => ctx().getPresetManager('instruct').getAllPresets();
   function editorHtml(a) {
     if (!a) return '';
     const fields = a.answer === 'fields';
@@ -1241,7 +1236,7 @@
   // show: SillyTavern adds the rest. Keys and links are never part of it.
   function previewHtml(a) {
     const box = (t) => `<div style="white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:2px;">${t ? esc(t) : '<i>(empty)</i>'}</div>`;
-    if (usesFull(a)) return `<div class="cb_hint" style="margin:0;"><strong>Instructions</strong>${box(withLast(a, (ctx().chat || []).length - 1))}</div>`;
+    if (usesFull(a)) return `<div class="cb_hint" style="margin:0;"><strong>Instructions</strong>${box(withLast(a, ctx().chat.length - 1))}</div>`;
     return prompt(a).map((m) => `<div class="cb_hint" style="margin:0;"><strong>${ROLE[m.role]}</strong>${box(m.content)}</div>`).join('');
   }
   // By Number's From and To boxes. To left empty reads up to the most recent message.
@@ -1460,9 +1455,7 @@
   async function cropFile(src, revoke = false) {
     const blocked = () => new Error('This picture can\'t be cropped: its site doesn\'t allow it. Upload the file instead.');
     try {
-      const img = new Image();
-      if (!src.startsWith('blob:')) img.crossOrigin = 'anonymous';
-      await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(blocked()); img.src = src; });
+      const img = await loadImg(src, !src.startsWith('blob:')).catch(() => { throw blocked(); });
       const c = ctx();
       const p = new c.Popup('', c.POPUP_TYPE.CROP, '', { cropImage: src, cropAspect: 1, okButton: 'Crop' });
       // On Crop it answers with its own JPEG of the crop (no transparency), on Cancel with null: only its box is used.
@@ -1493,8 +1486,6 @@
   function bindAll(s, a) {
     const changed = (redraw) => { sortAgents(); save(); if (redraw) render(); else { syncSums(a); syncTag(a); syncLinks(a); if (prevOpen) syncPreview(a); } };
     const pick = (id) => { s.agPick = id; changed(true); showHead(); };
-    // A click anywhere but in a menu closes it.
-    root.onclick = (e) => { if (!e.target.closest('.ntr_menu')) closePops(root); };
     root.querySelectorAll('.m_ag_row').forEach((row) => {
       row.querySelector('.m_ag_pick').onclick = () => pick(row.dataset.id);
       row.querySelector('.m_ag_on').onchange = function() {
@@ -1519,11 +1510,10 @@
     root.querySelector('#m_ag_imp').onclick = () => impFile.click();
     A.onFilePick(impFile, 'Agents', async (f) => {
       let j;
-      try { j = JSON.parse(await readText(f)); } catch (e) { j = null; }
-      if (list().length >= AGENT_MAX) { fullNote(); return; }
+      try { j = JSON.parse(await f.text()); } catch (e) { j = null; }
       const r = await addFile(j);
       if (!r) { toastr.error('That isn\'t a Nitwit Tavern Redesign agents file.', 'Agents'); return; }
-      // Agents hired meanwhile can take the room.
+      // No room: the roster was full, or agents were hired meanwhile.
       if (!r.added.length) { fullNote(); return; }
       pick(r.added[0].id);
       const n = r.added.length;
@@ -1575,7 +1565,7 @@
             d.name = name;
             focusAfter = deptSel(d, '.m_ag_dmore');
             changed(true);
-          } else if (act === 'exp') exportAgents(d.ids.map(byId).filter(Boolean), d, d.name);
+          } else if (act === 'exp') exportAgents(d.ids.map(byId), d, d.name);
           else if (act === 'del') {
             const n = d.ids.length;
             const q = !n ? `Delete the department "${d.name}"?`
@@ -1688,8 +1678,8 @@
       if (!pop) return;
       fitPop(pop);
       pop.onclick = (e) => {
-        // Kept from the page's own click, which closes a menu when the click lands outside it: the department list
-        // takes the place of the button that was clicked.
+        // Kept from popMenu's close on a click outside a menu: the department list replaces the clicked button, which
+        // then sits in no menu.
         e.stopPropagation();
         const b = e.target.closest('button[data-act]');
         if (!b || b.disabled) return;
@@ -1776,7 +1766,7 @@
     root.querySelector('#m_ag_clr').disabled = !a.pic;
     root.querySelector('#m_ag_crop').disabled = !a.pic;
     root.querySelector('#m_ag_crop').onclick = async () => {
-      try { const f = await cropFile(FULL_PIC[a.pic] || media(a.pic)); if (f) setPic(await uploadImage(f, 'agent', { max: 128 })); } catch (e) { fail(e); }
+      try { const f = await cropFile(FULL_PIC[a.pic] || a.pic); if (f) setPic(await uploadImage(f, 'agent', { max: 128 })); } catch (e) { fail(e); }
     };
     A.onFilePick(file, 'Agent picture', async (f) => {
       // A GIF goes as it is, to keep its animation.
@@ -1909,7 +1899,7 @@
       changed(true);
       refreshBoxes();
     };
-    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', nameIn(a.fields)) }));
+    root.querySelector('#m_agf_add')?.addEventListener('click', () => add({ name: freeName('New Field', nameTaken(a.fields)) }));
     root.querySelector('#m_agf_head')?.addEventListener('click', () => add({ kind: 'heading', name: 'New Heading' }));
     if (!box) return;
     const at = (el) => a.fields.find((f) => f.id === el.closest('[data-fd]')?.dataset.fd);
@@ -1950,7 +1940,7 @@
       if (t.classList.contains('m_agf_txt')) {
         if (t.dataset.k === 'name') {
           f.name = fieldName(t.value, f.name);
-          if (f.kind === 'field' && a.fields.some((x) => x !== f && x.kind === 'field' && x.name.toLowerCase() === f.name.toLowerCase())) {
+          if (f.kind === 'field' && nameTaken(a.fields.filter((x) => x.kind === 'field'), f)(f.name)) {
             toastr.warning(`Another field is already called "${f.name}". Only the first one gets values.`, 'Agents');
           }
         } else f.hint = t.value.trim().slice(0, 200);
@@ -2087,7 +2077,7 @@
     if (!agents.length) return null;
     const pin = o.pin || '';
     const cid = chatId();
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const last = chat.length - 1;
     const isTabs = o.view === 'tabs' && agents.length > 1;
     const tab = agents.some((a) => a.id === tabs.get(pin)) ? tabs.get(pin) : agents[0].id;
@@ -2132,16 +2122,16 @@
     const act = b.dataset.act;
     if (act === 'fold') { const k = b.dataset.fold; if (folds.has(k)) folds.delete(k); else folds.add(k); refreshBoxes(); return; }
     if (act === 'tab') { tabs.set(b.closest('.ntr_pin')?.dataset.pin || '', b.dataset.ag); refreshBoxes(); return; }
-    if (act === 'newest') { const c = document.getElementById('chat'); if (c) c.scrollTop = c.scrollHeight; return; }
+    if (act === 'newest') { const c = document.getElementById('chat'); c.scrollTop = c.scrollHeight; return; }
     const box = b.closest('.ntr_agres');
     const a = box && byId(box.dataset.ag);
     if (!a) return;
     const mes = box.dataset.mes === '' ? null : Number(box.dataset.mes);
-    const m = mes == null ? null : (ctx().chat || [])[mes];
+    const m = mes == null ? null : ctx().chat[mes];
     const r = m ? savedAt(m, a.id) : null;
     // An edit is saved only onto the result it was started on, in case the message or swipe changed meanwhile.
     const same = (ed) => r && ed && ed.id === a.id && ed.mes === mes && ed.chat === chatId() && ed.date === m.send_date;
-    if (act === 'run') { enqueue(a.id, false, false, mes === (ctx().chat || []).length - 1 ? null : mes); return; }
+    if (act === 'run') { enqueue(a.id, false, false, mes === ctx().chat.length - 1 ? null : mes); return; }
     if (act === 'edit' && r) {
       editing = editing && same(editing) ? null : { id: a.id, mes, chat: chatId(), date: m.send_date, key: `${a.id}:${mes}:${m.send_date}` };
       fieldEdit = null;
@@ -2202,7 +2192,7 @@
       if (!pageOn() || ['first_message', 'impersonate', 'continue', 'appendFinal'].includes(type)) return;
       const at = Number.isInteger(id) && id >= 0 ? id : null;
       sortAgents();
-      const chat = ctx().chat || [];
+      const chat = ctx().chat;
       const m = chat[at ?? chat.length - 1];
       if (!m || m.is_system) return;
       const kind = kindOf(m);
@@ -2233,9 +2223,9 @@
     genEnded: () => { chatBusy = false; holding = false; onReply.clear(); const w = waiters; waiters = []; w.forEach((r) => r()); },
     // For Pinned Blocks set to Agent Results (layout.js).
     pinView,
-    // An agent's current answer: its newest saved one in this chat.
-    answer: (id) => (byId(id) ? latest(id)?.text ?? '' : ''),
-    // Export and import's files, without the menu (for the tests).
+    // For the tests: export and import's files without the menu, and an agent's current answer (its newest saved one in
+    // this chat).
     fileFor, addFile,
+    answer: (id) => (byId(id) ? latest(id)?.text ?? '' : ''),
   };
 })();

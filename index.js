@@ -1,6 +1,6 @@
 await (async () => {
   const MODULE = 'chatvisuals';
-  const VERSION = '2.86.72';
+  const VERSION = '2.86.74';
   const NTR_BASE = new URL('.', import.meta.url).href;
   const TAG = '<i class="fa-solid fa-tag ntr_tag" title="Saved per character" role="img" aria-label="Saved per character"></i>';
   // The key to TAG, at the top of a page or part. Its icon is hidden from screen readers, which read the sentence.
@@ -9,8 +9,8 @@ await (async () => {
   // Reader Mode's built-in books: the same photo in each cover color, in assets/books. The color is the menu's swatch.
   const BOOKS = [['brown', 'Brown', '#50301c'], ['oxblood', 'Oxblood', '#4a1b1a'], ['forest', 'Forest Green', '#1d3326'], ['navy', 'Navy', '#1c2740'],
     ['black', 'Black', '#1e1b19'], ['plum', 'Plum', '#3c2240'], ['sakura', 'Sakura', '#e39ab9']];
-  const bookId = (k) => (BOOKS.some(([v]) => v === k) ? k : 'brown');
-  const bookUrl = (k) => `${NTR_BASE}assets/books/${bookId(k)}.webp`;
+  const bookUrl = (k) => `${NTR_BASE}assets/books/${k}.webp`;
+  const bookSrc = (s) => s.rdBookImg || bookUrl(s.rdBook);
   // Avatar Management's built-in frames, in assets/frames/<folder>. Each is [file name, name]; a side saves 'folder/file'.
   const FRAME_SERIES = [
     { id: 'nouveau', name: 'Art Nouveau', frames: [['lily', 'Lily'], ['iris', 'Iris'], ['sakura', 'Sakura'], ['poppy', 'Poppy'], ['moon', 'Moon'], ['ginkgo', 'Ginkgo']] },
@@ -382,15 +382,14 @@ await (async () => {
   function currentKey() {
     const c = ctx();
     if (c.groupId) return null;
-    const ch = c.characters?.[c.characterId];
-    return ch?.avatar || null;
+    return c.characters[c.characterId]?.avatar || null;
   }
 
   const peek = (key) => {
     const d = cardData(key);
     if (d) return d.banner ||= defaultBanner();
     const r = settings().chars[key] ||= defaultBanner();
-    if (!cleaned.has(r)) { cleaned.add(r); cleanBanner(r); }
+    if (!cleaned.has(r)) cleanBanner(r);
     return r;
   };
 
@@ -441,13 +440,14 @@ await (async () => {
   }
 
   const readDataURL = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-  const loadImg = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+  // With `cors`, a picture from another site loads only if that site lets it be drawn onto a canvas and read back.
+  const loadImg = (u, cors = false) => new Promise((res, rej) => { const i = new Image(); if (cors) i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = u; });
 
   // Images over `max` px on their longer side (or `maxWidth` wide) are shrunk first: photos stay JPEG, the rest become
   // PNG so transparency survives. Other image types become PNG too, so the file always matches its name. GIFs go as
   // they are, to keep their animation.
   async function uploadImage(f, prefix, { max = 0, maxWidth = 0 } = {}) {
-    let url = String(await readDataURL(f));
+    let url = await readDataURL(f);
     if (f.type !== 'image/gif') {
       const i = await loadImg(url).catch(() => null);
       if (!i?.width || !i.height) throw new Error('That file didn\'t load as an image.');
@@ -483,7 +483,7 @@ await (async () => {
     if (f.size > 100 * 1024 * 1024 && !(await askYes(btn, `This video is ${Math.round(f.size / 1048576)} MB. Big files may fail to upload or be slow to load. Upload anyway?`, 'Upload'))) return '';
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    const data = String(await readDataURL(f));
+    const data = await readDataURL(f);
     return uploadBase64(data.slice(data.indexOf(',') + 1), ext, prefix);
   }
 
@@ -505,7 +505,7 @@ await (async () => {
   // Asked right under the button that was pressed: the browser's own boxes can't be styled and freeze the page.
   // One question at a time: a new question closes the open one as if Cancel was pressed, and so does closing or
   // redrawing the menu it's in, so code waiting on it never hangs.
-  const cancelAsks = (root) => root?.querySelectorAll('.ntr_ask').forEach((el) => (el.ntrCancel ? el.ntrCancel() : el.remove()));
+  const cancelAsks = (root) => root?.querySelectorAll('.ntr_ask').forEach((el) => el.ntrCancel());
   function askBox(anchor, html, cancel) {
     cancelAsks(document);
     // Below the button's whole row, not inside it, so a row of buttons keeps its layout.
@@ -633,10 +633,12 @@ await (async () => {
     'That link did not load as a video. Use a direct link to an mp4 or webm file.', perChat);
 
   // A small menu under a button, like Move to folder on the Regexes page. The button sits in a .ntr_menu box, and `html`
-  // is the menu's buttons. A second click on the same button closes it; a page closes it on any other click.
+  // is the menu's buttons. A second click on the same button closes it, and so does a click in its .ntr_page outside
+  // every .ntr_menu box. A click on its own buttons doesn't, so callers close it on a pick.
   function popMenu(anchor, html) {
+    const scope = anchor.closest('.ntr_page') || document;
     const had = anchor.parentElement.querySelector('.ntr_pop');
-    closePops(anchor.closest('.ntr_page') || document);
+    closePops(scope);
     if (had) return null;
     const pop = document.createElement('div');
     pop.className = 'ntr_pop';
@@ -644,10 +646,16 @@ await (async () => {
     pop.ntrAnchor = anchor;
     anchor.parentElement.appendChild(pop);
     anchor.setAttribute('aria-expanded', 'true');
+    const out = (e) => {
+      if (pop.isConnected && e.target.closest('.ntr_menu')) return;
+      scope.removeEventListener('click', out);
+      if (pop.isConnected) closePops(scope);
+    };
+    scope.addEventListener('click', out);
     return pop;
   }
   function closePops(scope = document) {
-    scope?.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor?.setAttribute('aria-expanded', 'false'); p.remove(); });
+    scope.querySelectorAll('.ntr_pop').forEach((p) => { p.ntrAnchor.setAttribute('aria-expanded', 'false'); p.remove(); });
   }
 
   // ===== Shared UI helpers =====
@@ -697,14 +705,14 @@ await (async () => {
       </section>`;
   }
   // A part of a page with its own title and switch, like Header Banner on Overlays. A switched-off part's settings are
-  // dimmed (see syncPageOff). With a fold name, the part starts folded and opens from its title. An optional Font
-  // Awesome icon goes before the title.
-  function pagePart(title, sw, fold, body, icon = '') {
+  // dimmed (see syncPageOff). Its title folds and opens it (`fold`: its key in uiOpen, folded until first opened), with a
+  // Font Awesome icon before the title.
+  function pagePart(title, sw, fold, body, icon) {
     return `
       <div class="ntr_part${sw[1] ? '' : ' ntr_off'}">
-        <div class="ntr_parthead${fold ? ' cb_collapse_toggle' : ''}"${fold ? ` data-sec="${fold}" tabindex="0" role="button"` : ''}>
-          ${fold ? '<i class="fa-solid fa-chevron-right cb_chevron"></i>' : ''}
-          ${icon ? `<i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>` : ''}
+        <div class="ntr_parthead cb_collapse_toggle" data-sec="${fold}" tabindex="0" role="button">
+          <i class="fa-solid fa-chevron-right cb_chevron"></i>
+          <i class="fa-solid fa-fw ${icon} ntr_part_icon"></i>
           <h4 class="ntr_parttitle">${title}</h4>
           ${switchHtml({ id: sw[0], on: sw[1], title: `Turn ${title} on or off` })}
         </div>
@@ -713,7 +721,7 @@ await (async () => {
   }
   // A group of settings: a small label, with an optional Font Awesome icon, then the settings in a soft card.
   const card = (label, inner, icon = '') => `${label ? `<div class="ntr_glab">${icon ? `<i class="fa-solid fa-fw ${icon} ntr_glab_icon"></i>` : ''}${label}</div>` : ''}<div class="ntr_card">${inner}</div>`;
-  const thumbHtml = (src, icon) => (media(src) ? `<img src="${escapeHTML(media(src))}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
+  const thumbHtml = (src, icon) => (src ? `<img src="${escapeHTML(src)}" alt="">` : `<i class="fa-solid ${icon}"></i>`);
   // A picture setting: a preview with Upload, Link and Remove. Both take the same options: id (m_<id>_... on its parts),
   // key (the setting), title (on the link question and an upload error), upload ([name, options] for uploadImage), and
   // optionally label (the name; Picture by default), icon (the empty preview's), wide (a wide preview), hint (under the
@@ -1018,7 +1026,7 @@ await (async () => {
   const namesHidden = (s) => isOn() && layoutOn(s) && s.ovNamesOn;
   // NTR Avatars on one side: the avatar as a backdrop or pop-out instead of the chat avatar. Without avatars.js they
   // stay off, whatever is saved, and other pages stop making room for NTR's avatars.
-  const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] !== false && !namesHidden(s);
+  const ntrAvatars = (s, prefix) => isOn() && !!window.NTR.avatars && s.avatarEnabled && s[prefix + 'Enabled'] && !namesHidden(s);
 
   // One CSS rule, each property !important. Empty properties are left out, and a rule with none left is no rule.
   function cssRule(sel, props) {
@@ -1116,6 +1124,7 @@ await (async () => {
     const el = slNum(sl);
     if (el) el.textContent = slText(v, Number(el.dataset.scale));
   }
+  const showRange = (e) => { if (e.target.type === 'range') showSlider(e.target, e.target.value); };
   // Shows v even when the slider clamps it: a value set from code can be past the slider's ends.
   function setSlider(sl, v) {
     sl.value = v;
@@ -1191,8 +1200,8 @@ await (async () => {
   const ovPick = (s, k, opts) => pills('o' + k.toLowerCase(), opts, s[k]);
   // Shown only while a pick has a certain value, like Roundness under Rounded.
   const ovWhen = (k, v, inner) => `<div class="m_o_when" data-when="${k}" data-val="${v}">${inner}</div>`;
-  // A small label above a control. The label is plain text, so it's also the control's name: a pills group gets it as a
-  // radio group, anything else on its first control. A pill keeps its own text as its name.
+  // A small label above a control. Its text is also the control's name: a pills group gets it as a radio group,
+  // anything else on its first control. A pill keeps its own text as its name.
   const ovLabel = (label, inner) => {
     const n = escapeHTML(label.replace(/<[^>]*>/g, '').trim());
     const named = /^\s*<div class="cb_pills"/.test(inner)
@@ -1200,6 +1209,10 @@ await (async () => {
       : inner.replace(/<(input(?![^>]*type="(?:radio|checkbox)")|select|textarea|toolcool-color-picker)\b(?![^>]*aria-label)/, `<$1 aria-label="${n}"`);
     return `<div class="cb_hint" style="margin:6px 0 0;">${label}</div>${named}`;
   };
+  // A slider under a row with its label and value, for a module that binds its own sliders. `attrs` go on the input.
+  const sliderAbove = (label, k, v, id, attrs = '', top = '') => `
+    <div class="cb_row"${top ? ` style="margin-top: ${top};"` : ''}><label for="${id}">${label}</label><span><span class="ntr_slval">${v}</span>${NUM_RANGE[k][3]}</span></div>
+    <input type="range" id="${id}" ${attrs} ${rangeAttrs(k)} value="${v}">`;
 
   // Shape, Background and Border rows of a part in Panel or BOX_PARTS.
   const ovShapeRow = (s, p) => ovRow(s, `ov${p}ShapeOn`, 'Shape', ovPick(s, `ov${p}Shape`, [['rounded', 'Rounded'], ['square', 'Square']])
@@ -1343,7 +1356,8 @@ await (async () => {
     return COLOR_RE.test(v) ? v : 'rgba(220, 220, 210, 1)';
   }
 
-  // What the Reasoning Block and Text Formatting CSS read from a setting: its tick, and its color, font or size while ticked.
+  // What look CSS reads from a setting: its tick, and while it's ticked its plain value (col: a color, or a pick like an
+  // alignment), its font or its size.
   function cssReaders(s) {
     const on = (k) => s[k + 'On'];
     return {
@@ -1435,14 +1449,16 @@ await (async () => {
     cleaned.add(out);
     return out;
   }
-  // Each side's remembered fits, by built-in frame or picture link: [Frame Size, Left/Right, Up/Down] in their ranges.
+  // The settings a remembered Frame fit holds, in their saved order.
+  const FRAME_FIT = ['FrameSize', 'FrameX', 'FrameY'];
+  // Each side's remembered fits, by built-in frame or picture link: the FRAME_FIT values in their ranges.
   function cleanFrameFits(v) {
     const out = { ai: {}, us: {} };
     for (const p of ['ai', 'us']) {
       const m = isObj(v) && isObj(v[p]) ? v[p] : {};
       for (const k of Object.keys(m).slice(0, 300)) {
-        if (k.length > 2048 || !Array.isArray(m[k]) || m[k].length !== 3) continue;
-        out[p][k] = ['FrameSize', 'FrameX', 'FrameY'].map((n, i) => Math.round(cNum(m[k][i], DEFAULTS[p + n], NUM_RANGE[p + n][0], NUM_RANGE[p + n][1])));
+        if (k.length > 2048 || !Array.isArray(m[k]) || m[k].length !== FRAME_FIT.length) continue;
+        out[p][k] = FRAME_FIT.map((n, i) => Math.round(cNum(m[k][i], DEFAULTS[p + n], NUM_RANGE[p + n][0], NUM_RANGE[p + n][1])));
       }
     }
     cleaned.add(out);
@@ -1563,17 +1579,12 @@ await (async () => {
   function cleanStore(st) {
     if (!isObj(st) || cleaned.has(st)) return st;
     cleaned.add(st);
-    keepOnly(st, ['v', 'banner', 'fg', 'vn', 'regex']);
-    if ('v' in st) st.v = 1;
+    keepOnly(st, ['banner', 'fg', 'vn', 'regex']);
     for (const [k, fn] of [['banner', cleanBanner], ['fg', cleanFg], ['vn', cleanVn], ['regex', cleanRegex]]) {
       if (!(k in st)) continue;
       if (isObj(st[k])) fn(st[k]); else delete st[k];
     }
     return st;
-  }
-
-  function media(u) {
-    return typeof u === 'string' ? u : '';
   }
 
   // ===== Per-chat storage =====
@@ -1582,7 +1593,7 @@ await (async () => {
   // Cards whose NTR data wasn't an object (broken cards). Their next save clears that first; see saveCard.
   const cardFix = new Set();
 
-  const charByAvatar = (av) => (ctx().characters || []).find((c) => c && c.avatar === av);
+  const charByAvatar = (av) => ctx().characters.find((c) => c.avatar === av);
 
   function cardData(key) {
     if (!key) return null;
@@ -1593,7 +1604,7 @@ await (async () => {
     if (!cardSnap.has(key)) cardSnap.set(key, isObj(d) ? JSON.stringify(d) : '');
     if (!isObj(d)) {
       if (d !== undefined) cardFix.add(key);
-      d = { v: 1 };
+      d = {};
       ch.data.extensions.ntr = d;
     }
     return d;
@@ -1620,11 +1631,11 @@ await (async () => {
   }
 
   // The cards in the open chat: a group's members, or the open character. chatName is the group's or character's name.
-  const chatGroup = (c) => (c.groups || []).find((g) => g.id === c.groupId);
+  const chatGroup = (c) => c.groups.find((g) => g.id === c.groupId);
   function chatCards() {
     const c = ctx();
-    if (c.groupId) return (chatGroup(c)?.members || []).map((av) => (c.characters || []).find((x) => x.avatar === av)).filter(Boolean);
-    const ch = c.characterId != null ? c.characters?.[c.characterId] : null;
+    if (c.groupId) return (chatGroup(c)?.members || []).map(charByAvatar).filter(Boolean);
+    const ch = c.characters[c.characterId];
     return ch ? [ch] : [];
   }
   const chatName = () => { const c = ctx(); return (c.groupId ? chatGroup(c)?.name : c.name2) || ''; };
@@ -1654,6 +1665,22 @@ await (async () => {
     st.vn ||= {};
     for (const k of Object.keys(def)) if (st.vn[k] === undefined) st.vn[k] = def[k];
     return st.vn;
+  }
+  // Map pins lose a deleted location or map (`field` 'loc' or 'map', `id` its id), and go if they don't link the other either.
+  function unlinkPins(v, field, id) {
+    const other = field === 'loc' ? 'map' : 'loc';
+    for (const mp of v.maps) mp.pins = mp.pins.filter((p) => p[field] !== id || p[other]).map((p) => (p[field] === id ? { ...p, [field]: '' } : p));
+  }
+  // A narrator tag's keyword and text, like "Enter: Mia": { kind, arg } from the `words` entry ([kind, settings key]) whose
+  // keyword it uses, or null.
+  function tagOf(inner, words, s) {
+    const str = inner.trim();
+    const i = str.indexOf(':');
+    if (i <= 0) return null;
+    const w = lc(str.slice(0, i));
+    const kind = words.find(([, k]) => lc(s[k]) === w)?.[0];
+    const arg = str.slice(i + 1).trim();
+    return kind && arg ? { kind, arg } : null;
   }
 
   function scheduleCardFlush(key) {
@@ -1699,7 +1726,7 @@ await (async () => {
       if (cardFix.has(key)) {
         const r = await c.writeExtensionFieldBulk([key], 'ntr', unset);
         ch.data.extensions.ntr = d;
-        if (![...(r?.updated || []), ...(r?.skipped || [])].includes(key)) throw new Error('Could not clear the old NTR data in the card');
+        if (![...r.updated, ...r.skipped].includes(key)) throw new Error('Could not clear the old NTR data in the card');
         cardFix.delete(key);
       }
       // Saved here rather than with writeExtensionField, which doesn't say when the server turns a save down. Until a
@@ -1750,7 +1777,7 @@ await (async () => {
   // Every character's card counts, so a file shared by two cards is never deleted out from under one.
   function filesInUse() {
     const set = collectFileRefs(settings());
-    for (const ch of ctx().characters || []) collectFileRefs(ch?.data?.extensions?.ntr, set);
+    for (const ch of ctx().characters) collectFileRefs(ch?.data?.extensions?.ntr, set);
     return set;
   }
 
@@ -1765,7 +1792,7 @@ await (async () => {
     if (!p || !OWN_FILE.test(p)) return 'other';
     if (filesInUse().has(p)) return 'used';
     // With SillyTavern's lazy loading on, cards that haven't been opened yet aren't loaded, so their files can't be checked: keep the file.
-    if ((ctx().characters || []).some((c) => c && c.shallow)) return 'lazy';
+    if (ctx().characters.some((c) => c.shallow)) return 'lazy';
     return (await deleteFile(p)) ? '' : 'failed';
   }
 
@@ -1808,7 +1835,7 @@ await (async () => {
       for (const ch of withData) collectFileRefs(ch.data.extensions.ntr, gone);
       // A failed save doesn't throw; the card is in neither `updated` nor `skipped` (no NTR data on file, nothing to remove).
       const r = await c.writeExtensionFieldBulk(null, 'ntr', c.constants.unset);
-      const done = new Set([...(r?.updated || []), ...(r?.skipped || [])]);
+      const done = new Set([...r.updated, ...r.skipped]);
       const missed = withData.filter((ch) => !done.has(ch.avatar)).length;
       if (missed) {
         throw new Error(`${missed} character card${missed === 1 ? '' : 's'} could not be saved, so removal didn't finish. Check the SillyTavern console.`);
@@ -1824,8 +1851,8 @@ await (async () => {
       collectFileRefs(s, gone);
       delete c.extensionSettings[MODULE];
     }
-    const cs = c.characters || [];
-    if (!cs.some((ch) => ch && ch.shallow)) {
+    const cs = c.characters;
+    if (!cs.some((ch) => ch.shallow)) {
       const keep = look ? new Set() : collectFileRefs(s);
       for (const ch of cs) collectFileRefs(ch?.data?.extensions?.ntr, keep);
       const todo = [...gone].filter((p) => OWN_FILE.test(p) && !keep.has(p));
@@ -1861,7 +1888,6 @@ await (async () => {
       'opLead', 'opFade', 'opSize', 'opPos', 'opExit', 'opTrans', 'opTransColor', 'opTransMs', 'opEarly', 'nodeMaps', 'mapGoText'] },
   };
   const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  const readText = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f); });
   // Saves `obj` as a JSON file: <name><ext>, named <kind> if `name` has no letters or numbers.
   function downloadJson(obj, name, kind, ext = `.ntr-${kind}.json`) {
     const a = document.createElement('a');
@@ -1872,12 +1898,13 @@ await (async () => {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
-  // An askText check for a name no other item in `list` has, whatever the capitals. It's cut to 60 characters first, so
-  // the name checked is the one saved.
+  // A name test, also freeName's `taken`: an item in `list` other than `self` has the name, whatever the capitals.
+  const nameTaken = (list, self = null) => (n) => list.some((x) => x !== self && x.name.toLowerCase() === n.toLowerCase());
+  // An askText check for a name no other item in `list` has. It's cut to 60 characters first, so the name checked is the
+  // one saved.
   const uniqueName = (list, self, what) => (v) => {
     const name = v.slice(0, 60).trim();
-    return !name ? { error: 'Type a name first.' }
-      : list.some((x) => x !== self && x.name.toLowerCase() === name.toLowerCase()) ? { error: `A ${what} with that name already exists.` } : { value: name };
+    return !name ? { error: 'Type a name first.' } : nameTaken(list, self)(name) ? { error: `A ${what} with that name already exists.` } : { value: name };
   };
   // `base`, or "base (2)", "(3)" and so on, the first one `taken` says is free, cut to `max` characters with its number kept.
   function freeName(base, taken, max = Infinity) {
@@ -1886,10 +1913,10 @@ await (async () => {
     return name;
   }
 
-  function lookSnapshot(secs = Object.keys(LOOK)) {
+  function lookSnapshot() {
     const s = settings();
     const out = {};
-    for (const sec of secs) {
+    for (const sec of Object.keys(LOOK)) {
       out[sec] = {};
       for (const k of LOOK[sec].keys) out[sec][k] = structuredClone(s[k]);
     }
@@ -1978,21 +2005,23 @@ await (async () => {
   // The longest text a theme may hold, the same as the menu's text boxes. Tag symbols and keywords allow 16.
   const STR_MAX = { rbThink: 100, rbDone: 100, rbSome: 100, rbArrowSym: 16, rbCss: 2000, rbBtnCss: 2000, rbArrowCss: 2000, ovScrollCss: 2000, ovCursorCss: 2000, ovQrCss: 2000, aiCss: 2000, usCss: 2000, mapGoText: 200 };
   const strMax = (k) => STR_MAX[k] ?? (TAG_KEYS.includes(k) ? 16 : 200);
-  // An emotion list cut down to what validEmotions takes: good ids, names up to 100 characters, no repeats, 100 at most.
+  // The most emotions a list holds, and the longest emotion name.
+  const EMO_LIMITS = { count: 100, name: 100 };
+  // An emotion list cut down to what validEmotions takes: good ids, no repeats, within EMO_LIMITS.
   function fixEmotions(v) {
     const ids = new Set(), names = new Set();
     const out = (Array.isArray(v) ? v : []).filter(isObj)
-      .map((e) => ({ id: cRef(e.id), name: typeof e.name === 'string' ? e.name.trim().slice(0, 100) : '' }))
+      .map((e) => ({ id: cRef(e.id), name: typeof e.name === 'string' ? e.name.trim().slice(0, EMO_LIMITS.name) : '' }))
       .filter((e) => e.id && e.name && !ids.has(e.id) && !names.has(e.name.toLowerCase()) && ids.add(e.id) && names.add(e.name.toLowerCase()))
-      .slice(0, 100);
+      .slice(0, EMO_LIMITS.count);
     return out.length ? out : structuredClone(DEFAULTS.emotions);
   }
   function validEmotions(v) {
-    if (!Array.isArray(v) || !v.length || v.length > 100) return false;
+    if (!Array.isArray(v) || !v.length || v.length > EMO_LIMITS.count) return false;
     const ids = new Set(), names = new Set();
     for (const e of v) {
       const name = e && typeof e.name === 'string' ? e.name.trim().toLowerCase() : '';
-      if (!e || !cRef(e.id) || !name || e.name.length > 100 || ids.has(e.id) || names.has(name)) return false;
+      if (!e || !cRef(e.id) || !name || e.name.length > EMO_LIMITS.name || ids.has(e.id) || names.has(name)) return false;
       ids.add(e.id);
       names.add(name);
     }
@@ -2073,7 +2102,6 @@ await (async () => {
     cancelAsks(old);
     old?.remove();
     const s = settings();
-    if (!PAGES.some(([id]) => id === s.uiPage)) s.uiPage = 'fg';
 
     const overlay = document.createElement('div');
     overlay.id = 'cb_modal_overlay';
@@ -2124,7 +2152,7 @@ await (async () => {
     // document's slider listener never sees them.
     overlay.addEventListener('input', (e) => {
       e.stopPropagation();
-      if (e.target.type === 'range') showSlider(e.target, e.target.value);
+      showRange(e);
     });
 
     bindCollapses(overlay, s);
@@ -2175,13 +2203,13 @@ await (async () => {
     });
     if (narrow) { content.classList.add('ntr_sheet'); syncCompact(content); return; }
     if (P.dock === 'left' || P.dock === 'right') {
-      const w = panelW(P.w || 440);
+      const w = panelW(P.w);
       content.classList.add('ntr_dock_' + P.dock);
       content.style.width = w + 'px';
       edge.style.display = 'block';
       edge.style.left = (P.dock === 'right' ? window.innerWidth - w - 4 : w - 4) + 'px';
     } else {
-      const w = panelW(P.fw || 560);
+      const w = panelW(P.fw);
       const h = clamp(P.fh || Math.round(window.innerHeight * 0.75), 240, window.innerHeight);
       const x = clamp(P.x ?? Math.round((window.innerWidth - w) / 2), 80 - w, window.innerWidth - 80);
       const y = clamp(P.y ?? 60, 0, window.innerHeight - 50);
@@ -2223,7 +2251,7 @@ await (async () => {
       let w = r.width, offX = e.clientX - r.left;
       const offY = e.clientY - r.top;
       if (P.dock !== 'float') {
-        w = panelW(P.fw || 560);
+        w = panelW(P.fw);
         offX = Math.min(offX, w - 40);
         P.dock = 'float';
         P.x = e.clientX - offX;
@@ -2236,7 +2264,7 @@ await (async () => {
         content.style.top = clamp(ev.clientY - offY, 0, window.innerHeight - 50) + 'px';
         zone = ev.clientX <= 24 ? 'left' : ev.clientX >= window.innerWidth - 24 ? 'right' : null;
         if (zone) {
-          const pw = panelW(P.w || 440);
+          const pw = panelW(P.w);
           Object.assign(preview.style, { display: 'block', width: pw + 'px', left: zone === 'left' ? '0px' : (window.innerWidth - pw) + 'px' });
         } else preview.style.display = 'none';
       };
@@ -2336,7 +2364,7 @@ await (async () => {
       if (head) mark.previousElementSibling?.remove();
       mark.replaceWith(t.content);
       // Bound once it's in the menu: Agents, Emotions and Regexes draw their lists only into a page that's on screen.
-      bind?.(overlay, s);
+      bind(overlay, s);
     } catch (e) {
       console.error(`[NTR] ${MOD_LABEL[name] || name} menu crashed`, e);
     }
@@ -2346,10 +2374,11 @@ await (async () => {
   // loadLookModules). This lists each one's file name and the menu page it draws. Each call into one is guarded, so a
   // failure there leaves the rest of NTR running with SillyTavern's look for those parts. So is each menu call into the
   // modules that load later (Themes, Agents, Overlays, Emotions, Regexes and Visual Novel's settings): one that breaks
-  // while drawing or binding leaves the rest of the menu working. A failure is logged once per module and kind of call,
+  // while drawing or binding leaves the rest of the menu working, and so is each call Visual Novel Mode makes into Maps and
+  // Opening Video, and Opening Video into Visual Novel Mode. callModule logs a failure once per module and kind of call,
   // since css and sync run on every restyle.
   const LOOK_MODULES = { elements: 'elements', text: 'text', avatars: 'pfp', decor: 'display', layout: 'layout' };
-  const lookFailed = new Set();
+  const callFailed = new Set();
   function callModule(name, fn, ...args) {
     const m = window.NTR[name];
     if (!m) return undefined;
@@ -2357,7 +2386,7 @@ await (async () => {
       return m[fn](...args);
     } catch (e) {
       const k = `${name}.${fn}`;
-      if (!lookFailed.has(k)) { lookFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
+      if (!callFailed.has(k)) { callFailed.add(k); console.error(`[NTR] ${MOD_LABEL[name]}: ${fn} failed`, e); }
       return undefined;
     }
   }
@@ -2458,7 +2487,7 @@ await (async () => {
   // Visual Novel Mode is Reader Mode's third style (Visual Novel), next to Standard and Book (rdStyle). It keeps its own
   // switch (nodeEnabled), which is on only while Reader Mode is, so Standard or Book is still picked for when it's off.
   // Standard is saved as 'plain'.
-  const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : s.rdStyle === 'book' ? 'book' : 'plain');
+  const readerStyle = (s) => (s.rdEnabled && s.nodeEnabled ? 'vn' : s.rdStyle);
   // Only the style in use shows its part of the page: Book or Visual Novel, while Reader Mode is on. Standard has none.
   const readerPart = (s) => (s.rdEnabled ? readerStyle(s) : 'off');
   // The page's Book and Visual Novel parts fold; the picked style's part opens, the other folds.
@@ -2476,7 +2505,7 @@ await (async () => {
           ${pills('rdstyle', [['plain', 'Standard'], ['book', 'Book'], ['vn', 'Visual Novel']], readerStyle(s))}
           <div class="cb_hint" style="margin-bottom: 0;">Picking Visual Novel turns Reader Mode on.</div>`, 'fa-glasses')}
         ${part === 'vn' ? '' : card('Each Page', `
-          ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer === 'one' ? 'one' : 'pair')}
+          ${pills('rdper', [['pair', 'Your Message and the Reply'], ['one', 'One Message']], s.rdPer)}
           <div class="cb_hint" style="margin-bottom: 0;">The opening message is page 1.</div>`, 'fa-file-lines')}
         ${part !== 'book' ? '' : `${subHead('rd_book', 'Book', 'fa-book')}
         <div class="cb_collapse_content">
@@ -2489,7 +2518,7 @@ await (async () => {
             <button class="menu_button" id="m_rd_clr" title="Use the built-in book" aria-label="Use the built-in book"><i class="fa-solid fa-rotate-left"></i></button>
           </div>
           <div class="cb_hint" style="margin:6px 0 0;">Cover Color</div>
-          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === bookId(s.rdBook) ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
+          <div class="ntr_rd_books" role="radiogroup" aria-label="Cover Color">${BOOKS.map(([v, l, c]) => `<label title="${l}"><input type="radio" name="cbr_rdbook" value="${v}" aria-label="${l}" ${!s.rdBookImg && v === s.rdBook ? 'checked' : ''}><span style="background: ${c};"></span></label>`).join('')}</div>
           <div class="cb_hint">Also puts back the built-in page areas and replaces your own picture.</div>
           <input type="file" id="m_rd_file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           ${ovLabel('Book Width', rangeSlider(s, 'rdBookW'))}
@@ -2536,9 +2565,9 @@ await (async () => {
     const file = overlay.querySelector('#m_rd_file');
     if (!file) return;
     const renderPic = () => {
-      const src = s.rdBookImg ? media(s.rdBookImg) : bookUrl(s.rdBook);
+      const src = bookSrc(s);
       overlay.querySelector('#m_rd_pic').innerHTML = `<img src="${escapeHTML(src)}" alt="">`;
-      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === bookId(s.rdBook))[1]}`;
+      overlay.querySelector('#m_rd_pic_name').textContent = s.rdBookImg ? 'Your picture' : `The built-in book, ${BOOKS.find(([v]) => v === s.rdBook)[1]}`;
       overlay.querySelector('#m_rd_clr').disabled = !s.rdBookImg;
     };
     const uncheckBooks = () => overlay.querySelectorAll('input[name="cbr_rdbook"]').forEach((i) => { i.checked = false; });
@@ -2723,7 +2752,7 @@ await (async () => {
       const p = picked();
       go.disabled = !(p.look || p.chars);
       // A question still open was asked about the old ticks.
-      root.querySelector('.ntr_ask')?.ntrCancel?.();
+      root.querySelector('.ntr_ask')?.ntrCancel();
     };
     const ticks = root.querySelectorAll('input[type=checkbox]');
     ticks.forEach((c) => { c.onchange = sync; });
@@ -2803,7 +2832,6 @@ await (async () => {
 
   function registerSlashCommand() {
     const { SlashCommandParser, SlashCommand } = ctx();
-    if (!SlashCommandParser || !SlashCommand) return;
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
       name: 'ntr',
       aliases: ['NTR'],
@@ -2827,17 +2855,19 @@ await (async () => {
 
   window.NTR = window.NTR || {};
   window.NTR.api = {
-    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, media, bookUrl, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
-    pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
-    openMenu: openCombinedModal, fillIn,
+    VERSION, DEFAULTS, ctx, save, settings, isOn, escapeHTML, bookUrl, bookSrc, fullResUrl, readDataURL, loadImg, askImageUrl, askVideoUrl,
+    pills, posGrid, onPills, checkBox, bindCheck, bindSliders, keyClick, showFold, setInjection, pageHtml, subHead, picSlotHtml, bindPicSlot, thumbHtml, deleteFileIfUnused, syncVNToggle, TAG, TAG_KEY, store, emoSet, vnData, chatCards, chatName, lc, reEsc, unlinkPins, tagOf, EMO_LIMITS, changedEls, onFilePick, uploadHere, refreshFg: () => (window.NTR.overlays ? window.NTR.overlays.ensureFg() : renderOverlays()),
+    openMenu: openCombinedModal, fillIn, callModule, clamp, sliderAbove,
+    // Data cleaning, for agents.js's saved agents
+    cStr, cId, cRef,
     closeMenu: () => { const ov = document.getElementById('cb_modal_overlay'); if (!ov) return false; ov.querySelector('.cb_close_btn').click(); return true; },
     sendFree: () => !!callModule('layout', 'sendFree'), sendCover,
     // Reader Mode calls refreshPins when the page changes; the stage behind the chat follows the page too (cast.js).
     refreshPins: () => { callModule('layout', 'syncPins'); callModule('decor', 'sync'); window.NTR.cast?.sync(); }, syncSendRoom: () => callModule('layout', 'syncSendRoom'), pageFree: () => !!callModule('layout', 'pageFree'), banFree: () => !!callModule('layout', 'banFree'), rangeNum, cleanFont, fontName,
     // For themes.js: what a theme holds, how it's cleaned and applied, and its files
-    LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, readText, normFile, uploadDataUrl, isObj, stColor,
+    LOOK, TAG_KEYS, lookSnapshot, setLook, cleanLookSection, validLookValue, collectFileRefs, normFile, uploadDataUrl, isObj, stColor,
     // Exported files, and names for imported or new items
-    downloadJson, freeName, uniqueName,
+    downloadJson, freeName, nameTaken, uniqueName,
     // NUM_RANGE ranges, slider attributes and theme text limits, for modules' own sliders, number boxes and text boxes
     numRange: (k) => NUM_RANGE[k], rangeAttrs, strMax,
     // For overlays.js: the banner's and foreground images' data (kept here for card storage and cleanup) and menu parts
@@ -2852,7 +2882,7 @@ await (async () => {
       if (!key) return '';
       const r = bannerSrc(peek(key));
       const im = r.images[r.idx] || r.images[0];
-      return im ? media(im.url) : '';
+      return im ? im.url : '';
     },
     // What elements.js, text.js, avatars.js, decor.js and layout.js build from: the row builders, CSS helpers, and the
     // lists their settings are checked against.
@@ -2860,10 +2890,10 @@ await (async () => {
       POS_GRID, SHAPE_OPTS, castPartHtml, svgMask, BUB_TAIL_OPTS, BUB_INK_OPTS, COLOR_FROM, joinCss, ovWhen, sendSeparate,
       FONT_NOTE, MB_ID, QR_ALIGN, MD_ITEMS, MD_ITEM_IDS, MD_SPOTS, MD_SEP, FX_PARTS, NAME_WEIGHT, ntrAvatars, namesHidden, ovLabel, hint,
       RB_ANIM, RB_BOX_SHAPE, RB_FADE, RB_SHAPE, RB_TURN,
-      cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: updateAvatarStyle,
+      cssRule, cssReaders, FRAME_SERIES, FRAME_IDS, FRAME_FIT, frameUrl, cssTag, seeThrough, RB_CSS, rbCssText, customCssBox, CSS_NOTE, FILTER_OPTS, TEXTURE_OPTS, bubblesOn, bubRight, restyle: updateAvatarStyle,
       rangeSlider, ovRow, ovColor, ovText, ovFont, ovPick, ovShapeRow, ovBgRow, ovBorderRow, ovColorVal, ovRadius, ovBorderVal,
       // For layout.js
-      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, decorOn, clamp,
+      LAY_EDGES, lk, PIN_START, PIN_TAG, PIN_CLASS, PIN_MAX, PIN_LIMITS, pinRect, cleanPins, setSlider, decorOn,
     },
   };
 
@@ -2875,7 +2905,7 @@ await (async () => {
     registerSlashCommand();
     document.addEventListener('click', typeSlider);
     // Sliders outside the menu, like Edit Layout's grid size.
-    document.addEventListener('input', (e) => { if (e.target.type === 'range') showSlider(e.target, e.target.value); });
+    document.addEventListener('input', showRange);
     document.addEventListener('pointerover', (e) => {
       const el = e.target.closest?.('.ntr_slval');
       if (el && !el.title) el.title = 'Click to type a value';
@@ -2940,16 +2970,13 @@ await (async () => {
     eventSource.on(event_types.PRESET_RENAMED, ({ apiId, oldName, newName }) => {
       const all = settings().regexPresetFolders;
       const from = `${apiId}|${oldName}`, to = `${apiId}|${newName}`;
-      if (from === to || !Array.isArray(all[from])) return;
+      if (!Array.isArray(all[from])) return;
       all[to] = [...(Array.isArray(all[to]) ? all[to] : []), ...all[from]];
       delete all[from];
       save();
     });
 
-    const chat = document.getElementById('chat');
-    if (chat) {
-      new MutationObserver(() => { callModule('avatars', 'syncPopouts'); callModule('decor', 'sync'); }).observe(chat, { childList: true });
-    }
+    new MutationObserver(() => { callModule('avatars', 'syncPopouts'); callModule('decor', 'sync'); }).observe(document.getElementById('chat'), { childList: true });
     renderAll();
     const s0 = settings();
     const on = isOn();

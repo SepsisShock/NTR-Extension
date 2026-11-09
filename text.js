@@ -1,7 +1,7 @@
 (() => {
-  const TEXT_VERSION = '2.86.72';
+  const TEXT_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
-  if (!A || !A.look) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
+  if (!A) { console.error('[NTR] text.js loaded without the core (index.js).'); return; }
   const { bindPicSlot, card, pageHtml, picSlotHtml, rangeNum, subHead } = A;
   const { FONT_NOTE, FX_PARTS, NAME_WEIGHT, bubblesOn, bubRight, cssReaders, cssRule, ntrAvatars,
     restyle: updateAvatarStyle, rangeSlider, ovRow, ovColor, ovFont, ovLabel, ovPick, hint } = A.look;
@@ -46,7 +46,8 @@
     // Three times the text's width keeps the widest band (30% of it) off the text at both ends of the sweep.
     return { shimmer: true, size: '300% 100%', image: `linear-gradient(90deg, currentColor ${50 - n * 1.5}%, ${c} 50%, currentColor ${50 + n * 1.5}%)` };
   }
-  // The paint, under a Nameplate's picture and color when there is one (layer: the picture's url()).
+  // The paint, over a Nameplate's picture or color when there is one (layer: the picture's url(), or none for a color
+  // only, which keeps the color on the whole box).
   function paintProps(paint, layer) {
     return {
       'background-image': layer ? `${paint.image}, ${layer}` : paint.image,
@@ -79,6 +80,8 @@
   // is written, since ST rewrites the message on every streamed word, and doesn't play with ST's Reduced Motion, which
   // ST also turns on for the device's own setting.
   const MOVING = ':not(.reduced-motion):not([data-generating])';
+  // The newest message, of those matching `f` (like [is_user="true"]), that isn't a system message.
+  const newestMes = (f) => `#chat > .mes${f}:nth-last-child(1 of .mes${f}:not([is_system="true"]))`;
   // Changing a Shimmer setting switches the keyframes' name, which plays it again in place, so the menu shows the change.
   // The keyframes' second position is a Nameplate picture's, under a name's band; text with only the band ignores it.
   let shine = { key: '', name: 'ntr_shine_a' };
@@ -170,7 +173,7 @@
     if (namePaint) {
       const plated = !!(img || col('tfPlateBg'));
       const layer = img ? `url("${img}")` : plated ? 'none' : '';
-      const newest = '#chat > .mes:nth-last-child(1 of .mes:not([is_system="true"]))';
+      const newest = newestMes('');
       css += cssRule(`body:not(.ntr_book) ${namePaint.shimmer ? newest : '.mes'} .name_text`, paintProps(namePaint, layer));
       if (namePaint.shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .name_text`, spin);
       // The Visual Novel name tag is filled with the Quote Color, which the paint would fade into, so without a Nameplate
@@ -186,29 +189,28 @@
     }
 
     // User and AI message text. The Visual Novel dialogue box uses the AI's.
-    const align = (p) => (on(p + 'Align') ? s[p + 'Align'] : '');
     const inked = bubblesOn(s) && s.ovBubInk !== 'auto';
     const fx = { tfUser: fxProps(s, 'tfUser', col), tfAi: fxProps(s, 'tfAi', col) };
     const paint = { tfUser: paintOf(s, 'tfUser', col, col('tfUserQuote')), tfAi: paintOf(s, 'tfAi', col, col('tfAiQuote')) };
     for (const [p, flag] of [['tfUser', 'true'], ['tfAi', 'false']]) {
       const m = `.mes[is_user="${flag}"] .mes_text`;
       const sz = size(p + 'Size');
-      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': align(p), ...fx[p] });
+      css += cssRule(m, { color: col(p + 'Main'), 'font-family': font(p + 'Font'), 'font-size': sz ? `calc(var(--mainFontSize) * ${sz})` : '', 'text-align': col(p + 'Align'), ...fx[p] });
       css += fxInnerCss(fx[p], m, inked);
       // Shimmer plays on the newest message from each side.
       if (paint[p] && !inked) {
-        const newest = `#chat > .mes[is_user="${flag}"]:nth-last-child(1 of .mes[is_user="${flag}"]:not([is_system="true"]))`;
+        const newest = newestMes(`[is_user="${flag}"]`);
         css += paintTextCss(`body:not(.ntr_book) ${paint[p].shimmer ? newest : `.mes[is_user="${flag}"]`} .mes_text ${BLOCKS}`, paint[p]);
         if (paint[p].shimmer) css += cssRule(`body:not(.ntr_book)${MOVING} ${newest} .mes_text ${BLOCKS}`, spin);
       }
       // Lists, tables, code blocks and the edit box keep SillyTavern's alignment: bullets, columns and code don't center or justify well.
-      if (align(p)) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
+      if (col(p + 'Align')) css += cssRule(`${m} :is(ul, ol, table, pre, textarea)`, { 'text-align': 'start' });
       css += cssRule(`${m} i, ${m} em`, { color: col(p + 'Em') });
       css += cssRule(`${m} u`, { color: col(p + 'Under') });
       css += cssRule(`${m} q`, { color: col(p + 'Quote') });
       if (col(p + 'Em')) css += cssRule(`${m} q i, ${m} q em`, { color: 'inherit' });
     }
-    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': align('tfAi'), ...fx.tfAi });
+    css += cssRule('#cb_node .cb_n_text', { color: col('tfAiMain'), 'font-family': font('tfAiFont'), 'text-align': col('tfAiAlign'), ...fx.tfAi });
     css += fxInnerCss(fx.tfAi, '#cb_node .cb_n_text', false);
     // The Visual Novel box scrolls, and the paint scrolls with its text.
     if (paint.tfAi) {

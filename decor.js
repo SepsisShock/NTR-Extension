@@ -1,7 +1,7 @@
 (() => {
-  const DECOR_VERSION = '2.86.72';
+  const DECOR_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
-  if (!A || !A.look) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
+  if (!A) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
   const { BUB_INK_OPTS, BUB_TAIL_OPTS, COLOR_FROM, bubRight, bubblesOn, cssRule, joinCss, ntrAvatars, ovBgRow, ovBorderRow, ovBorderVal,
     ovColorVal, hint, ovLabel, ovPick, ovRadius, ovRow, ovShapeRow, ovWhen, rangeSlider, restyle: updateAvatarStyle, sendSeparate, svgMask } = A.look;
@@ -59,11 +59,8 @@
     if (picked(s, 'ovPanelBg', 'clear')) css += cssRule('#chat, #sheld, #chat-container, .chat-container', { background: 'transparent', ...NO_BLUR, border: 'none', 'box-shadow': 'none' });
     else if (on(s, 'ovPanelBg')) css += cssRule('#chat', { 'background-color': bgColor(s, 'Panel') });
     // No line along the top, which stays flush with SillyTavern's top bar. The corners and the bottom line follow joinCss.
-    const line = on(s, 'ovPanelBorder') && s.ovPanelBorder !== 'none';
-    css += cssRule('#chat', {
-      border: on(s, 'ovPanelBorder') ? ovBorderVal(s, 'Panel') : '',
-      'border-top': line ? 'none' : '',
-    });
+    const border = on(s, 'ovPanelBorder');
+    css += cssRule('#chat', { border: border ? ovBorderVal(s, 'Panel') : '', 'border-top': border ? 'none' : '' });
     css += joinCss(s, separate) + uiShapeCss(s);
 
     // AI and User messages. A message with its own background or border gets the room ST's Bubbles style gives it,
@@ -194,7 +191,6 @@
   // count, so each page's runs keep their tail and avatar (Reader Mode calls refreshPins on every page change).
   function markBubbleRuns() {
     const chat = document.getElementById('chat');
-    if (!chat) return;
     const s = settings();
     const grouped = bubblesOn(s) && s.ovBubGroup === 'group';
     const page = window.NTR.reader?.page();
@@ -277,8 +273,7 @@
     // Bubble Style: picking one sets its values and redraws the menu. Any other change on the page may make it Custom.
     const page = overlay.querySelector('.ntr_page[data-page="display"]');
     const syncBubStyle = () => {
-      const r = page.querySelector(`input[name="cbr_obubpreset"][value="${bubPreset(s)}"]`);
-      if (r) r.checked = true;
+      page.querySelector(`input[name="cbr_obubpreset"][value="${bubPreset(s)}"]`).checked = true;
     };
     for (const ev of ['input', 'change']) page.addEventListener(ev, () => setTimeout(syncBubStyle), true);
     onPills(page, 'obubpreset', (v) => {

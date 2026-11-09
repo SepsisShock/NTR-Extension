@@ -1,8 +1,8 @@
 (() => {
-  const CAST_VERSION = '2.86.72';
+  const CAST_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
 
   // A speaker's pictures live in the card's Visual Novel data (or per group): emoImgs holds the faces (speaker, then
   // emotion id), sprites the full bodies (one per speaker).
@@ -60,7 +60,7 @@
   const castNew = () => ({ explicit: false, list: [] });
   function castStep(st, seg) {
     if (seg.kind === 'enter') {
-      const [nm, sp] = String(seg.name).split('|').map((x) => x.trim());
+      const [nm, sp] = seg.name.split('|').map((x) => x.trim());
       const key = lc(nm);
       if (!key) return;
       const spot = ['left', 'center', 'right'].includes(lc(sp)) ? lc(sp) : '';
@@ -79,9 +79,8 @@
   // Left of the chat column, the column itself, and right of it. A narrow screen splits into thirds.
   function spotBoxes() {
     const W = window.innerWidth;
-    const chat = document.getElementById('chat');
-    const r = chat ? chat.getBoundingClientRect() : null;
-    if (!r || r.left < 150) return { left: [0, W / 3], center: [W / 3, W / 3], right: [(2 * W) / 3, W / 3] };
+    const r = document.getElementById('chat').getBoundingClientRect();
+    if (r.left < 150) return { left: [0, W / 3], center: [W / 3, W / 3], right: [(2 * W) / 3, W / 3] };
     return { left: [0, r.left], center: [r.left, r.width], right: [r.right, Math.max(0, W - r.right)] };
   }
   // Each spot's picture in root, from src(name, emo) for whoever stands there (spots: key to spot), or hidden.
@@ -150,11 +149,11 @@
     return null;
   }
 
-  // Base face: default face > first face > persona > character card in this chat
+  // Base face: the main face (mainEmo), else the persona picture for the user or the chat card's picture for anyone else.
   function baseFace(name) {
     const key = lc(name);
     if (!key) return null;
-    return media(defaultFace(key)) || stAvatar(key)?.src || null;
+    return defaultFace(key) || stAvatar(key)?.src || null;
   }
 
   function findEmo(name) {
@@ -162,11 +161,10 @@
     return k ? E().emotions.find((e) => lc(e.name) === k) : null;
   }
 
-  // Face for an emotion > default face > base face > nothing (null)
   function faceSrc(name, emoName) {
     const imgs = D().emoImgs[lc(name)] || {};
     const e = findEmo(emoName);
-    if (e && imgs[e.id]) return media(imgs[e.id]) || null;
+    if (e && imgs[e.id]) return imgs[e.id];
     return baseFace(name);
   }
 
@@ -177,11 +175,11 @@
     const s = settings();
     const v = D();
     const key = lc(name);
-    if (v.sprites[key]) return media(v.sprites[key]) || null;
+    if (v.sprites[key]) return v.sprites[key];
     if (s.nodeSpriteBase) return baseFace(name);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || defaultFace(key)) || null;
+    return (e && imgs[e.id]) || defaultFace(key) || null;
   }
 
   // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
@@ -224,7 +222,7 @@
     D().customSpk.forEach((n) => add(n, true));
     if (s.nodeAutoSpk) {
       const re = tagRe(s);
-      for (const m of c.chat || []) {
+      for (const m of c.chat) {
         if (m.is_system) continue;
         re.lastIndex = 0;
         let t;
@@ -235,6 +233,7 @@
   }
 
   // ----- The chat with Visual Novel Mode off: faces on chat avatars, the stage behind the chat -----
+  const STAGE_WORDS = [['emo', 'emoWord'], ['enter', 'enterWord'], ['exit', 'exitWord']];
   // A message's speakers and stage tags, in order. Its writer speaks first, with the message's emotion: the last
   // Emotion tag or speaker tag with their own name that gives one. Kept per message until its text changes.
   const beats = new Map();
@@ -255,14 +254,9 @@
         if (sp.emo && lc(sp.name) === author) emo = sp.emo;
         continue;
       }
-      const inner = t[2];
-      const c = inner.indexOf(':');
-      if (c <= 0) continue;
-      const word = lc(inner.slice(0, c)), arg = inner.slice(c + 1).trim();
-      if (!arg) continue;
-      if (word === lc(s.emoWord)) emo = arg;
-      else if (word === lc(s.enterWord)) list.push({ kind: 'enter', name: arg });
-      else if (word === lc(s.exitWord)) list.push({ kind: 'exit', name: arg });
+      const tag = A.tagOf(t[2], STAGE_WORDS, s);
+      if (tag?.kind === 'emo') emo = tag.arg;
+      else if (tag) list.push({ kind: tag.kind, name: tag.arg });
     }
     // The writer has one emotion per message, the same for their avatar and the stage.
     for (const b of list) if (b.kind === 'char' && lc(b.name) === author) b.emo = emo;
@@ -280,7 +274,7 @@
     const on = A.isOn() && s.avatarEnabled && s.emoFaces && !!A.store();
     if (!on && !facesShown) return;
     facesShown = on;
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     let swapped = false;
     document.querySelectorAll('#chat .mes[mesid]').forEach((mes) => {
       const img = mes.querySelector('.avatar img');
@@ -329,8 +323,8 @@
     const recent = [];
     // In Reader Mode the stage follows the page being read: nothing after its last message counts.
     const upTo = window.NTR.reader?.upTo();
-    (ctx().chat || []).forEach((m, i) => {
-      if (!m || m.is_system || !m.mes || (upTo != null && i > upTo)) return;
+    ctx().chat.forEach((m, i) => {
+      if (m.is_system || !m.mes || (upTo != null && i > upTo)) return;
       for (const b of msgInfo(m, i).beats) { castStep(st, b); if (b.kind === 'char' && b.name) recent.push(b); }
     });
     const info = new Map();
@@ -413,8 +407,8 @@
 
   let chatObs = null, cleanT = null;
   function ensure() {
+    if (chatObs) return;
     const chat = document.getElementById('chat');
-    if (!chat || chatObs) return;
     // The messages that changed are cleaned right away, before the browser draws them, so a reply that streams in
     // never shows its tags. A full pass after the chat goes quiet catches anything else.
     chatObs = new MutationObserver((recs) => {
@@ -436,8 +430,7 @@
     A.setInjection(INJECT_KEY, on ? promptText(s) : '');
   }
 
-  // A new chat, NTR switched on, or Visual Novel Mode switched on or off. SillyTavern clears extension prompts when a
-  // chat opens, so the instructions are set again here.
+  // SillyTavern clears extension prompts when a chat opens, so the instructions are set again here.
   function refresh() {
     beats.clear();
     if (A.isOn()) ensure();
@@ -523,7 +516,7 @@
       const isDef = e.id === L.emoDefault;
       return `<div class="cb_emo_row">
         <label class="cb_defdot" title="Use as Default"><input type="radio" name="cbr_emodef" value="${id}" aria-label="Default Emotion" ${isDef ? 'checked' : ''}></label>
-        <input type="text" class="text_pole m_emo_name" data-id="${id}" aria-label="Emotion Name" maxlength="100" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
+        <input type="text" class="text_pole m_emo_name" data-id="${id}" aria-label="Emotion Name" maxlength="${A.EMO_LIMITS.name}" value="${escapeHTML(e.name)}" style="flex:1;min-width:0;margin:0;">
         <button class="menu_button danger_button m_emo_del" data-id="${id}" title="${isDef ? 'Pick a different default before deleting this one' : 'Delete Emotion'}" aria-label="Delete ${escapeHTML(e.name)}" ${isDef ? 'disabled' : ''}><i class="fa-solid fa-trash"></i></button>
       </div>`;
     }).join('');
@@ -532,13 +525,8 @@
   // The emotion data stays editable with Avatar Management switched off (ntr_keepon), since Visual Novel Mode uses it too.
   // What In the Chat shows on SillyTavern's chat follows the page's switch (ntr_pagefx), like the rest of the page.
   function partHtml(s) {
-    const sl = (key, label) => {
-      const [, , , unit] = A.numRange(key);
-      const v = A.rangeNum(s, key);
-      return `<div class="cb_row" style="margin-top:8px;"><label>${label}</label><span><span class="ntr_slval">${v}</span>${unit}</span></div>
-          <input type="range" class="m_emo_sl" data-key="${key}" ${A.rangeAttrs(key)} value="${v}">`;
-    };
-    const df = (key, label) => `<label class="cb_dfield"><span>${label}</span><input type="text" class="text_pole m_d_in" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="16"></label>`;
+    const sl = (key, label) => A.sliderAbove(label, key, A.rangeNum(s, key), `m_${key}`, `class="m_emo_sl" data-key="${key}"`, '8px');
+    const df = (key, label) => `<label class="cb_dfield"><span>${label}</span><input type="text" class="text_pole m_d_in" data-key="${key}" value="${escapeHTML(s[key])}" maxlength="${A.strMax(key)}"></label>`;
     const tag = escapeHTML(`${s.delimNarOpen}${s.emoWord}:Happy${s.delimNarClose}`);
     return `<div class="ntr_keepon">
       ${subHead('av_emo', 'Emotions', 'fa-face-smile')}
@@ -569,7 +557,7 @@
           <div class="cb_hint">The dot marks the default, used when a tag has no emotion or one not on this list.</div>
           <div id="m_emo_list"></div>
           <div class="cb_row" style="margin-top:6px;">
-            <input type="text" id="m_emo_new" class="text_pole" placeholder="New Emotion" maxlength="100" style="flex:1;margin:0;">
+            <input type="text" id="m_emo_new" class="text_pole" placeholder="New Emotion" maxlength="${A.EMO_LIMITS.name}" style="flex:1;margin:0;">
             <button id="m_emo_add" class="menu_button" style="margin:0;"><i class="fa-solid fa-plus"></i> Add</button>
           </div>
           <div id="m_emo_tpl" class="cb_row" style="margin-top:6px;flex-wrap:wrap;justify-content:flex-start;gap:6px;">
@@ -625,8 +613,8 @@
     if (!emoBox || !spkBox) return;
 
     // Emotion list. Edits go to the open chat's own list, which starts as a copy of the template on its first edit, or
-    // to the template itself with no chat open. A card checks its list on the way in (cleanVn): at most 100 emotions,
-    // names up to 100 characters.
+    // to the template itself with no chat open. The menu keeps to EMO_LIMITS, since a card's list outside them is
+    // dropped on the way in (cleanVn).
     const T = () => {
       if (!A.store()) return s;
       const v = D();
@@ -661,7 +649,6 @@
       emoBox.querySelectorAll('.m_emo_del').forEach((b) => {
         b.onclick = async () => {
           const id = b.dataset.id;
-          if (id === E().emoDefault) return;
           const e = E().emotions.find((x) => x.id === id);
           const used = Object.values(D().emoImgs).some((m) => m[id]);
           if (used && !(await A.askYes(b, `Delete "${e.name}" and the faces uploaded for it?`, 'Delete', { danger: true }))) return;
@@ -679,7 +666,7 @@
       const nm = inp.value.trim();
       if (!nm) return;
       if (E().emotions.some((x) => lc(x.name) === lc(nm))) { toastr.warning('That emotion already exists.', 'Emotions'); return; }
-      if (E().emotions.length >= 100) { toastr.warning('A list holds up to 100 emotions.', 'Emotions'); return; }
+      if (E().emotions.length >= A.EMO_LIMITS.count) { toastr.warning(`A list holds up to ${A.EMO_LIMITS.count} emotions.`, 'Emotions'); return; }
       T().emotions.push({ id: newId('emo'), name: nm });
       inp.value = '';
       saveEmo();
@@ -722,7 +709,7 @@
           if (!(await A.askYes(full ? b : b.closest('.cb_emo_grid'), `Remove this ${full ? 'full body' : 'face'}? Its file is deleted unless something else uses it.`, 'Remove', { danger: true }))) return;
           let old;
           if (full) { old = D().sprites[key]; delete D().sprites[key]; }
-          else if (D().emoImgs[key]) { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }
+          else { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }
           saveSpk();
           A.deleteFileIfUnused(old).then((kept) => {
             const why = { used: 'something else still uses it', lazy: "with lazy loading on, other characters can't be checked for it", failed: "it couldn't be deleted" }[kept];
@@ -778,7 +765,6 @@
     };
     A.onFilePick(sFile, 'Emotions', async (f) => {
       const p = pending;
-      if (!p) return;
       const url = await A.uploadHere(() => uploadImage(f, 'vnpfp', { max: p.full ? 2048 : 768 }));
       if (url) setSpkImage(p, url);
     });

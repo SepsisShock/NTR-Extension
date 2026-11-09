@@ -1,10 +1,10 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.72';
+  const OVERLAYS_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
-  const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum, rangeAttrs, numRange,
-    media, escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
-    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, openMenu, menuBtn } = A;
+  const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum,
+    escapeHTML, TAG, pills, onPills, pageHtml, pagePart, card, loadImg, getYouTubeId, store, uploadHere, uploadImage, uploadVideo,
+    askImageUrl, askVideoUrl, askYes, deleteFileIfUnused, startPlacement, drawPlace, DEFAULTS, openMenu, menuBtn, sliderAbove } = A;
   const { ovLabel, cssTag, setSlider } = A.look;
 
   const CSS = `
@@ -37,7 +37,7 @@
   function layoutFg() {
     const layer = document.getElementById('cb_fg_layer');
     const chat = document.getElementById('chat');
-    if (!layer || layer.style.display === 'none' || !chat) return;
+    if (!layer || layer.style.display === 'none') return;
     const r = chat.getBoundingClientRect();
     const L = document.getElementById('cb_fg_left');
     const C = document.getElementById('cb_fg_center');
@@ -66,8 +66,7 @@
         <img id="cb_fg_right" class="cb_fg_img" alt="">
       `;
       document.body.appendChild(layer);
-      const chat = document.getElementById('chat');
-      if (chat) new ResizeObserver(() => layoutFg()).observe(chat);
+      new ResizeObserver(() => layoutFg()).observe(document.getElementById('chat'));
       const f = document.createElement('div');
       f.id = 'cb_fg_front';
       document.body.appendChild(f);
@@ -83,7 +82,7 @@
       const el = document.getElementById(`cb_fg_${pos.toLowerCase()}`);
       const target = F[pos + 'Layer'] === 'front' ? front : layer;
       if (el.parentNode !== target) target.appendChild(el);
-      const src = media(F[pos]);
+      const src = F[pos];
       fgTransform(el, pos, F);
       if (src) {
         if (el.getAttribute('src') !== src) el.src = src;
@@ -115,11 +114,8 @@
     const wall = banner.querySelector('.cb_wall');
     let bg = null;
     if (banner.style.display !== 'none' && currentLook().backdrop === 'wallpaper') {
-      for (const id of ['bg_custom', 'bg1']) {
-        const el = document.getElementById(id);
-        const v = el ? getComputedStyle(el).backgroundImage : '';
-        if (v && v !== 'none') { bg = v; break; }
-      }
+      const v = getComputedStyle(document.getElementById('bg1')).backgroundImage;
+      if (v !== 'none') bg = v;
     }
     if (!bg) { wall.style.display = 'none'; return; }
     const r = banner.getBoundingClientRect();
@@ -163,10 +159,7 @@
     char: 'This Character gives it its own banner, saved in its card.',
   };
   // The current character's banner record, or null outside a character chat.
-  function currentBannerRec() {
-    const key = currentKey();
-    return key ? peek(key) : null;
-  }
+  const currentBannerRec = (key = currentKey()) => (key ? peek(key) : null);
   // The kind a banner record shows while the banner is on: its own (Char) or the Global kind.
   const kindOf = (r) => (r.scope === 'char' && r.mode ? r.mode : settings().bannerMode);
   function bannerKind(r) {
@@ -229,7 +222,6 @@
     r.mode = s.bannerMode;
     for (const [k, g] of Object.entries(ROT_KEYS)) r[k] = s[g];
     for (const [k, g] of Object.entries(BANNER_LOOK_KEYS)) r[k] = s[g];
-    r.scope = 'char';
   }
 
   function rotation(r) {
@@ -292,7 +284,7 @@
   function rotTick() {
     rot.timer = null;
     const key = currentKey();
-    const r = key ? peek(key) : null;
+    const r = currentBannerRec(key);
     if (key !== rot.key || banner.style.display === 'none' || bannerKind(r) !== 'image') return;
     const o = rotation(r);
     const src = bannerSrc(r);
@@ -332,7 +324,7 @@
     if (newChar) { rot.key = key; rot.idx = null; stopRotation(); }
     const fade = rot.fade;
     rot.fade = false;
-    const r = key ? peek(key) : null;
+    const r = currentBannerRec(key);
     const kind = bannerKind(r);
     if (kind === 'off') { hideBanner(); return; }
 
@@ -346,7 +338,7 @@
     const src = bannerSrc(r);
     const n = src.images.length;
     const videoId = kind === 'youtube' ? getYouTubeId(src.youtubeUrl) : null;
-    const vu = kind === 'video' ? media(src.video) : '';
+    const vu = kind === 'video' ? src.video : '';
     if (kind === 'image' ? !n : kind === 'youtube' ? !videoId : !vu) { hideBanner(); return; }
     if (kind !== 'image') stopRotation();
     if (kind !== 'youtube') stopBannerYt();
@@ -360,7 +352,7 @@
     if (kind === 'image') {
       const i = shownIdx(key, src);
       const im = src.images[i];
-      const u = media(im.url);
+      const u = im.url;
       const pos = `50% ${cardNum(im.pos, 'bannerPos', 45)}%`;
       if (img.getAttribute('src') !== u && fade && img.getAttribute('src')) crossfade(img, u, pos);
       else {
@@ -416,11 +408,10 @@
     try {
       ensureFg();
       const chat = document.getElementById('chat');
-      if (!chat) return;
       hookChat(chat);
 
       chat.style.paddingTop = ''; // placeBanner sets it again when the banner overlaps
-      if (!isOn()) { hideBanner(); syncWallpaper(); return; }
+      if (!isOn()) { hideBanner(); return; }
 
       const r = currentBannerRec();
       if (bannerKind(r) === 'off') { hideBanner(); return; }
@@ -493,8 +484,7 @@
   }
 
   function bannerGuideText() {
-    const chat = document.getElementById('chat');
-    const w = Math.round((banner && banner.offsetWidth) || (chat ? chat.getBoundingClientRect().width : 0));
+    const w = Math.round((banner && banner.offsetWidth) || document.getElementById('chat').getBoundingClientRect().width);
     if (!w) return '';
     const h = (A.banFree() && banner?.offsetHeight) || currentLook().height;
     const ratio = (w / h).toFixed(1);
@@ -502,7 +492,7 @@
   }
 
   // What the page shows: the open character's banner (Char) or the shared one (Global), and its foreground images.
-  function menuState(s) {
+  function menuState() {
     const F = fgData();
     const chatOpen = !!store(); // Foreground images are saved per chat, so they need one open.
     const key = currentKey();
@@ -520,12 +510,9 @@
   }
 
   function sectionHtml(s) {
-    const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState(s);
+    const { F, chatOpen, key, r, ownBanner, kind, ro, bl, btag, src, n, picked, curImg } = menuState();
     const free = A.banFree();
-    // A slider for the NUM_RANGE key k; attrs are extra attributes for the input.
-    const sl = (id, label, val, k, attrs = '', extra = '') => `
-              <div class="cb_row" style="margin-top: 10px;"><label for="${id}">${label}</label><span><span class="ntr_slval">${val}</span>${numRange(k)[3]}</span></div>
-              <input type="range" id="${id}" ${attrs}${attrs ? ' ' : ''}${rangeAttrs(k)} value="${val}"${extra}>`;
+    const sl = (id, label, val, k, attrs = '') => sliderAbove(label, k, val, id, attrs, '10px');
     return pageHtml('fg', `
           ${pagePart('Header Banner', ['m_b_enable', s.bannerOn], 'fg_banner', `
             ${card('Source', `
@@ -548,7 +535,7 @@
                 <span>Picture <b>${picked + 1}</b> of <b>${n}</b></span>
                 <button id="m_b_next" class="menu_button" title="Next Picture" aria-label="Next Picture" ${n < 2 ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>
               </div>
-              <div class="cb_thumbs">${src.images.map((im, i) => `<button type="button" class="cb_thumbbtn" data-i="${i}" aria-label="Picture ${i + 1}"${i === picked ? ' aria-current="true"' : ''}><img class="cb_thumb${i === picked ? ' active' : ''}" src="${escapeHTML(media(im.url))}" alt=""></button>`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No pictures yet</div>`}
+              <div class="cb_thumbs">${src.images.map((im, i) => `<button type="button" class="cb_thumbbtn" data-i="${i}" aria-label="Picture ${i + 1}"${i === picked ? ' aria-current="true"' : ''}><img class="cb_thumb${i === picked ? ' active' : ''}" src="${escapeHTML(im.url)}" alt=""></button>`).join('')}</div>` : `<div style="text-align:center;opacity:0.7;margin-top:8px;">No pictures yet</div>`}
 
               ${curImg ? sl('m_b_p', `Crop Position${btag}`, cardNum(curImg.pos, 'bannerPos', 45), 'bannerPos') : ''}`, 'fa-images')}
 
@@ -599,7 +586,7 @@
             </div>
 
             <div id="m_b_offset_wrapper" style="display: ${r.overlap ? 'block' : 'none'};">
-              ${sl('m_b_offset', `Push Messages Down ${TAG}`, cardNum(r.overlapOffset, 'bannerOffset', 0), 'bannerOffset', '', !key ? ' disabled' : '')}
+              ${sl('m_b_offset', `Push Messages Down ${TAG}`, cardNum(r.overlapOffset, 'bannerOffset', 0), 'bannerOffset', !key ? 'disabled' : '')}
             </div>
             </div>
 
@@ -620,7 +607,7 @@
                 <div class="cb_col ntr_card" style="align-items: center; text-align: center;">
                   <strong>${pos}</strong>
                   <div style="width:100%; height:80px; background:var(--ntr-well); border-radius:4px; margin:5px 0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img id="m_f_img_${pos}" src="${escapeHTML(media(F[pos]))}" alt="" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
+                    <img id="m_f_img_${pos}" src="${escapeHTML(F[pos])}" alt="" style="max-width:100%; max-height:100%; object-fit:contain; display:${F[pos] ? 'block' : 'none'};">
                     <span id="m_f_none_${pos}" style="display:${F[pos] ? 'none' : 'block'}; opacity:0.5; font-size:12px;">Empty</span>
                   </div>
                   <div style="display:flex; gap:5px; width:100%;">
@@ -629,8 +616,8 @@
                     <button class="menu_button m_f_del" data-pos="${pos}" style="flex:1; padding:4px;" title="Remove picture" aria-label="Remove ${pos} picture" ${!F[pos] ? 'disabled' : ''}><i class="fa-solid fa-rotate-left"></i></button>
                   </div>
                   <div style="width:100%; text-align:left;">
-                  ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_num" data-key="${pos}Scale"`, ' style="width:100%;"')}
-                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_num" data-key="${pos}${ax}"`, ' style="width:100%;"')).join('')}
+                  ${sl(`m_f_s_${pos}`, 'Size', cardNum(F[pos + 'Scale'], 'fgScale', 100), 'fgScale', `class="m_f_num" data-key="${pos}Scale" style="width:100%;"`)}
+                  ${[['X', 'Move Horizontal'], ['Y', 'Move Vertical']].map(([ax, name]) => sl(`m_f_${ax}_${pos}`, name, cardNum(F[pos + ax], 'fg' + ax, 0), 'fg' + ax, `class="m_f_num" data-key="${pos}${ax}" style="width:100%;"`)).join('')}
                   ${ovLabel('In Visual Novel Mode', pills('fgl' + pos, [['behind', 'Behind Sprites'], ['front', 'In Front']], F[pos + 'Layer']))}
                   </div>
                 </div>
@@ -650,7 +637,7 @@
   }
 
   function bind(overlay, s) {
-    const { F, key, r, ownBanner, src, n, curImg } = menuState(s);
+    const { F, key, r, ownBanner, src, n, curImg } = menuState();
     if (s.uiPage === 'fg' && rot.idx != null) { rot.idx = null; updateBanner(); }
     if (!key) {
       const ch = overlay.querySelector('input[name="cbr_bscope"][value="char"]');
@@ -666,10 +653,9 @@
     onPills(overlay, 'bscope', (v) => {
       if (key) {
         if (v === 'char' && r.scope !== 'char') startChar(r);
-        if (v === 'global') r.mode = '';
         r.scope = v;
       }
-      if (BANNER_NOTE[v]) toastr.info(BANNER_NOTE[v], 'Banner');
+      toastr.info(BANNER_NOTE[v], 'Banner');
       save();
       render();
       openMenu();
@@ -743,8 +729,7 @@
       const bo = overlay.querySelector('#m_b_offset');
       bo.oninput = function() {
         r.overlapOffset = Number(this.value);
-        const chat = document.getElementById('chat');
-        if (chat && r.overlap) chat.style.paddingTop = r.overlapOffset + 'px';
+        if (r.overlap) document.getElementById('chat').style.paddingTop = r.overlapOffset + 'px';
       };
       bo.onchange = save;
     }
@@ -824,7 +809,6 @@
 
     A.onFilePick(fgFile, 'Foreground', async (f) => {
       const pos = pendingFgPos;
-      if (!pos) return;
       const url = await uploadHere(() => uploadImage(f, `fg_${pos.toLowerCase()}`));
       if (url) setFg(pos, url);
     });
@@ -844,9 +828,8 @@
     relayout: () => {
       layoutFg();
       // Layout can make the banner Floating or Attached.
-      const chat = document.getElementById('chat');
       const r = currentBannerRec();
-      if (banner && chat && r && banner.style.display !== 'none') placeBanner(chat, r);
+      if (banner && r && banner.style.display !== 'none') placeBanner(document.getElementById('chat'), r);
       syncWallpaper();
     },
   };

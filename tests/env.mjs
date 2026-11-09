@@ -30,6 +30,8 @@ export const context = {
   extensionSettings: {},
   characters: [],
   characterId: 0,
+  chat: [],
+  getCurrentChatId: noop,
   saveSettingsDebounced: noop,
   writeExtensionFieldBulk: async () => ({ updated: [], skipped: [] }),
   constants: { unset: '__@@UNSET@@__' },

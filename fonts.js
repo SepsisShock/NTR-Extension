@@ -1,9 +1,9 @@
 // If this file breaks, the font boxes stay plain text boxes and the chat's fonts still load, so loading them stays in index.js.
 (() => {
-  const FONTS_VERSION = '2.86.72';
+  const FONTS_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] fonts.js loaded without the core (index.js).'); return; }
-  const { cleanFont, closePops, fontName, popMenu } = A;
+  const { clamp, cleanFont, closePops, fontName, popMenu } = A;
 
   // The list in every font box: Google fonts that read well in a chat, by kind, with the generic family each falls back to.
   const FONT_PRESETS = [
@@ -25,7 +25,7 @@
   const fontPreviews = new Map();
   const previewFamily = (f) => `'NTR Preview ${f}', '${f}'`;
   function loadPreviews(names, text) {
-    const want = [...new Set(names)].filter((n) => !fontPreviews.has(n));
+    const want = names.filter((n) => !fontPreviews.has(n));
     if (want.length) {
       const url = 'https://fonts.googleapis.com/css2?' + want.map((n) => 'family=' + encodeURIComponent(n).replace(/%20/g, '+')).join('&')
         + '&text=' + encodeURIComponent(text) + '&display=swap';
@@ -35,12 +35,13 @@
         tag.textContent += css.replace(/font-family:\s*'([^']+)'/g, (m, f) => `font-family: 'NTR Preview ${cleanFont(f)}'`);
         want.forEach((n) => fontPreviews.set(n, 'ok'));
       // Google answers an unknown name with an error the page isn't allowed to read, so for one name a second request
-      // that doesn't need reading tells that answer apart from no connection. One unknown name fails a whole batch.
+      // that doesn't need reading tells that answer apart from no connection. A batch holds only the list's fonts, which
+      // Google has, so its failure means no connection.
       }).catch(() => (want.length > 1 ? Promise.resolve(null) : fetch(url, { mode: 'no-cors' }).then(() => 'miss', () => null))
         .then((v) => want.forEach((n) => (v ? fontPreviews.set(n, v) : fontPreviews.delete(n)))));
       want.forEach((n) => fontPreviews.set(n, req));
     }
-    return Promise.all(names.map((n) => fontPreviews.get(n)).filter((v) => v instanceof Promise));
+    return Promise.all(names.map((n) => fontPreviews.get(n)));
   }
   // A font box shows its text in that font, and the note under it when Google has no font by that name.
   const MISS = 'Not on Google Fonts. A font on your device with this name still works.';
@@ -90,7 +91,7 @@
       const room = () => body.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom - 8;
       const short = full - room();
       if (short > 0) body.scrollTop += Math.min(short, box.getBoundingClientRect().top - body.getBoundingClientRect().top);
-      p.style.maxHeight = `${Math.max(0, Math.min(full, room()))}px`;
+      p.style.maxHeight = `${clamp(room(), 0, full)}px`;
     };
     const close = () => { closePops(box); active = -1; el.removeAttribute('aria-activedescendant'); };
     // Picked like typed: the core saves it on the change.
@@ -124,7 +125,7 @@
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         if (!pop()) { open(''); return; }
-        active = Math.max(0, Math.min(opts().length - 1, active + (e.key === 'ArrowDown' ? 1 : -1)));
+        active = clamp(active + (e.key === 'ArrowDown' ? 1 : -1), 0, opts().length - 1);
         mark();
       } else if (e.key === 'Enter' && opts()[active]) {
         e.preventDefault();

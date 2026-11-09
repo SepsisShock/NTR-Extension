@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.72';
+  const REGEX_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson, switchHtml } = A;
@@ -21,14 +21,14 @@ try {
   ];
   const secOf = (k) => SECS.find((x) => x.k === k);
   const stList = (sec) => document.getElementById(sec.list);
-  const stRow = (sec, id) => [...(stList(sec)?.children || [])].find((el) => el.id === id);
+  const stRow = (sec, id) => [...stList(sec).children].find((el) => el.id === id);
   const ready = () => !!E && !!stList(SECS[0]);
   const scripts = (sec) => E.getScriptsByType(E.SCRIPT_TYPES[sec.type]);
   const presetName = () => E.getCurrentPresetName() || '';
   const presetKey = () => { const n = presetName(); return n ? `${E.getCurrentPresetAPI()}|${n}` : ''; };
-  const character = () => { const c = ctx(); return c.groupId ? null : c.characters?.[c.characterId] || null; };
+  const character = () => { const c = ctx(); return c.groupId ? null : c.characters[c.characterId] || null; };
   // SillyTavern has no Character regexes in group chats.
-  const shown = (sec) => !!stList(sec) && (sec.k !== 'scoped' || !!character());
+  const shown = (sec) => sec.k !== 'scoped' || !!character();
   function allowed(sec) {
     if (sec.k === 'preset') return E.isPresetScriptsAllowed(E.getCurrentPresetAPI(), E.getCurrentPresetName());
     if (sec.k === 'scoped') return E.isScopedScriptsAllowed(character());
@@ -100,7 +100,7 @@ try {
     return new Promise((res) => {
       const rows = ids.map((id) => SECS.map((sec) => stRow(sec, id)).find(Boolean)).filter(Boolean);
       const box = document.getElementById('regex_container');
-      if (!rows.length || !box) { res(); return; }
+      if (!rows.length) { res(); return; }
       let t = 0;
       let over = false;
       const done = () => { if (over) return; over = true; obs.disconnect(); clearTimeout(t); clearTimeout(cap); res(); };
@@ -123,7 +123,6 @@ try {
   // Puts SillyTavern's rows in this order and saves through its own drag-to-reorder, which also reloads the chat.
   async function reorder(sec, ids) {
     const list = stList(sec);
-    if (!list) return;
     const rows = [...list.children];
     // SillyTavern saves the order from its rows, so a regex it hasn't drawn yet (an import still saving) would be lost.
     if (rows.length !== scripts(sec).length) {
@@ -135,9 +134,7 @@ try {
     for (const id of ids) { const r = byId.get(id); if (r) list.appendChild(r); }
     for (const r of rows) if (!ids.includes(r.id)) list.appendChild(r);
     try {
-      const stop = $(list).sortable('option', 'stop');
-      if (typeof stop !== 'function') throw new Error('no reorder handler');
-      await stop.call(list);
+      await $(list).sortable('option', 'stop').call(list);
     } catch (e) {
       console.error('[NTR] Regex reorder failed', e);
       toastr.error('Couldn\'t save the new order in ST.', 'Regexes');
@@ -164,7 +161,7 @@ try {
       pending.got = true;
       save();
     }
-    const importing = pending.kind === 'import' && !!document.getElementById('import_regex_file')?.value;
+    const importing = pending.kind === 'import' && !!document.getElementById('import_regex_file').value;
     if (!pending.got || importing) return;
     pending = null;
     const v = view(sec);
@@ -381,7 +378,6 @@ try {
   }
 
   async function onClick(e) {
-    if (!e.target.closest('.ntr_menu')) closePops();
     const b = e.target.closest('[data-act]');
     const secEl = e.target.closest('.rx_sec');
     const sec = secEl ? secOf(secEl.dataset.sec) : null;
@@ -412,7 +408,7 @@ try {
       case 'del': stClick(stRow(sec, id)?.querySelector('.delete_regex')); break;
       case 'fmenu': folderMenu(b); break;
       case 'mvmenu': moveMenu(b, sec, id); break;
-      case 'mvto': closePops(); moveRegex(sec, id, b.dataset.fid || null); break;
+      case 'mvto': closePops(); moveRegex(sec, id, b.dataset.fid); break;
       case 'mvnew': {
         const row = b.closest('.rx_row');
         closePops();
@@ -519,7 +515,6 @@ try {
     for (const f of fl) {
       const fb = fels[fids.indexOf(f.id)]?.querySelector('.rx_fbody');
       if (fb) f.ids = [...fb.querySelectorAll('.rx_row')].map((r) => r.dataset.id);
-      if (f.was) f.was = f.was.filter((id) => f.ids.includes(id));
       ids.push(...f.ids);
     }
     ids.push(...[...d.scope.querySelectorAll('.rx_loose .rx_row')].map((r) => r.dataset.id));
@@ -533,7 +528,7 @@ try {
     watcher?.disconnect();
     watcher = null;
     page = overlay.querySelector('.ntr_page[data-page="regex"]');
-    if (!page || !ready()) return;
+    if (!ready()) return;
     // SillyTavern redraws its Regex panel after every change, wherever it was made.
     let t = 0;
     watcher = new MutationObserver(() => {
@@ -544,7 +539,7 @@ try {
         refresh();
       }, 120);
     });
-    SECS.forEach((sec) => { const l = stList(sec); if (l) watcher.observe(l, { childList: true }); });
+    SECS.forEach((sec) => watcher.observe(stList(sec), { childList: true }));
     claimNew();
     page.addEventListener('click', onClick);
     page.addEventListener('change', onChange);
@@ -578,7 +573,6 @@ try {
   function applyStates(map) {
     const gen = ++applyGen;
     applying = applying.then(() => switchFolders(map, gen)).catch((e) => console.error('[NTR] Theme regex folders failed', e));
-    return applying;
   }
   async function switchFolders(map, gen) {
     const live = () => gen === applyGen && settings().rxEnabled;
@@ -588,8 +582,7 @@ try {
       for (const { f, items } of view(sec).groups) {
         if (typeof map[f.id] !== 'boolean' || !items.length || map[f.id] === items.some((x) => !x.disabled)) continue;
         const want = map[f.id];
-        const ids = folderFlip(f, items, want);
-        (want ? on : off).push(...items.filter((x) => ids.includes(x.id) && !x.disabled !== want).map((x) => x.id));
+        (want ? on : off).push(...folderFlip(f, items, want));
       }
     }
     save();

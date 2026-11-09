@@ -97,8 +97,7 @@ test('sections that are not objects are dropped', () => {
 test('card data that is not an object is replaced', () => {
   for (const bad of ['junk', 7, [], null]) {
     const st = card(bad);
-    assert.equal(st.v, 1);
-    assert.ok(!Array.isArray(st));
+    assert.deepEqual(st, {});
   }
 });
 
@@ -137,7 +136,6 @@ test('unknown fields are dropped at every level, and known ones next to them kep
   });
   assert.equal(JSON.stringify(st).includes(X), false);
   assert.equal(api.collectFileRefs(st).has(X), false);
-  assert.equal(st.v, 1);
   assert.equal(st.banner.scope, 'char');
   assert.equal(st.banner.locked, false);
   assert.equal(st.banner.images[0].pos, 30);

@@ -1,6 +1,6 @@
 // If this file breaks, the font boxes stay plain text boxes and the chat's fonts still load, so loading them stays in index.js.
 (() => {
-  const FONTS_VERSION = '2.86.73';
+  const FONTS_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] fonts.js loaded without the core (index.js).'); return; }
   const { clamp, cleanFont, closePops, fontName, popMenu } = A;
@@ -25,7 +25,7 @@
   const fontPreviews = new Map();
   const previewFamily = (f) => `'NTR Preview ${f}', '${f}'`;
   function loadPreviews(names, text) {
-    const want = [...new Set(names)].filter((n) => !fontPreviews.has(n));
+    const want = names.filter((n) => !fontPreviews.has(n));
     if (want.length) {
       const url = 'https://fonts.googleapis.com/css2?' + want.map((n) => 'family=' + encodeURIComponent(n).replace(/%20/g, '+')).join('&')
         + '&text=' + encodeURIComponent(text) + '&display=swap';
@@ -35,12 +35,13 @@
         tag.textContent += css.replace(/font-family:\s*'([^']+)'/g, (m, f) => `font-family: 'NTR Preview ${cleanFont(f)}'`);
         want.forEach((n) => fontPreviews.set(n, 'ok'));
       // Google answers an unknown name with an error the page isn't allowed to read, so for one name a second request
-      // that doesn't need reading tells that answer apart from no connection. One unknown name fails a whole batch.
+      // that doesn't need reading tells that answer apart from no connection. A batch holds only the list's fonts, which
+      // Google has, so its failure means no connection.
       }).catch(() => (want.length > 1 ? Promise.resolve(null) : fetch(url, { mode: 'no-cors' }).then(() => 'miss', () => null))
         .then((v) => want.forEach((n) => (v ? fontPreviews.set(n, v) : fontPreviews.delete(n)))));
       want.forEach((n) => fontPreviews.set(n, req));
     }
-    return Promise.all(names.map((n) => fontPreviews.get(n)).filter((v) => v instanceof Promise));
+    return Promise.all(names.map((n) => fontPreviews.get(n)));
   }
   // A font box shows its text in that font, and the note under it when Google has no font by that name.
   const MISS = 'Not on Google Fonts. A font on your device with this name still works.';

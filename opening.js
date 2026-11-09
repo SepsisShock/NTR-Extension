@@ -1,12 +1,11 @@
 (() => {
-  const OP_VERSION = '2.86.73';
+  const OP_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] opening.js loaded without the core (index.js).'); return; }
   const VN = () => window.NTR.vn;
   if (!VN()) { console.error('[NTR] opening.js needs Visual Novel Mode (vn.js).'); return; }
-  const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, media, pills, onPills, subHead } = A;
+  const { save, settings, escapeHTML, askImageUrl, askVideoUrl, uploadImage, uploadVideo, pills, onPills, subHead, TAG } = A;
   const { ovLabel, cssTag, rangeSlider } = A.look;
-  const TAG = A.TAG || '';
 
   const CSS = `
     #ntr_open { position: fixed; inset: 0; z-index: 2600; background: #000; overflow: hidden; opacity: 0; transition: opacity .4s ease; color: #fff; user-select: none; }
@@ -37,8 +36,8 @@
   const raw = () => A.vnData().opening;
   const op = () => ({ ...ODEF, ...raw() });
   const setOp = (k, val) => { raw()[k] = val; save(); };
-  const ytId = (o) => o.yt && A.getYouTubeId(o.yt);
-  const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!media(o.file) : false);
+  const ytId = (o) => A.getYouTubeId(o.yt);
+  const hasSource = (o) => (o.src === 'youtube' ? !!ytId(o) : o.src === 'file' ? !!o.file : false);
 
   // ----- When to play -----
   function markSeen(sig) {
@@ -56,7 +55,7 @@
     }
     if (pinned && pinned.sig !== info.sig) unpin();
     const s = settings();
-    if (!A.isOn() || !s.nodeEnabled || !A.store()) return;
+    if (!A.isOn() || !s.nodeEnabled) return;
     const o = op();
     if (!hasSource(o)) return;
     if (o.when === 'newchat') {
@@ -102,7 +101,7 @@
     document.activeElement?.blur?.();
 
     // Logo layer (sits above the video so it can drop in before the end).
-    const lsrc = o.logo === 'none' ? '' : media(o.logoUrl);
+    const lsrc = o.logo === 'none' ? '' : o.logoUrl;
     if (lsrc) {
       const img = document.createElement('img');
       img.className = 'ntr_op_logo';
@@ -216,12 +215,12 @@
 
   function setSnd(st, muted) {
     st.muted = muted;
-    if (st.snd) st.snd.innerHTML = muted ? '<i class="fa-solid fa-volume-high"></i> Sound on' : '<i class="fa-solid fa-volume-xmark"></i> Mute';
+    st.snd.innerHTML = muted ? '<i class="fa-solid fa-volume-high"></i> Sound on' : '<i class="fa-solid fa-volume-xmark"></i> Mute';
   }
 
   function startFile(st) {
     const v = document.createElement('video');
-    v.src = media(st.o.file);
+    v.src = st.o.file;
     v.setAttribute('playsinline', '');
     v.preload = 'auto';
     v.muted = st.muted;
@@ -309,7 +308,6 @@
       const left = (st.iframe ? dur - 0.15 : dur) - t;
       if (left * 1000 <= transMs()) {
         fadeCover(st, Math.max(0, left * 1000));
-        console.info(`[NTR opening] Fading out the ending: ${settings().opTransColor} over the last ${Math.round(left * 1000)} ms.`);
       }
     }
     if (!st.logo || st.logoShown) return;
@@ -333,11 +331,10 @@
     const ms = st.skipped ? 600 : early ? Math.max(0, st.coverDoneAt - performance.now()) : transMs();
     st.mediaOutMs = ms;
     if (!early) fadeCover(st, ms);
-    console.info(`[NTR opening] Video ended (${st.skipped ? 'skipped' : 'finished'}): ${early ? 'fade already running, done in' : `fading to ${settings().opTransColor} over`} ${Math.round(ms)} ms.`);
     const m = st.media;
     setTimeout(() => {
       unloadVideo(st);
-      if (m) m.remove();
+      m.remove();
     }, ms + 100);
   }
 
@@ -416,7 +413,7 @@
     if (st.cross && !st.skipped) holdMedia(st);
     else stopMedia(st);
     // Without a logo, the story fade waits until the video has faded to the color.
-    const wait = st.cross || st.skipped ? 0 : st.mediaOutMs || 0;
+    const wait = st.cross || st.skipped ? 0 : st.mediaOutMs;
     if (!st.logo) { if (wait) later(finish, wait); else finish(); return; }
     const fade = A.rangeNum(settings(), 'opFade');
     const was = st.logoShown;
@@ -617,7 +614,7 @@
         if (url) { put(url); A.openMenu(); }
       };
       btn('clr').onclick = async () => {
-        if (!op()[k] || !(await A.askYes(removeAnchor || btn('clr'), removeText, 'Remove', { danger: true }))) return;
+        if (!(await A.askYes(removeAnchor || btn('clr'), removeText, 'Remove', { danger: true }))) return;
         put('');
         A.openMenu();
       };
@@ -632,7 +629,6 @@
     });
 
     q('#m_op_play').onclick = () => {
-      if (!hasSource(op())) return;
       A.closeMenu();
       play({ sig: '', onEnd: () => A.openMenu() });
     };

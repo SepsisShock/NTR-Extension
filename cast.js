@@ -1,8 +1,8 @@
 (() => {
-  const CAST_VERSION = '2.86.73';
+  const CAST_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] cast.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, onPills, subHead, validateDelims, TAG, TAG_KEY, lc, reEsc } = A;
 
   // A speaker's pictures live in the card's Visual Novel data (or per group): emoImgs holds the faces (speaker, then
   // emotion id), sprites the full bodies (one per speaker).
@@ -60,7 +60,7 @@
   const castNew = () => ({ explicit: false, list: [] });
   function castStep(st, seg) {
     if (seg.kind === 'enter') {
-      const [nm, sp] = String(seg.name).split('|').map((x) => x.trim());
+      const [nm, sp] = seg.name.split('|').map((x) => x.trim());
       const key = lc(nm);
       if (!key) return;
       const spot = ['left', 'center', 'right'].includes(lc(sp)) ? lc(sp) : '';
@@ -79,9 +79,8 @@
   // Left of the chat column, the column itself, and right of it. A narrow screen splits into thirds.
   function spotBoxes() {
     const W = window.innerWidth;
-    const chat = document.getElementById('chat');
-    const r = chat ? chat.getBoundingClientRect() : null;
-    if (!r || r.left < 150) return { left: [0, W / 3], center: [W / 3, W / 3], right: [(2 * W) / 3, W / 3] };
+    const r = document.getElementById('chat').getBoundingClientRect();
+    if (r.left < 150) return { left: [0, W / 3], center: [W / 3, W / 3], right: [(2 * W) / 3, W / 3] };
     return { left: [0, r.left], center: [r.left, r.width], right: [r.right, Math.max(0, W - r.right)] };
   }
   // Each spot's picture in root, from src(name, emo) for whoever stands there (spots: key to spot), or hidden.
@@ -150,11 +149,11 @@
     return null;
   }
 
-  // Base face: default face > first face > persona > character card in this chat
+  // Base face: the main face (mainEmo), else the persona picture for the user or the chat card's picture for anyone else.
   function baseFace(name) {
     const key = lc(name);
     if (!key) return null;
-    return media(defaultFace(key)) || stAvatar(key)?.src || null;
+    return defaultFace(key) || stAvatar(key)?.src || null;
   }
 
   function findEmo(name) {
@@ -162,11 +161,10 @@
     return k ? E().emotions.find((e) => lc(e.name) === k) : null;
   }
 
-  // Face for an emotion > default face > base face > nothing (null)
   function faceSrc(name, emoName) {
     const imgs = D().emoImgs[lc(name)] || {};
     const e = findEmo(emoName);
-    if (e && imgs[e.id]) return media(imgs[e.id]) || null;
+    if (e && imgs[e.id]) return imgs[e.id];
     return baseFace(name);
   }
 
@@ -177,11 +175,11 @@
     const s = settings();
     const v = D();
     const key = lc(name);
-    if (v.sprites[key]) return media(v.sprites[key]) || null;
+    if (v.sprites[key]) return v.sprites[key];
     if (s.nodeSpriteBase) return baseFace(name);
     const imgs = v.emoImgs[key] || {};
     const e = findEmo(emoName);
-    return media((e && imgs[e.id]) || defaultFace(key)) || null;
+    return (e && imgs[e.id]) || defaultFace(key) || null;
   }
 
   // Files deleted by hand leave dead links behind. Each uploaded file is checked once per session; links to missing ones are dropped.
@@ -224,7 +222,7 @@
     D().customSpk.forEach((n) => add(n, true));
     if (s.nodeAutoSpk) {
       const re = tagRe(s);
-      for (const m of c.chat || []) {
+      for (const m of c.chat) {
         if (m.is_system) continue;
         re.lastIndex = 0;
         let t;
@@ -276,7 +274,7 @@
     const on = A.isOn() && s.avatarEnabled && s.emoFaces && !!A.store();
     if (!on && !facesShown) return;
     facesShown = on;
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     let swapped = false;
     document.querySelectorAll('#chat .mes[mesid]').forEach((mes) => {
       const img = mes.querySelector('.avatar img');
@@ -325,7 +323,7 @@
     const recent = [];
     // In Reader Mode the stage follows the page being read: nothing after its last message counts.
     const upTo = window.NTR.reader?.upTo();
-    (ctx().chat || []).forEach((m, i) => {
+    ctx().chat.forEach((m, i) => {
       if (!m || m.is_system || !m.mes || (upTo != null && i > upTo)) return;
       for (const b of msgInfo(m, i).beats) { castStep(st, b); if (b.kind === 'char' && b.name) recent.push(b); }
     });
@@ -409,8 +407,8 @@
 
   let chatObs = null, cleanT = null;
   function ensure() {
+    if (chatObs) return;
     const chat = document.getElementById('chat');
-    if (!chat || chatObs) return;
     // The messages that changed are cleaned right away, before the browser draws them, so a reply that streams in
     // never shows its tags. A full pass after the chat goes quiet catches anything else.
     chatObs = new MutationObserver((recs) => {
@@ -432,8 +430,7 @@
     A.setInjection(INJECT_KEY, on ? promptText(s) : '');
   }
 
-  // A new chat, NTR switched on, or Visual Novel Mode switched on or off. SillyTavern clears extension prompts when a
-  // chat opens, so the instructions are set again here.
+  // SillyTavern clears extension prompts when a chat opens, so the instructions are set again here.
   function refresh() {
     beats.clear();
     if (A.isOn()) ensure();
@@ -652,7 +649,6 @@
       emoBox.querySelectorAll('.m_emo_del').forEach((b) => {
         b.onclick = async () => {
           const id = b.dataset.id;
-          if (id === E().emoDefault) return;
           const e = E().emotions.find((x) => x.id === id);
           const used = Object.values(D().emoImgs).some((m) => m[id]);
           if (used && !(await A.askYes(b, `Delete "${e.name}" and the faces uploaded for it?`, 'Delete', { danger: true }))) return;
@@ -713,7 +709,7 @@
           if (!(await A.askYes(full ? b : b.closest('.cb_emo_grid'), `Remove this ${full ? 'full body' : 'face'}? Its file is deleted unless something else uses it.`, 'Remove', { danger: true }))) return;
           let old;
           if (full) { old = D().sprites[key]; delete D().sprites[key]; }
-          else if (D().emoImgs[key]) { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }
+          else { old = D().emoImgs[key][emo]; delete D().emoImgs[key][emo]; }
           saveSpk();
           A.deleteFileIfUnused(old).then((kept) => {
             const why = { used: 'something else still uses it', lazy: "with lazy loading on, other characters can't be checked for it", failed: "it couldn't be deleted" }[kept];
@@ -769,7 +765,6 @@
     };
     A.onFilePick(sFile, 'Emotions', async (f) => {
       const p = pending;
-      if (!p) return;
       const url = await A.uploadHere(() => uploadImage(f, 'vnpfp', { max: p.full ? 2048 : 768 }));
       if (url) setSpkImage(p, url);
     });

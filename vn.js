@@ -1,8 +1,8 @@
 (() => {
-  const VN_VERSION = '2.86.73';
+  const VN_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] vn.js loaded without the core (index.js).'); return; }
-  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, media, pills, onPills, subHead, lc, reEsc } = A;
+  const { ctx, save, settings, escapeHTML, askImageUrl, uploadImage, newId, pills, onPills, subHead, lc, reEsc } = A;
   const { ovLabel, cssTag, rangeSlider } = A.look;
   const { TAG } = A;
   // Speakers, emotions and their pictures come from cast.js, which index.js loads first.
@@ -109,7 +109,7 @@
       + `<g fill="none" stroke="hsl(${hue},60%,78%)" stroke-opacity=".35" stroke-width="3"><ellipse cx="200" cy="200" rx="74" ry="90"/><path d="M56 398C74 330 122 300 200 300S326 330 344 398"/></g></svg>`);
   }
   const silCache = {};
-  function hueOf(key) { let h = 7; for (const ch of String(key)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; }
+  function hueOf(key) { let h = 7; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; }
   function tile(seed, size, n, kind) {
     const r = rng(seed);
     let o = '';
@@ -238,14 +238,14 @@
   const fxKind = (name, s) => wordKind(name, [['shake', s.fxShake], ['flash', s.fxFlash], ['fade', s.fxFade]]);
   const wxKind = (name, s) => wordKind(name, [['clear', s.wxClear], ['rain', s.wxRain], ['snow', s.wxSnow]]);
   // A leading "/" would make SillyTavern run the choice as a slash command, so it's dropped.
-  const noSlash = (x) => String(x).replace(/^[\s/]+/, '');
-  const splitChoices = (arg, s) => String(arg).split(s.choiceSep).map((x) => noSlash(x).trim()).filter(Boolean).slice(0, 8);
+  const noSlash = (x) => x.replace(/^[\s/]+/, '');
+  const splitChoices = (arg, s) => arg.split(s.choiceSep).map((x) => noSlash(x).trim()).filter(Boolean).slice(0, 8);
 
   // No tags at all: quoted text is the speaker's line, everything else is narration.
   function splitUntagged(raw, name) {
     const out = [];
     const nar = (t) => { t = t.trim(); if (t && /[\p{L}\p{N}]/u.test(t)) out.push({ kind: 'narrator', name: '', emo: '', text: t }); };
-    for (const para of String(raw).split(/\n\s*\n/)) {
+    for (const para of raw.split(/\n\s*\n/)) {
       const re = /"[^"\n]+"|\u201C[^\u201D\n]+\u201D/g;
       let last = 0, m;
       while ((m = re.exec(para))) {
@@ -302,7 +302,7 @@
   }
 
   function nodeFmt(t) {
-    let h = escapeHTML(String(t).trim());
+    let h = escapeHTML(t.trim());
     h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
     h = h.replace(/&quot;(.+?)&quot;/g, '<span class="cb_q">&quot;$1&quot;</span>');
     h = h.replace(/\u201C(.+?)\u201D/g, '<span class="cb_q">\u201C$1\u201D</span>');
@@ -317,7 +317,7 @@
   // Who is on stage: castNew and castStep (cast.js) keep the list. A snapshot goes on each line.
   const castSnap = (st) => ({ explicit: st.explicit, list: st.list.map((x) => ({ ...x })) });
   // The chat's messages before idx that have text, without system messages.
-  const before = (idx) => (ctx().chat || []).slice(0, idx).filter((m) => m && !m.is_system && m.mes);
+  const before = (idx) => ctx().chat.slice(0, idx).filter((m) => !m.is_system && m.mes);
   function castAt(idx) {
     const st = castNew();
     for (const m of before(idx)) for (const seg of parseMsg(m)) castStep(st, seg);
@@ -343,7 +343,7 @@
     }
     return { loc, wx };
   }
-  const chatLen = () => (ctx().chat || []).length;
+  const chatLen = () => ctx().chat.length;
   const currentLoc = () => stickyAt(chatLen()).loc;
   function visitedLocs() { const set = new Set(); stickyAt(chatLen(), set); return set; }
 
@@ -419,7 +419,7 @@
       rows.push({ label: 'A Character Enters', code: `${no}${s.enterWord}:${spk}${nc}`, hint: `Shows their sprite before they speak. Add | left, | center or | right after the name to place it. Once a chat uses ${s.enterWord} or ${s.exitWord}, sprites stay until they exit.` });
       rows.push({ label: 'A Character Leaves', code: `${no}${s.exitWord}:${spk}${nc}`, hint: `Removes their sprite from the next line on. ${no}${s.exitWord}:All${nc} clears the stage.` });
     }
-    const sample = [rows[2], rows[1], rows[0], ...rows.slice(4, 5)].filter(Boolean).map((r) => r.code).join('\n');
+    const sample = [rows[2], rows[1], rows[0], ...rows.slice(4, 5)].map((r) => r.code).join('\n');
     return { rows, sample };
   }
 
@@ -820,12 +820,10 @@
     const chat = document.getElementById('chat');
     const form = document.getElementById('form_sheld');
     const s = settings();
-    if (chat) {
-      const r = chat.getBoundingClientRect();
-      const w = r.width * (A.rangeNum(s, 'nodeBoxWidth') / 100);
-      ov.style.left = (r.left + (r.width - w) / 2) + 'px';
-      ov.style.width = w + 'px';
-    }
+    const r = chat.getBoundingClientRect();
+    const w = r.width * (A.rangeNum(s, 'nodeBoxWidth') / 100);
+    ov.style.left = (r.left + (r.width - w) / 2) + 'px';
+    ov.style.width = w + 'px';
     ov.style.bottom = (boxFloor(chat, form) + A.rangeNum(s, 'nodeBoxLift')) + 'px';
     placeCG();
   }
@@ -834,7 +832,7 @@
   // (Layout) can be anywhere, so the box sits at the bottom of the chat panel, or above the send bar where it
   // covers that bottom.
   function boxFloor(chat, form) {
-    if (!A.sendFree() || !chat) return form ? window.innerHeight - form.getBoundingClientRect().top : 82;
+    if (!A.sendFree()) return window.innerHeight - form.getBoundingClientRect().top;
     const c = chat.getBoundingClientRect();
     return Math.max(0, window.innerHeight - c.bottom + A.sendCover(c, form));
   }
@@ -903,7 +901,7 @@
     if (on && !layoutRo) {
       window.addEventListener('resize', relayout);
       layoutRo = new ResizeObserver(() => { if (vnOn()) placeNode(); });
-      for (const id of ['chat', 'form_sheld']) { const el = document.getElementById(id); if (el) layoutRo.observe(el); }
+      for (const id of ['chat', 'form_sheld']) layoutRo.observe(document.getElementById(id));
     } else if (!on && layoutRo) {
       window.removeEventListener('resize', relayout);
       layoutRo.disconnect();
@@ -1025,7 +1023,7 @@
 
   // ----- Choices -----
   function lastChatIdx() {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     for (let i = chat.length - 1; i >= 0; i--) if (chat[i] && !chat[i].is_system) return i;
     return -1;
   }
@@ -1052,17 +1050,15 @@
   // Puts text in SillyTavern's input box (after anything already typed), optionally sending it.
   function putInInput(text, send) {
     const ta = document.getElementById('send_textarea');
-    if (!ta) return false;
     const cur = ta.value.trimEnd();
     ta.value = cur ? cur + '\n' + text : noSlash(text);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
     if (send) {
-      const b = document.getElementById('send_but');
-      if (b) { b.click(); return true; }
+      document.getElementById('send_but').click();
+      return;
     }
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
-    return true;
   }
 
   // ----- Effects, weather, CG -----
@@ -1103,7 +1099,7 @@
     const n = normLoc(name);
     if (!n) return '';
     const hit = V().cgs.find((g) => normLoc(g.name) === n && g.url);
-    return hit ? media(hit.url) : '';
+    return hit ? hit.url : '';
   }
 
   function placeCG() {
@@ -1111,7 +1107,7 @@
     if (!L) return;
     const form = document.getElementById('form_sheld');
     // It stops above the send bar. A Floating send bar (Layout) in the top half of the screen is covered instead.
-    const top = form ? form.getBoundingClientRect().top : window.innerHeight;
+    const top = form.getBoundingClientRect().top;
     L.style.bottom = (A.sendFree() && top < window.innerHeight / 2 ? 0 : Math.max(0, window.innerHeight - top)) + 'px';
   }
 
@@ -1145,7 +1141,7 @@
   function syncMapBtn() {
     const b = document.querySelector('#cb_node .cb_n_mapbtn');
     if (!b) return;
-    b.style.display = settings().nodeMaps && A.store() && V().maps.some((m) => m.url) ? '' : 'none';
+    b.style.display = settings().nodeMaps && V().maps.some((m) => m.url) ? '' : 'none';
   }
 
   function openMap() {
@@ -1158,17 +1154,9 @@
     let L = document.getElementById('ntr_loc');
     if (L) return L;
     L = newDiv('ntr_loc', '<div></div><div></div>');
-    const bgs = ['bg1', 'bg_custom'].map((id) => document.getElementById(id)).filter(Boolean);
-    bgs.sort((a, b) => (a.compareDocumentPosition(b) & 4 ? -1 : 1));
-    const lastBg = bgs[bgs.length - 1];
-    if (lastBg) {
-      lastBg.parentNode.insertBefore(L, lastBg.nextSibling);
-      const zs = bgs.map((b) => parseInt(getComputedStyle(b).zIndex, 10)).filter((z) => !Number.isNaN(z));
-      if (zs.length) L.style.zIndex = String(Math.max(...zs));
-    } else {
-      L.style.zIndex = '-1';
-      document.body.prepend(L);
-    }
+    const bg = document.getElementById('bg1');
+    bg.after(L);
+    L.style.zIndex = getComputedStyle(bg).zIndex;
     return L;
   }
 
@@ -1176,7 +1164,7 @@
     const v = V();
     const n = normLoc(name);
     const hit = n ? v.locations.find((l) => normLoc(l.name) === n) : null;
-    return media(hit && hit.url) || media(v.locDefault) || artBgUrl();
+    return (hit && hit.url) || v.locDefault || artBgUrl();
   }
 
   function setLocation(name) {
@@ -1289,7 +1277,7 @@
     const idx = node.list[node.pos];
     const was = node.shown;
     node.follow = node.pos >= node.list.length - 1;
-    node.shown = ctx().chat?.[idx] || null;
+    node.shown = ctx().chat[idx] || null;
     const R = window.NTR.reader;
     if (node.md && ctx().chatMetadata === node.md) R?.rememberMsg(idx, node.follow);
     if (node.shown !== was) Promise.resolve(R?.drawTo(idx)).then(() => A.refreshPins());
@@ -1302,7 +1290,7 @@
     return `${c.groupId || c.characterId}|${c.getCurrentChatId() || ''}`;
   }
   function chatIsFresh() {
-    const chat = (ctx().chat || []).filter((m) => m && !m.is_system);
+    const chat = ctx().chat.filter((m) => !m.is_system);
     return chat.length <= 1 && !chat.some((m) => m.is_user);
   }
   const opHooks = {
@@ -1346,7 +1334,7 @@
     else if (opened) maybeOpening('open');
     const c = ctx();
     node.list = [];
-    (c.chat || []).forEach((m, i) => {
+    c.chat.forEach((m, i) => {
       if (m.is_system || !m.mes) return;
       if (m.is_user && !s.nodeUserMsgs) return;
       node.list.push(i);
@@ -1409,7 +1397,7 @@
     if (dryRun || !vnOn()) return;
     // A reply on its way is followed, like in Reader Mode's other styles.
     if (type !== 'quiet' && type !== 'impersonate') node.follow = true;
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const id = chat.length - 1;
     node.cont = type === 'continue' && chat[id] ? { id, mes: chat[id].mes || '' } : null;
   }
@@ -1425,7 +1413,7 @@
   // A swipe to the empty slot past the last one is a new reply on its way: wait for it instead of typing the old one.
   function nodeSwiped(id) {
     if (!vnOn()) return;
-    const m = (ctx().chat || [])[id];
+    const m = ctx().chat[id];
     node.waitId = m && Array.isArray(m.swipes) && m.swipe_id >= m.swipes.length ? id : null;
     nodeQueue(node.waitId === null);
   }

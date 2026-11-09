@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.73';
+  const READER_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn, askNumber } = A;
@@ -70,10 +70,10 @@
   // Pages are counted from the whole chat, not just the messages SillyTavern has drawn. A page starts at each user
   // message and holds the replies after it; the messages before the first one (the opening) are page 1.
   function build() {
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     const drawn = document.querySelectorAll('#chat > .mes[mesid]');
     // A reply being written can be drawn a moment before it's in the chat.
-    const n = Math.max(chat.length, drawn.length ? mesNum(drawn[drawn.length - 1]) + 1 || 0 : 0);
+    const n = Math.max(chat.length, drawn.length ? mesNum(drawn[drawn.length - 1]) + 1 : 0);
     const one = settings().rdPer === 'one';
     const out = [];
     for (let i = 0; i < n; i++) {
@@ -89,7 +89,7 @@
     const on = live() && pages.length;
     if (!on) { cssTag('ntr_rd_css', ''); shownMsg = null; return; }
     const [a, b] = pages[cur];
-    shownMsg = ctx().chat?.[a] || null;
+    shownMsg = ctx().chat[a];
     const ids = [];
     for (let i = a; i <= b; i++) ids.push(`[mesid="${i}"]`);
     const sel = ids.join(', ');
@@ -105,7 +105,7 @@
     cssTag('ntr_rd_style', CSS);
     let bar = document.getElementById('ntr_rd_bar');
     const form = document.getElementById('form_sheld');
-    if (!live() || !form) { bar?.remove(); return; }
+    if (!live()) { bar?.remove(); return; }
     if (!bar) {
       bar = document.createElement('div');
       bar.id = 'ntr_rd_bar';
@@ -184,7 +184,7 @@
     const bar = document.getElementById('ntr_rd_bar');
     const sheld = document.getElementById('sheld');
     const form = document.getElementById('form_sheld');
-    if (!bar || !sheld || !form) return;
+    if (!bar) return;
     let room = 0;
     if (A.sendFree() && !A.pageFree()) {
       if (!formRo) (formRo = new ResizeObserver(() => { placeBar(); if (geom) layoutBook(); })).observe(form);
@@ -207,7 +207,7 @@
       ratios.set(u, 0);
       const img = new Image();
       img.onload = () => { ratios.set(u, img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0); relayout(); };
-      img.src = A.media(u);
+      img.src = u;
     }
     return ratios.get(u) || BOOK_RATIO;
   }
@@ -216,8 +216,8 @@
   function screenRoom() {
     const W = window.innerWidth, H = window.innerHeight;
     let left = 0, right = W, top = 0, bottom = H;
-    const mb = document.getElementById('top-settings-holder')?.getBoundingClientRect();
-    if (mb && mb.width && mb.height) {
+    const mb = document.getElementById('top-settings-holder').getBoundingClientRect();
+    if (mb.width && mb.height) {
       if (mb.width >= mb.height) { if (mb.top < H / 2) top = mb.bottom; else bottom = mb.top; }
       else if (mb.left < W / 2) left = mb.right; else right = mb.left;
     }
@@ -242,10 +242,10 @@
     let { left, right, top, bottom } = screenRoom();
     const free = A.sendFree();
     const form = document.getElementById('form_sheld');
-    const f = form?.getBoundingClientRect();
-    if (free && f?.height && f.top > H / 2) bottom = Math.min(bottom, f.top);
+    const f = form.getBoundingClientRect();
+    if (free && f.height && f.top > H / 2) bottom = Math.min(bottom, f.top);
     const pageFree = A.pageFree();
-    const below = (pageFree ? 0 : document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form?.offsetHeight || 0);
+    const below = (pageFree ? 0 : document.getElementById('ntr_rd_bar')?.offsetHeight || 0) + (free ? 0 : form.offsetHeight);
     const room = { w: right - left, h: bottom - top - below - 16 };
     const ratio = ratioOf(s.rdBookImg);
     if (s.rdFlip) decodeBook(A.bookSrc(s));
@@ -258,6 +258,8 @@
 
     const font = cssReaders(s).font('rdBookFont');
     const B = 'html body.ntr_book';
+    // `will-change: auto` on #chat: the core's `will-change: transform` would make the chat the containing block of the
+    // swipe arrows, which are position: fixed here; the book never scrolls up and down.
     const css = `
     ${B} #sheld { position: fixed !important; left: ${px(g.x)} !important; top: ${px(g.y)} !important; width: ${px(g.w)} !important; max-width: none !important;
       height: auto !important; max-height: none !important; right: auto !important; bottom: auto !important; margin: 0 !important; resize: none !important; }
@@ -274,7 +276,6 @@
     ${B} #chat > .mes { padding: 0 0 .8em !important; margin: 0 !important; width: auto !important; min-height: 0 !important;
       background: none !important; border: none !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
     ${B} #chat > .mes .mesAvatarWrapper { display: none !important; }
-    /* SillyTavern's will-change on the chat would hold the swipe arrows below inside it; the book never scrolls up and down. */
     ${B} #chat > .mes .mes_block { display: block !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; width: auto !important; }
     ${B} #chat > .mes .ch_name { font-size: .8em; margin-bottom: .3em; break-after: avoid; }
     ${B} #chat > .mes .mes_buttons { opacity: .35; transition: opacity .15s; }
@@ -312,7 +313,7 @@
   function countSpreads() {
     const chat = chatEl();
     const last = pages[cur] && document.querySelector(`#chat > .mes[mesid="${pages[cur][1]}"]`);
-    if (!booked() || !chat || !last) return 1;
+    if (!booked() || !last) return 1;
     const rects = [...last.getClientRects()].filter((r) => r.height > 2);
     const r = rects[rects.length - 1];
     if (!r) return 1;
@@ -325,7 +326,7 @@
     spreads = countSpreads();
     spread = Math.max(0, Math.min(spreads - 1, j));
     const chat = chatEl();
-    if (chat && booked()) { chat.scrollLeft = Math.round(spread * geom.step); chat.scrollTop = 0; }
+    if (booked()) { chat.scrollLeft = Math.round(spread * geom.step); chat.scrollTop = 0; }
     syncBar();
   }
 
@@ -367,7 +368,7 @@
   function watchText() {
     textObs?.disconnect();
     textObs = null;
-    const last = geom && cur === pages.length - 1 && document.querySelector(`#chat > .mes[mesid="${pages[cur]?.[1]}"] .mes_text`);
+    const last = geom && cur === pages.length - 1 && document.querySelector(`#chat > .mes[mesid="${pages[cur][1]}"] .mes_text`);
     if (!last) return;
     textObs = new MutationObserver(() => {
       if (textQueued) return;
@@ -389,8 +390,7 @@
     const on = !!box;
     if (on === editing()) return;
     document.body.classList.toggle('ntr_bk_edit', on);
-    const chat = chatEl();
-    if (on) { if (chat) chat.scrollLeft = 0; box.scrollIntoView({ block: 'nearest' }); }
+    if (on) { chatEl().scrollLeft = 0; box.scrollIntoView({ block: 'nearest' }); }
     else showSpread(spread);
   }
   const checkEdit = () => { requestAnimationFrame(syncEdit); setTimeout(syncEdit, 300); };
@@ -399,29 +399,26 @@
   const keepTop = (e) => { if (booked() && e.target.scrollTop) e.target.scrollTop = 0; };
 
   // What only the book needs is watched only while it's on screen.
-  let bookChat = null;
+  let bookOn = false;
   function bookListen(on) {
-    const chat = on ? chatEl() : null;
-    if (chat === bookChat) return;
-    if (bookChat) {
-      bookChat.removeEventListener('scroll', keepTop);
-      bookChat.removeEventListener('load', onLoad, true);
-      bookChat.removeEventListener('toggle', recount, true);
-    } else if (chat) {
-      document.addEventListener('click', checkEdit, true);
-      document.addEventListener('keyup', checkEdit, true);
-      document.fonts.addEventListener('loadingdone', recount);
-    }
-    if (chat) {
+    if (on === bookOn) return;
+    bookOn = on;
+    const chat = chatEl();
+    if (on) {
       chat.addEventListener('scroll', keepTop, { passive: true });
       chat.addEventListener('load', onLoad, true);
       chat.addEventListener('toggle', recount, true);
+      document.addEventListener('click', checkEdit, true);
+      document.addEventListener('keyup', checkEdit, true);
+      document.fonts.addEventListener('loadingdone', recount);
     } else {
+      chat.removeEventListener('scroll', keepTop);
+      chat.removeEventListener('load', onLoad, true);
+      chat.removeEventListener('toggle', recount, true);
       document.removeEventListener('click', checkEdit, true);
       document.removeEventListener('keyup', checkEdit, true);
       document.fonts.removeEventListener('loadingdone', recount);
     }
-    bookChat = chat;
   }
 
   // After a setting or the screen size changed: the book again, at the same spread.
@@ -439,10 +436,8 @@
     spread = 0;
     spreads = 1;
     watchText();
-    const chat = chatEl();
-    if (chat) chat.scrollLeft = 0;
+    chatEl().scrollLeft = 0;
   }
-  const onResize = () => { if (live()) relayout(); };
 
   // ----- Page flip -----
   // In the book, Next and Previous turn a page: a sheet of the book picture's paper lifts off the right page (the left
@@ -459,9 +454,8 @@
   const flipOn = () => booked() && settings().rdFlip && !A.reducedMotion();
   // turn() finishes a flip still going before it calls this.
   function flip(d, act) {
-    const chat = chatEl();
-    const r = chat?.getBoundingClientRect();
-    if (!flipOn() || !r?.width) { act(); return; }
+    const r = chatEl().getBoundingClientRect();
+    if (!flipOn() || !r.width) { act(); return; }
     const W = r.width, H = r.height;
     const t = px(geom.pt * PAPER), b = px(geom.pb * PAPER), o = px(geom.po * PAPER);
     const img = cssUrl(settings());
@@ -524,7 +518,6 @@
   // ----- Pages, the saved page, keys and switching on or off -----
   function scrollTo(at) {
     const chat = chatEl();
-    if (!chat) return;
     if (booked()) { showSpread(at === 'top' ? 0 : Infinity); return; }
     chat.scrollTop = at === 'bottom' ? chat.scrollHeight : 0;
   }
@@ -542,10 +535,10 @@
   }
 
   // Turns to a page. Only a page whose messages SillyTavern hasn't drawn yet has to wait for them.
-  async function go(i, at = 'top') {
+  async function go(i, at) {
     if (!live() || !pages.length || turning === opened) return;
     const to = Math.max(0, Math.min(pages.length - 1, i));
-    if (to === cur && at !== 'force') return;
+    if (to === cur) return;
     cur = to;
     follow = cur === pages.length - 1;
     if (drawnFrom() > pages[cur][0]) {
@@ -555,7 +548,7 @@
     }
     paint();
     syncBar();
-    scrollTo(at === 'force' ? 'bottom' : at);
+    scrollTo(at);
     A.refreshPins();
     remember();
   }
@@ -575,7 +568,7 @@
   // last page with last.
   function rememberMsg(at, last) {
     const md = ctx().chatMetadata;
-    const v = last ? { last: true } : { at, date: ctx().chat?.[at]?.send_date ?? null };
+    const v = last ? { last: true } : { at, date: ctx().chat[at]?.send_date ?? null };
     const old = md[SAVED];
     if (old && old.last === v.last && old.at === v.at && old.date === v.date) return;
     md[SAVED] = v;
@@ -586,9 +579,9 @@
   function savedMsg() {
     const v = ctx().chatMetadata[SAVED];
     if (!v || typeof v !== 'object' || v.last || !Number.isInteger(v.at) || v.at < 0) return null;
-    const chat = ctx().chat || [];
+    const chat = ctx().chat;
     if (v.date == null || chat[v.at]?.send_date === v.date) return v.at;
-    const i = chat.findIndex((m) => m?.send_date === v.date);
+    const i = chat.findIndex((m) => m.send_date === v.date);
     return i >= 0 ? i : v.at;
   }
 
@@ -612,7 +605,7 @@
     let anchor = pages[cur]?.[0];
     const was = cur;
     // Deleting earlier messages renumbers the rest, so the page's first message is found again in the chat.
-    const found = shownMsg ? (ctx().chat || []).indexOf(shownMsg) : -1;
+    const found = shownMsg ? ctx().chat.indexOf(shownMsg) : -1;
     if (found >= 0) anchor = found;
     pages = build();
     if (!pages.length) cur = 0;
@@ -639,8 +632,8 @@
   // Only the chat's own list of messages is watched, so a streaming reply doesn't count pages again for every word.
   function watch(on) {
     const chat = chatEl();
-    if (on) window.addEventListener('resize', onResize); else window.removeEventListener('resize', onResize);
-    if (on && !obs && chat) {
+    if (on) window.addEventListener('resize', relayout); else window.removeEventListener('resize', relayout);
+    if (on && !obs) {
       obs = new MutationObserver(queue);
       obs.observe(chat, { childList: true });
     } else if (!on && obs) {
@@ -676,7 +669,6 @@
     }
     if ((k !== 'PageUp' && k !== 'PageDown') || typing) return;
     const chat = chatEl();
-    if (!chat) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     if (booked()) { turn(k === 'PageDown' ? 1 : -1); return; }
@@ -729,7 +721,7 @@
     genStarted: (type, dryRun) => {
       if (dryRun || type === 'quiet' || type === 'impersonate' || !live() || !pages.length) return;
       dropFlip();
-      if (cur < pages.length - 1) go(pages.length - 1, 'force');
+      if (cur < pages.length - 1) go(pages.length - 1, 'bottom');
       follow = true;
     },
     // For Visual Novel: the message this chat was left on (null for the last), and saving the one it shows.
@@ -740,8 +732,8 @@
     // For Visual Novel: draws older messages down to message first, so Pinned Blocks find the ones up to it.
     drawTo: (first) => loadUpTo(first, opened),
     // For Pinned Blocks: the last message on the current page, or the message Visual Novel shows, or null when Reader
-    // Mode is off or on the newest.
-    upTo: () => (vnNow() ? window.NTR.vn?.shownMsg() ?? null : live() && pages.length ? pages[cur][1] : null),
+    // Mode is off or Visual Novel shows the newest.
+    upTo: () => (vnNow() ? window.NTR.vn?.shownMsg() : live() && pages.length ? pages[cur][1] : null),
     // For Speech Bubbles: the first and last message on the page on screen, or null when Reader Mode is off.
     page: () => (live() && pages.length ? pages[cur] : null),
   };

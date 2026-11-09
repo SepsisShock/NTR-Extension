@@ -1,5 +1,5 @@
 (() => {
-  const THEMES_VERSION = '2.86.73';
+  const THEMES_VERSION = '2.86.74';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] themes.js loaded without the core (index.js).'); return; }
   const { VERSION, DEFAULTS, LOOK, TAG_KEYS, settings, save, escapeHTML, pageHtml, card, askYes, askText, popMenu, closePops, newId, loadModule, deleteFileIfUnused,
@@ -46,7 +46,7 @@
       if (!cache.has(p)) {
         try {
           const r = await fetch('/' + p);
-          if (!r.ok) throw new Error(String(r.status));
+          if (!r.ok) throw new Error();
           cache.set(p, await readDataURL(await r.blob()));
         } catch (e) { cache.set(p, null); fails++; }
       }
@@ -247,7 +247,7 @@
           ${nImg ? `<label class="checkbox_label" style="margin-top:4px;"><input type="checkbox" id="m_t_img" checked><span>Include Pictures (${nImg})</span></label>
           <div class="cb_hint">Needed on another install.</div>` : ''}`, ['m_t_dl', '<i class="fa-solid fa-download"></i> Download'], async (chosen) => {
         let sections = Object.fromEntries(chosen.map((k) => [k, data[k]]));
-        if (panel.querySelector('#m_t_img')?.checked && collectFileRefs(sections).size) {
+        if (panel.querySelector('#m_t_img')?.checked) {
           const r = await embedFiles(sections);
           sections = r.data;
           if (r.fails) toastr.warning(`${r.fails} picture(s) couldn't be read and were left as links.`, 'Themes');
@@ -261,13 +261,12 @@
     A.onFilePick(tf, 'Themes', async (f) => {
       let j;
       try { j = JSON.parse(await f.text()); } catch (e) { toastr.error('That file isn\'t valid JSON.', 'Themes'); return; }
-      if (!j || j.ntrTheme !== 1 || !j.sections || typeof j.sections !== 'object') { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
+      if (!j || j.ntrTheme !== 1 || !isObj(j.sections)) { toastr.error('That isn\'t a Nitwit Tavern Redesign theme file.', 'Themes'); return; }
       // Cleaned once for the preview. Adding cleans again, since the clash checks follow the settings, which can change meanwhile.
       const cleaned = Object.fromEntries(Object.keys(LOOK).map((k) => [k, cleanLookSection(k, j.sections[k])]));
       const secs = Object.keys(LOOK).filter((k) => Object.keys(cleaned[k]).length);
       // Tag symbols that are fine one by one but clash together get left out (see cleanLookSection); say so, so it's clear why the user's own stay.
-      const vnIn = isObj(j.sections.vn) ? j.sections.vn : {};
-      const tagsOut = TAG_KEYS.some((k) => k in vnIn && validLookValue(k, vnIn[k])) && !TAG_KEYS.some((k) => k in cleaned.vn);
+      const tagsOut = TAG_KEYS.some((k) => validLookValue(k, j.sections.vn?.[k])) && !TAG_KEYS.some((k) => k in cleaned.vn);
       if (!secs.length) {
         toastr.error(`That theme file has nothing this version can use.${tagsOut ? ' Its tag symbols and keywords clash with yours, so they\'re left out.' : ''}`, 'Themes');
         return;
@@ -277,7 +276,7 @@
         .filter(([, , css]) => css);
       showPanel(tbar, `
           <strong><i class="fa-solid fa-fw fa-file-import ntr_glab_icon"></i>Import Theme</strong>
-          <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(String(j.name || 'Imported Theme'))}"></label>
+          <label>Name <input type="text" id="m_t_iname" class="text_pole" value="${escapeHTML(j.name || 'Imported Theme')}"></label>
           ${secBoxes(secs)}
           ${cssIn.map(([name, where, css]) => `<div class="cb_hint">This theme has Custom CSS for ${name}. It comes in switched off: check it under ${where}, Advanced: Custom CSS, then tick it.</div>
           <pre class="cb_code" style="max-height: 140px; overflow: auto; margin: 0;">${escapeHTML(css)}</pre>`).join('')}

@@ -25,7 +25,7 @@
       #cb_banner .cb_xfade { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; transition: opacity .8s ease; }
       #cb_fg_layer { position: fixed; z-index: 2400; pointer-events: none; opacity: var(--cb-fg-op, 1); }
       #cb_fg_front { position: fixed; z-index: 2420; pointer-events: none; opacity: var(--cb-fg-op, 1); }
-      .cb_fg_img { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; pointer-events: none; }
+      .cb_fg_img { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; }
       #cb_fg_left { left: 0; object-position: left bottom; }
       #cb_fg_right { right: 0; object-position: right bottom; }
   `;

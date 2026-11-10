@@ -140,7 +140,7 @@
       @media (prefers-reduced-motion: reduce) { ${sels.join(', ')} { animation: none; } }
       ${sels.map((x) => `body.reduced-motion ${x}`).join(', ')} { animation: none; }`;
   const VN_CSS = `
-      #cb_node { position: fixed; z-index: 2450; display: none; align-items: flex-end; gap: 12px; padding: 0 6px; box-sizing: border-box; pointer-events: none; }
+      #cb_node { position: fixed; z-index: 2450; display: none; align-items: flex-end; gap: 12px; padding: 0 6px; pointer-events: none; }
       #cb_node > * { pointer-events: auto; }
       #cb_node.cb_right { flex-direction: row-reverse; }
       #cb_node .cb_n_port { position: relative; flex: none; width: var(--cbn-ps, 120px); height: var(--cbn-ps, 120px); border-radius: 12px; overflow: hidden; border: 2px solid var(--SmartThemeBorderColor); background: rgba(0,0,0,0.55); box-shadow: 0 4px 14px rgba(0,0,0,.5); }

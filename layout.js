@@ -593,7 +593,7 @@
     if (v('Page') === 'free') {
       const w = `max(${n('PageW')}vw, var(--ntr-rdbar-min, 0px))`;
       css += cssRule('body #ntr_rd_bar', {
-        position: 'fixed', left: `clamp(0px, ${n('PageX')}vw, 100vw - ${w})`, width: w, margin: '0', 'box-sizing': 'border-box',
+        position: 'fixed', left: `clamp(0px, ${n('PageX')}vw, 100vw - ${w})`, width: w, margin: '0',
         top: 'auto', bottom: `min(${n('PageB')}dvh, 100dvh - 2.5em)`, 'align-self': 'auto', 'border-radius': '8px', border: '1px solid var(--SmartThemeBorderColor)',
       });
     }

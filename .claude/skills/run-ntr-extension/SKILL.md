@@ -120,7 +120,7 @@ To try new code on the running server without resetting the data, `st.sh install
 - **scrolling** the long chat from top to bottom;
 - **idle**: 10 s of doing nothing, which catches timers and animations that keep running;
 - **startup**: when NTR's files have arrived, when NTR starts, and when SillyTavern is ready to use, from the start of the page load;
-- **Edit Layout drag**, with Layout on (`full`): the chat panel and a Pinned Block dragged back and forth in Edit Layout for 2 s each, with the mouse, or by touch with `phone`, then undone.
+- **Edit Layout drag**, with Layout on (`full`) and without `vn`: the chat panel and a Pinned Block dragged back and forth in Edit Layout for 2 s each, with the mouse, or by touch with `phone`, then undone.
 
 ```bash
 bash .claude/skills/run-ntr-extension/st.sh bench plain none          # SillyTavern without NTR

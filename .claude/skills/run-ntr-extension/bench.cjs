@@ -292,6 +292,9 @@ async function once(opts) {
   // Edit Layout drags, after idle so their saves stay out of it: the chat panel (on a phone it fills the screen, so its
   // top edge), and the Bench Reading block. Each is undone and saved, so the next run starts the same.
   if (r.ntr && !opts.vn && (await page.evaluate(() => !!NTR.api.settings().layEnabled))) {
+    // Edit Layout opens from the menu, which it hides meanwhile, so the menu has to be open first.
+    await page.evaluate(() => NTR.api.openMenu());
+    await sleep(1500 * T);
     r.dragChat = await drag(page, cdp, opts, saves, opts.phone
       ? { first: 'lay', id: 'layChat', grip: 'n', axis: 'y', amp: 60, sway: false }
       : { first: 'lay', id: 'layChat', axis: 'x', amp: 120, sway: true });

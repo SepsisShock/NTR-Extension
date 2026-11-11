@@ -1,5 +1,5 @@
 (() => {
-  const OVERLAYS_VERSION = '2.86.74';
+  const OVERLAYS_VERSION = '2.86.75';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] overlays.js loaded without the core (index.js).'); return; }
   const { settings, save, isOn, currentKey, peek, bannerSrc, fgData, FG_POS, fgTransform, cardNum, rangeNum,
@@ -19,13 +19,13 @@
       .cb_thumbs { position: relative; display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin-top: 6px; }
       .cb_thumb { flex: none; width: 64px; height: 40px; object-fit: cover; border-radius: 4px; border: 2px solid transparent; cursor: pointer; opacity: 0.7; }
       .cb_thumbbtn { flex: none; padding: 0; margin: 0; border: 0; background: none; line-height: 0; cursor: pointer; }
-      .cb_thumb.active { border-color: var(--SmartThemeQuoteColor, #6cf); opacity: 1; }
+      .cb_thumb.active { border-color: var(--SmartThemeQuoteColor); opacity: 1; }
       #cb_banner .cb_wall { position: absolute; background-size: cover; background-position: center; background-repeat: no-repeat; pointer-events: none; z-index: 0; }
       #cb_banner .cb_img, #cb_banner .cb_yt { position: relative; z-index: 1; }
       #cb_banner .cb_xfade { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; transition: opacity .8s ease; }
       #cb_fg_layer { position: fixed; z-index: 2400; pointer-events: none; opacity: var(--cb-fg-op, 1); }
       #cb_fg_front { position: fixed; z-index: 2420; pointer-events: none; opacity: var(--cb-fg-op, 1); }
-      .cb_fg_img { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; pointer-events: none; }
+      .cb_fg_img { position: absolute; bottom: 0; height: 100%; object-fit: contain; object-position: center bottom; }
       #cb_fg_left { left: 0; object-position: left bottom; }
       #cb_fg_right { right: 0; object-position: right bottom; }
   `;

@@ -1,7 +1,7 @@
 // Pages show SillyTavern's own messages, so swipes, editing and the "..." menu keep working. Messages on other pages
 // are only hidden with CSS, so they stay in the prompt.
 (() => {
-  const READER_VERSION = '2.86.74';
+  const READER_VERSION = '2.86.75';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] reader.js loaded without the core (index.js).'); return; }
   const { ctx, settings, isOn, askNumber } = A;
@@ -24,7 +24,6 @@
     #ntr_rd_bar .ntr_rd_num[role="button"]:hover { background: var(--ntr-hover); }
     #ntr_rd_bar .ntr_rd_num input { width: 4em; margin: 0 4px; padding: 1px 4px; text-align: center; font: inherit; color: inherit;
       background: var(--ntr-well-deep); border: 1px solid var(--SmartThemeBorderColor); border-radius: 4px; }
-    #ntr_rd_toggle.cb_on { color: var(--SmartThemeQuoteColor, #6cf); }
     #ntr_flip { position: fixed; z-index: 32; pointer-events: none; }
     #ntr_flip .ntr_flip_half { position: absolute; top: 0; width: 50%; height: 100%; }
     #ntr_flip .ntr_flip_sheet { transform-style: preserve-3d; animation: ntr_flip_next ${FLIP_MS}ms ease-in-out forwards; }
@@ -264,7 +263,7 @@
     ${B} #sheld { position: fixed !important; left: ${px(g.x)} !important; top: ${px(g.y)} !important; width: ${px(g.w)} !important; max-width: none !important;
       height: auto !important; max-height: none !important; right: auto !important; bottom: auto !important; margin: 0 !important; resize: none !important; }
     ${B} #sheld > #sheldheader { display: none !important; }
-    ${B} #chat { flex: none !important; height: ${px(g.h)} !important; max-height: none !important; box-sizing: border-box !important; overflow: hidden !important;
+    ${B} #chat { flex: none !important; height: ${px(g.h)} !important; max-height: none !important; overflow: hidden !important;
       padding: ${px(g.pt)} ${px(g.po)} ${px(g.pb)} !important; background: ${cssUrl(s)} center / 100% 100% no-repeat !important;
       border: none !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
       text-shadow: none !important; scrollbar-width: none; will-change: auto !important; color: ${s.rdInk};
@@ -301,7 +300,7 @@
     ${B} #chat .mes :is(.swipe_left, .swipeRightBlock, .swipe_right, .swipes-counter) { color: ${s.rdInk}; }
     ${B} #chat .mes .swipeRightBlock { position: fixed !important; left: ${px(g.x + g.w - g.po - 50)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
     ${B} #chat .mes .swipe_left { position: fixed !important; left: ${px(g.x + g.w - g.po - 90)} !important; top: ${px(g.y + g.h - g.pb + 4)} !important; right: auto !important; bottom: auto !important; }
-    ${pageFree ? '' : `${B} #ntr_rd_bar { align-self: center; width: min(100%, var(--sheldWidth)); box-sizing: border-box; }`}
+    ${pageFree ? '' : `${B} #ntr_rd_bar { align-self: center; width: min(100%, var(--sheldWidth)); }`}
     ${free ? '' : `${B} #form_sheld { align-self: center; width: min(100%, var(--sheldWidth)) !important; }`}
     /* Chat Width is for Desktop: on Phone, the attached bars are as wide as the book. */
     ${pageFree && free ? '' : `@media (width <= 1000px) { ${B} :is(${[pageFree ? '' : '#ntr_rd_bar', free ? '' : '#form_sheld'].filter(Boolean).join(', ')}) { width: 100% !important; } }`}

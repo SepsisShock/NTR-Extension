@@ -8,7 +8,7 @@ try {
 }
 
 (() => {
-  const REGEX_VERSION = '2.86.74';
+  const REGEX_VERSION = '2.86.75';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] regex.js loaded without the core (index.js).'); return; }
   const { ctx, settings, save, store, escapeHTML: esc, pageHtml, askText, askYes, newId, downloadJson, switchHtml } = A;
@@ -206,7 +206,6 @@ try {
     #cb_modal_overlay .rx_shead { gap: 6px; }
     #cb_modal_overlay .rx_shead .ntr_parttitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_stitle { flex: 1; min-width: 0; }
-    #cb_modal_overlay .rx_stitle .ntr_parttitle { margin: 0; }
     #cb_modal_overlay .rx_sname { margin-top: -2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85em; opacity: .6; }
     #cb_modal_overlay .rx_secoff .rx_body { opacity: .45; }
     #cb_modal_overlay .rx_order { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -233,7 +232,7 @@ try {
     #cb_modal_overlay .rx_empty { opacity: .5; font-size: .85em; padding: 8px 0 4px; }
     #cb_modal_overlay .rx_swbox .ntr_pswitch { margin: 0; }
     #cb_modal_overlay .rx_guide { display: inline-flex; gap: 6px; align-items: center; margin: 8px 0 0; padding: 0; border: 0; background: none;
-      color: var(--SmartThemeQuoteColor, #6cf); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+      color: var(--SmartThemeQuoteColor); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   `;
 
   let query = '';

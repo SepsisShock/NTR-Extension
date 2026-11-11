@@ -1,6 +1,6 @@
 // Applying saved pop-out and foreground image positions stays out of this file, so they keep their place if it breaks.
 (() => {
-  const LAYOUT_VERSION = '2.86.74';
+  const LAYOUT_VERSION = '2.86.75';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] layout.js loaded without the core (index.js).'); return; }
   const { askYes, bindCheck, card, cardNum, clamp, ctx, currentKey, escapeHTML, fgData, fgTransform, isOn, menuBtn: btn, numRange, onPills, pageHtml, pills, rangeAttrs, rangeNum, save, settings } = A;
@@ -593,7 +593,7 @@
     if (v('Page') === 'free') {
       const w = `max(${n('PageW')}vw, var(--ntr-rdbar-min, 0px))`;
       css += cssRule('body #ntr_rd_bar', {
-        position: 'fixed', left: `clamp(0px, ${n('PageX')}vw, 100vw - ${w})`, width: w, margin: '0', 'box-sizing': 'border-box',
+        position: 'fixed', left: `clamp(0px, ${n('PageX')}vw, 100vw - ${w})`, width: w, margin: '0',
         top: 'auto', bottom: `min(${n('PageB')}dvh, 100dvh - 2.5em)`, 'align-self': 'auto', 'border-radius': '8px', border: '1px solid var(--SmartThemeBorderColor)',
       });
     }

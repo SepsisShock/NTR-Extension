@@ -1,5 +1,5 @@
 (() => {
-  const DECOR_VERSION = '2.86.74';
+  const DECOR_VERSION = '2.86.75';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] decor.js loaded without the core (index.js).'); return; }
   const { card, onPills, openMenu, pageHtml, pills, rangeNum, save, settings } = A;
@@ -139,7 +139,7 @@
     if (!placed) css += cssRule(`${sel} .mesAvatarWrapper`, { order: right ? '1' : '0' });
     if (right) css += cssRule(`${sel} .ch_name`, { 'flex-direction': 'row-reverse' }) + cssRule(`${sel} .ch_name > .flex1`, { 'justify-content': 'flex-end' });
     css += cssRule(`${sel} .mes_text`, {
-      position: 'relative', overflow: 'visible', 'box-sizing': 'border-box',
+      position: 'relative', overflow: 'visible',
       width: s.ovBubFit === 'shrink' ? 'fit-content' : '', 'max-width': `${rangeNum(s, 'ovBubWidth')}%`,
       'margin-left': right ? 'auto' : `${room}px`, 'margin-right': right ? `${room}px` : 'auto',
       padding: '8px 12px', 'border-radius': `${r}px`, ...(squared ? { [cornerKey]: '0' } : {}),

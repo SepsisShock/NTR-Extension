@@ -1,5 +1,5 @@
 (() => {
-  const ELEMENTS_VERSION = '2.86.74';
+  const ELEMENTS_VERSION = '2.86.75';
   const A = window.NTR && window.NTR.api;
   if (!A) { console.error('[NTR] elements.js loaded without the core (index.js).'); return; }
   const { DEFAULTS, ctx, save, settings, isOn, escapeHTML, loadImg, askImageUrl, uploadImage, deleteFileIfUnused, rangeNum,
@@ -203,7 +203,7 @@
     const tint = img && s.rbBgTintOn ? rangeNum(s, 'rbBgTint') / 100 : 0;
     const shade = `hsl(from var(--reasoning-body-color) 0 0 clamp(0, (50 - l) * 1000, 100) / ${tint})`;
     const top = [...pat, tint ? `linear-gradient(${shade}, ${shade})` : ''].filter(Boolean);
-    if (top.length) css += cssRule('.mes_reasoning::after', { ...layer, background: top.join(', '), padding: 'inherit', 'box-sizing': 'border-box' });
+    if (top.length) css += cssRule('.mes_reasoning::after', { ...layer, background: top.join(', '), padding: 'inherit' });
     return css;
   }
 

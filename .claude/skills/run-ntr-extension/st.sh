@@ -13,7 +13,7 @@
 #   st.sh bench table <name> [name...]   compare saved results
 #
 # SillyTavern lives in $ST_DIR (default ~/sillytavern) and answers on http://127.0.0.1:8000. Log: $ST_LOG.
-# The other commands, except browsers, wait while a setup is running.
+# Every command but hook and browsers waits while a setup is running.
 set -euo pipefail
 
 ST_DIR="${ST_DIR:-$HOME/sillytavern}"
@@ -26,7 +26,7 @@ PORT=8000
 SETUP_LOG=/tmp/sillytavern-setup.log
 LOCK=/tmp/ntr-st-setup.lock
 
-# Takes setup's lock, saying $1 while another setup holds it.
+# Takes setup's lock on fd 9, which keeps it until fd 9 closes. If something else holds it, says $1 and waits.
 lock() {
   exec 9>"$LOCK"
   if ! flock -n 9; then echo "$1 (log: $SETUP_LOG)"; flock 9; fi
@@ -35,6 +35,7 @@ lock() {
 # Waits for a setup that's running (the hook's, in the background) to finish.
 wait_setup() { lock "waiting for SillyTavern setup to finish"; exec 9>&-; }
 
+# Each try gives up after 5 seconds: start checks its 120-second limit only between tries.
 up() { curl -sf -m 5 -o /dev/null "http://127.0.0.1:$PORT"; }
 
 start() {
@@ -169,5 +170,6 @@ case "${1:-}" in
   reset) reset "${2:-}" ;;
   lazy) lazy "${2:-}" ;;
   bench) shift; bench "$@" ;;
+  # The header's lines 2 to 16 are the usage text: this range has to follow the header.
   *) sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

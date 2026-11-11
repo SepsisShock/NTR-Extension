@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Speed test for SillyTavern with or without NTR, in headless Chromium. Each run loads the page fresh, times its
 // startup, opens the first character's chat and measures: a streamed reply (400 words, one every 15 ms, with a
-// reasoning block), adding 80 messages, scrolling the long chat, 10 s of doing nothing and, with NTR's Layout on, two
-// Edit Layout drags. CPU times come from Chromium's own counters, frame times from requestAnimationFrame. --cpu N has
-// Chromium run the page N times slower. Results are saved as $NTR_BENCH/<name>.json (default /tmp/ntr-bench).
+// reasoning block), adding 80 messages, scrolling the long chat, 10 s of doing nothing and, with NTR's Layout on and
+// without --vn, two Edit Layout drags. CPU times come from Chromium's own counters, frame times from
+// requestAnimationFrame. --cpu N has Chromium run the page N times slower. Results are saved as $NTR_BENCH/<name>.json
+// (default /tmp/ntr-bench).
 // `st.sh bench` sets up SillyTavern for a run and calls this; see SKILL.md.
 //
 //   node .claude/skills/run-ntr-extension/bench.cjs run <name> [--runs N] [--phone] [--vn] [--cpu N] [--ntr <version>]

@@ -1,5 +1,5 @@
-// Agents are cleaned before anything reads them, Fields included: an imported one comes from another user, and fields
-// left out get their defaults.
+// Agents are cleaned before anything reads them, Fields included: an imported one comes from another user, and
+// settings left out get their defaults.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { api, context, load, R } from './env.mjs';
@@ -13,8 +13,9 @@ function stub(t, fields) {
   t.after(() => { for (const [k, v] of Object.entries(was)) if (v === undefined) delete context[k]; else context[k] = v; });
 }
 const agent = (x) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job: `job ${x}`, kind: 'cc', ccModel: 'm' });
-// Chat Completion runs that wait until the test finishes them, by the agent's name: `started` lists the names in the
-// order they started, and `sent` each run's first message.
+// Chat Completion runs that wait until the test finishes them. Each is known by its agent's one-letter name, read from
+// a job that starts "job <name>", as agent() makes it: `started` lists the names in the order they started, and `sent`
+// each run's first message.
 function ccRuns() {
   const live = new Map(), started = [], sent = [];
   const service = {

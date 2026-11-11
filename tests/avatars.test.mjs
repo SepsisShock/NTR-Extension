@@ -69,6 +69,7 @@ test('a built-in frame draws from the extension\'s own pictures, and an unknown 
 });
 
 test('the Frame library keeps safe links and short names, and drops the rest', (t) => {
+  // Puts back the settings reloadSettings replaces.
   testSettings(t);
   const c = reloadSettings({
     frameLib: { folders: [

@@ -103,6 +103,7 @@ if (input.tool_name === 'Bash') {
   if (!push && !pr) process.exit(0);
   // Only plain forms, so the commits are already made.
   const target = pushed(cmd);
+  // A remote.origin.push setting can send the branch to another name than the command shows.
   if (push && (!target || gitTry('config', '--get-all', 'remote.origin.push'))) decide('deny', 'Run git push by itself as git push [-u] origin <branch>, from the project folder: one branch, to origin, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
   if (pr && !/^gh\s+pr\s+create\b[^;&|`$<>\n]*$/.test(bare)) decide('deny', 'Run gh pr create by itself, after pushing, so the guard can check the commits it sends.');
 

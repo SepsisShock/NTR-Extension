@@ -15,12 +15,20 @@ const used = (src, from) => [...src.matchAll(new RegExp(`(?<![\\w.$])${from.repl
 // catches what goes wrong, so a misspelled one would only show as a part that quietly stopped working.
 test('the core and modules only call what the modules have', async () => {
   for (const name of MODULES) await load(name);
-  const core = readFileSync(join(ROOT, 'index.js'), 'utf8');
-  const mods = MODULES.map((n) => readFileSync(join(ROOT, `${n}.js`), 'utf8')).join('\n');
-  const calls = [...core.matchAll(/callModule\('(\w+)', '(\w+)'/g), ...mods.matchAll(/A\.callModule\('(\w+)', '(\w+)'/g),
-    ...[...core.matchAll(/(?:lookPageHtml\(|modulePageHtml\(s, )'(\w+)'/g)].map((m) => [m[0], m[1], 'sectionHtml'])];
+  const src = ['index', ...MODULES].map((n) => readFileSync(join(ROOT, `${n}.js`), 'utf8')).join('\n');
+  const all = (re) => [...src.matchAll(re)];
+  const calls = all(/callModule\('(\w+)', '(\w+)'/g).map((m) => [m[1], m[2]]);
   assert.ok(calls.length > 0, 'found no calls into the modules');
-  const missing = calls.filter(([, mod, fn]) => typeof window.NTR[mod]?.[fn] !== 'function').map(([, mod, fn]) => `${mod}.${fn}`);
+  // Calls that get the module's name as `name`: from the helpers that pass on the name they're given, with what each
+  // calls (a module page binds through bindOf unless it brings its own `bind`), and from a loop over names.
+  const PASSED = [[/\bbindOf\('(\w+)'\)/g, 'bind'], [/\bmodulePageHtml\(s, '(\w+)'(?!.*\bbind:)/g, 'bind'],
+    [/\b(?:lookPageHtml\(|modulePageHtml\(s, |subSection\()'(\w+)'/g, 'sectionHtml']];
+  for (const [re, fn] of PASSED) calls.push(...all(re).map((m) => [m[1], fn]));
+  for (const m of all(/for \(const name of \[([^\]]*)\]\) (?:A\.)?callModule\(name, '(\w+)'/g)) calls.push(...m[1].match(/\w+/g).map((mod) => [mod, m[2]]));
+  // Those are the 5 calls that don't name their module in quotes: bindOf, lookPageHtml and modulePageHtml in the core,
+  // and subSection and the bind loop in vn.js. One written another way would go unchecked, so it fails here.
+  assert.equal(all(/(?<!function )callModule\((?!')/g).length, 5, 'a call that doesn\'t name its module in quotes changed: PASSED has to follow');
+  const missing = calls.filter(([mod, fn]) => typeof window.NTR[mod]?.[fn] !== 'function').map(([mod, fn]) => `${mod}.${fn}`);
   assert.deepEqual(missing, [], `${missing.join(', ')} is called, but the module doesn't have it`);
 });
 

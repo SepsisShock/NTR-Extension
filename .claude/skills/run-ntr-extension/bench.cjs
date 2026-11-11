@@ -10,7 +10,7 @@
 //   node .claude/skills/run-ntr-extension/bench.cjs table <name> [name...]
 const fs = require('fs');
 const path = require('path');
-const { launch, contextOptions, NOISE, sleep, watchPage, openST } = require('./browser.cjs');
+const { launch, contextOptions, NOISE, sleep, watchPage, openST, setVN } = require('./browser.cjs');
 
 const OUT = process.env.NTR_BENCH || '/tmp/ntr-bench';
 
@@ -81,7 +81,7 @@ const startupFiles = () => {
 // start time: a long task can push the callbacks well past it, and moves that came in meanwhile wait too.
 const startMoves = () => {
   const d = window.__ntrDrag = { moves: 0, waiting: [], delays: [], on: true };
-  d.onMove = (e) => { d.moves++; d.waiting.push((e.getCoalescedEvents?.()[0] || e).timeStamp); };
+  d.onMove = (e) => { d.moves++; d.waiting.push((e.getCoalescedEvents()[0] || e).timeStamp); };
   window.addEventListener('pointermove', d.onMove, { capture: true, passive: true });
   const loop = () => {
     const t = performance.now();
@@ -209,8 +209,7 @@ async function once(opts) {
 
   if (opts.vn) {
     if (!r.ntr) throw new Error('--vn needs NTR installed');
-    if (!(await page.evaluate(() => !!window.NTR.api.settings().nodeEnabled))) await page.click('#cb_node_toggle');
-    await page.waitForFunction(() => window.NTR.vn, null, { timeout: 20000 * T });
+    await setVN(page, true, { timeout: 20000 * T });
     await sleep(1500 * T);
   }
 

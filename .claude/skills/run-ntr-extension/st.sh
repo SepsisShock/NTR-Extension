@@ -23,28 +23,33 @@ USER_DIR="$ST_DIR/data/default-user"
 EXT_DIR="$USER_DIR/extensions/NTR-Extension"
 CLEAN="$ST_DIR/.ntr-clean-data"
 PORT=8000
-SETUP_LOG="${SETUP_LOG:-/tmp/sillytavern-setup.log}"
+SETUP_LOG=/tmp/sillytavern-setup.log
 LOCK=/tmp/ntr-st-setup.lock
 
-# Waits for a setup that's running (the hook's, in the background) to finish.
-wait_setup() {
+# Takes setup's lock, saying $1 while another setup holds it.
+lock() {
   exec 9>"$LOCK"
-  if ! flock -n 9; then echo "waiting for SillyTavern setup to finish (log: $SETUP_LOG)"; flock 9; fi
-  exec 9>&-
+  if ! flock -n 9; then echo "$1 (log: $SETUP_LOG)"; flock 9; fi
 }
 
-up() { curl -sf -o /dev/null "http://127.0.0.1:$PORT"; }
+# Waits for a setup that's running (the hook's, in the background) to finish.
+wait_setup() { lock "waiting for SillyTavern setup to finish"; exec 9>&-; }
+
+up() { curl -sf -m 5 -o /dev/null "http://127.0.0.1:$PORT"; }
 
 start() {
   if up; then echo "SillyTavern is already running"; return; fi
   # Its own session, and none of this shell's output: a leftover writer would keep `$(st.sh start)` or a pipe open.
   # Not holding setup's lock either, or the next command would wait for the server to stop.
   (cd "$ST_DIR" && exec setsid nohup node server.js) > "$ST_LOG" 2>&1 < /dev/null 9>&- &
-  local pid=$!
-  if ! timeout 120 bash -c "until curl -sf -o /dev/null http://127.0.0.1:$PORT; do sleep 1; done"; then
-    kill "$pid" 2>/dev/null || true
-    echo "SillyTavern didn't start; last lines of $ST_LOG:"; tail -20 "$ST_LOG"; exit 1
-  fi
+  local pid=$! end=$((SECONDS + 120))
+  until up; do
+    if ((SECONDS >= end)); then
+      kill "$pid" 2>/dev/null || true
+      echo "SillyTavern didn't start; last lines of $ST_LOG:"; tail -20 "$ST_LOG"; exit 1
+    fi
+    sleep 1
+  done
   echo "SillyTavern is up at http://127.0.0.1:$PORT"
 }
 
@@ -77,12 +82,11 @@ install_ext() {
 }
 
 setup() {
-  exec 9>"$LOCK"
-  if ! flock -n 9; then echo "waiting for the SillyTavern setup already running (log: $SETUP_LOG)"; flock 9; fi
+  lock "waiting for the SillyTavern setup already running"
   # Done once is enough, and doing it again would stop a running server. Delete $ST_DIR to start over.
   if [ -d "$CLEAN" ]; then echo "SillyTavern is already set up in $ST_DIR"; return; fi
   if [ ! -d "$ST_DIR/.git" ]; then
-    GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 https://github.com/SillyTavern/SillyTavern "$ST_DIR"
+    git clone --depth 1 https://github.com/SillyTavern/SillyTavern "$ST_DIR"
   fi
   (cd "$ST_DIR" && npm ci --no-audit --no-fund --loglevel=error --no-progress --omit=dev)
   # The first start creates config.yaml and data/default-user (with the Seraphina character).

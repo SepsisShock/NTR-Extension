@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { launch, contextOptions, MODE, ST_URL, NOISE, sleep, watchPage, openST } = require('./browser.cjs');
+const { launch, contextOptions, MODE, ST_URL, NOISE, sleep, watchPage, openST, setVN } = require('./browser.cjs');
 
 const SHOTS = process.env.NTR_SHOTS || '/tmp/ntr-shots';
 const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : [s.slice(0, i).trim(), s.slice(i + 3).trim()]; };
@@ -57,7 +57,7 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
     // Open the NTR menu, go to a page by its icon (`menu fg`) and open folded parts by their data-sec name
     // (`menu reader rd_vn vn_guide`).
     async menu(rest) {
-      await page.evaluate(() => { window.toastr?.clear(); window.NTR.api.openMenu(); });
+      await page.evaluate(() => { window.toastr.clear(); window.NTR.api.openMenu(); });
       // A page or part from a file that loads when the menu opens fills in a moment later, so each gets up to 5 seconds.
       for (const sec of rest.split(/\s+/).filter(Boolean)) {
         const ok = await page.waitForFunction((sec) => {
@@ -74,11 +74,8 @@ const splitPipe = (s) => { const i = s.indexOf(' | '); return i < 0 ? [s, ''] : 
       return 'menu open';
     },
     async close() { await page.evaluate(() => window.NTR.api.closeMenu()); return 'menu closed'; },
-    // Visual Novel Mode through its toolbar button (tapped on a phone); `vn on` waits for the module to load.
     async vn(rest) {
-      const want = rest === 'on';
-      if (await page.evaluate(() => !!window.NTR.api.settings().nodeEnabled) !== want) await page[MODE === 'desktop' ? 'click' : 'tap']('#cb_node_toggle');
-      if (want) await page.waitForFunction(() => window.NTR.vn, null, { timeout: 20000 });
+      await setVN(page, rest === 'on', { tap: MODE !== 'desktop' });
       await sleep(800);
       return 'Visual Novel Mode ' + rest;
     },

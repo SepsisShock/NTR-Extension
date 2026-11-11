@@ -7,7 +7,7 @@ const path = require('path');
 const BROWSER = process.env.NTR_BROWSER || 'chromium';
 const PHONE = process.env.NTR_PHONE || '';
 const MODE = !PHONE ? 'desktop' : PHONE === 'landscape' ? 'phone landscape' : 'phone';
-const ST_URL = process.env.ST_URL || 'http://127.0.0.1:8000/';
+const ST_URL = 'http://127.0.0.1:8000/';
 // Without internet, SillyTavern's own AI Horde lookup fails with these; they aren't the extension's. A failed load
 // only counts as noise by its address, so a missing NTR image still shows up. Firefox and WebKit word the Horde error
 // differently, so theirs is told apart by horde.js in its stack. WebKit also warns about SillyTavern's viewport tag.
@@ -58,7 +58,7 @@ function watchPage(page) {
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     // "Failed to load resource" doesn't say which one; the address comes with the message.
-    const url = m.text().startsWith('Failed to load resource') ? m.location()?.url : '';
+    const url = m.text().startsWith('Failed to load resource') ? m.location().url : '';
     errors.push('console: ' + m.text() + (url ? ' (' + url + ')' : ''));
   });
   page.on('dialog', (d) => d.accept());
@@ -70,4 +70,10 @@ async function openST(page, timeout = 60000) {
   await page.waitForFunction(() => window.SillyTavern?.getContext && SillyTavern.getContext().characters.length > 0, null, { timeout });
 }
 
-module.exports = { launch, contextOptions, MODE, ST_URL, NOISE, sleep, watchPage, openST };
+// Visual Novel Mode on or off through its toolbar button; turning it on waits for vn.js to load.
+async function setVN(page, on, { tap = false, timeout = 20000 } = {}) {
+  if (await page.evaluate(() => !!window.NTR.api.settings().nodeEnabled) !== on) await page[tap ? 'tap' : 'click']('#cb_node_toggle');
+  if (on) await page.waitForFunction(() => window.NTR.vn, null, { timeout });
+}
+
+module.exports = { launch, contextOptions, MODE, ST_URL, NOISE, sleep, watchPage, openST, setVN };

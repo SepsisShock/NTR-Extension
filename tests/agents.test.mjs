@@ -1,13 +1,34 @@
-// Agents are cleaned before anything reads them, Fields included: an imported one comes from another user, and one
-// saved by an older version lacks newer settings.
+// Agents are cleaned before anything reads them, Fields included: an imported one comes from another user, and fields
+// left out get their defaults.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { api, context, load, R } from './env.mjs';
 
 await load('agents');
 const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0)); };
-// Takes off the context stubs a test added, and empties the chat again.
-const unstub = (...keys) => { for (const k of keys) delete context[k]; context.chat = []; };
+// One test's SillyTavern stubs, put on the context. Once it's over, failed or not, the context is as it was.
+function stub(t, fields) {
+  const was = Object.fromEntries(Object.keys(fields).map((k) => [k, context[k]]));
+  Object.assign(context, fields);
+  t.after(() => { for (const [k, v] of Object.entries(was)) if (v === undefined) delete context[k]; else context[k] = v; });
+}
+const agent = (x) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job: `job ${x}`, kind: 'cc', ccModel: 'm' });
+// Chat Completion runs that wait until the test finishes them, by the agent's name: `started` lists the names in the
+// order they started, and `sent` each run's first message.
+function ccRuns() {
+  const live = new Map(), started = [], sent = [];
+  const service = {
+    processRequest: (data) => new Promise((res) => {
+      const msg = data.messages[0].content;
+      const name = /^job (\w)/.exec(msg)[1];
+      started.push(name);
+      sent.push(msg);
+      live.set(name, res);
+    }),
+  };
+  const finish = async (x, text = 'ok') => { live.get(x)({ content: text }); live.delete(x); await settle(); };
+  return { live, started, sent, service, finish };
+}
 
 test('agent fields are cleaned', () => {
   api.settings().agents = [{
@@ -24,9 +45,9 @@ test('agent fields are cleaned', () => {
   const [a, u] = api.settings().agents;
   assert.equal(a.every, R.agEvery[1], 'Run Every stops at its limit');
   assert.equal(a.readBy, 'since');
-  assert.deepEqual([u.every, u.readBy], [1, 'recent'], 'an agent saved before Run Every runs after each message, as it did');
+  assert.deepEqual([u.every, u.readBy], [1, 'recent'], 'a missing Run Every is 1');
   assert.equal(a.fields.length, 7, 'entries that are not objects are dropped');
-  assert.deepEqual(a.runOn, ['ai'], 'an agent saved before Which Messages runs after AI replies, as it did');
+  assert.deepEqual(a.runOn, ['ai'], 'a missing Which Messages is AI replies');
   const [num, head, text, ...names] = a.fields;
   // Names are read back from the agent's answer, so they lose what reading would strip: Markdown marks, list markers
   // in front and underscores at the end. An underscore inside stays.
@@ -77,43 +98,28 @@ test('reports are cleaned', () => {
   assert.deepEqual(c.reportsFrom, []);
 });
 
-// An agent that's off sends nothing to the main AI.
-test('an agent that is off sends nothing to the main AI', () => {
+test('an agent that is off sends nothing to the main AI', (t) => {
   const s = api.settings();
   s.agEnabled = true;
   s.agents = [{ id: 'ag_on', name: 'On', on: true, send: true }, { id: 'ag_off', name: 'Off', send: true }];
   s.agDepts = [];
   const saved = { ag_on: { text: 'On answer', date: 'd' }, ag_off: { text: 'Off answer', date: 'd' } };
-  context.chat = [{ send_date: 'd', extra: { ntr_agents: saved } }];
   const sent = {};
-  context.setExtensionPrompt = (k, v) => { sent[k] = v; };
+  stub(t, { chat: [{ send_date: 'd', extra: { ntr_agents: saved } }], setExtensionPrompt: (k, v) => { sent[k] = v; } });
   window.NTR.agents.genStarted('normal', true);
   assert.equal(sent.ntr_agent_ag_on, '[On]\nOn answer');
   assert.equal(sent.ntr_agent_ag_off, undefined);
-  unstub('setExtensionPrompt');
 });
 
 // Agents in no department run first; then each department is a lane, up to 3 runs at once. An agent that gets reports
 // from an agent above it in another department waits for that agent's run.
-test('departments run side by side, and an agent waits for the agents above it that report to it', async () => {
+test('departments run side by side, and an agent waits for the agents above it that report to it', async (t) => {
   const s = api.settings();
   s.agEnabled = true;
-  const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
   s.agents = [agent('L'), agent('A'), agent('B'), agent('C'), { ...agent('E'), reportsFrom: ['ag_A'] }, agent('F')];
   s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_A', 'ag_B'] }, { id: 'dp_2', name: 'Two', ids: ['ag_C', 'ag_E'] }, { id: 'dp_3', name: 'Three', ids: ['ag_F'] }];
-  context.chat = [{ send_date: 'd', mes: 'Hi', name: 'X', extra: {} }];
-  context.saveChat = () => {};
-  const live = new Map();
-  const started = [];
-  context.ChatCompletionService = {
-    processRequest: (data, o, x, signal) => new Promise((res, rej) => {
-      const name = /^job (\w)/.exec(data.messages[0].content)[1];
-      started.push(name);
-      live.set(name, res);
-      signal.addEventListener('abort', () => rej(new Error('Stopped')));
-    }),
-  };
-  const finish = async (x) => { live.get(x)({ content: 'ok' }); live.delete(x); await settle(); };
+  const { live, started, service, finish } = ccRuns();
+  stub(t, { chat: [{ send_date: 'd', mes: 'Hi', name: 'X', extra: {} }], saveChat: () => {}, ChatCompletionService: service });
 
   window.NTR.agents.replied('normal', null);
   await settle();
@@ -137,30 +143,22 @@ test('departments run side by side, and an agent waits for the agents above it t
   await finish(started[1]);
   assert.equal(started.length, 5, 'one ends, and one more starts');
   while (live.size) await finish([...live.keys()][0]);
-  unstub('ChatCompletionService', 'saveChat');
 });
 
 // An agent that gets reports from an agent below it gets that agent's answer from when the run was asked for, even when
 // the agent below, in another department, finishes first, and even twice.
-test('a report from an agent below is its last answer, whichever finishes first', async () => {
+test('a report from an agent below is its last answer, whichever finishes first', async (t) => {
   const s = api.settings();
   s.agEnabled = true;
-  const agent = (x, job = `job ${x}`) => ({ id: `ag_${x}`, name: x, on: true, runs: 'reply', job, kind: 'cc', ccModel: 'm' });
   s.agents = [agent('B'), { ...agent('R'), reportsFrom: ['ag_P'] }, agent('P')];
   s.agDepts = [{ id: 'dp_1', name: 'One', ids: ['ag_B', 'ag_R'] }, { id: 'dp_2', name: 'Two', ids: ['ag_P'] }];
-  context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd0', at: 1 } } } },
-    { send_date: 'd1', mes: 'Hello', name: 'Y', extra: {} }];
-  context.saveChat = () => {};
-  const live = new Map();
-  const sent = [];
-  context.ChatCompletionService = {
-    processRequest: (data) => new Promise((res) => {
-      const name = /^job (\w)/.exec(data.messages[0].content)[1];
-      sent.push(data.messages[0].content);
-      live.set(name, res);
-    }),
-  };
-  const finish = async (x, text) => { live.get(x)({ content: text }); live.delete(x); await settle(); };
+  const { sent, service, finish } = ccRuns();
+  stub(t, {
+    chat: [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd0', at: 1 } } } },
+      { send_date: 'd1', mes: 'Hello', name: 'Y', extra: {} }],
+    saveChat: () => {},
+    ChatCompletionService: service,
+  });
   window.NTR.agents.replied('normal', null);
   await settle();
   await finish('P', 'NEW');
@@ -175,24 +173,25 @@ test('a report from an agent below is its last answer, whichever finishes first'
   await finish('B', 'x');
   assert.equal(sent.at(-1), 'job R\n\nReports from other agents:\n[P]\nNEW', 'the second R was asked for after P saved NEW, and before P ran again');
   await finish('R', 'x');
-  unstub('ChatCompletionService', 'saveChat');
 });
 
 // A full-prompt agent's snapshot is for its own quiet request, never for the chat's reply while it waits for an answer.
-test('your reply sends agents\' newest results while a full-prompt agent runs', async () => {
+test('your reply sends agents\' newest results while a full-prompt agent runs', async (t) => {
   const s = api.settings();
   s.agEnabled = true;
   s.agents = [{ id: 'ag_F', name: 'F', on: true, runs: 'reply', job: 'job F', kind: 'chat', full: true }, { id: 'ag_P', name: 'P', on: true, send: true, job: 'job P' }];
   s.agDepts = [];
-  context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd0', at: 1 } } } }];
-  context.saveChat = () => {};
   const sent = {};
-  context.setExtensionPrompt = (k, v) => { sent[k] = v; };
   let answer;
-  context.generateQuietPrompt = () => {
-    window.NTR.agents.genStarted('quiet', false);
-    return new Promise((res) => { answer = res; });
-  };
+  stub(t, {
+    chat: [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: { ntr_agents: { ag_P: { text: 'OLD', date: 'd0', at: 1 } } } }],
+    saveChat: () => {},
+    setExtensionPrompt: (k, v) => { sent[k] = v; },
+    generateQuietPrompt: () => {
+      window.NTR.agents.genStarted('quiet', false);
+      return new Promise((res) => { answer = res; });
+    },
+  });
   window.NTR.agents.replied('normal', null); // F runs; P runs on the button only
   await settle();
   context.chat[0].extra.ntr_agents.ag_P = { text: 'NEW', date: 'd0', at: 2 };
@@ -201,23 +200,24 @@ test('your reply sends agents\' newest results while a full-prompt agent runs', 
   window.NTR.agents.genEnded();
   answer('done');
   await settle();
-  unstub('saveChat', 'setExtensionPrompt', 'generateQuietPrompt');
 });
 
 // An agent that runs on a user message with Send to Main AI goes first: the chat's reply waits for it, so its answer reaches that reply.
 // It doesn't wait for a Same as Chat run above it, which itself waits for the chat's reply.
-test('your reply waits for agents that run on your message, and they skip runs that wait for your reply', async () => {
+test('your reply waits for agents that run on your message, and they skip runs that wait for your reply', async (t) => {
   const s = api.settings();
   s.agEnabled = true;
   s.agents = [{ id: 'ag_S', name: 'S', on: true, runs: 'reply', runOn: ['ai'], job: 'job S', kind: 'chat' },
     { id: 'ag_Q', name: 'Q', on: true, runs: 'reply', runOn: ['user'], send: true, job: 'job Q', kind: 'chat' }];
   s.agDepts = [];
-  context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: {} }];
-  context.saveChat = () => {};
   const sent = {};
-  context.setExtensionPrompt = (k, v) => { sent[k] = v; };
   const live = new Map();
-  context.generateRaw = ({ systemPrompt }) => new Promise((res) => { live.set(/^job (\w)/.exec(systemPrompt)[1], res); });
+  stub(t, {
+    chat: [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: {} }],
+    saveChat: () => {},
+    setExtensionPrompt: (k, v) => { sent[k] = v; },
+    generateRaw: ({ systemPrompt }) => new Promise((res) => { live.set(/^job (\w)/.exec(systemPrompt)[1], res); }),
+  });
   const ag = window.NTR.agents;
   ag.genStarted('normal', false); // chat reply starts
   ag.replied('normal', 0); // S waits for it
@@ -242,26 +242,27 @@ test('your reply waits for agents that run on your message, and they skip runs t
   assert.deepEqual([...live.keys()], ['S'], 'S runs once your reply is done');
   live.get('S')('x');
   await settle();
-  unstub('saveChat', 'setExtensionPrompt', 'generateRaw');
 });
 
 // A run that goes first can finish, and build its request, before SillyTavern reaches the wait: its answer still goes
 // into the chat's reply, and its own samplers stay in its request.
-test('a run that goes first and is done before your reply waits still reaches it, with its own samplers', async () => {
+test('a run that goes first and is done before your reply waits still reaches it, with its own samplers', async (t) => {
   const s = api.settings();
   s.agEnabled = true;
   s.agents = [{ id: 'ag_Q', name: 'Q', on: true, runs: 'reply', runOn: ['user'], send: true, job: 'job Q', kind: 'chat', tempOn: true, temp: 0.3 }];
   s.agDepts = [];
-  context.chat = [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: {} }, { send_date: 'd1', mes: 'Go', name: 'Me', is_user: true, extra: {} }];
-  context.saveChat = () => {};
   const sent = {};
-  context.setExtensionPrompt = (k, v) => { sent[k] = v; };
   const hooks = [];
-  context.mainApi = 'openai';
-  context.event_types = { CHAT_COMPLETION_SETTINGS_READY: 'ready' };
-  context.eventSource = { on: (_, f) => hooks.push(f), removeListener: (_, f) => hooks.splice(hooks.indexOf(f), 1), emit: () => {} };
   const request = { temperature: 1 };
-  context.generateRaw = async () => { hooks.forEach((f) => f(request)); return 'NEW'; };
+  stub(t, {
+    chat: [{ send_date: 'd0', mes: 'Hi', name: 'X', extra: {} }, { send_date: 'd1', mes: 'Go', name: 'Me', is_user: true, extra: {} }],
+    saveChat: () => {},
+    setExtensionPrompt: (k, v) => { sent[k] = v; },
+    mainApi: 'openai',
+    event_types: { CHAT_COMPLETION_SETTINGS_READY: 'ready' },
+    eventSource: { on: (_, f) => hooks.push(f), removeListener: (_, f) => hooks.splice(hooks.indexOf(f), 1) },
+    generateRaw: async () => { hooks.forEach((f) => f(request)); return 'NEW'; },
+  });
   const ag = window.NTR.agents;
   ag.genStarted('normal', false);
   ag.replied('sent', 1);
@@ -271,24 +272,23 @@ test('a run that goes first and is done before your reply waits still reaches it
   await ag.beforeReply('normal');
   assert.equal(sent.ntr_agent_ag_Q, '[Q]\nNEW');
   ag.genEnded();
-  unstub('saveChat', 'setExtensionPrompt', 'generateRaw', 'mainApi', 'event_types', 'eventSource');
 });
 
 // Run Every counts the ticked messages since the agent's newest result, never the greeting, and adds no run while one
 // is on the way. Since Its Last Result reads the messages after that result.
-test('run every counts ticked messages since the last result, and since its last result reads only those', async () => {
+test('run every counts ticked messages since the last result, and since its last result reads only those', async (t) => {
   const s = api.settings();
   s.agEnabled = true;
   s.agents = [{ id: 'ag_S', name: 'S', on: true, runs: 'reply', job: 'job S', kind: 'cc', ccModel: 'm', every: 2, readBy: 'since', context: 10 }];
   s.agDepts = [];
   const msg = (i) => ({ send_date: `d${i}`, mes: `m${i}`, name: i % 2 ? 'You' : 'Char', is_user: i % 2 === 1, extra: {} });
-  context.chat = [0, 1, 2].map(msg);
-  context.saveChat = () => {};
   const live = [];
   const sent = [];
-  context.ChatCompletionService = {
-    processRequest: (data) => new Promise((res) => { sent.push(data.messages[1].content); live.push(res); }),
-  };
+  stub(t, {
+    chat: [0, 1, 2].map(msg),
+    saveChat: () => {},
+    ChatCompletionService: { processRequest: (data) => new Promise((res) => { sent.push(data.messages[1].content); live.push(res); }) },
+  });
   const add = (...l) => context.chat.push(...l.map(msg));
   window.NTR.agents.replied('normal', 2);
   await settle();
@@ -310,7 +310,6 @@ test('run every counts ticked messages since the last result, and since its last
   assert.equal(sent[1], 'The chat messages since your last result, oldest first:\n\nYou: m5\n\nChar: m6\n\nYou: m7\n\nChar: m8');
   live.shift()({ content: 'ok' });
   await settle();
-  unstub('ChatCompletionService', 'saveChat');
 });
 
 // A shared agent brings its job, never the sharer's own setup, and comes in as a new agent, switched off.

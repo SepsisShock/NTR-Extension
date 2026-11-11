@@ -4,18 +4,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 globalThis.NTR_TEST_WITHOUT = ['layout'];
-const { api } = await import('./env.mjs');
+const { api, testSettings } = await import('./env.mjs');
 
-test('without layout.js, Layout stays SillyTavern\'s own', () => {
-  const s = api.settings();
-  Object.assign(s, { masterEnabled: true, layEnabled: true, laySend: 'free', layPage: 'free', layBan: 'free', ovSendPosOn: true, ovSendPos: 'separate' });
+test('without layout.js, Layout stays SillyTavern\'s own', (t) => {
+  const s = testSettings(t, { masterEnabled: true, layEnabled: true, laySend: 'free', layPage: 'free', layBan: 'free', ovSendPosOn: true, ovSendPos: 'separate' });
   assert.equal(api.sendFree(), false);
   assert.equal(api.pageFree(), false);
   assert.equal(api.banFree(), false);
   assert.equal(api.look.sendSeparate(s), false);
   Object.assign(s, { ovNamesOn: true });
   assert.equal(api.look.namesHidden(s), false);
-  s.ovNamesOn = false;
 });
 
 test('without layout.js, saved Pinned Blocks are still cleaned', () => {

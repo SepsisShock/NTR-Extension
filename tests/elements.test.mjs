@@ -2,16 +2,11 @@
 // screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api } from './env.mjs';
+import { testSettings } from './env.mjs';
 
-test('Elements builds its CSS, and none while NTR is off', () => {
-  const s = api.settings();
-  s.masterEnabled = true;
-  s.rbEnabled = true;
-  s.rbBoxShapeOn = true;
-  s.rbBoxShape = 'extra';
+test('Elements builds its CSS, and none while NTR is off', (t) => {
+  const s = testSettings(t, { masterEnabled: true, rbEnabled: true, rbBoxShapeOn: true, rbBoxShape: 'extra' });
   assert.match(window.NTR.elements.css(s), /\.mes_reasoning \{ border-radius: 20px !important;/);
   s.masterEnabled = false;
   assert.equal(window.NTR.elements.css(s), '');
-  s.masterEnabled = true;
 });

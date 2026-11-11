@@ -2,11 +2,10 @@
 // on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api } from './env.mjs';
+import { testSettings } from './env.mjs';
 
-test('Text Formatting builds its CSS, and none while its page is off', () => {
-  const s = api.settings();
-  Object.assign(s, { tfEnabled: true, tfNameColorOn: true, tfNameColor: 'rgba(255, 0, 0, 1)', tfNameFxOn: true, tfNameFx: 'glow', tfNameFxStr: 3,
+test('Text Formatting builds its CSS, and none while its page is off', (t) => {
+  const s = testSettings(t, { tfEnabled: true, tfNameColorOn: true, tfNameColor: 'rgba(255, 0, 0, 1)', tfNameFxOn: true, tfNameFx: 'glow', tfNameFxStr: 3,
     tfUserAlignOn: true, tfUserAlign: 'center', tfPlatePosOn: true, tfPlatePos: 'edge', tfPlateBgOn: true, tfPlateBg: 'rgba(0, 0, 0, 1)' });
   const css = window.NTR.text.css(s);
   // A name's color and its Glow, which takes the text's own color.
@@ -19,9 +18,8 @@ test('Text Formatting builds its CSS, and none while its page is off', () => {
   assert.equal(window.NTR.text.css(s), '');
 });
 
-test('Glow and Shadow reach the text inside messages, but not code, tables or Speech Bubbles\' Dark and Light text', () => {
-  const s = api.settings();
-  Object.assign(s, { masterEnabled: true, tfEnabled: true, tfAiFxOn: true, tfAiFx: 'shadow', tfAiFxStr: 3, tfUserFxOn: true, tfUserFx: 'outline', ovBubOn: false });
+test('Glow and Shadow reach the text inside messages, but not code, tables or Speech Bubbles\' Dark and Light text', (t) => {
+  const s = testSettings(t, { masterEnabled: true, tfEnabled: true, tfAiFxOn: true, tfAiFx: 'shadow', tfAiFxStr: 3, tfUserFxOn: true, tfUserFx: 'outline', ovBubOn: false });
   let css = window.NTR.text.css(s);
   const inner = (box) => `${box} :not(:is(pre, table, textarea), :is(pre, table, textarea) *) { text-shadow: inherit !important; }`;
   assert.ok(css.includes(inner('.mes[is_user="false"] .mes_text')));
@@ -34,13 +32,10 @@ test('Glow and Shadow reach the text inside messages, but not code, tables or Sp
   css = window.NTR.text.css(s);
   assert.ok(!css.includes(inner('.mes[is_user="false"] .mes_text')));
   assert.ok(css.includes(inner('#cb_node .cb_n_text')), 'the Visual Novel box has no bubbles');
-  Object.assign(s, { tfEnabled: false, tfAiFxOn: false, tfUserFxOn: false, ovEnabled: false, ovBubOn: false, ovBubInk: 'auto' });
 });
 
-test('Gradient and Shimmer paint the text blocks, with Shimmer only on the newest messages', () => {
-  const s = api.settings();
-  const reset = { tfEnabled: false, tfNameFxOn: false, tfAiFxOn: false, tfUserFxOn: false, tfAiQuoteOn: false, tfPlateBgOn: false, tfPlateImg: '', ovEnabled: false, ovBubOn: false, ovBubInk: 'auto' };
-  Object.assign(s, { masterEnabled: true, tfEnabled: true, tfAiFxOn: true, tfAiFx: 'gradient', tfAiFxStr: 3, tfAiFxColorOn: false, tfUserFxOn: true, tfUserFx: 'shimmer', tfUserFxStr: 2, tfUserFxColorOn: true, tfUserFxColor: 'rgba(0, 0, 255, 1)' });
+test('Gradient and Shimmer paint the text blocks, with Shimmer only on the newest messages', (t) => {
+  const s = testSettings(t, { masterEnabled: true, tfEnabled: true, tfAiFxOn: true, tfAiFx: 'gradient', tfAiFxStr: 3, tfAiFxColorOn: false, tfUserFxOn: true, tfUserFx: 'shimmer', tfUserFxStr: 2, tfUserFxColorOn: true, tfUserFxColor: 'rgba(0, 0, 255, 1)' });
   let css = window.NTR.text.css(s);
   const blocks = ':is(p, li, h1, h2, h3, h4, h5, h6):not(li *, pre *, table *)';
   // Gradient on every AI message, to ST's Quote Color, with Glow's rules left out.
@@ -75,12 +70,10 @@ test('Gradient and Shimmer paint the text blocks, with Shimmer only on the newes
   css = window.NTR.text.css(s);
   assert.ok(!css.includes(`.mes[is_user="false"] .mes_text ${blocks} {`));
   assert.ok(css.includes('#cb_node .cb_n_text { background-image:'));
-  Object.assign(s, reset);
 });
 
-test('Gradient and Shimmer on names keep the Nameplate, and Shimmer plays on the newest name', () => {
-  const s = api.settings();
-  Object.assign(s, { tfEnabled: true, tfNameFxOn: true, tfNameFx: 'shimmer', tfNameFxStr: 3, tfNameFxColorOn: false, tfPlateBgOn: true, tfPlateBg: 'rgba(0, 0, 0, 1)', tfPlateImg: '', tfNameColorOn: false });
+test('Gradient and Shimmer on names keep the Nameplate, and Shimmer plays on the newest name', (t) => {
+  const s = testSettings(t, { tfEnabled: true, tfNameFxOn: true, tfNameFx: 'shimmer', tfNameFxStr: 3, tfNameFxColorOn: false, tfPlateBgOn: true, tfPlateBg: 'rgba(0, 0, 0, 1)', tfPlateImg: '', tfNameColorOn: false });
   let css = window.NTR.text.css(s);
   const name = 'body:not(.ntr_book) #chat > .mes:nth-last-child(1 of .mes:not([is_system="true"])) .name_text';
   // A Nameplate color stays under the paint: a second, empty layer keeps it to the whole box.
@@ -100,5 +93,4 @@ test('Gradient and Shimmer on names keep the Nameplate, and Shimmer plays on the
   assert.ok(css.includes('body:not(.ntr_book) .mes .name_text { background-image: linear-gradient(90deg, currentColor, var(--SmartThemeQuoteColor) 84%) !important;'));
   assert.ok(/#cb_node \.cb_n_name \{[^}]*background-color: var\(--SmartThemeBlurTintColor\) !important; color: var\(--SmartThemeBodyColor\) !important; border: 1px solid var\(--SmartThemeBorderColor\) !important;/.test(css));
   assert.ok(!css.includes('@keyframes'));
-  Object.assign(s, { tfEnabled: false, tfNameFxOn: false });
 });

@@ -206,7 +206,6 @@ try {
     #cb_modal_overlay .rx_shead { gap: 6px; }
     #cb_modal_overlay .rx_shead .ntr_parttitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #cb_modal_overlay .rx_stitle { flex: 1; min-width: 0; }
-    #cb_modal_overlay .rx_stitle .ntr_parttitle { margin: 0; }
     #cb_modal_overlay .rx_sname { margin-top: -2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85em; opacity: .6; }
     #cb_modal_overlay .rx_secoff .rx_body { opacity: .45; }
     #cb_modal_overlay .rx_order { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

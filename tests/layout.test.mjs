@@ -2,12 +2,11 @@
 // where things sit on screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api } from './env.mjs';
+import { api, testSettings } from './env.mjs';
 
-test('the send bar, page bar and banner are Free only with Layout on', () => {
-  const s = api.settings();
+test('the send bar, page bar and banner are Free only with Layout on', (t) => {
   // The test window counts as wider than 1000px, so the Desktop layout's settings are the ones used.
-  Object.assign(s, { masterEnabled: true, layEnabled: true, laySend: 'free', layPage: 'free', layBan: 'attached', ovSendPosOn: true, ovSendPos: 'separate' });
+  const s = testSettings(t, { masterEnabled: true, layEnabled: true, laySend: 'free', layPage: 'free', layBan: 'attached', ovSendPosOn: true, ovSendPos: 'separate' });
   assert.equal(api.sendFree(), true);
   assert.equal(api.pageFree(), true);
   assert.equal(api.banFree(), false);
@@ -15,7 +14,6 @@ test('the send bar, page bar and banner are Free only with Layout on', () => {
   s.layEnabled = false;
   assert.equal(api.sendFree(), false);
   assert.equal(api.look.sendSeparate(s), false);
-  Object.assign(s, { laySend: 'attached', layPage: 'attached', ovSendPosOn: false });
 });
 
 test('the Layout page draws, with its switch and Pinned Blocks', () => {
@@ -24,15 +22,13 @@ test('the Layout page draws, with its switch and Pinned Blocks', () => {
   assert.match(html, /data-key="ovNamesOn"/);
 });
 
-test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s, and takes NTR Avatars with it', () => {
-  const s = api.settings();
-  Object.assign(s, { masterEnabled: true, layEnabled: true, avatarEnabled: false, aiEnabled: true, ovNamesOn: true });
+test('Hide Names and Avatars follows Layout\'s switch, not Avatar Management\'s, and takes NTR Avatars with it', (t) => {
+  const s = testSettings(t, { masterEnabled: true, layEnabled: true, avatarEnabled: false, aiEnabled: true, ovNamesOn: true });
   assert.equal(api.look.namesHidden(s), true);
   s.avatarEnabled = true;
   assert.equal(api.look.ntrAvatars(s, 'ai'), false);
   s.layEnabled = false;
   assert.equal(api.look.namesHidden(s), false);
   assert.equal(api.look.ntrAvatars(s, 'ai'), true);
-  s.ovNamesOn = false;
 });
 

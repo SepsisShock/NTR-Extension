@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 // Speed test for SillyTavern with or without NTR, in headless Chromium. Each run loads the page fresh, times its
 // startup, opens the first character's chat and measures: a streamed reply (400 words, one every 15 ms, with a
-// reasoning block), adding 80 messages, scrolling the long chat, 10 s of doing nothing and, with NTR's Layout on, two
-// Edit Layout drags. CPU times come from Chromium's own counters, frame times from requestAnimationFrame. --cpu N has
-// Chromium run the page N times slower. Results are saved as $NTR_BENCH/<name>.json (default /tmp/ntr-bench).
+// reasoning block), adding 80 messages, scrolling the long chat, 10 s of doing nothing and, with NTR's Layout on and
+// without --vn, two Edit Layout drags. CPU times come from Chromium's own counters, frame times from
+// requestAnimationFrame. --cpu N has Chromium run the page N times slower. Results are saved as $NTR_BENCH/<name>.json
+// (default /tmp/ntr-bench).
 // `st.sh bench` sets up SillyTavern for a run and calls this; see SKILL.md.
 //
 //   node .claude/skills/run-ntr-extension/bench.cjs run <name> [--runs N] [--phone] [--vn] [--cpu N] [--ntr <version>]
 //   node .claude/skills/run-ntr-extension/bench.cjs table <name> [name...]
 const fs = require('fs');
 const path = require('path');
-const { launch, contextOptions, NOISE, sleep, watchPage, openST } = require('./browser.cjs');
+const { launch, contextOptions, NOISE, sleep, watchPage, openST, setVN } = require('./browser.cjs');
 
 const OUT = process.env.NTR_BENCH || '/tmp/ntr-bench';
 
@@ -81,7 +82,7 @@ const startupFiles = () => {
 // start time: a long task can push the callbacks well past it, and moves that came in meanwhile wait too.
 const startMoves = () => {
   const d = window.__ntrDrag = { moves: 0, waiting: [], delays: [], on: true };
-  d.onMove = (e) => { d.moves++; d.waiting.push((e.getCoalescedEvents?.()[0] || e).timeStamp); };
+  d.onMove = (e) => { d.moves++; d.waiting.push((e.getCoalescedEvents()[0] || e).timeStamp); };
   window.addEventListener('pointermove', d.onMove, { capture: true, passive: true });
   const loop = () => {
     const t = performance.now();
@@ -209,8 +210,7 @@ async function once(opts) {
 
   if (opts.vn) {
     if (!r.ntr) throw new Error('--vn needs NTR installed');
-    if (!(await page.evaluate(() => !!window.NTR.api.settings().nodeEnabled))) await page.click('#cb_node_toggle');
-    await page.waitForFunction(() => window.NTR.vn, null, { timeout: 20000 * T });
+    await setVN(page, true, { timeout: 20000 * T });
     await sleep(1500 * T);
   }
 
@@ -293,6 +293,9 @@ async function once(opts) {
   // Edit Layout drags, after idle so their saves stay out of it: the chat panel (on a phone it fills the screen, so its
   // top edge), and the Bench Reading block. Each is undone and saved, so the next run starts the same.
   if (r.ntr && !opts.vn && (await page.evaluate(() => !!NTR.api.settings().layEnabled))) {
+    // Edit Layout opens from the menu, which it hides meanwhile, so the menu has to be open first.
+    await page.evaluate(() => NTR.api.openMenu());
+    await sleep(1500 * T);
     r.dragChat = await drag(page, cdp, opts, saves, opts.phone
       ? { first: 'lay', id: 'layChat', grip: 'n', axis: 'y', amp: 60, sway: false }
       : { first: 'lay', id: 'layChat', axis: 'x', amp: 120, sway: true });

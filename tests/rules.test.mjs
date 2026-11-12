@@ -151,7 +151,7 @@ const OWN_LIMITS = [['index.js', 'class="${cls}"'], ['index.js', 'max="${n}"']];
 test('sliders and number boxes take their limits from NUM_RANGE', () => {
   const tags = Object.entries(SRC).flatMap(([file, src]) => [...src.matchAll(/<input\b[^>]*\btype="(?:range|number)"[^>]*>/g)].map((m) => [file, m[0]]));
   assert.ok(tags.length > 0, 'found no sliders');
-  const own = tags.filter(([file, tag]) => /\bm(?:in|ax)="/.test(tag) && !tag.includes('rangeAttrs('));
+  const own = tags.filter(([, tag]) => /\bm(?:in|ax)="/.test(tag) && !tag.includes('rangeAttrs('));
   const bad = own.filter(([file, tag]) => !OWN_LIMITS.some(([f, has]) => f === file && tag.includes(has))).map(([file, tag]) => `${file}: ${tag.slice(0, 80)}`);
   assert.deepEqual(bad, [], `these write their own min/max:\n${bad.join('\n')}\nDefine the range in NUM_RANGE and use rangeSlider or rangeAttrs.`);
   const ov = calls('index.js', ['ovSlider']);

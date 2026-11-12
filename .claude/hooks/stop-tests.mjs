@@ -13,13 +13,12 @@
 //
 // What it saw last, and whether it sent Claude back, is kept in .git/ntr-stop-hook.json, which git doesn't track.
 // stop_hook_active isn't used: it's also true when another Stop hook sent Claude back.
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { dir, input } from './lib.mjs';
+import { dir, git, input, readState, say, statePath } from './lib.mjs';
 
-const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 256 << 20 });
 const CODE = ['*.js', '*.mjs', '*.cjs', '*.css'];
 
 // The commit plus every uncommitted change to the code, so any edit or commit gives a new value.
@@ -29,9 +28,8 @@ function fingerprint() {
   return h.digest('hex');
 }
 
-const stateFile = join(git('rev-parse', '--absolute-git-dir').trim(), 'ntr-stop-hook.json');
-let prev = {};
-try { prev = JSON.parse(readFileSync(stateFile, 'utf8')); } catch {}
+const stateFile = statePath('stop-hook');
+const prev = readState(stateFile) ?? {};
 const same = prev.session === input.session_id;
 const save = (state) => writeFileSync(stateFile, JSON.stringify({ session: input.session_id, ...state }));
 
@@ -41,7 +39,6 @@ if (input.hook_event_name === 'SessionStart') {
 }
 
 const fp = fingerprint();
-const say = (out) => { process.stdout.write(JSON.stringify(out)); process.exit(0); };
 const still = (failing) => say({ systemMessage: `Tests still fail after Claude's fix attempt: ${failing.join('; ')}` });
 
 if (same && prev.fp === fp) {

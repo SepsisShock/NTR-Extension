@@ -2,11 +2,10 @@
 // screen still needs a run in SillyTavern.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { api } from './env.mjs';
+import { api, testSettings } from './env.mjs';
 
-test('UI Decor builds only its own CSS, and none while it is off', () => {
-  const s = api.settings();
-  Object.assign(s, { masterEnabled: true, ovEnabled: true, ovBubOn: true, ovBubTail: 'pointed', ovBubAlign: 'sides', ovShapeOn: true, ovShape: 'square',
+test('UI Decor builds only its own CSS, and none while it is off', (t) => {
+  const s = testSettings(t, { masterEnabled: true, ovEnabled: true, ovBubOn: true, ovBubTail: 'pointed', ovBubAlign: 'sides', ovShapeOn: true, ovShape: 'square',
     layEnabled: true, ovMesGapOn: true, avatarEnabled: true, ovNamesOn: true });
   assert.equal(api.look.bubblesOn(s), true);
   const css = window.NTR.decor.css(s);
@@ -19,5 +18,4 @@ test('UI Decor builds only its own CSS, and none while it is off', () => {
   assert.ok(!css.endsWith('\n'));
   s.ovEnabled = false;
   assert.equal(window.NTR.decor.css(s), '');
-  s.ovEnabled = true;
 });

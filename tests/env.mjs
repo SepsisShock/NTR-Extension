@@ -21,7 +21,6 @@ const noop = () => {};
 const any = new Proxy(function () {}, {
   get: (t, k) => (k === Symbol.toPrimitive ? () => '' : k in t ? t[k] : any),
   apply: () => any,
-  construct: () => any,
 });
 class Observer { observe() {} disconnect() {} }
 
@@ -33,7 +32,6 @@ export const context = {
   chat: [],
   getCurrentChatId: noop,
   saveSettingsDebounced: noop,
-  writeExtensionFieldBulk: async () => ({ updated: [], skipped: [] }),
   constants: { unset: '__@@UNSET@@__' },
   accountStorage: { getItem: () => null, setItem: noop, removeItem: noop },
   getRequestHeaders: () => ({}),
@@ -45,12 +43,11 @@ Object.assign(globalThis, {
   matchMedia: () => any,
   addEventListener: noop,
   jQuery: noop,
-  $: noop,
   toastr: { info: noop, success: noop, warning: noop, error: noop },
   ResizeObserver: Observer,
   MutationObserver: Observer,
   SillyTavern: { getContext: () => context },
-  fetch: async () => ({ ok: true, json: async () => ({}), text: async () => '' }),
+  fetch: async () => ({ ok: true }),
 });
 
 // The files are copied as .mjs so Node always loads them as modules, without guessing from their syntax.
@@ -87,6 +84,13 @@ for (const name of without) {
 
 // Limits from NUM_RANGE in index.js: R.key is [min, max, step, ...].
 export const R = new Proxy({}, { get: (_, k) => api.numRange(k) });
+
+// Sets settings for one test, on top of what they are. Once it's over, failed or not, the settings are back as they were.
+export function testSettings(t, values = {}) {
+  const was = structuredClone(context.extensionSettings.chatvisuals);
+  t.after(() => { context.extensionSettings.chatvisuals = was; });
+  return Object.assign(api.settings(), values);
+}
 
 // Saved settings as SillyTavern hands them over when the page loads: a new object (here the current settings with
 // `saved` on top), which the core brings up to date the first time it's asked for it.

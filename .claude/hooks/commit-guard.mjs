@@ -19,16 +19,12 @@
 // - If this script fails, settings.json's onFailure blocks the command.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { dir, input, pushed } from './lib.mjs';
+import { currentBranch, decide, git, gitRun, gitTry, input, pushed, readState, statePath } from './lib.mjs';
 
-const run = (...args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 15000 });
-const out = (...args) => run(...args).stdout.trim();
-// For reads the check depends on: a failure throws, and settings.json's onFailure blocks the command.
-const must = (...args) => { const r = run(...args); if (r.status) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`); return r.stdout.trim(); };
-const show = (rev, f) => { const r = run('show', `${rev}:${f}`); return r.status === 0 ? r.stdout : null; };
+const show = (rev, f) => { const r = gitRun('show', `${rev}:${f}`); return r.status === 0 ? r.stdout : null; };
 const version = (text) => text?.match(/"version": "([^"]*)"/)?.[1];
 
 const problems = [];
@@ -38,10 +34,6 @@ let onlyMd = true;
 const shown = [];
 // The approval key covers full contents, since what's shown is cut short.
 const full = [];
-const say = (decision, reason) => {
-  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } }));
-  process.exit(0);
-};
 
 // Each side in its own code block: text shows exactly as typed, and short blocks wrap on a phone. The fence is longer
 // than any backtick run in the file, so content can't close it.
@@ -111,21 +103,22 @@ if (input.tool_name === 'Bash') {
   if (!push && !pr) process.exit(0);
   // Only plain forms, so the commits are already made.
   const target = pushed(cmd);
-  if (push && (!target || out('config', '--get-all', 'remote.origin.push'))) say('deny', 'Run git push by itself as git push [-u] origin <branch>, from the project folder: one branch, to origin, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
-  if (pr && !/^gh\s+pr\s+create\b[^;&|`$<>\n]*$/.test(bare)) say('deny', 'Run gh pr create by itself, after pushing, so the guard can check the commits it sends.');
+  // A remote.origin.push setting can send the branch to another name than the command shows.
+  if (push && (!target || gitTry('config', '--get-all', 'remote.origin.push'))) decide('deny', 'Run git push by itself as git push [-u] origin <branch>, from the project folder: one branch, to origin, with no other commands, -C, quotes or variables, so the guard can check the commits it sends.');
+  if (pr && !/^gh\s+pr\s+create\b[^;&|`$<>\n]*$/.test(bare)) decide('deny', 'Run gh pr create by itself, after pushing, so the guard can check the commits it sends.');
 
   // What's pushed: the refspec's source (gh pr create: HEAD), and the branch it goes to.
-  const { src, branch } = target ?? { src: 'HEAD', branch: must('symbolic-ref', '--short', 'HEAD') };
-  const sha = must('rev-parse', `${src}^{commit}`);
+  const { src, branch } = target ?? { src: 'HEAD', branch: currentBranch() };
+  const sha = git('rev-parse', `${src}^{commit}`);
   // GitHub's current copies of main and the branch, fetched into their usual refs. A branch GitHub doesn't have yet has none.
   const main = 'refs/remotes/origin/main';
-  must('fetch', '-q', 'origin', `+refs/heads/main:${main}`);
-  const branchLookup = run('ls-remote', '--exit-code', '--heads', 'origin', branch);
-  if (branchLookup.status && branchLookup.status !== 2) throw new Error(`git ls-remote failed: ${branchLookup.stderr}`);
+  git('fetch', '-q', 'origin', `+refs/heads/main:${main}`);
+  const branchLookup = gitRun('ls-remote', '--exit-code', '--heads', 'origin', branch);
+  if (branchLookup.status !== 0 && branchLookup.status !== 2) throw new Error(`git ls-remote failed: ${branchLookup.error?.message ?? branchLookup.stderr}`);
   const branchRef = branchLookup.status ? null : `refs/remotes/origin/${branch}`;
-  if (branchRef) must('fetch', '-q', 'origin', `+refs/heads/${branch}:${branchRef}`);
-  const changed = (base) => new Set(must('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
-  const renamedFrom = (base) => new Set(must('diff', '--name-status', '-M', base, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t')[1]));
+  if (branchRef) git('fetch', '-q', 'origin', `+refs/heads/${branch}:${branchRef}`);
+  const changed = (base) => new Set(git('diff', '--name-only', '--no-renames', base, sha).split('\n').filter(Boolean));
+  const renamedFrom = (base) => new Set(git('diff', '--name-status', '-M', base, sha).split('\n').filter((l) => l.startsWith('R')).map((l) => l.split('\t')[1]));
   const inBoth = (list) => { const m = list(main); if (!branchRef) return m; const r = list(branchRef); return new Set([...m].filter((f) => r.has(f))); };
   // Checked against both, or a deletion after an earlier push of a copy passes as a rename.
   const renamed = inBoth(renamedFrom);
@@ -135,13 +128,12 @@ if (input.tool_name === 'Bash') {
 } else if (input.tool_name === 'mcp__github__create_or_update_file') {
   check(input.tool_input.path, input.tool_input.content, [show('HEAD', input.tool_input.path)]);
 } else if (input.tool_name === 'mcp__github__push_files') {
-  for (const f of input.tool_input.files || []) check(f.path, f.content, [show('HEAD', f.path)]);
+  for (const f of input.tool_input.files) check(f.path, f.content, [show('HEAD', f.path)]);
 }
 
 if (!problems.length && !added.length) process.exit(0);
-const stateFile = join(run('rev-parse', '--absolute-git-dir').stdout.trim(), 'ntr-commit-guard.json');
-let state = {};
-try { state = JSON.parse(readFileSync(stateFile, 'utf8')); } catch {}
+const stateFile = statePath('commit-guard');
+const state = readState(stateFile) ?? {};
 const noted = state.tests ?? [];
 const fresh = added.filter((n) => !noted.includes(n));
 const changes = [`Not on GitHub yet: this ${problems.join('; ')}.`, ...shown].join('\n\n');
@@ -149,10 +141,10 @@ const key = problems.length ? createHash('sha256').update(JSON.stringify([change
 const approve = problems.length && state.key !== key;
 if (!approve && !fresh.length) {
   if (!problems.length) process.exit(0);
-  say(onlyMd ? 'allow' : 'ask', `${changes}\n\nThe user approves .md changes, deletions and major version bumps before they reach GitHub.`);
+  decide(onlyMd ? 'allow' : 'ask', `${changes}\n\nThe user approves .md changes, deletions and major version bumps before they reach GitHub.`);
 }
 writeFileSync(stateFile, JSON.stringify({ key, tests: [...noted, ...fresh] }));
-say('deny', [
+decide('deny', [
   approve && "The user approves these before they reach GitHub, and the permission prompt won't show them. Show the user the changes below in chat, unchanged and not wrapped in another code block, and ask for approval.",
   fresh.length && `New tests: ${fresh.join('; ')}. Before they reach GitHub, tell the user in chat, in one plain sentence per test: what users would notice if the feature it checks broke, why it's needed, and its run time (node --test prints it).${approve ? '' : ' No approval is needed.'}`,
   `Then run the same command again${approve ? ` once they approve${onlyMd ? '' : "; they'll then confirm it in the prompt"}` : ''}.`,

@@ -10,29 +10,24 @@
 //   from main, so a restarted branch counts as new. A new container starts without the file, so a branch can see the
 //   checklist again in a later session.
 // - It's a reminder, not a guard: if this script fails, the PR goes through.
-import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { dir, input } from './lib.mjs';
-
-const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
+import { currentBranch, decide, dir, gitTry, input, readState, statePath } from './lib.mjs';
 
 let branch = input.tool_input.head;
 if (input.tool_name === 'Bash') {
   if (!/^gh\s+pr\s+create\b/.test(input.tool_input.command.trim())) process.exit(0);
-  branch = git('symbolic-ref', '--short', 'HEAD');
+  branch = currentBranch();
 }
 // A head like owner:branch names a fork's branch.
 branch = branch.replace(/^[^:]*:/, '');
 // Without a copy of GitHub's main, the branch name alone is the key.
-const base = spawnSync('git', ['merge-base', 'HEAD', 'refs/remotes/origin/main'], { cwd: dir, encoding: 'utf8' }).stdout.trim();
+const base = gitTry('merge-base', 'HEAD', 'refs/remotes/origin/main');
 const key = base ? `${branch}@${base}` : branch;
 
-const stateFile = join(git('rev-parse', '--absolute-git-dir'), 'ntr-pr-checklist.json');
-let branches = [];
-try { branches = JSON.parse(readFileSync(stateFile, 'utf8')).branches; } catch {}
+const stateFile = statePath('pr-checklist');
+const branches = readState(stateFile)?.branches ?? [];
 if (branches.includes(key)) process.exit(0);
 const checklist = readFileSync(join(dir, 'docs/pr-checklist.md'), 'utf8');
 writeFileSync(stateFile, JSON.stringify({ branches: [...branches, key] }));
-process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny',
-  permissionDecisionReason: `Before opening a PR from ${branch}, go through this checklist, then open it again with a summary that covers it:\n\n${checklist}` } }));
+decide('deny', `Before opening a PR from ${branch}, go through this checklist, then open it again with a summary that covers it:\n\n${checklist}`);
